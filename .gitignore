@@ -1,0 +1,70 @@
+# ---------------------------------------------------------------
+# Binarios compilados
+# ---------------------------------------------------------------
+vmcons
+consola-vm
+consola-vm.exe
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# ---------------------------------------------------------------
+# Pruebas y cobertura
+# ---------------------------------------------------------------
+*.test
+*.out
+coverage.out
+coverage.html
+profile.cov
+
+# ---------------------------------------------------------------
+# Artefactos de LaTeX (docs/informe/)
+# ---------------------------------------------------------------
+docs/informe/*.aux
+docs/informe/*.bbl
+docs/informe/*.bcf
+docs/informe/*.blg
+docs/informe/*.fdb_latexmk
+docs/informe/*.fls
+docs/informe/*.log
+docs/informe/*.out
+docs/informe/*.run.xml
+docs/informe/*.synctex.gz
+docs/informe/*.toc
+docs/informe/*.lof
+docs/informe/*.lot
+docs/informe/*.nav
+docs/informe/*.snm
+docs/informe/*.vrb
+
+# ---------------------------------------------------------------
+# Variables de entorno y secretos
+# ---------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+id_rsa*
+*.key
+
+# ---------------------------------------------------------------
+# Dependencias (si se usa vendor opcionalmente)
+# ---------------------------------------------------------------
+vendor/
+
+# ---------------------------------------------------------------
+# IDE / editor
+# ---------------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ---------------------------------------------------------------
+# Sistema operativo
+# ---------------------------------------------------------------
+.DS_Store
+Thumbs.db

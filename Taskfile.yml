@@ -1,0 +1,45 @@
+# Taskfile — automatización del ciclo de desarrollo de la consola.
+#
+# Herramientas requeridas (instalación recomendada):
+#   go install mvdan.cc/gofumpt@latest                              # formateador
+#   curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(go env GOPATH)/bin   # linter
+#
+# Uso:
+#   task run    # ejecutar el servidor web
+#   task test   # formatear el código y ejecutar las pruebas
+#   task build  # compilar el binario final (./vmcons)
+
+version: "3"
+
+vars:
+  BIN: vmcons
+  PKGS: ./...
+
+tasks:
+  run:
+    desc: Ejecutar el servidor web de la consola
+    cmd: go run .
+
+  test:
+    desc: Formatear el código y ejecutar las pruebas unitarias
+    cmds:
+      - task: fmt
+      - go test {{.PKGS}} -race -cover -count=1
+
+  fmt:
+    desc: Formatear el código Go con gofumpt (estricto)
+    cmd: gofumpt -l -w .
+
+  lint:
+    desc: Verificar la calidad del código con golangci-lint
+    cmd: golangci-lint run {{.PKGS}}
+
+  build:
+    desc: Compilar el binario final (vmcons)
+    cmd: go build -o {{.BIN}} .
+
+  tidy:
+    desc: Ordenar dependencias y formato de go.mod
+    cmds:
+      - go mod tidy
+      - gofmt -s -w .

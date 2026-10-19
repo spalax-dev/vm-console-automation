@@ -1,0 +1,293 @@
+\documentclass[journal]{IEEEtran}
+
+% --- Paquetes ---
+\usepackage[spanish]{babel}
+\usepackage{csquotes}
+\usepackage[backend=biber,style=ieee]{biblatex}
+\addbibresource{ref.bib}
+\usepackage{graphicx}
+\usepackage[nameinlink]{cleveref} % referencias automáticas: \cref{...}
+
+\usepackage{fontspec}
+\setmainfont{TeX Gyre Heros} % Fuente sans-serif para todo el texto
+\setsansfont{TeX Gyre Heros}
+\setmonofont{TeX Gyre Cursor} % Para el código fuente
+
+% --- Título y autores (EN EL PREÁMBULO) ---
+\title{Consola para Administración de Máquinas Virtuales GNU/Linux}
+\vspace{1cm}
+\author{
+  \IEEEauthorblockN{Jorge Acosta \hspace{0.3cm} Andrey Tombe\\
+  \vspace{0.5cm}
+  {\normalsize Universidad del Quindío}\\
+  {\normalsize Facultad de Ingeniería}\\
+  {\normalsize Ingeniería de Sistemas y Computación}\\
+  {\normalsize Computación en la Nube}\\
+  {\normalsize Octubre del 2026}}
+}
+
+\begin{document}
+
+\maketitle
+
+% ============================================================
+% RESUMEN: redactar al final, una vez escrito todo el documento.
+% Extensión sugerida: 150--250 palabras.
+% ============================================================
+\begin{abstract}
+\emph{(Redactar al final del informe.)}
+\end{abstract}
+
+\begin{IEEEkeywords}
+palabra clave, palabra clave, palabra clave
+\end{IEEEkeywords}
+
+% ============================================================
+% 1. INTRODUCCIÓN
+% ============================================================
+\section{Introducción}
+\label{sec:introduccion}
+
+La administración de sistemas operativos GNU/Linux es una actividad
+fundamental en el área de computación en la nube. Tareas como la
+instalación de paquetes, la configuración del servidor SSH, la gestión
+de servicios y el balanceo de carga se realizan, en muchos entornos, de
+manera manual y a través de comandos introducidos directamente en una
+terminal. Este enfoque, si bien es válido, resulta propenso a errores de
+digitación, difícil de estandarizar y poco accesible para usuarios que
+no dominan la línea de comandos.
+
+A lo largo del curso de Computación en la Nube se han ejecutado estas
+operaciones de forma tradicional. En el presente trabajo se propone
+convertir dichas tareas en operaciones que pueden solicitarse desde una
+aplicación web desarrollada en el lenguaje Go. La aplicación funciona
+como una consola de automatización para una máquina virtual que ejecuta
+GNU/Linux Debian~13, integrando las operaciones del sistema en una
+interfaz de usuario que permite validar las entradas, ejecutar las
+acciones de manera no interactiva y reportar el resultado de cada
+proceso, incluyendo mensajes de error comprensibles y la información
+técnica necesaria para el diagnóstico.
+
+Los objetivos de esta solución son: (i)~centralizar la administración de
+la máquina virtual en una única interfaz web; (ii)~automatizar la
+preparación del sistema, la gestión de usuarios, la administración de
+demonios con~\texttt{systemd} y la configuración de un balanceador de
+carga con HAProxy; (iii)~reducir los errores humanos mediante
+validación de datos y ejecución no interactiva de comandos; y
+(iv)~documentar el diseño, las pruebas y las decisiones tomadas durante
+el desarrollo.
+
+El documento se organiza como sigue: \cref{sec:introduccion} presenta
+la introducción; \cref{sec:marco-teorico} desarrolla el marco teórico;
+\cref{sec:escenario} describe el
+escenario de aplicación; \cref{sec:arquitectura} presenta la arquitectura
+y el diseño de la solución; \cref{sec:preparacion} a \cref{sec:haproxy}
+detallan los módulos funcionales; \cref{sec:pruebas} describe el diseño
+y los resultados de las pruebas; \cref{sec:problemas} reúne los
+principales problemas encontrados y su solución;
+\cref{sec:herramientas-ia} lista las herramientas de inteligencia
+artificial utilizadas; finalmente, \cref{sec:conclusiones} presenta las
+conclusiones.
+
+% ============================================================
+% 2. MARCO TEÓRICO
+% (solo sección por ahora; redactar más adelante)
+% ============================================================
+\section{Marco Teórico}
+\label{sec:marco-teorico}
+
+\subsection{Máquinas virtuales y virtualización}
+% TODO: hipervisores, Guest Additions, modos de red (puente),
+% discos multiconexión.
+
+\subsection{Sistema operativo GNU/Linux Debian}
+% TODO: distribución Debian 13, estructura básica, gestión de archivos
+% de configuración relevantes (/etc/issue, /etc/hosts).
+
+\subsection{Gestión de paquetes con APT}
+% TODO: funcionamiento de apt install / apt remove, repositorios.
+
+\subsection{Protocolo y servicio SSH}
+% TODO: autenticación por llaves (pública/privada), authorized_keys,
+% deshabilitación del acceso por contraseña.
+
+\subsection{Gestión de servicios con systemd}
+% TODO: unidades de systemd, ciclo de vida (start, stop, restart,
+% status), habilitar/deshabilitar al arranque, archivos .service.
+
+\subsection{Balanceo de carga con HAProxy}
+% TODO: concepto de balanceo de carga, front-end y back-end,
+% algoritmos de distribución, configuración básica de HAProxy.
+
+\subsection{Lenguaje de programación Go y aplicaciones web}
+% TODO: características de Go, net/http, arquitectura cliente-servidor
+% de la consola.
+
+% ============================================================
+% 3. ESCENARIO DE APLICACIÓN
+% (requisito numeral 5 del parcial: diagrama + descripción breve)
+% ============================================================
+\section{Escenario de Aplicación}
+\label{sec:escenario}
+
+% TODO: elaborar el diagrama (equipo host, software de virtualización,
+% máquinas virtuales, SO de cada VM, interfaces de red, IPs, mecanismo
+% de comunicación host<->VM, disco de almacenamiento y flujo general
+% de la automatización) e insertarlo aquí.
+
+\begin{figure}[!t]
+  \centering
+  % \includegraphics[width=0.9\textwidth]{images/escenario.png}
+  \caption{Escenario utilizado para desarrollar y probar la solución.}
+  \label{fig:escenario}
+\end{figure}
+
+\subsection{Descripción del escenario}
+% TODO: descripción breve: equipo host, hypervisor, VM de pruebas
+% (Debian 13), VM del balanceador, disco multiconexión, redes en modo
+% puente y direcciones IP asignadas.
+
+\subsection{Mecanismo de comunicación}
+% TODO: comunicación inicial mediante Guest Additions; posteriormente
+% de forma exclusiva por SSH con llaves de autenticación.
+
+\subsection{Flujo general de la automatización}
+% TODO: flujo: usuario -> aplicación web (host) -> ejecución de
+% comandos sobre la VM -> validación -> notificación de resultados.
+
+% ============================================================
+% 4. ARQUITECTURA Y DISEÑO DE LA SOLUCIÓN
+% ============================================================
+\section{Arquitectura y Diseño de la Solución}
+\label{sec:arquitectura}
+
+\subsection{Visión general de la aplicación}
+% TODO: aplicación web en Go, organización por módulos, formularios,
+% validación de datos y notificación de resultados.
+
+\subsection{Estructura del proyecto}
+% TODO: describir la estructura de directorios: main.go, internal/
+% (handlers, services, utils) y web/ (modules, static), explicando la
+% responsabilidad de cada capa.
+
+\subsection{Decisiones tomadas durante el desarrollo}
+% TODO: decisiones de diseño y justificación (por ejemplo: ejecución
+% no interactiva de comandos, manejo de errores y logs, validación de
+% entradas en cliente y servidor, uso de llaves SSH, calidad de código
+% con linter/formater estrictos, entre otras).
+
+% ============================================================
+% 5. PREPARACIÓN DEL SISTEMA
+% ============================================================
+\section{Preparación del Sistema}
+\label{sec:preparacion}
+
+\subsection{Instalación y eliminación de aplicaciones}
+\label{sec:apt}
+% TODO: formulario para indicar la aplicación a instalar o eliminar;
+% ejecución del proceso en la máquina virtual; notificación del
+% resultado al finalizar.
+
+\subsection{Configuración de la llave de acceso SSH para el usuario root}
+\label{sec:ssh-root}
+% TODO: creación de llaves para root, instalación de la llave pública en
+% authorized_keys, deshabilitación del acceso por login y password,
+% descarga de la llave privada y mensaje de recomendación de uso
+% correcto de la llave.
+
+\subsection{Personalización de la entrada del sistema}
+\label{sec:issue}
+% TODO: configuración de /etc/issue con opciones para nombre del host,
+% fecha, hora, dirección IP y mensaje personalizado de inicio de sesión.
+
+\subsection{Asignación del nombre de host y actualización del archivo de hosts}
+\label{sec:hostname}
+% TODO: establecimiento del nombre de host y actualización del
+% contenido de /etc/hosts.
+
+% ============================================================
+% 6. GESTIÓN DE USUARIOS
+% ============================================================
+\section{Gestión de Usuarios}
+\label{sec:usuarios}
+
+\subsection{Creación de usuarios y privilegios de sudo}
+\label{sec:crear-usuario}
+% TODO: creación de usuario con casilla de verificación para privilegios
+% sudo; casilla para generar el par de llaves criptográficas, instalar
+% la llave pública y habilitar el descargue de la llave privada;
+% deshabilitación del acceso por login y password al habilitar SSH.
+
+\subsection{Eliminación de usuarios}
+\label{sec:eliminar-usuario}
+% TODO: eliminación de usuarios con casilla de verificación que indica
+% si también deben eliminarse todos sus archivos.
+
+% ============================================================
+% 7. GESTIÓN DE DEMONIOS CON SYSTEMD
+% ============================================================
+\section{Gestión de Demonios con systemd}
+\label{sec:systemd}
+% TODO: configuración de una aplicación como servicio de systemd
+% (por ejemplo, la aplicación web del catálogo de libros): transferencia
+% de los archivos requeridos a la máquina virtual y gestión de
+% permisos; botones start, stop, restart, status, enable y disable;
+% prueba complementaria con el script que agrega fecha y hora a un
+% archivo.
+
+% ============================================================
+% 8. BALANCEO DE CARGA CON HAPROXY
+% ============================================================
+\section{Gestión de un Balanceador de Carga con HAProxy}
+\label{sec:haproxy}
+% TODO: mecanismo para agregar y eliminar un servidor del back-end del
+% balanceador de carga; verificación del balanceo mediante el disco
+% multiconexión y las máquinas virtuales de respaldo.
+
+% ============================================================
+% 9. PRUEBAS
+% ============================================================
+\section{Pruebas}
+\label{sec:pruebas}
+
+\subsection{Diseño de las pruebas}
+\label{sec:diseno-pruebas}
+% TODO: describir las pruebas diseñadas para cada elemento de la
+% solución, el estado anterior del sistema, la operación automatizada
+% ejecutada y el estado posterior esperado.
+
+\subsection{Resultados y evidencias}
+\label{sec:resultados-pruebas}
+% TODO: presentar los resultados obtenidos. Cada prueba quedó grabada
+% en video; incluir las referencias a los videos y/o capturas de pantalla
+% que muestren el estado anterior y posterior de cada proceso.
+
+% ============================================================
+% 10. PROBLEMAS ENCONTRADOS Y SOLUCIONES
+% ============================================================
+\section{Problemas Encontrados y Soluciones}
+\label{sec:problemas}
+% TODO: describir los principales problemas surgidos durante el
+% desarrollo (por ejemplo: comunicación inicial con la VM, permisos de
+% sudo, configuración de HAProxy, manejo de errores de comandos, etc.)
+% y la forma en que fueron solucionados.
+
+% ============================================================
+% 11. HERRAMIENTAS DE INTELIGENCIA ARTIFICIAL UTILIZADAS
+% ============================================================
+\section{Herramientas de Inteligencia Artificial Utilizadas}
+\label{sec:herramientas-ia}
+% TODO: listar las herramientas de IA empleadas (por ejemplo, agentes
+% de código) y detallar para qué fueron utilizadas.
+
+% ============================================================
+% 12. CONCLUSIONES
+% ============================================================
+\section{Conclusiones}
+\label{sec:conclusiones}
+% TODO: conclusiones del trabajo: logros alcanzados frente a los
+% objetivos, aprendizajes y mejoras posibles.
+
+\printbibliography
+
+\end{document}

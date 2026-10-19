@@ -1,0 +1,141 @@
+# Configuración estricta de golangci-lint (formato v2) para la consola.
+# Ejecutar con: golangci-lint run ./...
+# El formateo se aplica con gofumpt (ver Taskfile.yml).
+
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+  issues-exit-code: 1
+
+linters:
+  default: standard # activa el set por defecto (govet, errcheck, staticcheck, ineffassign, unused, ...)
+  enable:
+    - bodyclose       # cerrar siempre http.Response.Body
+    - canonicalheader # encabezados HTTP canónicos
+    - durationcheck   # comparaciones de duración correctas
+    - errname         # nombres de errores en formato ErrFoo / fooError
+    - errorlint       # errores con %w y errors.Is/As, nunca comparación directa
+    - exhaustive      # switches exhaustivos sobre enums/tipos
+    - forcetypeassert # sin aserciones de tipo sin verificar
+    - funlen          # límites de longitud de funciones
+    - goconst         # repetir literales → constantes
+    - gocritic        # chequeos de estilo/diagnóstico/rendimiento
+    - gocyclo         # complejidad ciclomática máxima
+    - godot           # comentarios terminados en punto
+    - gosec           # problemas de seguridad
+    - loggercheck     # flags clave/valor correctos en loggers
+    - makezero        # slices con make() de longitud no-cero no reasignados con append
+    - mirror          # expresiones reflejadas (http.MethodGet -> http.MethodGet correcto)
+    - musttag         # tags en structs serializadas
+    - nestif          # niveles máximos de anidamiento
+    - nilerr          # no devolver nil cuando el error no es nil
+    - noctx           # peticiones HTTP con contexto
+    - prealloc        # preasignación de slices en bucles
+    - predeclared     # no redefinir identificadores predeclarados
+    - revive          # sucesor de golint: estilo estricto
+    - tagalign        # alineación de tags de structs
+    - unconvert       # conversiones de tipos redundantes
+    - unparam         # parámetros y resultados sin uso
+    - usestdlibvars   # usar variables de la biblioteca estándar
+    - wastedassign    # asignaciones sin efecto
+    - whitespace      # líneas en blanco redundantes
+    - wrapcheck       # errores de paquetes externos deben envolverse
+    - wsl_v5          # estilo de espaciado y "cuddling" estricto
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+    exhaustive:
+      default-signifies-exhaustive: true
+    funlen:
+      lines: 60
+      statements: 40
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+      ignore-calls: false
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+        - style
+      disabled-checks:
+        - ifElseChain # preferido: switch
+        - octalLiteral
+    gocyclo:
+      min-complexity: 10
+    godot:
+      scope: declarations
+      capital: false
+    gosec:
+      excludes: []
+    nestif:
+      min-complexity: 5
+    revive:
+      confidence: 0.8
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: deep-exit
+        - name: dot-imports
+        - name: empty-block
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: exported
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: redefines-builtin-id
+        - name: superfluous-else
+        - name: time-naming
+        - name: unexported-return
+        - name: unreachable-code
+        - name: unused-parameter
+        - name: var-declaration
+        - name: var-naming
+    wrapcheck:
+      ignore-sigs:
+        - .fmt.Errorf(
+        - .errors.New(
+        - .errors.Join(
+    whitespace:
+      multi-if: false
+      multi-func: false
+  exclusions:
+    generated: lax
+    rules:
+      - path: _test\.go
+        linters:
+          - funlen
+          - gocyclo
+          - nestif
+
+formatters:
+  enable:
+    - gofumpt
+    - gci
+  settings:
+    gofumpt:
+      extra:
+        group-params: true
+        clothe-returns: true
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(consola-vm)
+  exclusions:
+    generated: lax
+
+output:
+  formats:
+    text:
+      print-linter-name: true
+      print-issued-lines: true

@@ -1,0 +1,608 @@
+{
+  "table_of_contents": [
+    {
+      "title": "Nota Parcial #2\nServicios automatizados en una m\u00e1quina virtual ejecutando \nGNU/Linux Debian",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          56.63999938964844,
+          63.6495361328125
+        ],
+        [
+          559.2640380859375,
+          63.6495361328125
+        ],
+        [
+          559.2640380859375,
+          123.9095458984375
+        ],
+        [
+          56.1796875,
+          123.9095458984375
+        ]
+      ]
+    },
+    {
+      "title": "1. CONTEXTO",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          74.66399383544922,
+          140.17303466796875
+        ],
+        [
+          154.11599731445312,
+          139.21875
+        ],
+        [
+          154.11599731445312,
+          152.17303466796875
+        ],
+        [
+          74.66399383544922,
+          152.17303466796875
+        ]
+      ]
+    },
+    {
+      "title": "2. PRECONDICIONES Y ALCANCE",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          74.66399383544922,
+          294.883056640625
+        ],
+        [
+          255.07199096679688,
+          293.90625
+        ],
+        [
+          255.07199096679688,
+          306.883056640625
+        ],
+        [
+          73.51171875,
+          306.883056640625
+        ]
+      ]
+    },
+    {
+      "title": "3. TRABAJO A REALIZAR",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          74.109375,
+          604.5330505371094
+        ],
+        [
+          213.26397705078125,
+          604.5330505371094
+        ],
+        [
+          213.26397705078125,
+          616.5330505371094
+        ],
+        [
+          74.109375,
+          617.203125
+        ]
+      ]
+    },
+    {
+      "title": "3.1 PREPARACI\u00d3N DEL SISTEMA",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          74.66399383544922,
+          323.296875
+        ],
+        [
+          250.78797912597656,
+          321.75
+        ],
+        [
+          250.78797912597656,
+          336.5230407714844
+        ],
+        [
+          74.109375,
+          336.5230407714844
+        ]
+      ]
+    },
+    {
+      "title": "3.1.1 Instalaci\u00f3n y eliminaci\u00f3n de aplicaciones",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          74.109375,
+          380.80303955078125
+        ],
+        [
+          336.3500061035156,
+          380.14453125
+        ],
+        [
+          336.3500061035156,
+          392.80303955078125
+        ],
+        [
+          72.9140625,
+          393.29296875
+        ]
+      ]
+    },
+    {
+      "title": "3.1.2 Configuraci\u00f3n de la llave de acceso SSH para el usuario root",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          74.66399383544922,
+          493.383056640625
+        ],
+        [
+          437.22808837890625,
+          492.6796875
+        ],
+        [
+          437.22808837890625,
+          505.383056640625
+        ],
+        [
+          73.51171875,
+          505.383056640625
+        ]
+      ]
+    },
+    {
+      "title": "3.1.3 Personalizaci\u00f3n de la entrada del sistema al iniciar su ejecuci\u00f3n",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          74.408203125,
+          605.9730377197266
+        ],
+        [
+          461.34197998046875,
+          605.9730377197266
+        ],
+        [
+          461.34197998046875,
+          617.9730377197266
+        ],
+        [
+          73.212890625,
+          617.9730377197266
+        ]
+      ]
+    },
+    {
+      "title": "3.1.4 Asignar el nombre de host y actualizar el archivo de hosts",
+      "heading_level": null,
+      "page_id": 2,
+      "polygon": [
+        [
+          74.408203125,
+          62.75299072265625
+        ],
+        [
+          427.1840515136719,
+          62.75299072265625
+        ],
+        [
+          427.1840515136719,
+          74.75299072265625
+        ],
+        [
+          74.408203125,
+          74.75299072265625
+        ]
+      ]
+    },
+    {
+      "title": "3.2 GESTI\u00d3N DE USUARIOS",
+      "heading_level": null,
+      "page_id": 2,
+      "polygon": [
+        [
+          73.810546875,
+          365.8359375
+        ],
+        [
+          222.93597412109375,
+          364.2890625
+        ],
+        [
+          222.93597412109375,
+          378.7630310058594
+        ],
+        [
+          73.810546875,
+          378.7630310058594
+        ]
+      ]
+    },
+    {
+      "title": "3.2.1 Crear usuarios y configurar privilegios de sudo al nuevo usuario",
+      "heading_level": null,
+      "page_id": 2,
+      "polygon": [
+        [
+          73.810546875,
+          394.9630432128906
+        ],
+        [
+          463.4481201171875,
+          393.6796875
+        ],
+        [
+          463.4481201171875,
+          406.9630432128906
+        ],
+        [
+          72.615234375,
+          407.6015625
+        ]
+      ]
+    },
+    {
+      "title": "3.2.2 Eliminar usuarios",
+      "heading_level": null,
+      "page_id": 2,
+      "polygon": [
+        [
+          74.408203125,
+          521.5830383300781
+        ],
+        [
+          209.2159881591797,
+          520.91015625
+        ],
+        [
+          209.2159881591797,
+          533.5830383300781
+        ],
+        [
+          74.408203125,
+          533.5830383300781
+        ]
+      ]
+    },
+    {
+      "title": "3.3 GESTI\u00d3N DE DEMONIOS CON systemd",
+      "heading_level": null,
+      "page_id": 3,
+      "polygon": [
+        [
+          74.109375,
+          281.91796875
+        ],
+        [
+          298.9559631347656,
+          280.37109375
+        ],
+        [
+          298.9559631347656,
+          294.4030456542969
+        ],
+        [
+          74.109375,
+          295.06640625
+        ]
+      ]
+    },
+    {
+      "title": "3.4 GESTI\u00d3N DE UN BALANCEADOR DE CARGA CON HAPROXY",
+      "heading_level": null,
+      "page_id": 3,
+      "polygon": [
+        [
+          74.408203125,
+          628.6530303955078
+        ],
+        [
+          409.2960510253906,
+          627.2578125
+        ],
+        [
+          409.2960510253906,
+          640.6530303955078
+        ],
+        [
+          74.408203125,
+          640.6530303955078
+        ]
+      ]
+    },
+    {
+      "title": "4. PRUEBAS",
+      "heading_level": null,
+      "page_id": 4,
+      "polygon": [
+        [
+          73.51171875,
+          62.75299072265625
+        ],
+        [
+          144.8040008544922,
+          62.75299072265625
+        ],
+        [
+          144.8040008544922,
+          74.75299072265625
+        ],
+        [
+          73.51171875,
+          74.75299072265625
+        ]
+      ]
+    },
+    {
+      "title": "5. ESCENARIO DE APLICACI\u00d3N",
+      "heading_level": null,
+      "page_id": 4,
+      "polygon": [
+        [
+          74.66399383544922,
+          160.1015625
+        ],
+        [
+          244.8839874267578,
+          158.5546875
+        ],
+        [
+          244.8839874267578,
+          173.29296875
+        ],
+        [
+          73.810546875,
+          173.29296875
+        ]
+      ]
+    },
+    {
+      "title": "6. DOCUMENTACI\u00d3N",
+      "heading_level": null,
+      "page_id": 4,
+      "polygon": [
+        [
+          74.66399383544922,
+          273.0234375
+        ],
+        [
+          192.79197692871094,
+          271.4765625
+        ],
+        [
+          192.79197692871094,
+          285.883056640625
+        ],
+        [
+          73.51171875,
+          285.883056640625
+        ]
+      ]
+    }
+  ],
+  "page_stats": [
+    {
+      "page_id": 0,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          162
+        ],
+        [
+          "Line",
+          40
+        ],
+        [
+          "ListItem",
+          5
+        ],
+        [
+          "SectionHeader",
+          4
+        ],
+        [
+          "PageHeader",
+          3
+        ],
+        [
+          "Text",
+          3
+        ],
+        [
+          "PageFooter",
+          1
+        ],
+        [
+          "ListGroup",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 1,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          80
+        ],
+        [
+          "Line",
+          23
+        ],
+        [
+          "Text",
+          5
+        ],
+        [
+          "SectionHeader",
+          4
+        ],
+        [
+          "PageHeader",
+          3
+        ],
+        [
+          "Figure",
+          1
+        ],
+        [
+          "PageFooter",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 2,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          73
+        ],
+        [
+          "Line",
+          18
+        ],
+        [
+          "SectionHeader",
+          4
+        ],
+        [
+          "PageHeader",
+          3
+        ],
+        [
+          "Text",
+          3
+        ],
+        [
+          "Figure",
+          1
+        ],
+        [
+          "PageFooter",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 3,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          47
+        ],
+        [
+          "Line",
+          12
+        ],
+        [
+          "PageHeader",
+          3
+        ],
+        [
+          "Figure",
+          2
+        ],
+        [
+          "SectionHeader",
+          2
+        ],
+        [
+          "Text",
+          2
+        ],
+        [
+          "PageFooter",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 4,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          105
+        ],
+        [
+          "Line",
+          24
+        ],
+        [
+          "Text",
+          7
+        ],
+        [
+          "PageHeader",
+          3
+        ],
+        [
+          "SectionHeader",
+          3
+        ],
+        [
+          "PageFooter",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    }
+  ],
+  "debug_data_path": "debug_data/parcial"
+}
