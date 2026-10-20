@@ -14,9 +14,14 @@ Ejecutar task test antes de considerar terminada cualquier tarea.
 No commitear cambios sin haber ejecutado task lint y task test con éxito.
 Usar los comandos del Taskfile.yml en lugar de invocar go, gofumpt o golangci-lint directamente.
 No agregar dependencias nuevas sin justificarla en la documentación en docs/.
-Mantener la estructura de directorios: internal/handlers, internal/services, internal/utils y web/.
-Los handlers solo enrutan peticiones HTTP y validan entradas; la lógica del sistema operativo va en internal/services.
-La ejecución de comandos del sistema operativo se centraliza en internal/utils.
+Mantener la estructura de directorios: internal/core, internal/adapters, internal/handlers, internal/services y web/.
+internal/core/domain contiene los tipos del dominio (Command, Result, Target, MachineState, ExitError).
+internal/core/ports contiene las interfaces puertos (Executor, Machine, Connector, Session); no importa de internal/adapters ni de librerías externas.
+internal/adapters contiene las implementaciones concretas (localproc, vbox, ssh) de los puertos; traducen su vocabulario al dominio.
+El núcleo (internal/core) nunca importa adaptadores concretos como vbox o ssh, ni conoce Guest Additions ni VirtualBox.
+La inyección de dependencias de los adaptadores se realiza únicamente en main.go.
+Los handlers solo enrutan peticiones HTTP y validan entradas; la lógica del sistema operativo va en internal/services y internal/adapters.
+La ejecución de procesos del sistema operativo anfitrión se centraliza en el puerto Executor, implementado por internal/adapters/localproc.
 Los comentarios y la documentación del proyecto se escriben en español.
 Los archivos del informe LaTeX viven en docs/informe y se compilan con latexmk, que usa LuaLaTeX por defecto.
 El diagrama del escenario y las evidencias de las pruebas se guardan en docs/.

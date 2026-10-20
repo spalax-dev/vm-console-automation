@@ -102,9 +102,9 @@ linters:
         - name: var-naming
     wrapcheck:
       ignore-sigs:
-        - .fmt.Errorf(
-        - .errors.New(
-        - .errors.Join(
+        - fmt.Errorf(
+        - errors.New(
+        - errors.Join(
     whitespace:
       multi-if: false
       multi-func: false
@@ -119,13 +119,12 @@ linters:
 
 formatters:
   enable:
-    - gofumpt
     - gci
+  # Nota: el formateo estricto lo aplica gofumpt de forma externa (task fmt /
+  # task test). No se habilita aquí el formateador gofumpt embebido porque la
+  # versión bundled de golangci-lint 2.15.0 emite falsos positivos de formato
+  # de forma no determinista sobre el bloque de importaciones.
   settings:
-    gofumpt:
-      extra:
-        group-params: true
-        clothe-returns: true
     gci:
       sections:
         - standard

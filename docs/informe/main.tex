@@ -97,8 +97,36 @@ conclusiones.
 \label{sec:marco-teorico}
 
 \subsection{Máquinas virtuales y virtualización}
-% TODO: hipervisores, Guest Additions, modos de red (puente),
-% discos multiconexión.
+\label{sec:mt-virtualizacion}
+
+La virtualización permite ejecutar múltiples sistemas operativos aislados
+sobre un mismo hardware físico mediante un hipervisor, que intermedia el
+acceso a los recursos de la máquina. En este trabajo se utiliza Oracle VM
+VirtualBox, un hipervisor de tipo 2 (alojado sobre un sistema operativo
+anfitrión) multiplataforma, disponible para GNU/Linux y Windows
+\parencite{virtualbox}.
+
+VirtualBox se administra tanto desde su interfaz gráfica como desde la
+utilidad de línea de comandos \texttt{VBoxManage}, incluida en toda
+instalación y disponible de forma idéntica en todos los sistemas
+operativos soportados \parencite{virtualbox}. Esta característica es
+relevante para la consola: cualquier operación que la aplicación deba
+realizar sobre la máquina virtual (consultar su estado, obtener su
+dirección IP, ejecutar un programa dentro de ella) puede expresarse como
+llamadas a \texttt{VBoxManage}, lo que la convierte en la base de la
+comunicación inicial con la máquina virtual.
+
+Las Guest Additions son controladores y servicios que se instalan dentro
+de la máquina virtual y mejoran la integración con el anfitrión:
+redimensionado de pantalla, portapapeles compartido, directorios
+compartidos y, en particular, la publicación de propiedades del sistema
+invitado \parencite{guestadditions}. Entre estas propiedades se encuentra
+la dirección IP de la máquina, publicada como una propiedad consultable
+desde el anfitrión con el nombre
+\texttt{/VirtualBox/GuestInfo/Net/0/V4/IP}. Este mecanismo resuelve un
+problema práctico del proyecto: antes de que exista cualquier servicio de
+red configurado dentro de la máquina (como SSH), la consola necesita
+conocer su dirección para poder establecer la primera conexión.
 
 \subsection{Sistema operativo GNU/Linux Debian}
 % TODO: distribución Debian 13, estructura básica, gestión de archivos
@@ -108,8 +136,30 @@ conclusiones.
 % TODO: funcionamiento de apt install / apt remove, repositorios.
 
 \subsection{Protocolo y servicio SSH}
-% TODO: autenticación por llaves (pública/privada), authorized_keys,
-% deshabilitación del acceso por contraseña.
+\label{sec:mt-ssh}
+
+El protocolo Secure Shell (SSH) proporciona canales seguros sobre redes no
+confiables, con autenticación cifrada, confidencialidad e integridad de
+las comunicaciones \parencite{rfc4252}. En servidores GNU/Linux el
+servidor de referencia es OpenSSH, que implementa el servicio
+\texttt{sshd} y el cliente homónimo.
+
+SSH admite autenticación por contraseña y por par de llaves
+criptográficas asimétricas. En el esquema por llaves, el cliente posee
+una llave privada y el servidor guarda la llave pública correspondiente en
+el archivo \texttt{\textasciitilde/.ssh/authorized\_keys} de cada usuario;
+el servidor verifica la firma del cliente sin transmitir secretos, y es
+posible deshabilitar por completo el acceso por contraseña
+\parencite{rfc4252}. Este es el mecanismo que la consola configura en la
+máquina virtual: una vez instalado y habilitado SSH, toda la comunicación
+posterior entre la consola y la máquina se realiza por este canal,
+reemplazando la comunicación inicial basada en Guest Additions.
+
+Además de la ejecución interactiva de comandos, el cliente OpenSSH
+permite ejecutar una orden remota de forma no interactiva (\texttt{ssh
+usuario@host orden}) y transferir archivos mediante \texttt{scp}, lo que
+lo convierte en una interfaz de programación completa para automatizar
+administración de sistemas \parencite{donovan}.
 
 \subsection{Gestión de servicios con systemd}
 % TODO: unidades de systemd, ciclo de vida (start, stop, restart,
@@ -120,8 +170,52 @@ conclusiones.
 % algoritmos de distribución, configuración básica de HAProxy.
 
 \subsection{Lenguaje de programación Go y aplicaciones web}
-% TODO: características de Go, net/http, arquitectura cliente-servidor
-% de la consola.
+\label{sec:mt-go}
+
+Go es un lenguaje compilado, de tipado estático y concurrencia ligera,
+diseñado para producir binarios simples y multiplataforma
+\parencite{donovan}. Compilar el mismo código para GNU/Linux y Windows
+sin dependencias en tiempo de ejecución encaja con el objetivo de esta
+consola, ya que la aplicación debe poder ejecutarse en el equipo
+anfitrión independientemente de su sistema operativo.
+
+La interfaz web se sirve con el paquete estándar \texttt{net/http} y
+sigue una arquitectura cliente-servidor: el navegador presenta los
+módulos de administración y envía formularios; el servidor en Go valida
+las entradas, ejecuta las operaciones sobre la máquina virtual y devuelve
+el resultado.
+
+Para ejecutar operaciones externas, Go ofrece el paquete \texttt{os/exec},
+que crea y controla procesos del sistema operativo capturando su salida,
+su error y su código de salida \parencite{donovan}. Este es el primitivo
+sobre el que se construye la biblioteca de conectores: la consola no
+invoca \texttt{vboxmanage} ni \texttt{ssh} directamente desde su lógica,
+sino a través de procesos externos lanzados de forma controlada, lo que
+permite usar los mismos binarios en Windows y en GNU/Linux.
+
+\subsection{Arquitectura de puertos y adaptadores}
+\label{sec:mt-puertos-adaptadores}
+
+Para mantener el núcleo de la aplicación independiente de la
+infraestructura concreta se aplica el patrón de arquitectura de puertos
+y adaptadores (también llamado arquitectura hexagonal)
+\parencite{cockburn}. En este patrón, el núcleo define \emph{puertos}:
+interfaces que expresan lo que la aplicación necesita del exterior
+(ejecutar un programa, abrir una sesión con la máquina, conocer su
+dirección). Los \emph{adaptadores} son implementaciones concretas de esos
+puertos, que traducen el lenguaje de una tecnología específica al
+lenguaje del dominio.
+
+En este proyecto los puertos son \texttt{Executor} (ejecutar un proceso
+en el anfitrión), \texttt{Machine} (obtener dirección y estado de la
+máquina virtual), \texttt{Connector} (establecer sesiones) y
+\texttt{Session} (ejecutar órdenes y transferir archivos dentro de la
+máquina). Los adaptadores implementados son \texttt{localproc} (procesos
+del sistema operativo), \texttt{vbox} (VirtualBox mediante
+\texttt{vboxmanage} y Guest Additions) y \texttt{ssh} (cliente OpenSSH).
+De este modo, el núcleo no sabe que se usa Guest Additions ni VirtualBox:
+solo conoce interfaces, y cambiar una tecnología por otra (u otra
+distinta) no afecta a la lógica de la consola.
 
 % ============================================================
 % 3. ESCENARIO DE APLICACIÓN

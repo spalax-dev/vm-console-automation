@@ -1,0 +1,227 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Jorge Acosta y Andrey Tombe
+
+// Package vbox adapta Oracle VM VirtualBox a los puertos Machine y
+// Connector de la consola, hablando exclusivamente con el programa
+// VBoxManage. Usa Guest Additions para descubrir la dirección de la
+// máquina y para ejecutar órdenes dentro de ella.
+package vbox
+
+import (
+	"context"
+	"fmt"
+	"net/netip"
+	"strings"
+
+	"consola-vm/internal/core/domain"
+	"consola-vm/internal/core/ports"
+)
+
+// guestIPv4Property es la propiedad de Guest Additions que publica la
+// dirección IPv4 de la primera interfaz de red de la máquina invitada.
+const guestIPv4Property = "/VirtualBox/GuestInfo/Net/0/V4/IP"
+
+// defaultBinary es el nombre del programa VBoxManage; en Windows,
+// exec.LookPath resuelve VBoxManage.exe sin necesidad de la extensión.
+const defaultBinary = "VBoxManage"
+
+// Client implementa ports.Machine y ports.Connector sobre VirtualBox.
+type Client struct {
+	exe  ports.Executor
+	bin  string
+	user string
+	pass string
+}
+
+// Option configura un Client.
+type Option func(*Client)
+
+// WithBinary establece la ruta o nombre del programa VBoxManage.
+func WithBinary(bin string) Option {
+	return func(c *Client) {
+		c.bin = bin
+	}
+}
+
+// WithGuestCredentials establece las credenciales que Guest Additions
+// exige para abrir sesiones dentro de la máquina invitada.
+func WithGuestCredentials(user, password string) Option {
+	return func(c *Client) {
+		c.user = user
+		c.pass = password
+	}
+}
+
+// New crea un cliente de VirtualBox que ejecuta VBoxManage mediante exe.
+func New(exe ports.Executor, opts ...Option) *Client {
+	client := &Client{
+		exe:  exe,
+		bin:  defaultBinary,
+		user: "root",
+	}
+
+	for _, opt := range opts {
+		opt(client)
+	}
+
+	return client
+}
+
+// Name implements ports.Connector.
+func (c *Client) Name() string {
+	return "guest-additions"
+}
+
+// Address implements ports.Machine: lee la propiedad que publica Guest
+// Additions y devuelve la dirección de la máquina.
+func (c *Client) Address(ctx context.Context, target domain.Target) (netip.Addr, error) {
+	result, err := c.exe.Execute(ctx, c.bin, "guestproperty", "get", target.ID, guestIPv4Property)
+	if err != nil {
+		return netip.Addr{}, fmt.Errorf("guest-additions: leer la dirección de %q: %w", target.ID, err)
+	}
+
+	addr, err := parseAddress(result.Stdout)
+	if err != nil {
+		return netip.Addr{}, fmt.Errorf("guest-additions: leer la dirección de %q: %w", target.ID, err)
+	}
+
+	return addr, nil
+}
+
+// State implements ports.Machine: consulta el estado de encendido de la
+// máquina con salida legible por máquina.
+func (c *Client) State(ctx context.Context, target domain.Target) (domain.MachineState, error) {
+	result, err := c.exe.Execute(ctx, c.bin, "showvminfo", target.ID, "--machinereadable")
+	if err != nil {
+		return domain.StateUnknown, fmt.Errorf("guest-additions: leer el estado de %q: %w", target.ID, err)
+	}
+
+	return parseState(result.Stdout), nil
+}
+
+// Probe implements ports.Connector: la máquina debe estar en ejecución
+// para que Guest Additions pueda atenderla.
+func (c *Client) Probe(ctx context.Context, target domain.Target) error {
+	state, err := c.State(ctx, target)
+	if err != nil {
+		return err
+	}
+
+	if state != domain.StateRunning {
+		return fmt.Errorf("guest-additions: la máquina %q no está en ejecución (estado %q)", target.ID, state)
+	}
+
+	return nil
+}
+
+// Connect implements ports.Connector: devuelve una sesión que ejecuta
+// órdenes en la máquina mediante «vboxmanage guestcontrol».
+func (c *Client) Connect(ctx context.Context, target domain.Target) (ports.Session, error) {
+	if err := c.Probe(ctx, target); err != nil {
+		return nil, err
+	}
+
+	return &Session{client: c, target: target}, nil
+}
+
+// Session implements ports.Session usando «vboxmanage guestcontrol».
+type Session struct {
+	client *Client
+	target domain.Target
+}
+
+// Run implements ports.Session: ejecuta la orden dentro de la máquina
+// invitada pasando cada componente como argumento literal, sin shell.
+func (s *Session) Run(ctx context.Context, cmd *domain.Command) (domain.Result, error) {
+	args := []string{"guestcontrol", s.target.ID, "run", "--username", s.client.user, "--password", s.client.pass}
+	if cmd.Dir != "" {
+		args = append(args, "--cwd", cmd.Dir)
+	}
+
+	args = append(args, "--exe", cmd.Path, "--", cmd.Path)
+	args = append(args, cmd.Args...)
+
+	result, err := s.client.exe.Execute(ctx, s.client.bin, args...)
+	if err != nil {
+		return result, fmt.Errorf("guest-additions: ejecutar %q: %w", cmd.Path, err)
+	}
+
+	return result, nil
+}
+
+// Put implements ports.Session: transfiere un archivo de la consola a
+// la máquina invitada con «vboxmanage guestcontrol copyto».
+func (s *Session) Put(ctx context.Context, localPath, remotePath string) error {
+	args := []string{
+		"guestcontrol", s.target.ID, "copyto",
+		"--username", s.client.user, "--password", s.client.pass,
+		localPath, remotePath,
+	}
+
+	if _, err := s.client.exe.Execute(ctx, s.client.bin, args...); err != nil {
+		return fmt.Errorf("guest-additions: transferir %q: %w", localPath, err)
+	}
+
+	return nil
+}
+
+// Close implements ports.Session: «guestcontrol» no mantiene estado
+// entre órdenes, por lo que no hay recursos que liberar.
+func (s *Session) Close() error {
+	return nil
+}
+
+// parseAddress extrae la dirección de la salida de «guestproperty get»,
+// cuya última línea tiene la forma «Value: 10.0.2.15».
+func parseAddress(output string) (netip.Addr, error) {
+	const prefix = "Value:"
+
+	for _, line := range strings.Split(output, "\n") {
+		value, found := strings.CutPrefix(strings.TrimSpace(line), prefix)
+		if !found {
+			continue
+		}
+
+		addr, err := netip.ParseAddr(strings.TrimSpace(value))
+		if err != nil {
+			return netip.Addr{}, fmt.Errorf("el valor %q no es una dirección válida: %w", strings.TrimSpace(value), err)
+		}
+
+		return addr, nil
+	}
+
+	return netip.Addr{}, fmt.Errorf("la salida no contiene la propiedad %q", guestIPv4Property)
+}
+
+// parseState extrae el estado de la salida de «showvminfo
+// --machinereadable», cuya línea relevante es «VMState="running"».
+func parseState(output string) domain.MachineState {
+	const prefix = `VMState="`
+
+	for _, line := range strings.Split(output, "\n") {
+		value, found := strings.CutPrefix(strings.TrimSpace(line), prefix)
+		if !found {
+			continue
+		}
+
+		return mapState(strings.TrimSuffix(value, `"`))
+	}
+
+	return domain.StateUnknown
+}
+
+// mapState traduce el vocabulario de VirtualBox al lenguaje del dominio.
+func mapState(raw string) domain.MachineState {
+	switch raw {
+	case "running":
+		return domain.StateRunning
+	case "poweroff", "aborted":
+		return domain.StatePoweredOff
+	case "paused":
+		return domain.StatePaused
+	case "saved":
+		return domain.StateSaved
+	default:
+		return domain.StateUnknown
+	}
+}
