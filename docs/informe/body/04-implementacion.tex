@@ -1,0 +1,75 @@
+% ============================================================
+% 4. IMPLEMENTACIÓN
+% (preparación del sistema, gestión de usuarios, gestión de
+%  demonios con systemd y balanceo de carga con HAProxy)
+% ============================================================
+\section{Implementación}
+\label{sec:implementacion}
+
+% ------------------------------------------------------------
+% 4.1 Preparación del sistema
+% ------------------------------------------------------------
+\subsection{Preparación del Sistema}
+\label{sec:preparacion}
+
+\subsubsection{Instalación y Eliminación de Aplicaciones}
+\label{sec:apt}
+% TODO: formulario para indicar la aplicación a instalar o eliminar;
+% ejecución del proceso en la máquina virtual; notificación del
+% resultado al finalizar.
+
+\subsubsection{Configuración de la Llave de Acceso SSH para el Usuario Root}
+\label{sec:ssh-root}
+% TODO: creación de llaves para root, instalación de la llave pública en
+% authorized_keys, deshabilitación del acceso por login y password,
+% descarga de la llave privada y mensaje de recomendación de uso
+% correcto de la llave.
+
+\subsubsection{Personalización de la Entrada del Sistema}
+\label{sec:issue}
+% TODO: configuración de /etc/issue con opciones para nombre del host,
+% fecha, hora, dirección IP y mensaje personalizado de inicio de sesión.
+
+\subsubsection{Asignación del Nombre de Host y Actualización del Archivo de Hosts}
+\label{sec:hostname}
+% TODO: establecimiento del nombre de host y actualización del
+% contenido de /etc/hosts.
+
+% ------------------------------------------------------------
+% 4.2 Gestión de usuarios
+% ------------------------------------------------------------
+\subsection{Gestión de Usuarios}
+\label{sec:usuarios}
+
+\subsubsection{Creación de Usuarios y Privilegios de sudo}
+\label{sec:crear-usuario}
+% TODO: creación de usuario con casilla de verificación para privilegios
+% sudo; casilla para generar el par de llaves criptográficas, instalar
+% la llave pública y habilitar el descargue de la llave privada;
+% deshabilitación del acceso por login y password al habilitar SSH.
+
+\subsubsection{Eliminación de Usuarios}
+\label{sec:eliminar-usuario}
+% TODO: eliminación de usuarios con casilla de verificación que indica
+% si también deben eliminarse todos sus archivos.
+
+% ------------------------------------------------------------
+% 4.3 Gestión de demonios con systemd
+% ------------------------------------------------------------
+\subsection{Gestión de Demonios con systemd}
+\label{sec:systemd}
+% TODO: configuración de una aplicación como servicio de systemd
+% (por ejemplo, la aplicación web del catálogo de libros): transferencia
+% de los archivos requeridos a la máquina virtual y gestión de
+% permisos; botones start, stop, restart, status, enable y disable;
+% prueba complementaria con el script que agrega fecha y hora a un
+% archivo.
+
+% ------------------------------------------------------------
+% 4.4 Balanceo de carga con HAProxy
+% ------------------------------------------------------------
+\subsection{Gestión de un Balanceador de Carga con HAProxy}
+\label{sec:haproxy}
+% TODO: mecanismo para agregar y eliminar un servidor del back-end del
+% balanceador de carga; verificación del balanceo mediante el disco
+% multiconexión y las máquinas virtuales de respaldo.

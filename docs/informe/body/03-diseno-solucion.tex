@@ -1,0 +1,59 @@
+% ============================================================
+% 3. DISEÑO DE LA SOLUCIÓN
+% (escenario de aplicación (requisito numeral 5 del parcial:
+%  diagrama + descripción breve) y arquitectura de la solución)
+% ============================================================
+\section{Diseño de la Solución}
+\label{sec:diseno}
+
+% ------------------------------------------------------------
+% 3.1 Escenario de aplicación
+% ------------------------------------------------------------
+\subsection{Escenario de Aplicación}
+\label{sec:escenario}
+
+% TODO: elaborar el diagrama (equipo host, software de virtualización,
+% máquinas virtuales, SO de cada VM, interfaces de red, IPs, mecanismo
+% de comunicación host<->VM, disco de almacenamiento y flujo general
+% de la automatización) e insertarlo aquí.
+
+\begin{figure}[!t]
+  \centering
+  % \includegraphics[width=0.9\textwidth]{images/escenario.png}
+  \caption{Escenario utilizado para desarrollar y probar la solución.}
+  \label{fig:escenario}
+\end{figure}
+
+\subsubsection{Descripción del Escenario}
+% TODO: descripción breve: equipo host, hypervisor, VM de pruebas
+% (Debian 13), VM del balanceador, disco multiconexión, redes en modo
+% puente y direcciones IP asignadas.
+
+\subsubsection{Mecanismo de Comunicación}
+% TODO: comunicación inicial mediante Guest Additions; posteriormente
+% de forma exclusiva por SSH con llaves de autenticación.
+
+\subsubsection{Flujo General de la Automatización}
+% TODO: flujo: usuario -> aplicación web (host) -> ejecución de
+% comandos sobre la VM -> validación -> notificación de resultados.
+
+% ------------------------------------------------------------
+% 3.2 Arquitectura de la solución
+% ------------------------------------------------------------
+\subsection{Arquitectura de la Solución}
+\label{sec:arquitectura}
+
+\subsubsection{Visión General de la Aplicación}
+% TODO: aplicación web en Go, organización por módulos, formularios,
+% validación de datos y notificación de resultados.
+
+\subsubsection{Estructura del Proyecto}
+% TODO: describir la estructura de directorios: main.go, internal/
+% (handlers, services, utils) y web/ (modules, static), explicando la
+% responsabilidad de cada capa.
+
+\subsubsection{Decisiones Tomadas Durante el Desarrollo}
+% TODO: decisiones de diseño y justificación (por ejemplo: ejecución
+% no interactiva de comandos, manejo de errores y logs, validación de
+% entradas en cliente y servidor, uso de llaves SSH, calidad de código
+% con linter/formater estrictos, entre otras).
