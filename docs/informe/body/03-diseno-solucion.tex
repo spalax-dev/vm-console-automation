@@ -137,10 +137,11 @@ módulos ---preparación del sistema, gestión de usuarios, servicios con
 systemd y balanceo de carga---, y cada módulo presenta un formulario con
 los campos y las casillas de verificación que la operación requiere.
 
-Cuando Guest Additions exige credenciales, la tarjeta de sesión ofrece un
-formulario de usuario y contraseña; la consola las valida ejecutando una
-orden y las guarda por máquina en un archivo privado, de modo que las
-siguientes operaciones no vuelvan a pedirlas.
+Una máquina con Guest Additions y red puente u host-only aparece como
+\emph{sin registrar}; al elegirla, la consola abre un modal flotante para
+el usuario y la contraseña y ejecuta una adecuación que prepara SSH. Las
+máquinas ya registradas no vuelven a pedir login: usan la llave y las
+credenciales guardadas en un archivo privado por máquina.
 
 El selector de máquina solo muestra las máquinas administrables: las que
 están encendidas, publican Guest Additions y tienen la primera interfaz en

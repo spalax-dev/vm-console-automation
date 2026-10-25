@@ -61,7 +61,7 @@ func (l *Llaves) Generar(ctx context.Context) (Resultado, error) {
 	}
 
 	if err := os.MkdirAll(filepath.Dir(l.ruta), 0o700); err != nil {
-		return Resultado{}, fmt.Errorf("crear el directorio de llaves: %w", err)
+		return Resultado{}, fmt.Errorf(msgCrearDirLlaves, err)
 	}
 
 	// La sesión se abre antes de generar la llave: mientras no exista, el

@@ -1,6 +1,7 @@
 import { renderIcons } from '../icons.js';
 import { api } from '../api.js';
 import { escapar, mensajeDeError, presentarEstado } from '../ui.js';
+import { abrirRegistro } from '../components/RegistroModal.js';
 
 /** Módulos de la consola que se ofrecen en la portada. */
 const MODULOS = [
@@ -60,6 +61,29 @@ export function renderInicio() {
 }
 
 /**
+ * Abre el modal de registro para la máquina vinculada.
+ *
+ * @param {HTMLElement} el Vista de inicio.
+ * @returns {Promise<void>}
+ */
+async function abrirRegistroActivo(el) {
+  try {
+    const { maquinas } = await api.maquinas.listar();
+    const activa = maquinas.find((maquina) => maquina.activa);
+
+    if (!activa) {
+      await cargarSesion(el);
+
+      return;
+    }
+
+    abrirRegistro({ maquina: activa, alRegistrar: () => cargarSesion(el) });
+  } catch {
+    await cargarSesion(el);
+  }
+}
+
+/**
  * Consulta `GET /api/session` y pinta el resumen de la conexión.
  *
  * @param {HTMLElement} el Vista de inicio.
@@ -104,10 +128,16 @@ async function cargarSesion(el) {
         <span class="text-vm-fgSecondary">Última consulta</span>
         <span class="text-vm-fgSecondary font-mono">${hora}</span>
       </div>
+      ${sesion.registrada ? '' : `
+        <button id="registrar-sesion" type="button" class="btn btn-primary self-start mt-1">
+          <i data-lucide="key-round"></i> Registrar esta máquina
+        </button>
+      `}
     `;
 
     renderIcons(cuerpo);
     cuerpo.querySelector('#copiar-ip').addEventListener('click', () => navigator.clipboard?.writeText(sesion.ip));
+    cuerpo.querySelector('#registrar-sesion')?.addEventListener('click', () => abrirRegistroActivo(el));
   } catch (error) {
     cuerpo.innerHTML = `
       <div class="flex items-start gap-2 text-[12px]">
@@ -117,41 +147,12 @@ async function cargarSesion(el) {
           <div class="text-[11px] text-vm-fgSecondary mt-0.5">${escapar(mensajeDeError(error))}</div>
         </div>
       </div>
-      <form id="login-vm" class="mt-1 pt-2 border-t border-vm-border flex flex-col gap-1.5">
-        <div class="text-[11px] text-vm-fgSecondary">Credenciales de Guest Additions (se guardan en el anfitrión)</div>
-        <div class="grid grid-cols-[1fr_1fr_56px] gap-1.5">
-          <input name="usuario" value="root" class="input font-mono" placeholder="usuario" autocomplete="username" required>
-          <input name="password" type="password" class="input" placeholder="contraseña" autocomplete="current-password">
-          <input name="puerto" type="number" min="1" max="65535" value="22" class="input font-mono" title="Puerto SSH">
-        </div>
-        <div class="flex items-center gap-2">
-          <button type="submit" class="btn btn-primary"><i data-lucide="key-round"></i> Iniciar sesión</button>
-          <span id="login-error" class="text-[11px] text-vm-accent"></span>
-        </div>
-      </form>
+      <button id="abrir-registro" type="button" class="btn btn-primary self-start">
+        <i data-lucide="key-round"></i> Registrar esta máquina
+      </button>
     `;
     renderIcons(cuerpo);
-    cuerpo.querySelector('#login-vm')?.addEventListener('submit', async (evento) => {
-      evento.preventDefault();
-      const datos = new FormData(evento.target);
-      const errorEl = cuerpo.querySelector('#login-error');
-      const botonLogin = evento.target.querySelector('button[type=submit]');
-      botonLogin.disabled = true;
-      errorEl.textContent = '';
-
-      try {
-        await api.sesion.iniciar(
-          String(datos.get('usuario') || ''),
-          String(datos.get('password') || ''),
-          Number(datos.get('puerto') || 22),
-        );
-        await cargarSesion(el);
-      } catch (fallo) {
-        errorEl.textContent = mensajeDeError(fallo);
-      } finally {
-        botonLogin.disabled = false;
-      }
-    });
+    cuerpo.querySelector('#abrir-registro')?.addEventListener('click', () => abrirRegistroActivo(el));
   } finally {
     boton.disabled = false;
   }

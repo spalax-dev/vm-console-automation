@@ -203,7 +203,7 @@ func (u *Usuarios) instalarLlaves(ctx context.Context, sesion ports.Session, nom
 	ruta := u.rutaLlave(nombre)
 
 	if err := os.MkdirAll(filepath.Dir(ruta), 0o700); err != nil {
-		return fmt.Errorf("crear el directorio de llaves: %w", err)
+		return fmt.Errorf(msgCrearDirLlaves, err)
 	}
 
 	if err := generarPar(ctx, u.ejecutor, ruta, "vmcons-"+nombre); err != nil {

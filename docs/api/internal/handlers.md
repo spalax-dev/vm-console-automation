@@ -23,7 +23,9 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
   - [func \(h \*Maquinas\) Encender\(w http.ResponseWriter, r \*http.Request\)](<#Maquinas.Encender>)
   - [func \(h \*Maquinas\) ServeHTTP\(w http.ResponseWriter, r \*http.Request\)](<#Maquinas.ServeHTTP>)
 - [type OpcionSesion](<#OpcionSesion>)
+  - [func ConRegistro\(registro RegistroSesion\) OpcionSesion](<#ConRegistro>)
   - [func ConVinculador\(vinculador VinculadorSesion\) OpcionSesion](<#ConVinculador>)
+- [type RegistroSesion](<#RegistroSesion>)
 - [type ServicioAcceso](<#ServicioAcceso>)
 - [type ServicioHaproxy](<#ServicioHaproxy>)
 - [type ServicioHostname](<#ServicioHostname>)
@@ -59,7 +61,7 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
 <a name="Acceso"></a>
 ## type Acceso
 
-Acceso expone POST y DELETE /api/session/login: guarda o elimina las credenciales de Guest Additions de la máquina vinculada.
+Acceso expone POST y DELETE /api/session/register: registra la máquina vinculada o elimina su registro.
 
 ```go
 type Acceso struct {
@@ -181,6 +183,15 @@ OpcionSesion configura el handler del recurso de sesión.
 type OpcionSesion func(*Sesion)
 ```
 
+<a name="ConRegistro"></a>
+### func ConRegistro
+
+```go
+func ConRegistro(registro RegistroSesion) OpcionSesion
+```
+
+ConRegistro habilita el estado de registro en GET /api/session.
+
 <a name="ConVinculador"></a>
 ### func ConVinculador
 
@@ -190,16 +201,27 @@ func ConVinculador(vinculador VinculadorSesion) OpcionSesion
 
 ConVinculador habilita PUT /api/session con el servicio dado.
 
+<a name="RegistroSesion"></a>
+## type RegistroSesion
+
+RegistroSesion informa si la máquina vinculada está registrada.
+
+```go
+type RegistroSesion interface {
+    Registrada(vm string) bool
+}
+```
+
 <a name="ServicioAcceso"></a>
 ## type ServicioAcceso
 
-ServicioAcceso valida y guarda las credenciales de la máquina activa.
+ServicioAcceso registra una máquina en la consola.
 
 ```go
 type ServicioAcceso interface {
-    // Iniciar guarda y verifica las credenciales.
-    Iniciar(ctx context.Context, usuario, password string, puerto uint16) (services.Resultado, error)
-    // Olvidar elimina las credenciales guardadas.
+    // Registrar guarda las credenciales y prepara SSH.
+    Registrar(ctx context.Context, usuario, password string) (services.Resultado, error)
+    // Olvidar elimina el registro y las credenciales.
     Olvidar() error
 }
 ```

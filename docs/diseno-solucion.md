@@ -244,25 +244,34 @@ El listado devuelve `activo`, `habilitado`, `estado` (`active`, `inactive`,
 `exited`, etc.) para diagnóstico. Los archivos y el propietario se validan en
 el *handler* antes de llegar a la máquina.
 
-### 2.8 Credenciales por máquina
+### 2.8 Registro de máquinas
 
-Guest Additions exige un usuario y una contraseña de la máquina invitada
-para ejecutar órdenes; SSH también los necesita antes de instalar la llave.
-La consola los solicita en la tarjeta de sesión cuando no hay acceso y los
-guarda **por máquina**:
+Una máquina administrable tiene dos estados en `vmcons`:
 
-- archivo `credenciales.json` en el directorio de configuración, con
-  permisos `0600`;
-- `POST /api/session/login` guarda y verifica las credenciales ejecutando
-  `id -u` por Guest Additions; si falla, restaura las anteriores;
-- `DELETE /api/session/login` las olvida;
-- el conector `vbox` consulta el almacén por el nombre de la VM, de modo
-  que cada máquina puede tener su propio usuario.
+| Estado | Criterio | Comportamiento |
+| --- | --- | --- |
+| **Sin registrar** | tiene Guest Additions y red puente u host-only, pero no hay registro | al seleccionarla se abre un modal flotante de usuario y contraseña; al enviarlo se ejecuta la adecuación |
+| **Registrada** | credenciales guardadas y SSH verificado | no pide login; usa la llave de root y las credenciales almacenadas |
 
-La interfaz muestra el formulario cuando `GET /api/session` falla por falta
-de credenciales o de sesión. La contraseña se conserva porque las órdenes
-se ejecutan de forma no interactiva; el archivo queda fuera del repositorio
-y se documenta como un dato sensible del anfitrión.
+El registro se expone en `POST /api/session/register` y sigue esta secuencia:
+
+1. guarda el usuario y la contraseña en `credenciales.json` (permisos `0600`);
+2. abre Guest Additions y verifica las credenciales ejecutando `id -u`;
+3. genera la llave de root en el anfitrión si todavía no existe;
+4. instala `openssh-server` si falta, la llave pública en
+   `/root/.ssh/authorized_keys`, el archivo
+   `/etc/ssh/sshd_config.d/99-vmcons.conf` con
+   `PasswordAuthentication no` y `PermitRootLogin prohibit-password`, y
+   ejecuta `systemctl enable --now ssh`;
+5. comprueba la conexión SSH real con la llave;
+6. marca la máquina como registrada y responde `201`.
+
+Si cualquier paso falla, restaura las credenciales anteriores y la máquina
+queda **sin registrar**. `DELETE /api/session/register` elimina el registro.
+`GET /api/session` y `GET /api/vms` informan el campo `registrada` para que
+la interfaz decida si abre el modal. La contraseña se conserva porque las
+órdenes se ejecutan de forma no interactiva; el archivo queda fuera del
+repositorio y se documenta como un dato sensible del anfitrión.
 
 ### 2.9 Servidores del back-end de HAProxy
 

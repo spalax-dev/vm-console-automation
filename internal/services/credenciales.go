@@ -27,6 +27,9 @@ type Credenciales struct {
 	// Direccion es una dirección alternativa (por ejemplo, un reenvío
 	// de puertos); vacía significa descubrirla con Guest Additions.
 	Direccion string `json:"direccion,omitempty"`
+	// Registrada indica que la consola ya preparó SSH en la máquina y
+	// puede administrarla sin volver a pedir credenciales.
+	Registrada bool `json:"registrada"`
 }
 
 // Almacen guarda las credenciales por máquina en un archivo JSON.
@@ -89,6 +92,13 @@ func (a *Almacen) Borrar(vm string) error {
 	delete(a.datos, vm)
 
 	return a.escribir()
+}
+
+// Registrada informa si la máquina ya fue registrada en la consola.
+func (a *Almacen) Registrada(vm string) bool {
+	credenciales, ok := a.Obtener(vm)
+
+	return ok && credenciales.Registrada
 }
 
 // Guest implementa la resolución de credenciales de Guest Additions.

@@ -1,6 +1,7 @@
 import { renderIcons } from '../icons.js';
 import { api } from '../api.js';
 import { escapar, mensajeDeError, presentarEstado } from '../ui.js';
+import { abrirRegistro } from './RegistroModal.js';
 
 /** Milisegundos de espera antes de consultar mientras se escribe. */
 const ESPERA_BUSQUEDA = 200;
@@ -121,6 +122,7 @@ export function VMSelector({ alVincular } = {}) {
               <span class="block text-[12px] truncate">${escapar(maquina.nombre)}</span>
               <span class="block text-[10px] font-mono text-vm-fgSecondary truncate">${escapar(maquina.uuid)}</span>
             </span>
+            ${maquina.registrada ? '' : '<span class="text-[10px] text-vm-accent shrink-0">Sin registrar</span>'}
             <span class="text-[10px] text-vm-fgSecondary shrink-0">${presentacion.texto}</span>
             ${maquina.activa ? '<i data-lucide="check" class="w-3.5 h-3.5 text-[#C0392B] shrink-0"></i>' : ''}
           </button>
@@ -198,9 +200,24 @@ export function VMSelector({ alVincular } = {}) {
 
     try {
       const maquina = await api.sesion.vincular(nombreMaquina);
+      const vinculada = { ...maquina, activa: true };
 
-      marcarActiva({ ...maquina, activa: true });
+      marcarActiva(vinculada);
       cerrar();
+
+      if (!maquina.registrada) {
+        abrirRegistro({
+          maquina: vinculada,
+          alRegistrar: () => {
+            cargar('');
+            if (alVincular) {
+              alVincular(vinculada);
+            }
+          },
+        });
+
+        return;
+      }
 
       if (alVincular) {
         alVincular(maquina);

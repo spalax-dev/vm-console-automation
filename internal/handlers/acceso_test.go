@@ -11,26 +11,24 @@ import (
 	"consola-vm/internal/services"
 )
 
-// rutaLogin es la ruta del recurso de credenciales.
-const rutaLogin = "/api/session/login"
+// rutaRegistro es la ruta del recurso de registro.
+const rutaRegistro = "/api/session/register"
 
 // stubAcceso es un servicio de credenciales falso.
 type stubAcceso struct {
-	resultado services.Resultado
-	err       error
-	usuario   string
-	password  string
-	puerto    uint16
-	iniciados int
-	olvidados int
+	resultado   services.Resultado
+	err         error
+	usuario     string
+	password    string
+	registrados int
+	olvidados   int
 }
 
-// Iniciar registra los argumentos y devuelve el resultado.
-func (s *stubAcceso) Iniciar(_ context.Context, usuario, password string, puerto uint16) (services.Resultado, error) {
+// Registrar registra los argumentos y devuelve el resultado.
+func (s *stubAcceso) Registrar(_ context.Context, usuario, password string) (services.Resultado, error) {
 	s.usuario = usuario
 	s.password = password
-	s.puerto = puerto
-	s.iniciados++
+	s.registrados++
 
 	return s.resultado, s.err
 }
@@ -48,16 +46,16 @@ func TestAccesoIniciar(t *testing.T) {
 
 	servicio := &stubAcceso{resultado: services.Resultado{Mensaje: "Credenciales verificadas."}}
 
-	rec := ejecutarCaso(t, NuevoAcceso(servicio).ServeHTTP, rutaLogin, casoPeticion{
-		nombre: "iniciar", metodo: http.MethodPost, cuerpo: `{"usuario":"root","password":"secreto","puerto":22}`,
+	rec := ejecutarCaso(t, NuevoAcceso(servicio).ServeHTTP, rutaRegistro, casoPeticion{
+		nombre: "registrar", metodo: http.MethodPost, cuerpo: `{"usuario":"root","password":"secreto"}`,
 	})
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf(msgCodigo, rec.Code, http.StatusCreated)
 	}
 
-	if servicio.iniciados != 1 || servicio.usuario != "root" || servicio.puerto != 22 {
-		t.Errorf("Iniciar() = %+v, want root/22", servicio)
+	if servicio.registrados != 1 || servicio.usuario != "root" {
+		t.Errorf("Registrar() = %+v, want root", servicio)
 	}
 }
 
@@ -67,7 +65,7 @@ func TestAccesoIniciarRechazado(t *testing.T) {
 
 	servicio := &stubAcceso{err: services.ErrCredencialesInvalidas}
 
-	rec := ejecutarCaso(t, NuevoAcceso(servicio).ServeHTTP, rutaLogin, casoPeticion{
+	rec := ejecutarCaso(t, NuevoAcceso(servicio).ServeHTTP, rutaRegistro, casoPeticion{
 		nombre: "credenciales inválidas", metodo: http.MethodPost, cuerpo: `{"usuario":"root","password":"mala"}`,
 	})
 
@@ -83,7 +81,7 @@ func TestAccesoIniciarSinSesion(t *testing.T) {
 
 	servicio := &stubAcceso{err: services.ErrSesionNoDisponible}
 
-	rec := ejecutarCaso(t, NuevoAcceso(servicio).ServeHTTP, rutaLogin, casoPeticion{
+	rec := ejecutarCaso(t, NuevoAcceso(servicio).ServeHTTP, rutaRegistro, casoPeticion{
 		nombre: "sin sesión", metodo: http.MethodPost, cuerpo: `{"usuario":"root","password":"x"}`,
 	})
 
@@ -98,7 +96,7 @@ func TestAccesoIniciarSinMaquina(t *testing.T) {
 
 	servicio := &stubAcceso{err: services.ErrSinMaquina}
 
-	rec := ejecutarCaso(t, NuevoAcceso(servicio).ServeHTTP, rutaLogin, casoPeticion{
+	rec := ejecutarCaso(t, NuevoAcceso(servicio).ServeHTTP, rutaRegistro, casoPeticion{
 		nombre: "sin máquina", metodo: http.MethodPost, cuerpo: `{"usuario":"root","password":"x"}`,
 	})
 
@@ -114,13 +112,12 @@ func TestAccesoValidacion(t *testing.T) {
 	handler := NuevoAcceso(&stubAcceso{}).ServeHTTP
 	casos := []casoPeticion{
 		{nombre: "usuario inválido", metodo: http.MethodPost, cuerpo: `{"usuario":"Root","password":"x"}`, codigo: http.StatusBadRequest, campo: campoUsuario},
-		{nombre: "puerto inválido", metodo: http.MethodPost, cuerpo: `{"usuario":"root","password":"x","puerto":70000}`, codigo: http.StatusBadRequest, campo: campoPuerto},
 		{nombre: casoCuerpoInvalido, metodo: http.MethodPost, cuerpo: `{`, codigo: http.StatusBadRequest},
 		{nombre: casoMetodoNoPermitido, metodo: http.MethodGet, codigo: http.StatusMethodNotAllowed},
 	}
 
 	for _, caso := range casos {
-		rec := ejecutarCaso(t, handler, rutaLogin, caso)
+		rec := ejecutarCaso(t, handler, rutaRegistro, caso)
 		comprobarCaso(t, rec, caso)
 	}
 }
@@ -131,7 +128,7 @@ func TestAccesoOlvidar(t *testing.T) {
 
 	servicio := &stubAcceso{}
 
-	rec := ejecutarCaso(t, NuevoAcceso(servicio).ServeHTTP, rutaLogin, casoPeticion{
+	rec := ejecutarCaso(t, NuevoAcceso(servicio).ServeHTTP, rutaRegistro, casoPeticion{
 		nombre: "olvidar", metodo: http.MethodDelete,
 	})
 

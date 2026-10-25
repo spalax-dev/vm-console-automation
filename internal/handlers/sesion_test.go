@@ -135,3 +135,39 @@ func TestSesionHandlerErrorInternoResponde500(t *testing.T) {
 		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
 	}
 }
+
+// stubRegistroSesion informa si la máquina está registrada.
+type stubRegistroSesion struct {
+	registrada bool
+}
+
+// Registrada devuelve el estado preprogramado.
+func (s *stubRegistroSesion) Registrada(string) bool {
+	return s.registrada
+}
+
+// TestSesionHandlerInformaRegistro comprueba el campo registrada.
+func TestSesionHandlerInformaRegistro(t *testing.T) {
+	t.Parallel()
+
+	desc := &stubDescubridor{info: services.InfoSesion{
+		Conector: conectorSSH,
+		IP:       netip.MustParseAddr(ipPrueba),
+		Estado:   domain.StateRunning,
+	}}
+
+	handler := NuevoSesion(desc, ConRegistro(&stubRegistroSesion{registrada: true}))
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, rutaSesion, http.NoBody)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	var cuerpo map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &cuerpo); err != nil {
+		t.Fatalf(msgJSONInvalido, err)
+	}
+
+	if cuerpo["registrada"] != true {
+		t.Errorf("registrada = %v, want true", cuerpo["registrada"])
+	}
+}

@@ -14,14 +14,15 @@ Package services implementa los casos de uso de la consola: descubre el conector
 - [type AbridorSesion](<#AbridorSesion>)
 - [type Acceso](<#Acceso>)
   - [func NuevoAcceso\(config \*ConfigAcceso\) \*Acceso](<#NuevoAcceso>)
-  - [func \(a \*Acceso\) Iniciar\(ctx context.Context, usuario, password string, puerto uint16\) \(Resultado, error\)](<#Acceso.Iniciar>)
   - [func \(a \*Acceso\) Olvidar\(\) error](<#Acceso.Olvidar>)
+  - [func \(a \*Acceso\) Registrar\(ctx context.Context, usuario, password string\) \(Resultado, error\)](<#Acceso.Registrar>)
 - [type Almacen](<#Almacen>)
   - [func NuevoAlmacen\(ruta string\) \*Almacen](<#NuevoAlmacen>)
   - [func \(a \*Almacen\) Borrar\(vm string\) error](<#Almacen.Borrar>)
   - [func \(a \*Almacen\) Guardar\(vm string, credenciales Credenciales\) error](<#Almacen.Guardar>)
   - [func \(a \*Almacen\) Guest\(vm string\) \(usuario, password string, ok bool\)](<#Almacen.Guest>)
   - [func \(a \*Almacen\) Obtener\(vm string\) \(Credenciales, bool\)](<#Almacen.Obtener>)
+  - [func \(a \*Almacen\) Registrada\(vm string\) bool](<#Almacen.Registrada>)
 - [type ArchivoDespliegue](<#ArchivoDespliegue>)
 - [type ConfigAcceso](<#ConfigAcceso>)
 - [type ConfigDescubridor](<#ConfigDescubridor>)
@@ -63,6 +64,7 @@ Package services implementa los casos de uso de la consola: descubre el conector
   - [func \(p \*Paquetes\) Eliminar\(ctx context.Context, nombre string\) \(Resultado, error\)](<#Paquetes.Eliminar>)
   - [func \(p \*Paquetes\) Instalar\(ctx context.Context, nombre string\) \(Resultado, error\)](<#Paquetes.Instalar>)
   - [func \(p \*Paquetes\) Listar\(ctx context.Context\) \(\[\]Paquete, error\)](<#Paquetes.Listar>)
+- [type Registro](<#Registro>)
 - [type Resultado](<#Resultado>)
 - [type Selector](<#Selector>)
 - [type Servidor](<#Servidor>)
@@ -190,7 +192,7 @@ type AbridorSesion interface {
 <a name="Acceso"></a>
 ## type Acceso
 
-Acceso valida las credenciales de Guest Additions y las persiste para la máquina activa.
+Acceso registra una máquina: guarda sus credenciales, prepara SSH y deja constancia del estado para no volver a pedirlas.
 
 ```go
 type Acceso struct {
@@ -205,16 +207,7 @@ type Acceso struct {
 func NuevoAcceso(config *ConfigAcceso) *Acceso
 ```
 
-NuevoAcceso construye el servicio de acceso.
-
-<a name="Acceso.Iniciar"></a>
-### func \(\*Acceso\) Iniciar
-
-```go
-func (a *Acceso) Iniciar(ctx context.Context, usuario, password string, puerto uint16) (Resultado, error)
-```
-
-Iniciar guarda las credenciales y comprueba con Guest Additions que permitan ejecutar una orden. Si la comprobación falla, restaura las credenciales anteriores.
+NuevoAcceso construye el servicio de registro.
 
 <a name="Acceso.Olvidar"></a>
 ### func \(\*Acceso\) Olvidar
@@ -223,7 +216,16 @@ Iniciar guarda las credenciales y comprueba con Guest Additions que permitan eje
 func (a *Acceso) Olvidar() error
 ```
 
-Olvidar elimina las credenciales de la máquina activa.
+Olvidar elimina el registro y las credenciales de la máquina activa.
+
+<a name="Acceso.Registrar"></a>
+### func \(\*Acceso\) Registrar
+
+```go
+func (a *Acceso) Registrar(ctx context.Context, usuario, password string) (Resultado, error)
+```
+
+Registrar guarda las credenciales, instala SSH con la llave de root y verifica la conexión. Si algo falla, deja la máquina sin registrar y restaura las credenciales anteriores.
 
 <a name="Almacen"></a>
 ## type Almacen
@@ -281,6 +283,15 @@ func (a *Almacen) Obtener(vm string) (Credenciales, bool)
 
 Obtener devuelve las credenciales de una máquina.
 
+<a name="Almacen.Registrada"></a>
+### func \(\*Almacen\) Registrada
+
+```go
+func (a *Almacen) Registrada(vm string) bool
+```
+
+Registrada informa si la máquina ya fue registrada en la consola.
+
 <a name="ArchivoDespliegue"></a>
 ## type ArchivoDespliegue
 
@@ -300,17 +311,23 @@ type ArchivoDespliegue struct {
 <a name="ConfigAcceso"></a>
 ## type ConfigAcceso
 
-ConfigAcceso reúne las dependencias para validar y guardar las credenciales de una máquina.
+ConfigAcceso reúne las dependencias para registrar una máquina en la consola.
 
 ```go
 type ConfigAcceso struct {
-    // Almacen guarda las credenciales por máquina.
+    // Almacen guarda las credenciales y el estado de registro.
     Almacen *Almacen
     // Maquina consulta el estado y la dirección de la máquina activa.
     Maquina ports.Machine
     // Guest abre una sesión por Guest Additions con las credenciales
     // guardadas.
     Guest ports.Connector
+    // SSH comprueba que la llave quede operativa tras la adecuación.
+    SSH ports.Connector
+    // Ejecutor genera la llave de root en el anfitrión.
+    Ejecutor ports.Executor
+    // RutaLlave es la llave privada de root en el anfitrión.
+    RutaLlave string
     // Objetivo devuelve la máquina vinculada.
     Objetivo func() domain.Target
 }
@@ -380,6 +397,8 @@ type ConfigVinculacion struct {
     // Maquina comprueba si una máquina en ejecución publica Guest
     // Additions y, por tanto, puede administrarse.
     Maquina ports.Machine
+    // Registro consulta el estado de registro de las máquinas.
+    Registro Registro
 }
 ```
 
@@ -437,6 +456,9 @@ type Credenciales struct {
     // Direccion es una dirección alternativa (por ejemplo, un reenvío
     // de puertos); vacía significa descubrirla con Guest Additions.
     Direccion string `json:"direccion,omitempty"`
+    // Registrada indica que la consola ya preparó SSH en la máquina y
+    // puede administrarla sin volver a pedir credenciales.
+    Registrada bool `json:"registrada"`
 }
 ```
 
@@ -708,6 +730,8 @@ type MaquinaVirtual struct {
     Estado domain.MachineState
     // Activa indica que la consola está vinculada con esta máquina.
     Activa bool
+    // Registrada indica que la consola ya preparó SSH en la máquina.
+    Registrada bool
 }
 ```
 
@@ -774,6 +798,17 @@ func (p *Paquetes) Listar(ctx context.Context) ([]Paquete, error)
 ```
 
 Listar devuelve los paquetes instalados en la máquina.
+
+<a name="Registro"></a>
+## type Registro
+
+Registro informa si una máquina ya fue registrada en la consola.
+
+```go
+type Registro interface {
+    Registrada(vm string) bool
+}
+```
 
 <a name="Resultado"></a>
 ## type Resultado

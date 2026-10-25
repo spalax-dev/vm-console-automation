@@ -38,6 +38,8 @@ type MaquinaVirtual struct {
 	Estado domain.MachineState
 	// Activa indica que la consola está vinculada con esta máquina.
 	Activa bool
+	// Registrada indica que la consola ya preparó SSH en la máquina.
+	Registrada bool
 }
 
 // Selector es la máquina con la que trabaja la consola. El descubridor
@@ -47,6 +49,11 @@ type Selector interface {
 	Objetivo() domain.Target
 	// Establecer vincula la máquina indicada por su nombre.
 	Establecer(nombre string)
+}
+
+// Registro informa si una máquina ya fue registrada en la consola.
+type Registro interface {
+	Registrada(vm string) bool
 }
 
 // ConfigVinculacion reúne las dependencias de la vinculación.
@@ -60,6 +67,8 @@ type ConfigVinculacion struct {
 	// Maquina comprueba si una máquina en ejecución publica Guest
 	// Additions y, por tanto, puede administrarse.
 	Maquina ports.Machine
+	// Registro consulta el estado de registro de las máquinas.
+	Registro Registro
 }
 
 // Vinculacion busca máquinas en el inventario y cambia la que administra
@@ -69,6 +78,7 @@ type Vinculacion struct {
 	seleccion  Selector
 	energia    ports.Power
 	maquina    ports.Machine
+	registro   Registro
 }
 
 // NuevoVinculacion construye el servicio con las dependencias dadas.
@@ -78,6 +88,7 @@ func NuevoVinculacion(config *ConfigVinculacion) *Vinculacion {
 		seleccion:  config.Seleccion,
 		energia:    config.Energia,
 		maquina:    config.Maquina,
+		registro:   config.Registro,
 	}
 }
 
@@ -104,10 +115,11 @@ func (v *Vinculacion) Listar(ctx context.Context, filtro string) ([]MaquinaVirtu
 		}
 
 		visibles = append(visibles, MaquinaVirtual{
-			Nombre: maquina.Name,
-			UUID:   maquina.UUID,
-			Estado: maquina.State,
-			Activa: maquina.Name == objetivo.ID || maquina.UUID == objetivo.ID,
+			Nombre:     maquina.Name,
+			UUID:       maquina.UUID,
+			Estado:     maquina.State,
+			Activa:     maquina.Name == objetivo.ID || maquina.UUID == objetivo.ID,
+			Registrada: v.estaRegistrada(maquina.Name),
 		})
 	}
 
@@ -166,10 +178,11 @@ func (v *Vinculacion) Vincular(ctx context.Context, identificador string) (Maqui
 		v.seleccion.Establecer(maquina.Name)
 
 		return MaquinaVirtual{
-			Nombre: maquina.Name,
-			UUID:   maquina.UUID,
-			Estado: maquina.State,
-			Activa: true,
+			Nombre:     maquina.Name,
+			UUID:       maquina.UUID,
+			Estado:     maquina.State,
+			Activa:     true,
+			Registrada: v.estaRegistrada(maquina.Name),
 		}, nil
 	}
 
@@ -194,11 +207,17 @@ func (v *Vinculacion) Encender(ctx context.Context, identificador string) (Maqui
 	}
 
 	return MaquinaVirtual{
-		Nombre: maquina.Name,
-		UUID:   maquina.UUID,
-		Estado: domain.StateRunning,
-		Activa: v.seleccion.Objetivo().ID == maquina.Name || v.seleccion.Objetivo().ID == maquina.UUID,
+		Nombre:     maquina.Name,
+		UUID:       maquina.UUID,
+		Estado:     domain.StateRunning,
+		Activa:     v.seleccion.Objetivo().ID == maquina.Name || v.seleccion.Objetivo().ID == maquina.UUID,
+		Registrada: v.estaRegistrada(maquina.Name),
 	}, nil
+}
+
+// estaRegistrada informa si la máquina ya fue registrada.
+func (v *Vinculacion) estaRegistrada(nombre string) bool {
+	return v.registro != nil && v.registro.Registrada(nombre)
 }
 
 // buscar devuelve la máquina del inventario que corresponde al

@@ -37,10 +37,11 @@ func NuevoMaquinas(servicio ServicioMaquinas) *Maquinas {
 
 // maquinaRespuesta es una máquina del inventario en la respuesta JSON.
 type maquinaRespuesta struct {
-	Nombre string `json:"nombre"`
-	UUID   string `json:"uuid"`
-	Estado string `json:"estado"`
-	Activa bool   `json:"activa"`
+	Nombre     string `json:"nombre"`
+	UUID       string `json:"uuid"`
+	Estado     string `json:"estado"`
+	Activa     bool   `json:"activa"`
+	Registrada bool   `json:"registrada"`
 }
 
 // listaMaquinas es el cuerpo de GET /api/vms.
@@ -51,10 +52,11 @@ type listaMaquinas struct {
 // nuevaMaquinaRespuesta traduce la máquina del servicio al contrato.
 func nuevaMaquinaRespuesta(maquina services.MaquinaVirtual) maquinaRespuesta {
 	return maquinaRespuesta{
-		Nombre: maquina.Nombre,
-		UUID:   maquina.UUID,
-		Estado: string(maquina.Estado),
-		Activa: maquina.Activa,
+		Nombre:     maquina.Nombre,
+		UUID:       maquina.UUID,
+		Estado:     string(maquina.Estado),
+		Activa:     maquina.Activa,
+		Registrada: maquina.Registrada,
 	}
 }
 

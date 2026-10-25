@@ -8,6 +8,10 @@ package services
 // claveErrorLog es la clave de los mensajes de error en el log.
 const claveErrorLog = "error"
 
+// msgCrearDirLlaves es el contexto de error al crear el directorio de
+// llaves.
+const msgCrearDirLlaves = "crear el directorio de llaves: %w"
+
 const (
 	binCat     = "/bin/cat"
 	binSh      = "/bin/sh"

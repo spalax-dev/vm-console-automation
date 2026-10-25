@@ -161,18 +161,16 @@ export const api = {
      */
     vincular: (vm) => pedir('PUT', '/session', { cuerpo: { vm } }),
     /**
-     * Guarda y verifica las credenciales de Guest Additions de la máquina
-     * vinculada.
+     * Registra la máquina vinculada: guarda sus credenciales y prepara SSH.
      *
-     * @param {string} usuario Usuario de la máquina.
+     * @param {string} usuario Usuario con permisos en la máquina.
      * @param {string} password Contraseña del usuario.
-     * @param {number} [puerto] Puerto SSH (22 por omisión).
-     * @returns {Promise<object>} Resultado de la verificación.
+     * @returns {Promise<object>} Resultado del registro.
      */
-    iniciar: (usuario, password, puerto) =>
-      pedir('POST', '/session/login', { cuerpo: { usuario, password, puerto } }),
+    registrar: (usuario, password) =>
+      pedir('POST', '/session/register', { cuerpo: { usuario, password } }),
     /** @returns {Promise<null>} Sin cuerpo. */
-    olvidar: () => pedir('DELETE', '/session/login'),
+    olvidar: () => pedir('DELETE', '/session/register'),
   },
 
   /** Inventario de máquinas del hipervisor (`GET /api/vms`). */

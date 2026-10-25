@@ -173,18 +173,22 @@ paths:
         '500':
           $ref: '#/components/responses/ErrorInterno'
 
-  /api/session/login:
+  /api/session/register:
     post:
       tags: [session]
-      summary: Guardar y verificar las credenciales de Guest Additions
+      summary: Registrar la máquina vinculada
       description: |
-        Guarda el usuario y la contraseña de la máquina vinculada y
-        comprueba con Guest Additions que permitan ejecutar una orden
-        (`id -u`). Si la comprobación falla, restaura las credenciales
-        anteriores. La contraseña se guarda en un archivo privado
-        (`credenciales.json`, permisos 0600) para que las operaciones
-        no interactivas puedan usarla.
-      operationId: iniciarSesion
+        Registra la máquina en la consola: guarda el usuario y la
+        contraseña de Guest Additions, verifica que permitan ejecutar una
+        orden (`id -u`), instala `openssh-server` si falta, instala la
+        llave pública de root y deshabilita el acceso por contraseña.
+        Después comprueba que SSH funcione con la llave y marca la
+        máquina como registrada. Si algo falla, restaura el estado
+        anterior y la máquina queda sin registrar.
+
+        La contraseña se guarda en `credenciales.json`, con permisos
+        0600, para las operaciones no interactivas.
+      operationId: registrarMaquina
       requestBody:
         required: true
         content:
@@ -192,7 +196,7 @@ paths:
             schema:
               $ref: '#/components/schemas/SolicitudAcceso'
       responses:
-        '200':
+        '201':
           $ref: '#/components/responses/OperacionCorrecta'
         '400':
           $ref: '#/components/responses/EntradaInvalida'
@@ -214,11 +218,11 @@ paths:
           $ref: '#/components/responses/ErrorInterno'
     delete:
       tags: [session]
-      summary: Olvidar las credenciales de la máquina vinculada
-      operationId: olvidarSesion
+      summary: Eliminar el registro de la máquina vinculada
+      operationId: olvidarRegistro
       responses:
         '204':
-          description: Credenciales eliminadas.
+          description: Registro y credenciales eliminados.
         '409':
           description: La consola no tiene una máquina vinculada.
           content:
@@ -789,7 +793,8 @@ paths:
         `activa` la que está vinculada con la consola. Solo devuelve las
         administrables: las encendidas que publican Guest Additions con la
         primera interfaz en modo puente u host-only, y las apagadas, que
-        se listan para poder encenderlas. El filtro `q`
+        se listan para poder encenderlas. Las que aún no se registraron
+        aparecen con `registrada: false`. El filtro `q`
         compara, sin distinguir mayúsculas, contra el nombre y el UUID.
         Es la fuente del selector de la barra superior.
       operationId: listarMaquinas
@@ -933,7 +938,7 @@ components:
   schemas:
     Sesion:
       type: object
-      required: [conector, ip, estado]
+      required: [conector, ip, estado, registrada]
       properties:
         vm:
           type: string
@@ -950,6 +955,9 @@ components:
           type: string
           enum: [running, poweroff, paused, saved, unknown]
           description: Estado de encendido de la máquina.
+        registrada:
+          type: boolean
+          description: La máquina ya fue registrada en la consola.
 
     ResultadoOperacion:
       type: object
@@ -1303,7 +1311,7 @@ components:
 
     MaquinaVirtual:
       type: object
-      required: [nombre, uuid, estado, activa]
+      required: [nombre, uuid, estado, activa, registrada]
       properties:
         nombre:
           type: string
@@ -1319,6 +1327,9 @@ components:
         activa:
           type: boolean
           description: La consola está vinculada con esta máquina.
+        registrada:
+          type: boolean
+          description: La consola ya preparó SSH en esta máquina.
 
     ListaMaquinas:
       type: object

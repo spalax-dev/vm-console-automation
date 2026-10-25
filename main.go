@@ -123,8 +123,12 @@ func nuevoMux() (http.Handler, error) {
 	systemd := handlers.NuevoSystemd(services.NuevoSystemd(sesiones))
 	haproxy := handlers.NuevoHaproxy(services.NuevoHaproxy(sesiones))
 
-	mux.Handle("/api/session", handlers.NuevoSesion(sesiones, handlers.ConVinculador(consola.vinculacion)))
-	mux.Handle("/api/session/login", handlers.NuevoAcceso(consola.acceso))
+	mux.Handle("/api/session", handlers.NuevoSesion(
+		sesiones,
+		handlers.ConVinculador(consola.vinculacion),
+		handlers.ConRegistro(consola.registro),
+	))
+	mux.Handle("/api/session/register", handlers.NuevoAcceso(consola.acceso))
 	maquinas := handlers.NuevoMaquinas(consola.vinculacion)
 
 	mux.Handle("/api/vms", maquinas)
@@ -185,6 +189,7 @@ type consola struct {
 	sesiones    *services.Descubridor
 	vinculacion *services.Vinculacion
 	acceso      *services.Acceso
+	registro    *services.Almacen
 }
 
 // nuevaConsola arma el descubrimiento de sesión y el inventario con los
@@ -201,11 +206,13 @@ func nuevaConsola(ejecutor ports.Executor) *consola {
 		slog.Warn("la consola arranca sin máquina vinculada; elígela en el selector", "variable", envVM)
 	}
 
+	conectorSSH := ssh.New(ejecutor, ssh.WithKey(rutaLlave()))
+
 	sesiones := services.NuevoDescubridor(&services.ConfigDescubridor{
 		Maquina:  maquina,
 		Objetivo: domain.Target{ID: os.Getenv(envVM)},
 		Conectores: []ports.Connector{
-			ssh.New(ejecutor, ssh.WithKey(rutaLlave())),
+			conectorSSH,
 			maquina,
 		},
 	})
@@ -213,16 +220,21 @@ func nuevaConsola(ejecutor ports.Executor) *consola {
 	return &consola{
 		sesiones: sesiones,
 		acceso: services.NuevoAcceso(&services.ConfigAcceso{
-			Almacen:  almacen,
-			Maquina:  maquina,
-			Guest:    maquina,
-			Objetivo: sesiones.Objetivo,
+			Almacen:   almacen,
+			Maquina:   maquina,
+			Guest:     maquina,
+			SSH:       conectorSSH,
+			Ejecutor:  ejecutor,
+			RutaLlave: rutaLlave(),
+			Objetivo:  sesiones.Objetivo,
 		}),
+		registro: almacen,
 		vinculacion: services.NuevoVinculacion(&services.ConfigVinculacion{
 			Inventario: maquina,
 			Seleccion:  sesiones,
 			Energia:    maquina,
 			Maquina:    maquina,
+			Registro:   almacen,
 		}),
 	}
 }

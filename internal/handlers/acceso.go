@@ -11,16 +11,16 @@ import (
 	"consola-vm/internal/services"
 )
 
-// ServicioAcceso valida y guarda las credenciales de la máquina activa.
+// ServicioAcceso registra una máquina en la consola.
 type ServicioAcceso interface {
-	// Iniciar guarda y verifica las credenciales.
-	Iniciar(ctx context.Context, usuario, password string, puerto uint16) (services.Resultado, error)
-	// Olvidar elimina las credenciales guardadas.
+	// Registrar guarda las credenciales y prepara SSH.
+	Registrar(ctx context.Context, usuario, password string) (services.Resultado, error)
+	// Olvidar elimina el registro y las credenciales.
 	Olvidar() error
 }
 
-// Acceso expone POST y DELETE /api/session/login: guarda o elimina las
-// credenciales de Guest Additions de la máquina vinculada.
+// Acceso expone POST y DELETE /api/session/register: registra la máquina
+// vinculada o elimina su registro.
 type Acceso struct {
 	servicio ServicioAcceso
 }
@@ -34,7 +34,6 @@ func NuevoAcceso(servicio ServicioAcceso) *Acceso {
 type solicitudAcceso struct {
 	Usuario  string `json:"usuario"`
 	Password string `json:"password"`
-	Puerto   int    `json:"puerto,omitempty"`
 }
 
 // ServeHTTP implementa http.Handler.
@@ -49,11 +48,11 @@ func (h *Acceso) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.iniciar(w, r)
+	h.registrar(w, r)
 }
 
-// iniciar valida y guarda las credenciales.
-func (h *Acceso) iniciar(w http.ResponseWriter, r *http.Request) {
+// registrar valida y registra la máquina.
+func (h *Acceso) registrar(w http.ResponseWriter, r *http.Request) {
 	var solicitud solicitudAcceso
 	if err := decodificarJSON(w, r, &solicitud); err != nil {
 		responderValidacion(w, err)
@@ -67,16 +66,7 @@ func (h *Acceso) iniciar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if solicitud.Puerto != 0 && (solicitud.Puerto < 1 || solicitud.Puerto > 65535) {
-		responderValidacion(w, campoInvalido(campoPuerto, "debe estar entre 1 y 65535"))
-
-		return
-	}
-
-	// #nosec G115 -- el puerto se validó entre 0 y 65535.
-	resultado, err := h.servicio.Iniciar(
-		r.Context(), solicitud.Usuario, solicitud.Password, uint16(solicitud.Puerto),
-	)
+	resultado, err := h.servicio.Registrar(r.Context(), solicitud.Usuario, solicitud.Password)
 	switch {
 	case errors.Is(err, services.ErrSinMaquina):
 		escribirJSON(w, http.StatusConflict, respuestaOperacion{
@@ -99,7 +89,7 @@ func (h *Acceso) iniciar(w http.ResponseWriter, r *http.Request) {
 			Tecnico: err.Error(),
 		})
 	default:
-		escribirResultado(w, http.StatusOK, resultado)
+		escribirResultado(w, http.StatusCreated, resultado)
 	}
 }
 

@@ -37,12 +37,25 @@ func ConVinculador(vinculador VinculadorSesion) OpcionSesion {
 	}
 }
 
+// RegistroSesion informa si la máquina vinculada está registrada.
+type RegistroSesion interface {
+	Registrada(vm string) bool
+}
+
+// ConRegistro habilita el estado de registro en GET /api/session.
+func ConRegistro(registro RegistroSesion) OpcionSesion {
+	return func(h *Sesion) {
+		h.registro = registro
+	}
+}
+
 // Sesion expone GET /api/session, que informa el conector activo, la
 // dirección de la máquina y su estado, y PUT /api/session, que vincula
 // la consola con una máquina del inventario.
 type Sesion struct {
 	descubridor DescubridorSesion
 	vinculador  VinculadorSesion
+	registro    RegistroSesion
 }
 
 // NuevoSesion construye el handler del recurso de sesión.
@@ -58,10 +71,11 @@ func NuevoSesion(descubridor DescubridorSesion, opciones ...OpcionSesion) *Sesio
 
 // respuestaSesion es el cuerpo JSON de una sesión resuelta.
 type respuestaSesion struct {
-	VM       string `json:"vm,omitempty"`
-	Conector string `json:"conector"`
-	IP       string `json:"ip"`
-	Estado   string `json:"estado"`
+	VM         string `json:"vm,omitempty"`
+	Conector   string `json:"conector"`
+	IP         string `json:"ip"`
+	Estado     string `json:"estado"`
+	Registrada bool   `json:"registrada"`
 }
 
 // solicitudVinculacion es el cuerpo de PUT /api/session.
@@ -99,10 +113,11 @@ func (h *Sesion) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	escribirJSON(w, http.StatusOK, respuestaSesion{
-		VM:       h.vinculadorActivo(),
-		Conector: info.Conector,
-		IP:       info.IP.String(),
-		Estado:   string(info.Estado),
+		VM:         h.vinculadorActivo(),
+		Conector:   info.Conector,
+		IP:         info.IP.String(),
+		Estado:     string(info.Estado),
+		Registrada: h.estaRegistrada(),
 	})
 }
 
@@ -154,6 +169,15 @@ func (h *Sesion) vinculadorActivo() string {
 	}
 
 	return h.vinculador.Activa()
+}
+
+// estaRegistrada informa si la máquina vinculada ya fue registrada.
+func (h *Sesion) estaRegistrada() bool {
+	if h.registro == nil {
+		return false
+	}
+
+	return h.registro.Registrada(h.vinculadorActivo())
 }
 
 // responderError clasifica el fallo del descubrimiento y escribe la

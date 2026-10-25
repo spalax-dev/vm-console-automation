@@ -389,3 +389,38 @@ func TestVinculacionOcultaNAT(t *testing.T) {
 		t.Errorf("visibles = %+v, want solo la máquina apagada", visibles)
 	}
 }
+
+// stubRegistro informa qué máquinas están registradas.
+type stubRegistro struct {
+	registradas map[string]bool
+}
+
+// Registrada implementa la consulta de registro.
+func (s *stubRegistro) Registrada(vm string) bool {
+	return s.registradas[vm]
+}
+
+// TestVinculacionMarcaRegistradas comprueba la marca de registro.
+func TestVinculacionMarcaRegistradas(t *testing.T) {
+	t.Parallel()
+
+	vinculacion := NuevoVinculacion(&ConfigVinculacion{
+		Inventario: inventarioDePrueba(),
+		Seleccion:  &stubSeleccion{},
+		Maquina:    &stubGuestAdditions{accesibles: map[string]bool{nombreDebian: true}},
+		Registro:   &stubRegistro{registradas: map[string]bool{nombreDebian: true}},
+	})
+
+	visibles, err := vinculacion.Listar(context.Background(), "")
+	if err != nil {
+		t.Fatalf(msgListarOK, err)
+	}
+
+	if !visibles[0].Registrada {
+		t.Error("debian-1 no aparece registrada")
+	}
+
+	if visibles[1].Registrada {
+		t.Error("ubuntu-lab aparece registrada sin estarlo")
+	}
+}
