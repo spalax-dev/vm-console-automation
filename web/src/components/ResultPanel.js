@@ -155,7 +155,7 @@ function entrada(resultado, reciente) {
   const correcto = resultado.ok !== false;
 
   return `
-    <article class="border ${correcto ? 'border-[#3C3C3C]' : 'border-vm-accent'} fade-slide">
+    <article class="border ${correcto ? 'border-[#3C3C3C]' : 'border-vm-accent'} bg-vm-surface rounded-[3px] overflow-hidden fade-slide">
       <div class="flex items-start gap-2 px-2 py-1.5 ${correcto ? '' : 'bg-[#fdf1ef]'}">
         <i data-lucide="${correcto ? 'check-circle-2' : 'x-circle'}" class="w-4 h-4 shrink-0 ${correcto ? 'text-vm-success' : 'text-vm-accent'}"></i>
         <div class="flex-1 min-w-0">

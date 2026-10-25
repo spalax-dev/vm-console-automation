@@ -162,7 +162,7 @@ lucide.createIcons({icons});\``);if(r===void 0)throw Error("`createIcons()` only
         </div>
       </div>
     `,r&&(r.textContent=`Sin operaciones ejecutadas`);return}t.innerHTML=i.map((e,t)=>ze(e,t===i.length-1)).join(``),O(t),Re(t);let a=i[i.length-1];r&&(r.textContent=`${J(a.hora)} · código de salida: ${a.codigo??`-`}`)}function Re(e){let t=()=>{e.scrollTop=e.scrollHeight};t(),typeof requestAnimationFrame==`function`&&requestAnimationFrame(t)}function ze(e,t){let n=e.ok!==!1;return`
-    <article class="border ${n?`border-[#3C3C3C]`:`border-vm-accent`} fade-slide">
+    <article class="border ${n?`border-[#3C3C3C]`:`border-vm-accent`} bg-vm-surface rounded-[3px] overflow-hidden fade-slide">
       <div class="flex items-start gap-2 px-2 py-1.5 ${n?``:`bg-[#fdf1ef]`}">
         <i data-lucide="${n?`check-circle-2`:`x-circle`}" class="w-4 h-4 shrink-0 ${n?`text-vm-success`:`text-vm-accent`}"></i>
         <div class="flex-1 min-w-0">
