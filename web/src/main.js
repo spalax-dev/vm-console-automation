@@ -101,4 +101,10 @@ function montar() {
 }
 
 window.addEventListener('hashchange', montar);
+
+// Al vincular otra máquina o encenderla, el servidor invalida su caché y
+// la vista activa se vuelve a montar para pedir los datos de la nueva
+// máquina; la barra superior se conserva.
+document.addEventListener('vmcons:maquina', montar);
+
 montar();

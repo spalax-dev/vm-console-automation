@@ -48,13 +48,19 @@ func (r *relojFalso) Avanzar(d time.Duration) {
 type contador struct {
 	mu       sync.Mutex
 	llamadas int
+	lecturas int
 }
 
 // Manejador responde con un JSON que incluye el número de llamada.
 func (c *contador) Manejador(estado int) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c.mu.Lock()
 		c.llamadas++
+
+		if r.Method == http.MethodGet {
+			c.lecturas++
+		}
+
 		numero := c.llamadas
 		c.mu.Unlock()
 
@@ -65,6 +71,14 @@ func (c *contador) Manejador(estado int) http.Handler {
 			return
 		}
 	})
+}
+
+// Lecturas devuelve cuántas lecturas llegaron al manejador.
+func (c *contador) Lecturas() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.lecturas
 }
 
 // Total devuelve cuántas veces se invocó el manejador.
@@ -247,5 +261,37 @@ func TestCacheAnunciaElAcierto(t *testing.T) {
 
 	if got := segunda.Header().Get(cabeceraCache); got != "HIT" {
 		t.Errorf("%s = %q, want HIT", cabeceraCache, got)
+	}
+}
+
+// TestCambiarDeMaquinaInvalidaLasLecturas reproduce el caso real: al
+// vincular otra máquina se descarta todo lo que se había leído de la
+// anterior.
+func TestCambiarDeMaquinaInvalidaLasLecturas(t *testing.T) {
+	t.Parallel()
+
+	cache, _ := nuevoCache(time.Minute)
+	contador := &contador{}
+	manejador := cache.Envolver(contador.Manejador(http.StatusOK))
+
+	leer := func() {
+		manejador.ServeHTTP(httptest.NewRecorder(),
+			httptest.NewRequestWithContext(context.Background(), http.MethodGet, rutaVMs, http.NoBody))
+	}
+
+	leer()
+	leer()
+
+	if contador.Lecturas() != 1 {
+		t.Fatalf(msgUnaVez, contador.Lecturas())
+	}
+
+	manejador.ServeHTTP(httptest.NewRecorder(),
+		httptest.NewRequestWithContext(context.Background(), http.MethodPut, rutaSesion, http.NoBody))
+
+	leer()
+
+	if contador.Lecturas() != 2 {
+		t.Errorf("lecturas = %d, want 2 tras cambiar de máquina", contador.Lecturas())
 	}
 }

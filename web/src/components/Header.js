@@ -39,7 +39,17 @@ export function Header() {
 
   const actualizar = () => consultarSesion(el);
 
-  el.querySelector('#vm-slot').appendChild(VMSelector({ alVincular: actualizar }));
+  el.querySelector('#vm-slot').appendChild(
+    VMSelector({
+      alVincular: (maquina) => {
+        actualizar();
+
+        // La máquina cambió: la vista activa debe volver a consultar sus
+        // datos, porque el servidor acaba de invalidar su caché.
+        document.dispatchEvent(new CustomEvent('vmcons:maquina', { detail: maquina }));
+      },
+    }),
+  );
   el.querySelector('#btn-refresh').addEventListener('click', actualizar);
 
   actualizar();

@@ -106,6 +106,11 @@ solo de eso, el armazón de la interfaz se monta una sola vez: al navegar solo
 se sustituyen las pestañas y el contenido, y la barra superior —con el
 selector y el estado de la sesión— conserva su estado.
 
+Al vincular otra máquina (o encenderla) se emite el evento `vmcons:maquina`:
+la barra superior vuelve a consultar la sesión y la vista activa se monta de
+nuevo, de modo que los listados que se ven pertenecen siempre a la máquina
+recién elegida y no a la anterior.
+
 ---
 
 ## 3. Estado de las vistas

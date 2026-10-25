@@ -385,7 +385,9 @@ Las reglas que hacen segura la caché:
 
 En el cliente, además, el armazón se monta una sola vez: cambiar de pestaña
 sustituye solo la barra de pestañas y el contenido, sin reconstruir la barra
-superior ni repetir la consulta de sesión.
+superior ni repetir la consulta de sesión. Al vincular otra máquina ---o
+encenderla--- la vista activa se vuelve a montar, de modo que las peticiones
+se repiten contra la máquina nueva y nunca se muestran datos de la anterior.
 
 ---
 
