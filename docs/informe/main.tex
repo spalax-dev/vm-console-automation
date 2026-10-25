@@ -7,6 +7,13 @@
 \addbibresource{ref.bib}
 \usepackage{graphicx}
 \usepackage[nameinlink]{cleveref} % referencias automáticas: \cref{...}
+% cleveref: con IEEEtran babel español no traduce las etiquetas y quedan
+% en inglés («fig. 1», «section»). Se fijan en español y sin artículo
+% porque el texto ya lleva «la»/«de la».
+\crefformat{figure}{Figura~#2#1#3}
+\crefformat{section}{Sección~#2#1#3}
+\crefformat{subsection}{Sección~#2#1#3}
+\crefformat{subsubsection}{Sección~#2#1#3}
 \usepackage{placeins} % \FloatBarrier: los flotantes no pasan de su sección
 
 \usepackage{fontspec}

@@ -18,13 +18,10 @@
 \begin{figure*}[!t]
   \centering
   \includegraphics[width=\textwidth]{images/escenario}
-  \caption{Escenario utilizado para desarrollar y probar la solución:
-  equipo host, software de virtualización, máquinas virtuales con su
-  sistema operativo, interfaces de red y direcciones IP, mecanismos de
-  comunicación, disco de almacenamiento y flujo general de la
-  automatización. El enlace A/B es el mecanismo de comunicación con la
-  VM: A corresponde a las Guest Additions (solo antes de instalar SSH)
-  y B al acceso por SSH con llaves (después, de forma exclusiva).}
+  \caption{Escenario de pruebas: equipo host con la consola y la
+  virtualización, máquinas virtuales Debian 13 con sus interfaces de red
+  y direcciones por DHCP, y disco de almacenamiento; el enlace
+  discontinuo indica la gestión de las VM por parte de la consola.}
   \label{fig:escenario}
 \end{figure*}
 
@@ -34,10 +31,8 @@
 \begin{figure*}[!t]
   \centering
   \includegraphics[width=0.95\textwidth]{images/flujo-procesos}
-  \caption{Flujo de proceso de una operación solicitada desde la interfaz,
-  con los responsables de cada etapa: interfaz, validación en el servidor,
-  selección de sesión, ejecución no interactiva y notificación del
-  resultado o del error técnico.}
+  \caption{Flujo de proceso de una operación solicitada desde la
+  interfaz, con el responsable de cada etapa.}
   \label{fig:flujo-proceso}
 \end{figure*}
 
@@ -52,38 +47,48 @@ la consola se compila como un binario único sin dependencias en tiempo de
 ejecución. La consola publica la interfaz web en el puerto \texttt{8080}
 y es accedida desde un navegador instalado en el mismo equipo.
 
-La red física funciona en modo puente (bridge) sobre la subred
-\texttt{192.168.1.0/24}, con un servidor DHCP/DNS en \texttt{192.168.1.1}.
-La tarjeta de red del anfitrión recibe \texttt{192.168.1.5} y las
-máquinas virtuales reciben direcciones de la misma subred en su
-interfaz \texttt{enp0s3}: \texttt{192.168.1.10} a \texttt{192.168.1.13}.
-Al estar en modo puente, las VM quedan visibles en la red local con una
-dirección propia, lo que permite probar servicios de red reales como SSH
-o HAProxy sin reglas de reenvío de puertos.
+La red física funciona en modo puente (bridge) sobre una subred local
+con servidor DHCP/DNS. Ni el anfitrión ni las máquinas virtuales
+tienen una dirección fija: la tarjeta de red del anfitrión y la
+interfaz \texttt{enp0s3} de cada VM reciben la suya en cada arranque,
+por eso el diagrama indica «IP por DHCP» en lugar de valores
+concretos. Es la consola quien descubre en tiempo de ejecución la
+dirección de la VM con la que necesita trabajar, como se explica en la
+\cref{sec:mecanismo-com}. Al estar en modo puente, las VM quedan
+visibles en la red local con una dirección propia, lo que permite
+probar servicios de red reales como SSH o HAProxy sin reglas de
+reenvío de puertos.
 
 Todas las máquinas virtuales ejecutan GNU/Linux Debian~13.7.0. El
 balanceador ocupa un nodo propio en la \cref{fig:escenario} porque es la
-máquina del módulo de HAProxy: recibe las peticiones en
-\texttt{192.168.1.11} y las reenvía, a través de la misma red, a los
-servidores del back-end. Las restantes se resumen en un único contenedor
-etiquetado como «o cualesquiera»: la VM~1 es la máquina de pruebas sobre
-la que se ejecutan los módulos de preparación del sistema, gestión de
-usuarios y servicios con systemd, y la VM~3 y la VM~4 son los servidores
-del back-end; la consola abre sesión con la máquina que corresponda en
-cada operación, de modo que el conjunto de VM cambia según las pruebas.
-Estas últimas se crean a partir de un \emph{disco virtual VDI
-de multiconexión} (multiattach) con carga diferencial guardado en el
-anfitrión, de modo que cada back-end arranca desde la misma imagen base
-sin duplicar el disco y puede añadirse o eliminarse una máquina más
-utilizando el mismo archivo.
+máquina del módulo de HAProxy: recibe las peticiones en su interfaz
+\texttt{enp0s3} y las reenvía, a través de la misma red, a los
+servidores del back-end; la consola se conecta también con esta misma
+VM para agregar o eliminar dichos servidores, como describe la
+\cref{sec:haproxy}. Las restantes se resumen en un único contenedor
+del diagrama, sin fijar su número: la VM~1 es la máquina de pruebas
+sobre la que se ejecutan los módulos de preparación del sistema,
+gestión de usuarios y servicios con systemd, y la VM~3 y la VM~4 son
+los servidores del back-end; la consola abre sesión con la máquina que
+corresponda en cada operación, de modo que puede tratarse de
+cualesquiera otras.
+El \emph{disco virtual VDI de multiconexión} (multiattach) que
+aparece dentro del equipo host es el \emph{almacenamiento} del
+escenario: guarda la imagen base sobre la que se preparan, con
+VirtualBox y \emph{fuera de la consola}, las back-end que se usan en
+las pruebas de balanceo. Como cada disco derivado carga sobre la misma
+imagen base, basta con duplicar el archivo para añadir otra máquina.
+La consola no crea ni registra máquinas virtuales: solo administra las
+que ya existen.
 
-\subsubsection{Mecanismo de Comunicación}
+\subsubsection{Mecanismos de Comunicación}
 \label{sec:mecanismo-com}
 
-La consola se comunica con la máquina virtual mediante dos mecanismos,
-marcados como \textbf{A} y \textbf{B} en la \cref{fig:escenario}.
+La consola se comunica con la máquina virtual mediante dos mecanismos
+distintos, recorridos por el enlace discontinuo de gestión de la
+\cref{fig:escenario}.
 
-El \textbf{mecanismo A} se basa en las Guest Additions
+El \textbf{primer mecanismo} se basa en las Guest Additions
 \parencite{guestadditions} y se usa \emph{únicamente antes} de instalar
 SSH. La consola obtiene la dirección IP de la VM con
 \texttt{VBoxManage guestproperty get} sobre la propiedad
@@ -94,11 +99,11 @@ el acceso por contraseña. Las órdenes se ejecutan con
 \texttt{VBoxManage guestcontrol run} y los archivos se transfieren con
 \texttt{guestcontrol copyto}.
 
-El \textbf{mecanismo B} es el acceso por SSH con llaves de autenticación
+El \textbf{segundo mecanismo} es el acceso por SSH con llaves de autenticación
 \parencite{rfc4252}, mediante el cliente OpenSSH del anfitrión
 (\texttt{ssh} y \texttt{scp}). Una vez instalado SSH, \emph{toda} la
 comunicación posterior entre la consola y la máquina se realiza por este
-canal, tal como exige el enunciado: el mecanismo A deja de utilizarse y
+canal, tal como exige el enunciado: el primer mecanismo deja de utilizarse y
 la consola trabaja de forma exclusiva sobre SSH, con la llave privada
 resguardada en el equipo anfitrión.
 
@@ -111,9 +116,11 @@ y selecciona la sesión adecuada, es decir, decide si aún necesita Guest
 Additions o si ya puede trabajar por SSH; (3) ejecuta la orden de forma
 no interactiva sobre la máquina virtual; (4) la máquina devuelve la
 salida y la consola notifica el resultado, o bien presenta un mensaje de
-error comprensible junto con la información técnica de diagnóstico; y (5)
-el disco multiconexión permite ampliar el escenario creando nuevas
-back-end para las pruebas de balanceo de carga.
+error comprensible junto con la información técnica de diagnóstico.
+El bucle 1~$\rightarrow$~4 de la \cref{fig:escenario} resume ese
+camino: el navegador envía el formulario y recibe el resultado, mientras
+que la validación, la selección de la sesión y la ejecución ocurren
+entre la consola y la máquina virtual.
 
 % ------------------------------------------------------------
 % 3.2 Arquitectura de la solución
@@ -146,8 +153,10 @@ respuestas son documentos JSON con un campo \texttt{ok}, un
 \subsubsection{Estructura del Proyecto}
 \label{sec:estructura-proyecto}
 
-El proyecto se organiza en capas para que el núcleo de la aplicación no
-dependa de VirtualBox, de las Guest Additions ni de OpenSSH:
+El proyecto se organiza en capas siguiendo el patrón de puertos y
+adaptadores \parencite{cockburn}, de modo que el núcleo de la
+aplicación no dependa de VirtualBox, de las Guest Additions ni de
+OpenSSH:
 
 \begin{itemize}
   \item \texttt{main.go}: único punto de composición. Aquí se

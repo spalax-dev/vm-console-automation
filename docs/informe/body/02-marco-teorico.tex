@@ -7,120 +7,155 @@
 \subsection{Máquinas virtuales y virtualización}
 \label{sec:mt-virtualizacion}
 
-La virtualización permite ejecutar múltiples sistemas operativos aislados
-sobre un mismo hardware físico mediante un hipervisor, que intermedia el
-acceso a los recursos de la máquina. En este trabajo se utiliza Oracle VM
-VirtualBox, un hipervisor de tipo 2 (alojado sobre un sistema operativo
-anfitrión) multiplataforma, disponible para GNU/Linux y Windows
+La virtualización permite ejecutar varios sistemas operativos aislados
+sobre un mismo equipo físico. Un hipervisor intermedia el acceso a la
+CPU, a la memoria y a las interfaces de red de modo que cada sistema
+operativo invitado cree estar frente a una máquina propia. En este
+trabajo se utiliza Oracle VM VirtualBox, un hipervisor de tipo 2, es
+decir, alojado sobre el sistema operativo anfitrión ya instalado en el
+equipo, y multiplataforma, con soporte para GNU/Linux y Windows
 \parencite{virtualbox}.
 
 VirtualBox se administra tanto desde su interfaz gráfica como desde la
 utilidad de línea de comandos \texttt{VBoxManage}, incluida en toda
-instalación y disponible de forma idéntica en todos los sistemas
-operativos soportados \parencite{virtualbox}. Esta característica es
-relevante para la consola: cualquier operación que la aplicación deba
-realizar sobre la máquina virtual (consultar su estado, obtener su
-dirección IP, ejecutar un programa dentro de ella) puede expresarse como
-llamadas a \texttt{VBoxManage}, lo que la convierte en la base de la
-comunicación inicial con la máquina virtual.
+instalación y con el mismo comportamiento en todos los sistemas
+operativos soportados \parencite{virtualbox}. Esta última característica
+es la que aprovecha la consola: cualquier operación que la aplicación
+deba realizar sobre una máquina virtual —consultar su estado, obtener su
+dirección de red, arrancarla o apagarla— puede expresarse como una
+llamada a \texttt{VBoxManage}, sin depender de la ventana gráfica ni de
+ninguna herramienta adicional.
 
 Las Guest Additions son controladores y servicios que se instalan dentro
-de la máquina virtual y mejoran la integración con el anfitrión:
-redimensionado de pantalla, portapapeles compartido, directorios
-compartidos y, en particular, la publicación de propiedades del sistema
-invitado \parencite{guestadditions}. Entre estas propiedades se encuentra
-la dirección IP de la máquina, publicada como una propiedad consultable
-desde el anfitrión con el nombre
-\texttt{/VirtualBox/GuestInfo/Net/0/V4/IP}. Este mecanismo resuelve un
-problema práctico del proyecto: antes de que exista cualquier servicio de
-red configurado dentro de la máquina (como SSH), la consola necesita
-conocer su dirección para poder establecer la primera conexión.
+de la máquina virtual y mejoran su integración con el anfitrión. Entre
+otras funciones, publican propiedades del sistema invitado, como la
+dirección IP de la interfaz de red, que el anfitrión puede leer con
+\texttt{VBoxManage guestproperty get} a través de la propiedad
+\texttt{/VirtualBox/GuestInfo/Net/0/V4/IP} \parencite{guestadditions}.
+Este mecanismo resuelve un problema práctico: la consola necesita una
+dirección para conectar por SSH, pero mientras SSH no esté instalado y
+activo no existe ningún canal de comunicación con la máquina. Las Guest
+Additions cubren esa primera conexión y, una vez instalado SSH, dan paso
+al canal con el que se trabaja el resto del tiempo.
 
-\subsection{Sistema operativo GNU/Linux Debian}
-% TODO: distribución Debian 13, estructura básica, gestión de archivos
-% de configuración relevantes (/etc/issue, /etc/hosts).
+\subsection{Distribución Debian y gestión de paquetes con APT}
+\label{sec:mt-debian-apt}
 
-\subsection{Gestión de paquetes con APT}
-% TODO: funcionamiento de apt install / apt remove, repositorios.
+Todas las máquinas virtuales del escenario ejecutan GNU/Linux
+Debian~13.7.0, de la rama estable \emph{trixie} \parencite{debian},
+distribución conocida por su estabilidad y por su gestor de paquetes.
+Debian sigue la jerarquía estándar de directorios de GNU/Linux: la
+configuración vive en \texttt{/etc}, los programas en \texttt{/usr/bin}
+y \texttt{/usr/sbin} y los datos variables en \texttt{/var}. Varios de
+esos archivos son el destino directo de los módulos de la consola:
+\texttt{/etc/issue} guarda el mensaje que se muestra antes del inicio de
+sesión y admite comandos que expanden el nombre del host, la fecha, la
+hora o la dirección IP; \texttt{/etc/hostname} y \texttt{/etc/hosts}
+guardan el nombre de la máquina y su resolución local de nombres; y
+\texttt{/etc/ssh/sshd\_config} junto con el directorio
+\texttt{\textasciitilde/.ssh/} concentran la configuración y las llaves
+del servicio SSH.
+
+APT (\emph{Advanced Package Tool}) es la herramienta de nivel superior
+con la que Debian instala, actualiza y elimina paquetes \texttt{.deb}
+\parencite{apt}. Los paquetes se descargan de los repositorios
+declarados en \texttt{/etc/apt/sources.list} y en los archivos de
+\texttt{/etc/apt/sources.list.d/}; \texttt{apt update} sincroniza el
+índice local con el repositorio, \texttt{apt upgrade} actualiza los
+paquetes instalados, \texttt{apt install} instala uno o varios paquetes
+resolviendo sus dependencias y \texttt{apt remove} los desinstala
+(\texttt{apt purge} elimina además sus archivos de configuración).
+
+Un detalle relevante para este proyecto es que APT, en su uso normal,
+consulta al usuario antes de instalar o desinstalar. Como el enunciado
+exige que la consola opere de forma no interactiva, la herramienta debe
+invocarse con la opción \texttt{-y} o con la variable
+\texttt{DEBIAN\_FRONTEND} establecida a \texttt{noninteractive}; de ese
+modo confirma las acciones por sí misma y devuelve en la salida
+estándar y en su código de salida el resultado que la aplicación traduce
+en el mensaje que ve el usuario. Estas órdenes sostienen la precondición
+(a), una máquina actualizada con \texttt{apt update \&\& apt upgrade}, y
+el módulo de instalación y eliminación de aplicaciones.
 
 \subsection{Protocolo y servicio SSH}
 \label{sec:mt-ssh}
 
-El protocolo Secure Shell (SSH) proporciona canales seguros sobre redes no
+SSH (\emph{Secure Shell}) proporciona canales seguros sobre redes no
 confiables, con autenticación cifrada, confidencialidad e integridad de
-las comunicaciones \parencite{rfc4252}. En servidores GNU/Linux el
-servidor de referencia es OpenSSH, que implementa el servicio
-\texttt{sshd} y el cliente homónimo.
+las comunicaciones \parencite{rfc4252}. En sistemas GNU/Linux su
+implementación de referencia es OpenSSH, que ofrece el demonio
+\texttt{sshd}, encargado de atender las conexiones, y el cliente
+homónimo, encargado de abrir sesiones y ejecutar órdenes en la máquina
+remota. Instalar y habilitar \texttt{sshd} en cada máquina virtual es
+lo que permite que la consola se conecte a ellas por red.
 
-SSH admite autenticación por contraseña y por par de llaves
-criptográficas asimétricas. En el esquema por llaves, el cliente posee
-una llave privada y el servidor guarda la llave pública correspondiente en
-el archivo \texttt{\textasciitilde/.ssh/authorized\_keys} de cada usuario;
-el servidor verifica la firma del cliente sin transmitir secretos, y es
-posible deshabilitar por completo el acceso por contraseña
-\parencite{rfc4252}. Este es el mecanismo que la consola configura en la
-máquina virtual: una vez instalado y habilitado SSH, toda la comunicación
-posterior entre la consola y la máquina se realiza por este canal,
-reemplazando la comunicación inicial basada en Guest Additions.
+Además de la autenticación por contraseña, SSH admite la de par de
+llaves asimétricas: el cliente conserva la llave privada, el servidor
+guarda la pública en \texttt{\textasciitilde/.ssh/authorized\_keys} y
+comprueba la firma sin que viaje ningún secreto por la red. La contraseña
+puede deshabilitarse por completo \parencite{rfc4252}, de modo que el
+acceso queda protegido únicamente por la posesión de la llave. Éste es
+el mecanismo que la consola configura cuando genera las llaves de root y
+las instala en la máquina virtual.
 
-Además de la ejecución interactiva de comandos, el cliente OpenSSH
-permite ejecutar una orden remota de forma no interactiva (\texttt{ssh
-usuario@host orden}) y transferir archivos mediante \texttt{scp}, lo que
-lo convierte en una interfaz de programación completa para automatizar
-administración de sistemas \parencite{donovan}.
+El cliente SSH también sirve como interfaz de automatización: ejecuta
+órdenes de forma no interactiva con la sintaxis
+\texttt{ssh usuario@host orden} y devuelve el código de salida del
+programa remoto, y transfiere archivos con \texttt{scp}. Gracias a ello
+la aplicación puede administrar cualquier máquina sin intervención de un
+operador, y todo lo que hace dentro de la máquina —ya sea instalando un
+paquete, escribiendo un archivo de configuración o reiniciando un
+servicio— pasa por este mismo canal.
 
 \subsection{Gestión de servicios con systemd}
-% TODO: unidades de systemd, ciclo de vida (start, stop, restart,
-% status), habilitar/deshabilitar al arranque, archivos .service.
+\label{sec:mt-systemd}
+
+systemd es el gestor de inicio y de servicios de Debian: arranca los
+componentes del sistema de forma concurrente y describe cada proceso
+demonio como una \emph{unidad} definida en un archivo de configuración
+\parencite{systemd}. Para una aplicación que se sirve por red, la unidad
+interesante es la de tipo \texttt{.service}, estructurada en las
+secciones \texttt{[Unit]} (descripción, dependencias y condiciones de
+arranque), \texttt{[Service]} (tipo de proceso, \texttt{ExecStart},
+\texttt{ExecStop}, usuario bajo el que se ejecuta y permisos) e
+\texttt{[Install]} (enlaces que hacen que la unidad se active con el
+sistema).
+
+El ciclo de vida de una unidad se controla con los verbos
+\texttt{start}, \texttt{stop}, \texttt{restart} y \texttt{status}, y
+\texttt{enable} y \texttt{disable} deciden si la unidad arranca con el
+equipo. Tras editar el archivo de una unidad es obligatorio ejecutar
+\texttt{systemctl daemon-reload} para que systemd lo vuelva a leer. El
+resultado de \texttt{status} y los mensajes que escribe la aplicación
+quedan en el diario del sistema, consultables con \texttt{journalctl}
+\parencite{systemd}, y son la fuente de diagnóstico que la consola
+devuelve junto con el resultado de cada operación. Éste es exactamente
+el vocabulario que expone el módulo de gestión de demonios, que además
+transfiere a la máquina los archivos de la aplicación y ajusta sus
+permisos para que la unidad pueda ejecutarla.
 
 \subsection{Balanceo de carga con HAProxy}
-% TODO: concepto de balanceo de carga, front-end y back-end,
-% algoritmos de distribución, configuración básica de HAProxy.
+\label{sec:mt-haproxy}
 
-\subsection{Lenguaje de programación Go y aplicaciones web}
-\label{sec:mt-go}
+El balanceo de carga reparte las peticiones que llegan a un único punto
+de entrada entre varios servidores idénticos —los \emph{back-end}— para
+que el servicio no dependa de una sola máquina y pueda atender más
+tráfico del que soporta una instancia aislada \parencite{haproxy}. El
+punto de entrada que escucha en nombre de todos es el \emph{front-end};
+entre este y los servidores se decide cómo se reparten las conexiones,
+con algoritmos como \texttt{roundrobin}, que las distribuye de forma
+cíclica, \texttt{leastconn}, que las envía al servidor con menos
+conexiones abiertas, o \texttt{source}, que usa la dirección de origen
+de la petición.
 
-Go es un lenguaje compilado, de tipado estático y concurrencia ligera,
-diseñado para producir binarios simples y multiplataforma
-\parencite{donovan}. Compilar el mismo código para GNU/Linux y Windows
-sin dependencias en tiempo de ejecución encaja con el objetivo de esta
-consola, ya que la aplicación debe poder ejecutarse en el equipo
-anfitrión independientemente de su sistema operativo.
-
-La interfaz web se sirve con el paquete estándar \texttt{net/http} y
-sigue una arquitectura cliente-servidor: el navegador presenta los
-módulos de administración y envía formularios; el servidor en Go valida
-las entradas, ejecuta las operaciones sobre la máquina virtual y devuelve
-el resultado.
-
-Para ejecutar operaciones externas, Go ofrece el paquete \texttt{os/exec},
-que crea y controla procesos del sistema operativo capturando su salida,
-su error y su código de salida \parencite{donovan}. Este es el primitivo
-sobre el que se construye la biblioteca de conectores: la consola no
-invoca \texttt{vboxmanage} ni \texttt{ssh} directamente desde su lógica,
-sino a través de procesos externos lanzados de forma controlada, lo que
-permite usar los mismos binarios en Windows y en GNU/Linux.
-
-\subsection{Arquitectura de puertos y adaptadores}
-\label{sec:mt-puertos-adaptadores}
-
-Para mantener el núcleo de la aplicación independiente de la
-infraestructura concreta se aplica el patrón de arquitectura de puertos
-y adaptadores (también llamado arquitectura hexagonal)
-\parencite{cockburn}. En este patrón, el núcleo define \emph{puertos}:
-interfaces que expresan lo que la aplicación necesita del exterior
-(ejecutar un programa, abrir una sesión con la máquina, conocer su
-dirección). Los \emph{adaptadores} son implementaciones concretas de esos
-puertos, que traducen el lenguaje de una tecnología específica al
-lenguaje del dominio.
-
-En este proyecto los puertos son \texttt{Executor} (ejecutar un proceso
-en el anfitrión), \texttt{Machine} (obtener dirección y estado de la
-máquina virtual), \texttt{Connector} (establecer sesiones) y
-\texttt{Session} (ejecutar órdenes y transferir archivos dentro de la
-máquina). Los adaptadores implementados son \texttt{localproc} (procesos
-del sistema operativo), \texttt{vbox} (VirtualBox mediante
-\texttt{vboxmanage} y Guest Additions) y \texttt{ssh} (cliente OpenSSH).
-De este modo, el núcleo no sabe que se usa Guest Additions ni VirtualBox:
-solo conoce interfaces, y cambiar una tecnología por otra (u otra
-distinta) no afecta a la lógica de la consola.
+HAProxy es un proxy de alto rendimiento que trabaja sobre TCP y sobre
+HTTP y se configura en un único archivo,
+\texttt{/etc/haproxy/haproxy.cfg}, dividido en las secciones
+\texttt{global}, \texttt{defaults}, \texttt{frontend} y \texttt{backend}
+\parencite{haproxy}. Dentro de un bloque \texttt{backend}, cada
+servidor del balanceador se declara con una línea de la forma
+\texttt{server <nombre> <dirección>:<puerto>}; agregar o eliminar un
+servidor del back-end se reduce, por tanto, a añadir o borrar esa línea
+y recargar la configuración. Es la operación que automatiza el cuarto
+módulo de la consola sobre la máquina balanceadora descrita en la
+precondición (b).
