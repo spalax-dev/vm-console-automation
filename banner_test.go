@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -80,21 +79,5 @@ func TestInterfazWebRechazaUnDirectorioSinIndex(t *testing.T) {
 
 	if _, err := interfazWeb(); err == nil {
 		t.Fatal("interfazWeb() error = nil, want error")
-	}
-}
-
-// TestOrigenInterfazDistingueDiscoYEmbebida comprueba el texto que se
-// muestra en el arranque.
-func TestOrigenInterfazDistingueDiscoYEmbebida(t *testing.T) {
-	t.Setenv(envWeb, "")
-
-	if origen := origenInterfaz(); !strings.Contains(origen, "embebida") {
-		t.Errorf("origenInterfaz() = %q, want que mencione la copia embebida", origen)
-	}
-
-	t.Setenv(envWeb, directorioWeb)
-
-	if origen := origenInterfaz(); origen != directorioWeb {
-		t.Errorf("origenInterfaz() = %q, want %q", origen, directorioWeb)
 	}
 }

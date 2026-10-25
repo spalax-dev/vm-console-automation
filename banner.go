@@ -38,16 +38,11 @@ const (
 // direccion es la dirección de escucha del servidor HTTP; origen, el
 // texto que describe de dónde se sirve la interfaz; maquina, el nombre o
 // UUID configurado, que puede estar vacío.
-func imprimirBanner(direccion, origen, maquina string) error {
+func imprimirBanner(direccion string) error {
 	rojo, tenue, fin := "", "", ""
 
 	if colorHabilitado() {
 		rojo, tenue, fin = colorRojo, colorTenue, colorFin
-	}
-
-	vinculada := maquina
-	if strings.TrimSpace(vinculada) == "" {
-		vinculada = "sin vincular (elígela en el selector)"
 	}
 
 	lineas := []string{
@@ -56,8 +51,6 @@ func imprimirBanner(direccion, origen, maquina string) error {
 		fmt.Sprintf("  %sconsola de automatización de máquinas virtuales%s", tenue, fin),
 		"",
 		fmt.Sprintf("  %sescuchando en%s  %s", tenue, fin, urlConsola(direccion)),
-		fmt.Sprintf("  %sinterfaz%s       %s", tenue, fin, origen),
-		fmt.Sprintf("  %smáquina%s        %s", tenue, fin, vinculada),
 		"",
 	}
 
@@ -119,15 +112,6 @@ func interfazEnDisco(dir string) (fs.FS, error) {
 	}
 
 	return os.DirFS(dir), nil
-}
-
-// origenInterfaz describe, para el banner, de dónde se sirve la interfaz.
-func origenInterfaz() string {
-	if dir := os.Getenv(envWeb); dir != "" {
-		return dir
-	}
-
-	return "embebida en el binario"
 }
 
 // colorHabilitado informa si la salida estándar es una terminal y el
