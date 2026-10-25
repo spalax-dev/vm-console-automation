@@ -76,6 +76,15 @@ los logs ni en el cuerpo JSON; si todavía no existe, la respuesta es
 \texttt{404}. La interfaz muestra un aviso para resguardarla y no
 compartirla.
 
+Guest Additions exige un usuario y una contraseña de la máquina invitada
+para ejecutar órdenes. La consola los solicita en la tarjeta de sesión y
+los guarda por máquina en \texttt{credenciales.json}, con permisos
+\texttt{0600}. \texttt{POST /api/session/login} comprueba las credenciales
+ejecutando \texttt{id -u} por Guest Additions y, si la comprobación falla,
+restaura las anteriores; \texttt{DELETE} las olvida. El conector
+\texttt{vbox} consulta ese almacén por el nombre de la máquina, de modo
+que cada VM puede tener su propio usuario.
+
 \subsubsection{Personalización de la Entrada del Sistema}
 \label{sec:issue}
 

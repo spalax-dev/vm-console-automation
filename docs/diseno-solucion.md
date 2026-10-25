@@ -244,7 +244,27 @@ El listado devuelve `activo`, `habilitado`, `estado` (`active`, `inactive`,
 `exited`, etc.) para diagnóstico. Los archivos y el propietario se validan en
 el *handler* antes de llegar a la máquina.
 
-### 2.8 Servidores del back-end de HAProxy
+### 2.8 Credenciales por máquina
+
+Guest Additions exige un usuario y una contraseña de la máquina invitada
+para ejecutar órdenes; SSH también los necesita antes de instalar la llave.
+La consola los solicita en la tarjeta de sesión cuando no hay acceso y los
+guarda **por máquina**:
+
+- archivo `credenciales.json` en el directorio de configuración, con
+  permisos `0600`;
+- `POST /api/session/login` guarda y verifica las credenciales ejecutando
+  `id -u` por Guest Additions; si falla, restaura las anteriores;
+- `DELETE /api/session/login` las olvida;
+- el conector `vbox` consulta el almacén por el nombre de la VM, de modo
+  que cada máquina puede tener su propio usuario.
+
+La interfaz muestra el formulario cuando `GET /api/session` falla por falta
+de credenciales o de sesión. La contraseña se conserva porque las órdenes
+se ejecutan de forma no interactiva; el archivo queda fuera del repositorio
+y se documenta como un dato sensible del anfitrión.
+
+### 2.9 Servidores del back-end de HAProxy
 
 El recurso `/api/haproxy/backend/servers` administra los servidores que
 HAProxy usa como back-end:

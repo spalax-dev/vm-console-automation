@@ -10,6 +10,9 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
 
 ## Index
 
+- [type Acceso](<#Acceso>)
+  - [func NuevoAcceso\(servicio ServicioAcceso\) \*Acceso](<#NuevoAcceso>)
+  - [func \(h \*Acceso\) ServeHTTP\(w http.ResponseWriter, r \*http.Request\)](<#Acceso.ServeHTTP>)
 - [type DescubridorSesion](<#DescubridorSesion>)
 - [type Haproxy](<#Haproxy>)
   - [func NuevoHaproxy\(servicio ServicioHaproxy\) \*Haproxy](<#NuevoHaproxy>)
@@ -21,6 +24,7 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
   - [func \(h \*Maquinas\) ServeHTTP\(w http.ResponseWriter, r \*http.Request\)](<#Maquinas.ServeHTTP>)
 - [type OpcionSesion](<#OpcionSesion>)
   - [func ConVinculador\(vinculador VinculadorSesion\) OpcionSesion](<#ConVinculador>)
+- [type ServicioAcceso](<#ServicioAcceso>)
 - [type ServicioHaproxy](<#ServicioHaproxy>)
 - [type ServicioHostname](<#ServicioHostname>)
 - [type ServicioIssue](<#ServicioIssue>)
@@ -51,6 +55,35 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
   - [func \(h \*Usuarios\) Usuario\(w http.ResponseWriter, r \*http.Request\)](<#Usuarios.Usuario>)
 - [type VinculadorSesion](<#VinculadorSesion>)
 
+
+<a name="Acceso"></a>
+## type Acceso
+
+Acceso expone POST y DELETE /api/session/login: guarda o elimina las credenciales de Guest Additions de la máquina vinculada.
+
+```go
+type Acceso struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="NuevoAcceso"></a>
+### func NuevoAcceso
+
+```go
+func NuevoAcceso(servicio ServicioAcceso) *Acceso
+```
+
+NuevoAcceso construye el handler de credenciales.
+
+<a name="Acceso.ServeHTTP"></a>
+### func \(\*Acceso\) ServeHTTP
+
+```go
+func (h *Acceso) ServeHTTP(w http.ResponseWriter, r *http.Request)
+```
+
+ServeHTTP implementa http.Handler.
 
 <a name="DescubridorSesion"></a>
 ## type DescubridorSesion
@@ -156,6 +189,20 @@ func ConVinculador(vinculador VinculadorSesion) OpcionSesion
 ```
 
 ConVinculador habilita PUT /api/session con el servicio dado.
+
+<a name="ServicioAcceso"></a>
+## type ServicioAcceso
+
+ServicioAcceso valida y guarda las credenciales de la máquina activa.
+
+```go
+type ServicioAcceso interface {
+    // Iniciar guarda y verifica las credenciales.
+    Iniciar(ctx context.Context, usuario, password string, puerto uint16) (services.Resultado, error)
+    // Olvidar elimina las credenciales guardadas.
+    Olvidar() error
+}
+```
 
 <a name="ServicioHaproxy"></a>
 ## type ServicioHaproxy

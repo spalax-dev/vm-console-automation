@@ -20,8 +20,10 @@ Package vbox adapta Oracle VM VirtualBox a los puertos Machine y Connector de la
   - [func \(c \*Client\) Probe\(ctx context.Context, target domain.Target\) error](<#Client.Probe>)
   - [func \(c \*Client\) Start\(ctx context.Context, target domain.Target\) error](<#Client.Start>)
   - [func \(c \*Client\) State\(ctx context.Context, target domain.Target\) \(domain.MachineState, error\)](<#Client.State>)
+- [type Credenciales](<#Credenciales>)
 - [type Option](<#Option>)
   - [func WithBinary\(bin string\) Option](<#WithBinary>)
+  - [func WithCredenciales\(credenciales Credenciales\) Option](<#WithCredenciales>)
   - [func WithGuestCredentials\(user, password string\) Option](<#WithGuestCredentials>)
 - [type Session](<#Session>)
   - [func \(s \*Session\) Close\(\) error](<#Session.Close>)
@@ -121,6 +123,17 @@ func (c *Client) State(ctx context.Context, target domain.Target) (domain.Machin
 
 State implements ports.Machine: consulta el estado de encendido de la máquina con salida legible por máquina.
 
+<a name="Credenciales"></a>
+## type Credenciales
+
+Credenciales resuelve el usuario y la contraseña de Guest Additions para una máquina concreta.
+
+```go
+type Credenciales interface {
+    Guest(vm string) (usuario, password string, ok bool)
+}
+```
+
 <a name="Option"></a>
 ## type Option
 
@@ -138,6 +151,15 @@ func WithBinary(bin string) Option
 ```
 
 WithBinary establece la ruta o nombre del programa VBoxManage.
+
+<a name="WithCredenciales"></a>
+### func WithCredenciales
+
+```go
+func WithCredenciales(credenciales Credenciales) Option
+```
+
+WithCredenciales establece el almacén que resuelve las credenciales por máquina; tiene prioridad sobre las credenciales por omisión.
 
 <a name="WithGuestCredentials"></a>
 ### func WithGuestCredentials

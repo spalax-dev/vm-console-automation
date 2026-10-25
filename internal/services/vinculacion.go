@@ -118,15 +118,11 @@ func (v *Vinculacion) Listar(ctx context.Context, filtro string) ([]MaquinaVirtu
 // se listan para poder encenderlas y las encendidas deben publicar Guest
 // Additions, único canal para instalar SSH.
 func (v *Vinculacion) administrable(ctx context.Context, maquina domain.VM) bool {
-	if maquina.State != domain.StateRunning || v.maquina == nil {
+	if v.maquina == nil {
 		return true
 	}
 
 	objetivo := domain.Target{ID: maquina.Name}
-
-	if _, err := v.maquina.Address(ctx, objetivo); err != nil {
-		return false
-	}
 
 	modo, err := v.maquina.Network(ctx, objetivo)
 	if err != nil {
@@ -136,9 +132,18 @@ func (v *Vinculacion) administrable(ctx context.Context, maquina domain.VM) bool
 	switch modo {
 	case domain.NetworkNAT, domain.NetworkInternal, domain.NetworkNone:
 		return false
+	case domain.NetworkBridged, domain.NetworkHostOnly:
 	default:
+		return false
+	}
+
+	if maquina.State != domain.StateRunning {
 		return true
 	}
+
+	_, err = v.maquina.Address(ctx, objetivo)
+
+	return err == nil
 }
 
 // Vincular establece la máquina que administra la consola. Acepta el

@@ -173,6 +173,61 @@ paths:
         '500':
           $ref: '#/components/responses/ErrorInterno'
 
+  /api/session/login:
+    post:
+      tags: [session]
+      summary: Guardar y verificar las credenciales de Guest Additions
+      description: |
+        Guarda el usuario y la contraseña de la máquina vinculada y
+        comprueba con Guest Additions que permitan ejecutar una orden
+        (`id -u`). Si la comprobación falla, restaura las credenciales
+        anteriores. La contraseña se guarda en un archivo privado
+        (`credenciales.json`, permisos 0600) para que las operaciones
+        no interactivas puedan usarla.
+      operationId: iniciarSesion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudAcceso'
+      responses:
+        '200':
+          $ref: '#/components/responses/OperacionCorrecta'
+        '400':
+          $ref: '#/components/responses/EntradaInvalida'
+        '401':
+          description: Las credenciales no permiten ejecutar órdenes en la máquina.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoOperacion'
+        '409':
+          description: La consola no tiene una máquina vinculada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoOperacion'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [session]
+      summary: Olvidar las credenciales de la máquina vinculada
+      operationId: olvidarSesion
+      responses:
+        '204':
+          description: Credenciales eliminadas.
+        '409':
+          description: La consola no tiene una máquina vinculada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoOperacion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
   /api/packages:
     get:
       tags: [packages]
@@ -981,6 +1036,20 @@ components:
       pattern: '^/[^\x00]*$'
       description: Ruta absoluta, sin `..` ni comodines de shell.
       examples: [/opt/catalogo/app]
+
+    SolicitudAcceso:
+      type: object
+      required: [usuario]
+      additionalProperties: false
+      properties:
+        usuario:
+          $ref: '#/components/schemas/NombreUsuario'
+        password:
+          type: string
+          writeOnly: true
+          description: Contraseña del usuario; puede ser vacía.
+        puerto:
+          $ref: '#/components/schemas/Puerto'
 
     SolicitudPaquete:
       type: object

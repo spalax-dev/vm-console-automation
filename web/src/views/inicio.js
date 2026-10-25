@@ -117,8 +117,41 @@ async function cargarSesion(el) {
           <div class="text-[11px] text-vm-fgSecondary mt-0.5">${escapar(mensajeDeError(error))}</div>
         </div>
       </div>
+      <form id="login-vm" class="mt-1 pt-2 border-t border-vm-border flex flex-col gap-1.5">
+        <div class="text-[11px] text-vm-fgSecondary">Credenciales de Guest Additions (se guardan en el anfitrión)</div>
+        <div class="grid grid-cols-[1fr_1fr_56px] gap-1.5">
+          <input name="usuario" value="root" class="input font-mono" placeholder="usuario" autocomplete="username" required>
+          <input name="password" type="password" class="input" placeholder="contraseña" autocomplete="current-password">
+          <input name="puerto" type="number" min="1" max="65535" value="22" class="input font-mono" title="Puerto SSH">
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="submit" class="btn btn-primary"><i data-lucide="key-round"></i> Iniciar sesión</button>
+          <span id="login-error" class="text-[11px] text-vm-accent"></span>
+        </div>
+      </form>
     `;
     renderIcons(cuerpo);
+    cuerpo.querySelector('#login-vm')?.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      const datos = new FormData(evento.target);
+      const errorEl = cuerpo.querySelector('#login-error');
+      const botonLogin = evento.target.querySelector('button[type=submit]');
+      botonLogin.disabled = true;
+      errorEl.textContent = '';
+
+      try {
+        await api.sesion.iniciar(
+          String(datos.get('usuario') || ''),
+          String(datos.get('password') || ''),
+          Number(datos.get('puerto') || 22),
+        );
+        await cargarSesion(el);
+      } catch (fallo) {
+        errorEl.textContent = mensajeDeError(fallo);
+      } finally {
+        botonLogin.disabled = false;
+      }
+    });
   } finally {
     boton.disabled = false;
   }

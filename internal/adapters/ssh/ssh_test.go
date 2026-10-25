@@ -44,6 +44,17 @@ func (f *fakeExecutor) Execute(_ context.Context, program string, args ...string
 	return f.results[program], f.errs[program]
 }
 
+// callTo devuelve la primera llamada al programa indicado.
+func (f *fakeExecutor) callTo(program string) []string {
+	for _, call := range f.calls {
+		if call[0] == program {
+			return call
+		}
+	}
+
+	return nil
+}
+
 func (f *fakeExecutor) lastCall() []string {
 	if len(f.calls) == 0 {
 		return nil
@@ -152,7 +163,6 @@ func TestRunReturnsExitErrorFromExecutor(t *testing.T) {
 	t.Parallel()
 
 	fake := newFakeExecutor()
-	fake.errs[binarySSH] = &domain.ExitError{Code: 100, Command: "apt-get"}
 
 	connector := New(fake, WithKey(writeTempKey(t)))
 
@@ -160,6 +170,8 @@ func TestRunReturnsExitErrorFromExecutor(t *testing.T) {
 	if err != nil {
 		t.Fatalf(msgConnectFail, err)
 	}
+
+	fake.errs[binarySSH] = &domain.ExitError{Code: 100, Command: "apt-get"}
 
 	_, err = session.Run(context.Background(), &domain.Command{Path: binAptGet})
 
@@ -199,7 +211,7 @@ func TestPutUsesSCPAndSetsPermissions(t *testing.T) {
 		"./svc.service", "root@10.0.2.15:" + remoteService,
 	}
 
-	got := fake.calls[0]
+	got := fake.callTo(binarySCP)
 	if len(got) != len(wantSCP) {
 		t.Fatalf("Put() invocó %v, want %v", got, wantSCP)
 	}

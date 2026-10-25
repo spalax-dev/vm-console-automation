@@ -5,6 +5,9 @@ package services
 
 // Rutas absolutas de los programas del sistema que ejecutan los
 // servicios dentro de la máquina.
+// claveErrorLog es la clave de los mensajes de error en el log.
+const claveErrorLog = "error"
+
 const (
 	binCat     = "/bin/cat"
 	binSh      = "/bin/sh"

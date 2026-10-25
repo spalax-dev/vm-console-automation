@@ -14,7 +14,7 @@ Package ssh adapta el cliente OpenSSH del sistema operativo al puerto Connector 
   - [func New\(exe ports.Executor, opts ...Option\) \*Connector](<#New>)
   - [func \(c \*Connector\) Connect\(ctx context.Context, target domain.Target\) \(ports.Session, error\)](<#Connector.Connect>)
   - [func \(c \*Connector\) Name\(\) string](<#Connector.Name>)
-  - [func \(c \*Connector\) Probe\(\_ context.Context, target domain.Target\) error](<#Connector.Probe>)
+  - [func \(c \*Connector\) Probe\(ctx context.Context, target domain.Target\) error](<#Connector.Probe>)
 - [type Option](<#Option>)
   - [func WithKey\(path string\) Option](<#WithKey>)
   - [func WithPort\(port uint16\) Option](<#WithPort>)
@@ -67,10 +67,10 @@ Name implements ports.Connector.
 ### func \(\*Connector\) Probe
 
 ```go
-func (c *Connector) Probe(_ context.Context, target domain.Target) error
+func (c *Connector) Probe(ctx context.Context, target domain.Target) error
 ```
 
-Probe implements ports.Connector: exige conocer la dirección de la máquina y que la llave privada exista en el anfitrión.
+Probe implements ports.Connector: exige conocer la dirección de la máquina, que la llave privada exista y que la autenticación funcione. La prueba real evita elegir SSH cuando la llave pertenece a otra VM o la máquina está en NAT y no es alcanzable.
 
 <a name="Option"></a>
 ## type Option

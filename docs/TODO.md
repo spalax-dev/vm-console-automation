@@ -177,6 +177,15 @@ de los módulos del numeral 3.
 
 ## Notas de seguimiento
 
+- **25 oct 2026** — Credenciales por máquina: `credenciales.json`
+  (0600) guarda usuario, contraseña, puerto y dirección por VM. El
+  conector `vbox` resuelve las credenciales de Guest Additions del
+  almacén y `POST /api/session/login` las verifica con `id -u`,
+  restaurando las anteriores si fallan. La tarjeta de sesión muestra el
+  formulario cuando no hay acceso. El selector exige red puente u
+  host-only incluso para máquinas apagadas, de modo que una VM en NAT
+  deja de aparecer.
+
 - **25 oct 2026** — Inventario administrable: el selector solo lista las
   máquinas encendidas que publican Guest Additions (canal para instalar
   SSH y red puente u host-only) y las apagadas, para poder encenderlas. La web muestra el aviso y

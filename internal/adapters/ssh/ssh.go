@@ -83,14 +83,23 @@ func (c *Connector) Name() string {
 }
 
 // Probe implements ports.Connector: exige conocer la dirección de la
-// máquina y que la llave privada exista en el anfitrión.
-func (c *Connector) Probe(_ context.Context, target domain.Target) error {
+// máquina, que la llave privada exista y que la autenticación funcione.
+// La prueba real evita elegir SSH cuando la llave pertenece a otra VM o
+// la máquina está en NAT y no es alcanzable.
+func (c *Connector) Probe(ctx context.Context, target domain.Target) error {
 	if !target.Address.IsValid() {
 		return fmt.Errorf("ssh: dirección desconocida de %q; descúbrela antes de conectar", target.ID)
 	}
 
 	if _, err := os.Stat(c.keyPath); err != nil {
 		return fmt.Errorf("ssh: la llave privada %q no está disponible: %w", c.keyPath, err)
+	}
+
+	args := c.baseArgs()
+	args = append(args, c.user+"@"+target.Address.String(), "true")
+
+	if _, err := c.exe.Execute(ctx, binarySSH, args...); err != nil {
+		return fmt.Errorf("ssh: no se pudo autenticar con %q: %w", target.ID, err)
 	}
 
 	return nil

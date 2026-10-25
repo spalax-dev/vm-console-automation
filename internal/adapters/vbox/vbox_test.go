@@ -25,6 +25,7 @@ const (
 	flagPassword     = "--password"
 	flagUsername     = "--username"
 	subGuestControl  = "guestcontrol"
+	msgRunOK         = "Run() error = %v, want nil"
 )
 
 // fakeExecutor registra las órdenes ejecutadas y devuelve respuestas
@@ -201,7 +202,7 @@ func TestGuestSessionRunBuildsGuestControlCommand(t *testing.T) {
 		Args: []string{subInstall, "-y", "nginx"},
 	})
 	if err != nil {
-		t.Fatalf("Run() error = %v, want nil", err)
+		t.Fatalf(msgRunOK, err)
 	}
 
 	if result.Stdout != salidaInstalado {
@@ -326,7 +327,7 @@ func TestGuestSessionRunPassesEnvironment(t *testing.T) {
 		Env:  []string{"DEBIAN_FRONTEND=noninteractive"},
 	})
 	if err != nil {
-		t.Fatalf("Run() error = %v, want nil", err)
+		t.Fatalf(msgRunOK, err)
 	}
 
 	want := []string{
@@ -387,4 +388,55 @@ func TestMapNetwork(t *testing.T) {
 			t.Errorf("mapNetwork(%q) = %q, want %q", entrada, obtenido, esperado)
 		}
 	}
+}
+
+// fakeCredenciales devuelve un usuario y una contraseña fijos.
+type fakeCredenciales struct {
+	usuario  string
+	password string
+	ok       bool
+}
+
+// Guest implementa la resolución de credenciales.
+func (f fakeCredenciales) Guest(string) (usuario, password string, ok bool) {
+	return f.usuario, f.password, f.ok
+}
+
+// TestGuestSessionUsesStoredCredentials comprueba que la sesión usa las
+// credenciales por máquina cuando el almacén las conoce.
+func TestGuestSessionUsesStoredCredentials(t *testing.T) {
+	t.Parallel()
+
+	fake := runningFake()
+	fake.results["guestcontrol"] = domain.Result{}
+
+	client := New(fake,
+		WithGuestCredentials("root", "global"),
+		WithCredenciales(fakeCredenciales{usuario: "admin", password: "clave", ok: true}),
+	)
+
+	session, err := client.Connect(context.Background(), domain.Target{ID: vmID})
+	if err != nil {
+		t.Fatalf(msgConnectFail, err)
+	}
+
+	if _, err := session.Run(context.Background(), &domain.Command{Path: binAptGet}); err != nil {
+		t.Fatalf(msgRunOK, err)
+	}
+
+	got := fake.lastCall()
+	if !contieneValor(got, "admin") || !contieneValor(got, "clave") {
+		t.Errorf("argumentos = %v, want las credenciales del almacén", got)
+	}
+}
+
+// contieneValor informa si la lista incluye el valor.
+func contieneValor(valores []string, buscado string) bool {
+	for _, valor := range valores {
+		if valor == buscado {
+			return true
+		}
+	}
+
+	return false
 }

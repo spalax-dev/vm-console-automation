@@ -476,7 +476,7 @@ func TestUsuariosCrearErrorDeDirectorio(t *testing.T) {
 
 	archivo := filepath.Join(t.TempDir(), "archivo")
 	if err := os.WriteFile(archivo, []byte("x"), 0o600); err != nil {
-		t.Fatalf("preparar el archivo: %v", err)
+		t.Fatalf(msgPrepararArchivo, err)
 	}
 
 	usuarios := NuevoUsuarios(ConfigUsuarios{

@@ -124,6 +124,7 @@ func nuevoMux() (http.Handler, error) {
 	haproxy := handlers.NuevoHaproxy(services.NuevoHaproxy(sesiones))
 
 	mux.Handle("/api/session", handlers.NuevoSesion(sesiones, handlers.ConVinculador(consola.vinculacion)))
+	mux.Handle("/api/session/login", handlers.NuevoAcceso(consola.acceso))
 	maquinas := handlers.NuevoMaquinas(consola.vinculacion)
 
 	mux.Handle("/api/vms", maquinas)
@@ -183,13 +184,18 @@ func servirInterfaz(mux *http.ServeMux) error {
 type consola struct {
 	sesiones    *services.Descubridor
 	vinculacion *services.Vinculacion
+	acceso      *services.Acceso
 }
 
 // nuevaConsola arma el descubrimiento de sesión y el inventario con los
 // adaptadores reales: VirtualBox para el estado, la dirección y el
 // inventario, SSH como conector preferido y Guest Additions como respaldo.
 func nuevaConsola(ejecutor ports.Executor) *consola {
-	maquina := vbox.New(ejecutor, vbox.WithGuestCredentials(usuarioInvitado(), os.Getenv(envGuestPass)))
+	almacen := services.NuevoAlmacen(rutaCredenciales())
+	maquina := vbox.New(ejecutor,
+		vbox.WithCredenciales(almacen),
+		vbox.WithGuestCredentials(usuarioInvitado(), os.Getenv(envGuestPass)),
+	)
 
 	if os.Getenv(envVM) == "" {
 		slog.Warn("la consola arranca sin máquina vinculada; elígela en el selector", "variable", envVM)
@@ -206,6 +212,12 @@ func nuevaConsola(ejecutor ports.Executor) *consola {
 
 	return &consola{
 		sesiones: sesiones,
+		acceso: services.NuevoAcceso(&services.ConfigAcceso{
+			Almacen:  almacen,
+			Maquina:  maquina,
+			Guest:    maquina,
+			Objetivo: sesiones.Objetivo,
+		}),
 		vinculacion: services.NuevoVinculacion(&services.ConfigVinculacion{
 			Inventario: maquina,
 			Seleccion:  sesiones,
@@ -222,6 +234,12 @@ func direccion() string {
 	}
 
 	return direccionProd
+}
+
+// rutaCredenciales devuelve la ruta del archivo de credenciales por
+// máquina.
+func rutaCredenciales() string {
+	return filepath.Join(filepath.Dir(rutaLlave()), "credenciales.json")
 }
 
 // rutaLlave devuelve la ruta de la llave privada de root: la variable

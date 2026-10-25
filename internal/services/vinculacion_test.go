@@ -45,9 +45,8 @@ func (s *stubSeleccion) Establecer(id string) { s.id = id }
 // stubGuestAdditions simula la comprobación de Guest Additions.
 type stubGuestAdditions struct {
 	accesibles map[string]bool
-	red        domain.NetworkMode
+	redes      map[string]domain.NetworkMode
 	consultas  int
-	redes      int
 }
 
 // Address devuelve una IP solo si la máquina publica Guest Additions.
@@ -66,15 +65,14 @@ func (s *stubGuestAdditions) State(context.Context, domain.Target) (domain.Machi
 	return domain.StateRunning, nil
 }
 
-// Network devuelve el modo de red preprogramado («bridged» por omisión).
-func (s *stubGuestAdditions) Network(context.Context, domain.Target) (domain.NetworkMode, error) {
-	s.redes++
-
-	if s.red == "" {
-		return domain.NetworkBridged, nil
+// Network devuelve el modo de red preprogramado por máquina («bridged»
+// por omisión).
+func (s *stubGuestAdditions) Network(_ context.Context, target domain.Target) (domain.NetworkMode, error) {
+	if modo, ok := s.redes[target.ID]; ok {
+		return modo, nil
 	}
 
-	return s.red, nil
+	return domain.NetworkBridged, nil
 }
 
 // inventarioDePrueba arma dos máquinas, una en ejecución.
@@ -374,7 +372,7 @@ func TestVinculacionOcultaNAT(t *testing.T) {
 
 	maquina := &stubGuestAdditions{
 		accesibles: map[string]bool{nombreDebian: true},
-		red:        domain.NetworkNAT,
+		redes:      map[string]domain.NetworkMode{nombreDebian: domain.NetworkNAT},
 	}
 	vinculacion := NuevoVinculacion(&ConfigVinculacion{
 		Inventario: inventarioDePrueba(),

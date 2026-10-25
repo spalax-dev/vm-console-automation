@@ -12,13 +12,25 @@ Package services implementa los casos de uso de la consola: descubre el conector
 
 - [Variables](<#variables>)
 - [type AbridorSesion](<#AbridorSesion>)
+- [type Acceso](<#Acceso>)
+  - [func NuevoAcceso\(config \*ConfigAcceso\) \*Acceso](<#NuevoAcceso>)
+  - [func \(a \*Acceso\) Iniciar\(ctx context.Context, usuario, password string, puerto uint16\) \(Resultado, error\)](<#Acceso.Iniciar>)
+  - [func \(a \*Acceso\) Olvidar\(\) error](<#Acceso.Olvidar>)
+- [type Almacen](<#Almacen>)
+  - [func NuevoAlmacen\(ruta string\) \*Almacen](<#NuevoAlmacen>)
+  - [func \(a \*Almacen\) Borrar\(vm string\) error](<#Almacen.Borrar>)
+  - [func \(a \*Almacen\) Guardar\(vm string, credenciales Credenciales\) error](<#Almacen.Guardar>)
+  - [func \(a \*Almacen\) Guest\(vm string\) \(usuario, password string, ok bool\)](<#Almacen.Guest>)
+  - [func \(a \*Almacen\) Obtener\(vm string\) \(Credenciales, bool\)](<#Almacen.Obtener>)
 - [type ArchivoDespliegue](<#ArchivoDespliegue>)
+- [type ConfigAcceso](<#ConfigAcceso>)
 - [type ConfigDescubridor](<#ConfigDescubridor>)
 - [type ConfigLlaves](<#ConfigLlaves>)
 - [type ConfigUsuarios](<#ConfigUsuarios>)
 - [type ConfigVinculacion](<#ConfigVinculacion>)
 - [type ConfiguracionHostname](<#ConfiguracionHostname>)
 - [type ConfiguracionIssue](<#ConfiguracionIssue>)
+- [type Credenciales](<#Credenciales>)
 - [type Descubridor](<#Descubridor>)
   - [func NuevoDescubridor\(config \*ConfigDescubridor\) \*Descubridor](<#NuevoDescubridor>)
   - [func \(d \*Descubridor\) Abrir\(ctx context.Context\) \(ports.Session, error\)](<#Descubridor.Abrir>)
@@ -83,6 +95,12 @@ Package services implementa los casos de uso de la consola: descubre el conector
 
 ```go
 var ErrBackendNoEncontrado = errors.New("no se encontró un back-end en la configuración")
+```
+
+<a name="ErrCredencialesInvalidas"></a>ErrCredencialesInvalidas indica que Guest Additions rechazó el usuario o la contraseña.
+
+```go
+var ErrCredencialesInvalidas = errors.New("las credenciales no permiten ejecutar órdenes")
 ```
 
 <a name="ErrLlaveExistente"></a>ErrLlaveExistente indica que la llave privada de root ya está en el anfitrión y no se sobrescribe.
@@ -169,6 +187,100 @@ type AbridorSesion interface {
 }
 ```
 
+<a name="Acceso"></a>
+## type Acceso
+
+Acceso valida las credenciales de Guest Additions y las persiste para la máquina activa.
+
+```go
+type Acceso struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="NuevoAcceso"></a>
+### func NuevoAcceso
+
+```go
+func NuevoAcceso(config *ConfigAcceso) *Acceso
+```
+
+NuevoAcceso construye el servicio de acceso.
+
+<a name="Acceso.Iniciar"></a>
+### func \(\*Acceso\) Iniciar
+
+```go
+func (a *Acceso) Iniciar(ctx context.Context, usuario, password string, puerto uint16) (Resultado, error)
+```
+
+Iniciar guarda las credenciales y comprueba con Guest Additions que permitan ejecutar una orden. Si la comprobación falla, restaura las credenciales anteriores.
+
+<a name="Acceso.Olvidar"></a>
+### func \(\*Acceso\) Olvidar
+
+```go
+func (a *Acceso) Olvidar() error
+```
+
+Olvidar elimina las credenciales de la máquina activa.
+
+<a name="Almacen"></a>
+## type Almacen
+
+Almacen guarda las credenciales por máquina en un archivo JSON.
+
+```go
+type Almacen struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="NuevoAlmacen"></a>
+### func NuevoAlmacen
+
+```go
+func NuevoAlmacen(ruta string) *Almacen
+```
+
+NuevoAlmacen carga el archivo de credenciales; si no existe o está corrupto, arranca vacío y deja constancia en el log.
+
+<a name="Almacen.Borrar"></a>
+### func \(\*Almacen\) Borrar
+
+```go
+func (a *Almacen) Borrar(vm string) error
+```
+
+Borrar elimina las credenciales de una máquina.
+
+<a name="Almacen.Guardar"></a>
+### func \(\*Almacen\) Guardar
+
+```go
+func (a *Almacen) Guardar(vm string, credenciales Credenciales) error
+```
+
+Guardar registra las credenciales de una máquina y persiste el archivo.
+
+<a name="Almacen.Guest"></a>
+### func \(\*Almacen\) Guest
+
+```go
+func (a *Almacen) Guest(vm string) (usuario, password string, ok bool)
+```
+
+Guest implementa la resolución de credenciales de Guest Additions.
+
+<a name="Almacen.Obtener"></a>
+### func \(\*Almacen\) Obtener
+
+```go
+func (a *Almacen) Obtener(vm string) (Credenciales, bool)
+```
+
+Obtener devuelve las credenciales de una máquina.
+
 <a name="ArchivoDespliegue"></a>
 ## type ArchivoDespliegue
 
@@ -182,6 +294,25 @@ type ArchivoDespliegue struct {
     Destino string
     // Modo son los permisos en octal.
     Modo string
+}
+```
+
+<a name="ConfigAcceso"></a>
+## type ConfigAcceso
+
+ConfigAcceso reúne las dependencias para validar y guardar las credenciales de una máquina.
+
+```go
+type ConfigAcceso struct {
+    // Almacen guarda las credenciales por máquina.
+    Almacen *Almacen
+    // Maquina consulta el estado y la dirección de la máquina activa.
+    Maquina ports.Machine
+    // Guest abre una sesión por Guest Additions con las credenciales
+    // guardadas.
+    Guest ports.Connector
+    // Objetivo devuelve la máquina vinculada.
+    Objetivo func() domain.Target
 }
 ```
 
@@ -287,6 +418,25 @@ type ConfiguracionIssue struct {
     IP  bool
     // Contenido es el texto completo del archivo, solo en las lecturas.
     Contenido string
+}
+```
+
+<a name="Credenciales"></a>
+## type Credenciales
+
+Credenciales son los datos de acceso a una máquina virtual. La contraseña se guarda en un archivo con permisos 0600 porque los canales de Guest Additions y SSH la necesitan de forma no interactiva.
+
+```go
+type Credenciales struct {
+    // Usuario es el usuario con el que se abre la sesión.
+    Usuario string `json:"usuario"`
+    // Password es la contraseña del usuario.
+    Password string `json:"password,omitempty"`
+    // Puerto es el puerto SSH; cero significa el puerto por omisión.
+    Puerto uint16 `json:"puerto,omitempty"`
+    // Direccion es una dirección alternativa (por ejemplo, un reenvío
+    // de puertos); vacía significa descubrirla con Guest Additions.
+    Direccion string `json:"direccion,omitempty"`
 }
 ```
 

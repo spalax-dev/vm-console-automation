@@ -28,10 +28,17 @@ const defaultBinary = "VBoxManage"
 
 // Client implementa ports.Machine y ports.Connector sobre VirtualBox.
 type Client struct {
-	exe  ports.Executor
-	bin  string
-	user string
-	pass string
+	exe          ports.Executor
+	bin          string
+	user         string
+	pass         string
+	credenciales Credenciales
+}
+
+// Credenciales resuelve el usuario y la contraseña de Guest Additions
+// para una máquina concreta.
+type Credenciales interface {
+	Guest(vm string) (usuario, password string, ok bool)
 }
 
 // Option configura un Client.
@@ -41,6 +48,14 @@ type Option func(*Client)
 func WithBinary(bin string) Option {
 	return func(c *Client) {
 		c.bin = bin
+	}
+}
+
+// WithCredenciales establece el almacén que resuelve las credenciales
+// por máquina; tiene prioridad sobre las credenciales por omisión.
+func WithCredenciales(credenciales Credenciales) Option {
+	return func(c *Client) {
+		c.credenciales = credenciales
 	}
 }
 
@@ -202,19 +217,29 @@ func (c *Client) Connect(ctx context.Context, target domain.Target) (ports.Sessi
 		return nil, err
 	}
 
-	return &Session{client: c, target: target}, nil
+	usuario, password := c.user, c.pass
+
+	if c.credenciales != nil {
+		if u, p, ok := c.credenciales.Guest(target.ID); ok {
+			usuario, password = u, p
+		}
+	}
+
+	return &Session{client: c, target: target, user: usuario, pass: password}, nil
 }
 
 // Session implements ports.Session usando «vboxmanage guestcontrol».
 type Session struct {
 	client *Client
 	target domain.Target
+	user   string
+	pass   string
 }
 
 // Run implements ports.Session: ejecuta la orden dentro de la máquina
 // invitada pasando cada componente como argumento literal, sin shell.
 func (s *Session) Run(ctx context.Context, cmd *domain.Command) (domain.Result, error) {
-	args := []string{"guestcontrol", s.target.ID, "run", "--username", s.client.user, "--password", s.client.pass}
+	args := []string{"guestcontrol", s.target.ID, "run", "--username", s.user, "--password", s.pass}
 
 	for _, entorno := range cmd.Env {
 		args = append(args, "--putenv", entorno)
@@ -240,7 +265,7 @@ func (s *Session) Run(ctx context.Context, cmd *domain.Command) (domain.Result, 
 func (s *Session) Put(ctx context.Context, localPath, remotePath string) error {
 	args := []string{
 		"guestcontrol", s.target.ID, "copyto",
-		"--username", s.client.user, "--password", s.client.pass,
+		"--username", s.user, "--password", s.pass,
 		localPath, remotePath,
 	}
 

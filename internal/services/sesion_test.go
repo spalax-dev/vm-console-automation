@@ -44,6 +44,13 @@ const (
 	msgEliminarOK       = "Eliminar() error = %v, want nil"
 	msgResultadoTecnico = "resultado = %+v, want código y stderr"
 	msgOrdenDos         = "la sesión ejecutó %d órdenes, want 2"
+	// #nosec G101 -- usuario de prueba, no una credencial real.
+	usuarioRoot        = "root"
+	passwordPrueba     = "secreto"
+	vmPrueba           = "vm1"
+	msgPrepararArchivo = "preparar el archivo: %v"
+	// #nosec G101 -- nombre de archivo de prueba, no una credencial.
+	archivoCredenciales = "credenciales.json"
 	msgIP               = "IP = %s, want %s"
 )
 
