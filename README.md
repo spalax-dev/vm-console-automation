@@ -7,6 +7,7 @@ Consola web de administración de máquinas virtuales GNU/Linux desarrollada en 
 - Go 1.26 o superior.
 - VirtualBox 7 con `VBoxManage` en el `PATH`.
 - Cliente OpenSSH (`ssh` y `scp`) en el `PATH`.
+- `sshpass` para el respaldo de registro por SSH con contraseña.
 - Herramientas de desarrollo:
 
 ```bash

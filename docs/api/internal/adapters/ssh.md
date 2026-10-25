@@ -13,6 +13,7 @@ Package ssh adapta el cliente OpenSSH del sistema operativo al puerto Connector 
 - [type Connector](<#Connector>)
   - [func New\(exe ports.Executor, opts ...Option\) \*Connector](<#New>)
   - [func \(c \*Connector\) Connect\(ctx context.Context, target domain.Target\) \(ports.Session, error\)](<#Connector.Connect>)
+  - [func \(c \*Connector\) ConnectPassword\(\_ context.Context, target domain.Target, usuario, password string\) \(ports.Session, error\)](<#Connector.ConnectPassword>)
   - [func \(c \*Connector\) Name\(\) string](<#Connector.Name>)
   - [func \(c \*Connector\) Probe\(ctx context.Context, target domain.Target\) error](<#Connector.Probe>)
 - [type Option](<#Option>)
@@ -53,6 +54,15 @@ func (c *Connector) Connect(ctx context.Context, target domain.Target) (ports.Se
 ```
 
 Connect implements ports.Connector: devuelve una sesión que ejecuta órdenes remotas con el cliente OpenSSH.
+
+<a name="Connector.ConnectPassword"></a>
+### func \(\*Connector\) ConnectPassword
+
+```go
+func (c *Connector) ConnectPassword(_ context.Context, target domain.Target, usuario, password string) (ports.Session, error)
+```
+
+ConnectPassword implementa ports.PasswordConnector usando sshpass. La contraseña se guarda en un archivo temporal 0600 que la sesión elimina al cerrarse.
 
 <a name="Connector.Name"></a>
 ### func \(\*Connector\) Name
@@ -126,7 +136,7 @@ type Session struct {
 func (s *Session) Close() error
 ```
 
-Close implements ports.Session: el cliente OpenSSH no mantiene conexión persistente entre órdenes, por lo que no hay recursos que liberar.
+Close implements ports.Session: elimina el archivo temporal de la contraseña, si existe.
 
 <a name="Session.Put"></a>
 ### func \(\*Session\) Put

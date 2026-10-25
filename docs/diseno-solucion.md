@@ -258,6 +258,8 @@ El registro se expone en `POST /api/session/register` y sigue esta secuencia:
 1. guarda el usuario y la contraseña en SQLite (`data/vmcons.db`); la
    contraseña se cifra con AES-256-GCM antes de insertarse;
 2. abre Guest Additions y verifica las credenciales ejecutando `id -u`;
+   si Guest Additions rechaza el acceso, reintenta por SSH con la misma
+   contraseña (`sshpass`) antes de darse por vencido;
 3. genera la llave de root en el anfitrión si todavía no existe;
 4. instala `openssh-server` si falta, la llave pública en
    `/root/.ssh/authorized_keys`, el archivo

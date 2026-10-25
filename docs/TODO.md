@@ -177,6 +177,17 @@ de los módulos del numeral 3.
 
 ## Notas de seguimiento
 
+- **25 oct 2026** — Respaldo de registro por SSH: si Guest Additions
+  rechaza las credenciales (por ejemplo, por una versión antigua de
+  Guest Additions), el registro reintenta con `sshpass` sobre la misma
+  dirección descubierta, instala la llave y verifica SSH. El modal
+  muestra el detalle técnico del fallo para diagnosticar usuario,
+  contraseña o versión de Guest Additions.
+- **25 oct 2026** — Diagnóstico del entorno: VirtualBox 7.2.18 con
+  Guest Additions 6.0.0 en las VM; las credenciales de `guestcontrol`
+  pueden fallar aunque la contraseña sea correcta. Actualizar Guest
+  Additions o usar el respaldo SSH.
+
 - **25 oct 2026** — Vinculación persistente: la tabla `configuracion`
   guarda `vm_activa` al vincular una máquina y, si `VMCONS_VM` no está
   definida, la consola restaura esa máquina al arrancar.

@@ -83,9 +83,10 @@ guarda las credenciales en SQLite (\texttt{data/vmcons.db}); la
 contraseña se cifra con AES-256-GCM y se apoya en una clave local
 (\texttt{data/credenciales.key}, permisos \texttt{0600}). Después verifica
 con Guest Additions que permitan ejecutar
-\texttt{id -u}, instala \texttt{openssh-server} si falta, publica la llave
-de root, deshabilita el acceso por contraseña, comprueba la conexión SSH y
-marca la máquina como registrada. Si un paso falla, restaura el estado
+\texttt{id -u}; si Guest Additions rechaza el acceso, reintenta por SSH
+con la misma contraseña, instala \texttt{openssh-server} si falta,
+publica la llave de root, deshabilita el acceso por contraseña, comprueba
+la conexión SSH y marca la máquina como registrada. Si un paso falla, restaura el estado
 anterior. Las máquinas registradas no vuelven a pedir login: el conector
 \texttt{vbox} resuelve sus credenciales del almacén y SSH usa la llave.
 

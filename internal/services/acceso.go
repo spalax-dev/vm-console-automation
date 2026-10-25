@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"consola-vm/internal/core/domain"
 	"consola-vm/internal/core/ports"
@@ -33,6 +34,9 @@ type ConfigAcceso struct {
 	Guest ports.Connector
 	// SSH comprueba que la llave quede operativa tras la adecuación.
 	SSH ports.Connector
+	// SSHPassword abre una sesión con usuario y contraseña cuando Guest
+	// Additions no puede autenticar.
+	SSHPassword ports.PasswordConnector
 	// Ejecutor genera la llave de root en el anfitrión.
 	Ejecutor ports.Executor
 	// RutaLlave es la llave privada de root en el anfitrión.
@@ -44,25 +48,27 @@ type ConfigAcceso struct {
 // Acceso registra una máquina: guarda sus credenciales, prepara SSH y
 // deja constancia del estado para no volver a pedirlas.
 type Acceso struct {
-	almacen   *Almacen
-	maquina   ports.Machine
-	guest     ports.Connector
-	ssh       ports.Connector
-	ejecutor  ports.Executor
-	rutaLlave string
-	objetivo  func() domain.Target
+	almacen     *Almacen
+	maquina     ports.Machine
+	guest       ports.Connector
+	ssh         ports.Connector
+	sshPassword ports.PasswordConnector
+	ejecutor    ports.Executor
+	rutaLlave   string
+	objetivo    func() domain.Target
 }
 
 // NuevoAcceso construye el servicio de registro.
 func NuevoAcceso(config *ConfigAcceso) *Acceso {
 	return &Acceso{
-		almacen:   config.Almacen,
-		maquina:   config.Maquina,
-		guest:     config.Guest,
-		ssh:       config.SSH,
-		ejecutor:  config.Ejecutor,
-		rutaLlave: config.RutaLlave,
-		objetivo:  config.Objetivo,
+		almacen:     config.Almacen,
+		maquina:     config.Maquina,
+		guest:       config.Guest,
+		ssh:         config.SSH,
+		sshPassword: config.SSHPassword,
+		ejecutor:    config.Ejecutor,
+		rutaLlave:   config.RutaLlave,
+		objetivo:    config.Objetivo,
 	}
 }
 
@@ -94,8 +100,14 @@ func (a *Acceso) Registrar(ctx context.Context, usuario, password string) (Resul
 		}
 	}()
 
-	salida, err := a.prepararSSH(ctx, objetivo, direccion)
+	salida, err := a.prepararSSH(ctx, objetivo, direccion, password)
+	if errors.Is(err, ErrCredencialesInvalidas) {
+		salida, err = a.prepararSSHPassword(ctx, objetivo, direccion, usuario, password)
+	}
+
 	if err != nil {
+		slog.Warn("registrar la máquina", "vm", objetivo.ID, "usuario", usuario, claveErrorLog, err)
+
 		return salida, err
 	}
 
@@ -115,7 +127,9 @@ func (a *Acceso) Registrar(ctx context.Context, usuario, password string) (Resul
 
 // prepararSSH valida las credenciales, instala SSH con la llave de root
 // y comprueba que la conexión por llave funcione.
-func (a *Acceso) prepararSSH(ctx context.Context, objetivo domain.Target, direccion netip.Addr) (Resultado, error) {
+func (a *Acceso) prepararSSH(
+	ctx context.Context, objetivo domain.Target, direccion netip.Addr, password string,
+) (Resultado, error) {
 	clave, err := a.asegurarLlave(ctx)
 	if err != nil {
 		return Resultado{}, err
@@ -128,16 +142,63 @@ func (a *Acceso) prepararSSH(ctx context.Context, objetivo domain.Target, direcc
 
 	defer cerrarSesion(sesion)
 
-	if _, err := sesion.Run(ctx, &domain.Command{Path: "/usr/bin/id", Args: []string{"-u"}}); err != nil {
+	verificacion, err := sesion.Run(ctx, &domain.Command{Path: "/usr/bin/id", Args: []string{"-u"}})
+	if err != nil {
+		return errorDeCredenciales(verificacion, err)
+	}
+
+	return a.instalarConSesion(ctx, sesion, objetivo, direccion, clave, strings.TrimSpace(verificacion.Stdout), password)
+}
+
+// prepararSSHPassword registra una máquina usando SSH con contraseña,
+// como respaldo cuando Guest Additions rechaza las credenciales.
+func (a *Acceso) prepararSSHPassword(
+	ctx context.Context, objetivo domain.Target, direccion netip.Addr, usuario, password string,
+) (Resultado, error) {
+	if a.sshPassword == nil {
+		return Resultado{}, fmt.Errorf("%w: no hay respaldo SSH disponible", ErrCredencialesInvalidas)
+	}
+
+	clave, err := a.asegurarLlave(ctx)
+	if err != nil {
+		return Resultado{}, err
+	}
+
+	sesion, err := a.sshPassword.ConnectPassword(
+		ctx, domain.Target{ID: objetivo.ID, Address: direccion}, usuario, password,
+	)
+	if err != nil {
 		return Resultado{}, fmt.Errorf("%w: %w", ErrCredencialesInvalidas, err)
 	}
 
+	defer cerrarSesion(sesion)
+
+	verificacion, err := sesion.Run(ctx, &domain.Command{Path: "/usr/bin/id", Args: []string{"-u"}})
+	if err != nil {
+		return errorDeCredenciales(verificacion, err)
+	}
+
+	return a.instalarConSesion(ctx, sesion, objetivo, direccion, clave, strings.TrimSpace(verificacion.Stdout), password)
+}
+
+// instalarConSesion ejecuta la adecuación dentro de una sesión ya
+// autenticada y verifica la llave.
+func (a *Acceso) instalarConSesion(
+	ctx context.Context, sesion ports.Session, objetivo domain.Target, direccion netip.Addr,
+	clave, uid, password string,
+) (Resultado, error) {
 	cmd := guionInstalacion(clave)
+	operacion := cmd.ShellLine()
+
+	if uid != "0" {
+		cmd = guionInstalacionSudo(clave, password)
+		operacion = "instalar SSH y configurar sshd con sudo"
+	}
 
 	resultado, err := sesion.Run(ctx, cmd)
 	salida := Resultado{
 		Mensaje:   "Máquina registrada: SSH quedó preparado para su administración.",
-		Operacion: cmd.ShellLine(),
+		Operacion: operacion,
 		Salida:    resultado.Stdout,
 		Stderr:    resultado.Stderr,
 		Codigo:    resultado.ExitCode,
@@ -152,6 +213,20 @@ func (a *Acceso) prepararSSH(ctx context.Context, objetivo domain.Target, direcc
 	}
 
 	return salida, nil
+}
+
+// errorDeCredenciales arma el error de autenticación con el stderr de la
+// orden de verificación.
+func errorDeCredenciales(resultado domain.Result, err error) (Resultado, error) {
+	detalle := strings.TrimSpace(resultado.Stderr)
+	if detalle == "" {
+		detalle = err.Error()
+	}
+
+	return Resultado{
+		Codigo: resultado.ExitCode,
+		Stderr: resultado.Stderr,
+	}, fmt.Errorf("%w: %s", ErrCredencialesInvalidas, detalle)
 }
 
 // restaurar deja el almacén como estaba antes del intento de registro.

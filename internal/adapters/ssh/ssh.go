@@ -10,6 +10,7 @@ package ssh
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 
@@ -19,8 +20,9 @@ import (
 
 // binarySSH y binarySCP son los programas del cliente OpenSSH.
 const (
-	binarySSH = "ssh"
-	binarySCP = "scp"
+	binarySSH  = "ssh"
+	binarySCP  = "scp"
+	opcionHost = "StrictHostKeyChecking=accept-new"
 )
 
 // defaultUser y defaultPort son el usuario y el puerto por omisión.
@@ -31,10 +33,11 @@ const (
 
 // Connector implementa ports.Connector usando el cliente OpenSSH.
 type Connector struct {
-	exe     ports.Executor
-	keyPath string
-	user    string
-	port    uint16
+	exe          ports.Executor
+	keyPath      string
+	user         string
+	port         uint16
+	passwordFile string
 }
 
 // Option configura un Connector.
@@ -115,19 +118,56 @@ func (c *Connector) Connect(ctx context.Context, target domain.Target) (ports.Se
 	return &Session{connector: c, target: target}, nil
 }
 
+// ConnectPassword implementa ports.PasswordConnector usando sshpass. La
+// contraseña se guarda en un archivo temporal 0600 que la sesión elimina
+// al cerrarse.
+func (c *Connector) ConnectPassword(
+	_ context.Context, target domain.Target, usuario, password string,
+) (ports.Session, error) {
+	archivo, err := os.CreateTemp("", "vmcons-pass-*")
+	if err != nil {
+		return nil, fmt.Errorf("ssh: crear el archivo temporal: %w", err)
+	}
+
+	if err := archivo.Chmod(0o600); err != nil {
+		cerrarTemporal(archivo)
+
+		return nil, fmt.Errorf("ssh: proteger el archivo temporal: %w", err)
+	}
+
+	if _, err := archivo.WriteString(password); err != nil {
+		cerrarTemporal(archivo)
+
+		return nil, fmt.Errorf("ssh: guardar la contraseña temporal: %w", err)
+	}
+
+	if err := archivo.Close(); err != nil {
+		eliminarTemporal(archivo.Name())
+
+		return nil, fmt.Errorf("ssh: cerrar el archivo temporal: %w", err)
+	}
+
+	copia := *c
+	copia.user = usuario
+	copia.passwordFile = archivo.Name()
+
+	return &Session{connector: &copia, target: target, passwordFile: archivo.Name()}, nil
+}
+
 // Session implements ports.Session usando los clientes ssh y scp.
 type Session struct {
-	connector *Connector
-	target    domain.Target
+	connector    *Connector
+	target       domain.Target
+	passwordFile string
 }
 
 // Run implements ports.Session: ejecuta la orden en la máquina remota,
 // entregándola al shell del usuario remoto ya citada con ShellLine.
 func (s *Session) Run(ctx context.Context, cmd *domain.Command) (domain.Result, error) {
-	args := s.connector.baseArgs()
+	programa, args := s.connector.comando(binarySSH, s.connector.baseArgs(), s.passwordFile)
 	args = append(args, s.destination(), cmd.ShellLine())
 
-	result, err := s.connector.exe.Execute(ctx, binarySSH, args...)
+	result, err := s.connector.exe.Execute(ctx, programa, args...)
 	if err != nil {
 		return result, fmt.Errorf("ssh: ejecutar %q: %w", cmd.Path, err)
 	}
@@ -139,10 +179,10 @@ func (s *Session) Run(ctx context.Context, cmd *domain.Command) (domain.Result, 
 // establece permisos de lectura, escritura y ejecución en el destino.
 // Nota: scp usa -P (mayúscula) para el puerto, a diferencia de ssh.
 func (s *Session) Put(ctx context.Context, localPath, remotePath string) error {
-	args := s.connector.scpArgs()
+	programa, args := s.connector.comando(binarySCP, s.connector.scpArgs(), s.passwordFile)
 	args = append(args, localPath, s.destination()+":"+remotePath)
 
-	if _, err := s.connector.exe.Execute(ctx, binarySCP, args...); err != nil {
+	if _, err := s.connector.exe.Execute(ctx, programa, args...); err != nil {
 		return fmt.Errorf("ssh: transferir %q: %w", localPath, err)
 	}
 
@@ -158,10 +198,17 @@ func (s *Session) Put(ctx context.Context, localPath, remotePath string) error {
 	return nil
 }
 
-// Close implements ports.Session: el cliente OpenSSH no mantiene
-// conexión persistente entre órdenes, por lo que no hay recursos que
-// liberar.
+// Close implements ports.Session: elimina el archivo temporal de la
+// contraseña, si existe.
 func (s *Session) Close() error {
+	if s.passwordFile == "" {
+		return nil
+	}
+
+	if err := os.Remove(s.passwordFile); err != nil {
+		return fmt.Errorf("ssh: eliminar el archivo temporal: %w", err)
+	}
+
 	return nil
 }
 
@@ -170,16 +217,53 @@ func (s *Session) destination() string {
 	return s.connector.user + "@" + s.target.Address.String()
 }
 
-// baseArgs construye los argumentos comunes de ssh y scp: llave
-// privada, puerto y opciones no interactivas (nunca pedir contraseñas;
-// aceptar la primera clave del host, como en una máquina recién creada).
+// cerrarTemporal cierra y elimina el archivo temporal de la contraseña.
+func cerrarTemporal(archivo *os.File) {
+	if err := archivo.Close(); err != nil {
+		slog.Warn("cerrar el archivo temporal de la contraseña", "error", err)
+	}
+
+	eliminarTemporal(archivo.Name())
+}
+
+// eliminarTemporal borra el archivo temporal sin interrumpir el flujo.
+func eliminarTemporal(ruta string) {
+	if err := os.Remove(ruta); err != nil && !os.IsNotExist(err) {
+		slog.Warn("eliminar el archivo temporal de la contraseña", "error", err)
+	}
+}
+
+// baseArgs construye los argumentos comunes de ssh y scp. En modo llave
+// no pide contraseñas; en modo contraseña desactiva la llave y la
+// autenticación por teclado para que sshpass pueda responder.
 func (c *Connector) baseArgs() []string {
+	puerto := strconv.FormatUint(uint64(c.port), 10)
+
+	if c.passwordFile != "" {
+		return []string{
+			"-p", puerto,
+			"-o", "BatchMode=no",
+			"-o", "PubkeyAuthentication=no",
+			"-o", "PreferredAuthentications=password",
+			"-o", opcionHost,
+		}
+	}
+
 	return []string{
 		"-i", c.keyPath,
-		"-p", strconv.FormatUint(uint64(c.port), 10),
+		"-p", puerto,
 		"-o", "BatchMode=yes",
-		"-o", "StrictHostKeyChecking=accept-new",
+		"-o", opcionHost,
 	}
+}
+
+// comando antepone sshpass cuando la sesión usa contraseña.
+func (c *Connector) comando(programa string, args []string, passwordFile string) (nombre string, argumentos []string) {
+	if passwordFile == "" {
+		return programa, args
+	}
+
+	return "sshpass", append([]string{"-f", passwordFile, programa}, args...)
 }
 
 // scpArgs construye los argumentos comunes de scp. Nota: scp usa -P
@@ -189,6 +273,6 @@ func (c *Connector) scpArgs() []string {
 		"-i", c.keyPath,
 		"-P", strconv.FormatUint(uint64(c.port), 10),
 		"-o", "BatchMode=yes",
-		"-o", "StrictHostKeyChecking=accept-new",
+		"-o", opcionHost,
 	}
 }

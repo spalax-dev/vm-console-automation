@@ -254,13 +254,14 @@ func nuevaConsola(ejecutor ports.Executor) *consola {
 	return &consola{
 		sesiones: sesiones,
 		acceso: services.NuevoAcceso(&services.ConfigAcceso{
-			Almacen:   almacen,
-			Maquina:   maquina,
-			Guest:     maquina,
-			SSH:       conectorSSH,
-			Ejecutor:  ejecutor,
-			RutaLlave: rutaLlave(),
-			Objetivo:  sesiones.Objetivo,
+			Almacen:     almacen,
+			Maquina:     maquina,
+			Guest:       maquina,
+			SSH:         conectorSSH,
+			SSHPassword: conectorSSH,
+			Ejecutor:    ejecutor,
+			RutaLlave:   rutaLlave(),
+			Objetivo:    sesiones.Objetivo,
 		}),
 		registro: almacen,
 		vinculacion: services.NuevoVinculacion(&services.ConfigVinculacion{

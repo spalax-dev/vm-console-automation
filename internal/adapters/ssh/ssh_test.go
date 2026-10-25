@@ -229,3 +229,47 @@ func TestPutUsesSCPAndSetsPermissions(t *testing.T) {
 		t.Errorf("Put() cerró con %q, want %q", got, wantChmod)
 	}
 }
+
+// TestConnectPasswordUsesSSHPass comprueba el archivo temporal y la
+// orden con sshpass.
+func TestConnectPasswordUsesSSHPass(t *testing.T) {
+	t.Parallel()
+
+	fake := newFakeExecutor()
+	connector := New(fake, WithUser("jorge"), WithPort(2222))
+
+	session, err := connector.ConnectPassword(context.Background(), runningTarget(), "jorge", "clave-secreta")
+	if err != nil {
+		t.Fatalf("ConnectPassword() error = %v, want nil", err)
+	}
+
+	if _, err := session.Run(context.Background(), &domain.Command{Path: "/usr/bin/id", Args: []string{"-u"}}); err != nil {
+		t.Fatalf("Run() error = %v, want nil", err)
+	}
+
+	llamada := fake.callTo("sshpass")
+	if llamada == nil {
+		t.Fatal("Run() no usó sshpass")
+	}
+
+	if llamada[1] != "-f" {
+		t.Fatalf("sshpass args = %v, want -f", llamada)
+	}
+
+	contenido, err := os.ReadFile(llamada[2])
+	if err != nil {
+		t.Fatalf("leer el archivo temporal: %v", err)
+	}
+
+	if string(contenido) != "clave-secreta" {
+		t.Errorf("archivo temporal = %q, want la contraseña", string(contenido))
+	}
+
+	if err := session.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+
+	if _, err := os.Stat(llamada[2]); !errors.Is(err, os.ErrNotExist) {
+		t.Error("el archivo temporal no se eliminó")
+	}
+}

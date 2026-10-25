@@ -138,12 +138,27 @@ func leerClavePublica(ruta string) (string, error) {
 	return strings.TrimSpace(string(clave)), nil
 }
 
-// guionInstalacion construye el guion POSIX que instala la llave pública
+// guionInstalacion construye la orden POSIX que instala la llave pública
 // y deshabilita el acceso por contraseña.
 func guionInstalacion(clave string) *domain.Command {
+	return &domain.Command{Path: binSh, Args: []string{"-c", scriptInstalacion(clave)}}
+}
+
+// guionInstalacionSudo ejecuta la adecuación con sudo cuando el usuario
+// de Guest Additions no es root. La contraseña se envía por la entrada
+// estándar de sudo y no forma parte de la operación que se devuelve.
+func guionInstalacionSudo(clave, password string) *domain.Command {
+	interno := "printf '%s\\n' " + domain.Quote(password) +
+		" | sudo -S -p '' " + binSh + " -c " + domain.Quote(scriptInstalacion(clave))
+
+	return &domain.Command{Path: binSh, Args: []string{"-c", interno}}
+}
+
+// scriptInstalacion devuelve el guion que prepara SSH dentro de la VM.
+func scriptInstalacion(clave string) string {
 	configuracion := "PasswordAuthentication no\nPermitRootLogin prohibit-password\n"
 
-	guion := "if [ ! -x /usr/sbin/sshd ]; then " +
+	return "if [ ! -x /usr/sbin/sshd ]; then " +
 		"DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-server; fi && " +
 		"install -d -m 700 /root/.ssh && " +
 		"printf '%s\\n' " + domain.Quote(clave) + " >> /root/.ssh/authorized_keys && " +
@@ -151,6 +166,4 @@ func guionInstalacion(clave string) *domain.Command {
 		"install -d -m 755 /etc/ssh/sshd_config.d && " +
 		"printf '%s' " + domain.Quote(configuracion) + " > /etc/ssh/sshd_config.d/99-vmcons.conf && " +
 		"systemctl enable --now ssh"
-
-	return &domain.Command{Path: binSh, Args: []string{"-c", guion}}
 }

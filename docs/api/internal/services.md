@@ -361,6 +361,9 @@ type ConfigAcceso struct {
     Guest ports.Connector
     // SSH comprueba que la llave quede operativa tras la adecuación.
     SSH ports.Connector
+    // SSHPassword abre una sesión con usuario y contraseña cuando Guest
+    // Additions no puede autenticar.
+    SSHPassword ports.PasswordConnector
     // Ejecutor genera la llave de root en el anfitrión.
     Ejecutor ports.Executor
     // RutaLlave es la llave privada de root en el anfitrión.

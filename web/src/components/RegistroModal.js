@@ -82,6 +82,14 @@ export function abrirRegistro({ maquina, alRegistrar }) {
       }
     } catch (fallo) {
       errorEl.textContent = mensajeDeError(fallo);
+
+      if (fallo.tecnico) {
+        const detalle = document.createElement('pre');
+        detalle.className = 'mt-1 p-1.5 bg-vm-bg border border-vm-border text-[10px] font-mono whitespace-pre-wrap max-h-[120px] overflow-auto';
+        detalle.textContent = fallo.tecnico;
+        errorEl.appendChild(detalle);
+      }
+
       boton.disabled = false;
     }
   });

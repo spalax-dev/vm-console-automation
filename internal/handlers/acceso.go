@@ -75,8 +75,11 @@ func (h *Acceso) registrar(w http.ResponseWriter, r *http.Request) {
 		})
 	case errors.Is(err, services.ErrCredencialesInvalidas):
 		escribirJSON(w, http.StatusUnauthorized, respuestaOperacion{
-			Mensaje: "No fue posible iniciar sesión con esas credenciales.",
-			Tecnico: err.Error(),
+			Mensaje:   "Guest Additions rechazó las credenciales o no pudo ejecutar la orden.",
+			Operacion: resultado.Operacion,
+			Codigo:    resultado.Codigo,
+			Stderr:    resultado.Stderr,
+			Tecnico:   err.Error(),
 		})
 	case errors.Is(err, services.ErrSesionNoDisponible):
 		escribirJSON(w, http.StatusServiceUnavailable, respuestaOperacion{

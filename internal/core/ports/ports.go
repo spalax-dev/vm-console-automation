@@ -55,6 +55,13 @@ type Connector interface {
 	Connect(ctx context.Context, target domain.Target) (Session, error)
 }
 
+// PasswordConnector establece sesiones con usuario y contraseña, para
+// registrar máquinas cuyo Guest Additions no puede autenticar.
+type PasswordConnector interface {
+	// ConnectPassword abre una sesión con las credenciales dadas.
+	ConnectPassword(ctx context.Context, target domain.Target, usuario, password string) (Session, error)
+}
+
 // Session representa una sesión establecida con la máquina, sobre la
 // cual se ejecutan órdenes y se transfieren archivos.
 type Session interface {

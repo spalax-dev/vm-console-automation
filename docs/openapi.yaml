@@ -194,8 +194,10 @@ paths:
         orden (`id -u`), instala `openssh-server` si falta, instala la
         llave pública de root y deshabilita el acceso por contraseña.
         Después comprueba que SSH funcione con la llave y marca la
-        máquina como registrada. Si algo falla, restaura el estado
-        anterior y la máquina queda sin registrar.
+        máquina como registrada. Si Guest Additions rechaza las
+        credenciales, reintenta la adecuación por SSH con la misma
+        contraseña (`sshpass`). Si todo falla, restaura el estado anterior
+        y la máquina queda sin registrar.
 
         La contraseña se guarda en SQLite (`data/vmcons.db`) cifrada con
         AES-256-GCM; la clave local (`data/credenciales.key`) y la base

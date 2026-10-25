@@ -14,6 +14,7 @@ Package ports declara las interfaces \(puertos\) que el núcleo de la consola ne
 - [type Executor](<#Executor>)
 - [type Inventory](<#Inventory>)
 - [type Machine](<#Machine>)
+- [type PasswordConnector](<#PasswordConnector>)
 - [type Power](<#Power>)
 - [type Session](<#Session>)
 
@@ -70,6 +71,18 @@ type Machine interface {
     State(ctx context.Context, target domain.Target) (domain.MachineState, error)
     // Network informa el modo de la primera interfaz de red.
     Network(ctx context.Context, target domain.Target) (domain.NetworkMode, error)
+}
+```
+
+<a name="PasswordConnector"></a>
+## type PasswordConnector
+
+PasswordConnector establece sesiones con usuario y contraseña, para registrar máquinas cuyo Guest Additions no puede autenticar.
+
+```go
+type PasswordConnector interface {
+    // ConnectPassword abre una sesión con las credenciales dadas.
+    ConnectPassword(ctx context.Context, target domain.Target, usuario, password string) (Session, error)
 }
 ```
 

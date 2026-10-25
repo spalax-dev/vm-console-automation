@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"consola-vm/internal/core/domain"
+	"consola-vm/internal/core/ports"
 )
 
 // nuevaLlaveDePrueba crea un par de llaves falso en el anfitrión.
@@ -153,5 +154,60 @@ func TestAccesoOlvidar(t *testing.T) {
 
 	if _, ok := almacen.Obtener(nombreDebian); ok {
 		t.Error("Obtener() encontró credenciales olvidadas")
+	}
+}
+
+// stubPasswordConnector abre una sesión falsa con contraseña.
+type stubPasswordConnector struct {
+	sesion   ports.Session
+	err      error
+	usuario  string
+	password string
+	llamadas int
+}
+
+// ConnectPassword registra las credenciales y devuelve la sesión.
+func (s *stubPasswordConnector) ConnectPassword(
+	_ context.Context, _ domain.Target, usuario, password string,
+) (ports.Session, error) {
+	s.usuario = usuario
+	s.password = password
+	s.llamadas++
+
+	return s.sesion, s.err
+}
+
+// TestAccesoRegistrarConSSHPassword comprueba el respaldo cuando Guest
+// Additions rechaza las credenciales.
+func TestAccesoRegistrarConSSHPassword(t *testing.T) {
+	t.Parallel()
+
+	almacen, _, _ := nuevaBaseDePrueba(t)
+	maquina := &stubMachine{addr: netip.MustParseAddr(ipPrueba), state: domain.StateRunning}
+	guest := &stubConnector{name: conectorGuest, session: &stubSession{err: &domain.ExitError{Code: 1, Command: "id"}}}
+	sshSesion := &stubSession{}
+	sshPassword := &stubPasswordConnector{sesion: sshSesion}
+
+	acceso := NuevoAcceso(&ConfigAcceso{
+		Almacen:     almacen,
+		Maquina:     maquina,
+		Guest:       guest,
+		SSH:         &stubConnector{name: conectorSSH},
+		SSHPassword: sshPassword,
+		Ejecutor:    &stubExecutor{},
+		RutaLlave:   nuevaLlaveDePrueba(t),
+		Objetivo:    func() domain.Target { return domain.Target{ID: nombreDebian} },
+	})
+
+	if _, err := acceso.Registrar(context.Background(), usuarioRoot, passwordPrueba); err != nil {
+		t.Fatalf("Registrar() error = %v, want nil", err)
+	}
+
+	if sshPassword.llamadas != 1 {
+		t.Errorf("ConnectPassword() se llamó %d veces, want 1", sshPassword.llamadas)
+	}
+
+	if !almacen.Registrada(nombreDebian) {
+		t.Error("la máquina no quedó registrada con el respaldo SSH")
 	}
 }
