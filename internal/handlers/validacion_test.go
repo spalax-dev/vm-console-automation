@@ -97,7 +97,7 @@ func TestValidarServidor(t *testing.T) {
 		}
 	}
 
-	invalidos := []string{"", "192.168.1.61", "192.168.1.61:0", "localhost:8080", "[::1]:8080", "192.168.1.61:70000"}
+	invalidos := []string{"", ipServidor, "192.168.1.61:0", "localhost:8080", "[::1]:8080", "192.168.1.61:70000"}
 	for _, valor := range invalidos {
 		if err := validarServidor(campoServer, valor); err == nil {
 			t.Errorf("validarServidor(%q) error = nil, want un error", valor)

@@ -193,7 +193,7 @@ func TestUsuariosCrearSinLlaves(t *testing.T) {
 	}
 
 	if len(sesion.commands) != 2 {
-		t.Fatalf("la sesión ejecutó %d órdenes, want 2", len(sesion.commands))
+		t.Fatalf(msgOrdenDos, len(sesion.commands))
 	}
 
 	if orden := sesion.commands[1].ShellLine(); strings.Contains(orden, "passwd -l") {
@@ -221,7 +221,7 @@ func TestUsuariosEliminarConArchivos(t *testing.T) {
 	}
 
 	if _, err := usuarios.Eliminar(context.Background(), nombreJorge, true); err != nil {
-		t.Fatalf("Eliminar() error = %v, want nil", err)
+		t.Fatalf(msgEliminarOK, err)
 	}
 
 	if orden := sesion.commands[1].ShellLine(); !strings.Contains(orden, "userdel -r") {
@@ -301,7 +301,7 @@ func TestUsuariosCrearErrorDeOrden(t *testing.T) {
 	}
 
 	if resultado.Codigo != 1 || resultado.Stderr == "" {
-		t.Errorf("resultado = %+v, want código y stderr", resultado)
+		t.Errorf(msgResultadoTecnico, resultado)
 	}
 }
 

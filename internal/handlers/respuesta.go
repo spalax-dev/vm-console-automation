@@ -169,12 +169,3 @@ func responderErrorOperacion(w http.ResponseWriter, resultado services.Resultado
 		Tecnico: err.Error(),
 	})
 }
-
-// noImplementado responde 501 para una operación validada cuyo caso de
-// uso todavía no está conectado con la máquina.
-func noImplementado(w http.ResponseWriter, operacion string) {
-	escribirJSON(w, http.StatusNotImplemented, respuestaError{
-		Mensaje: fmt.Sprintf("La operación «%s» aún no está conectada con la máquina.", operacion),
-		Tecnico: "endpoint disponible; falta conectar el caso de uso",
-	})
-}

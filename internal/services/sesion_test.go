@@ -38,6 +38,11 @@ const (
 	msgObtenerSinSesion = "Obtener() error = %v, want ErrSesionNoDisponible"
 	estadoInactivo      = "inactive"
 	duenoPrueba         = "catalogo"
+	ipServidorPrueba    = "192.168.1.61"
+	ipServidorNuevo     = "192.168.1.62"
+	msgEliminarOK       = "Eliminar() error = %v, want nil"
+	msgResultadoTecnico = "resultado = %+v, want código y stderr"
+	msgOrdenDos         = "la sesión ejecutó %d órdenes, want 2"
 	msgIP               = "IP = %s, want %s"
 )
 

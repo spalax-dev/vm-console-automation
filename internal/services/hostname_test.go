@@ -115,7 +115,7 @@ func TestHostnameEscribirActualizaHosts(t *testing.T) {
 	}
 
 	if len(sesion.commands) != 2 {
-		t.Fatalf("la sesión ejecutó %d órdenes, want 2", len(sesion.commands))
+		t.Fatalf(msgOrdenDos, len(sesion.commands))
 	}
 
 	orden := sesion.commands[1].ShellLine()
@@ -194,7 +194,7 @@ func TestContenidoHostsReemplazaEntrada(t *testing.T) {
 
 	entrada := "127.0.0.1\tlocalhost\n192.168.1.60\tnodo-01\n::1 localhost\n"
 
-	obtenido := contenidoHosts(entrada, nombreHostPrueba, "192.168.1.61")
+	obtenido := contenidoHosts(entrada, nombreHostPrueba, ipServidorPrueba)
 	esperado := "127.0.0.1\tlocalhost\n::1 localhost\n192.168.1.61 nodo-01\n"
 
 	if obtenido != esperado {

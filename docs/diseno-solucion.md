@@ -231,6 +231,34 @@ El listado devuelve `activo`, `habilitado`, `estado` (`active`, `inactive`,
 `exited`, etc.) para diagnóstico. Los archivos y el propietario se validan en
 el *handler* antes de llegar a la máquina.
 
+### 2.8 Servidores del back-end de HAProxy
+
+El recurso `/api/haproxy/backend/servers` administra los servidores que
+HAProxy usa como back-end:
+
+| Operación | Acción | Respuesta |
+| --- | --- | --- |
+| `GET /api/haproxy/backend/servers` | lista los servidores del primer `backend` | `200` con `{servidores: [...]}` |
+| `POST /api/haproxy/backend/servers` | agrega `direccion:puerto` | `201`; `409` si ya existe |
+| `DELETE /api/haproxy/backend/servers/{server}` | elimina `direccion:puerto` | `204`; `404` si no existe |
+
+El servicio `Haproxy` (`internal/services/haproxy.go`) lee y reescribe
+`/etc/haproxy/haproxy.cfg`. Toma el **primer** bloque `backend` de la
+configuración y opera sobre sus líneas `server`:
+
+- **Alta:** agrega `server srv_<ip>_<puerto> <ip>:<puerto> check` al final del
+  bloque, salvo que ya exista ese `direccion:puerto` (`409`).
+- **Baja:** elimina la línea `server` cuyo destino coincide (`404` si no está).
+- **Validación:** escribe la configuración propuesta en un archivo temporal,
+  ejecuta `haproxy -c -f` y solo si es válida la mueve a
+  `/etc/haproxy/haproxy.cfg`; después recarga el servicio con
+  `systemctl reload haproxy`. Un error de sintaxis deja intacta la
+  configuración anterior.
+
+El identificador del servidor en la ruta es `direccion:puerto`
+(por ejemplo, `192.168.1.61:8080`). El estado de cada servidor se informa como
+`unknown` porque la consola no consulta el socket de estadísticas de HAProxy.
+
 ### 2.7 Vinculación de la máquina virtual
 
 Hasta ahora la máquina administrada se fijaba al arrancar con `VMCONS_VM`.

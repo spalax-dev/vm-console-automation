@@ -211,7 +211,7 @@ func TestSystemdCambiarEstadoError(t *testing.T) {
 	}
 
 	if resultado.Codigo != 5 || resultado.Stderr == "" {
-		t.Errorf("resultado = %+v, want código y stderr", resultado)
+		t.Errorf(msgResultadoTecnico, resultado)
 	}
 }
 

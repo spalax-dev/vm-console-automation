@@ -20,11 +20,11 @@ Documento de seguimiento del proyecto. Se actualiza conforme se avanza.
 | Contrato OpenAPI (`docs/openapi.yaml`) | [x] 12 rutas, validado con Redocly |
 | Controladores HTTP de los módulos | [~] Registrados y validando; responden 501 hasta conectar servicios |
 | Servicio de descubrimiento/selección de sesión | [x] Completo — cobertura 100 % |
-| Casos de uso (`internal/services`) | [~] Preparación, usuarios y systemd completos; HAProxy pendiente |
+| Casos de uso (`internal/services`) | [x] Preparación, usuarios, systemd y HAProxy completos |
 | Endpoints HTTP (`internal/handlers`) | [~] `GET /api/session` hecho; módulos pendientes |
 | Ensamblaje (`main.go`: rutas + inyección de dependencias) | [~] Servidor, `web/` embebido y todas las rutas registradas; faltan los servicios de módulos |
 | Interfaz web (`web/modules`, `web/static/main.js`) | [ ] Placeholders |
-| Pruebas de `services` y `handlers` | [~] `services` 97.9 %; `handlers` 95.8 % |
+| Pruebas de `services` y `handlers` | [~] `services` 97.1 %; `handlers` 95.6 % |
 | Escenario: diagrama (numeral 5) | [x] Hecho en PlantUML (`docs/diagramas/`), en §3.1 del informe |
 | Pruebas manuales en video (numeral 4) | [ ] No iniciado |
 | Informe (`docs/informe`) | [~] §3 (diseño y escenario) redactado con los 2 diagramas; resto con TODOs |
@@ -88,8 +88,8 @@ Orden de trabajo obligatorio: **docs → tests → implementación**.
 
 | # | Requisito | Docs | Tests | Código | UI | Video |
 | --- | --- | --- | --- | --- | --- | --- |
-| 3.4 | Agregar un servidor al back-end | [x] | [x] | [~] | [ ] | [ ] |
-| 3.4 | Eliminar un servidor del back-end | [x] | [x] | [~] | [ ] | [ ] |
+| 3.4 | Agregar un servidor al back-end | [x] | [x] | [x] | [ ] | [ ] |
+| 3.4 | Eliminar un servidor del back-end | [x] | [x] | [x] | [ ] | [ ] |
 
 ### 4.5 Requisitos transversales de la aplicación web
 
@@ -176,6 +176,13 @@ de los módulos del numeral 3.
 ---
 
 ## Notas de seguimiento
+
+- **25 oct 2026** — Back-end de HAProxy (3.4): el servicio `Haproxy`
+  interpreta el primer bloque `backend` de `/etc/haproxy/haproxy.cfg`,
+  agrega o quita líneas `server` y valida la configuración propuesta con
+  `haproxy -c` antes de moverla e recargar el servicio. `POST` responde
+  `201` (`409` si el servidor ya existe), `DELETE` `204` (`404` si no
+  está). Cobertura: `services` 97.1 %, `handlers` 95.6 %.
 
 - **25 oct 2026** — Unidades de systemd (3.3): el servicio `Systemd`
   combina `list-units` y `list-unit-files` para el listado, usa

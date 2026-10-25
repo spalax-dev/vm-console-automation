@@ -48,6 +48,10 @@ const (
 	rutaReinicios         = "/api/units/x/restarts"
 	casoErrorLectura      = "error de lectura"
 	casoUnidadInvalida    = "unidad inválida"
+	rutaServidores        = "/api/haproxy/backend/servers"
+	rutaServidor          = rutaServidores + "/x"
+	ipServidor            = "192.168.1.61"
+	cuerpoServidor        = `{"direccion":"192.168.1.61","puerto":8080}`
 	cuerpoActivar         = `{"activo":true}`
 	textoBienvenido       = "Bienvenido"
 )

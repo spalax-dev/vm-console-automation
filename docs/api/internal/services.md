@@ -26,6 +26,11 @@ Package services implementa los casos de uso de la consola: descubre el conector
   - [func \(d \*Descubridor\) Establecer\(nombre string\)](<#Descubridor.Establecer>)
   - [func \(d \*Descubridor\) Objetivo\(\) domain.Target](<#Descubridor.Objetivo>)
 - [type EstadoUnidad](<#EstadoUnidad>)
+- [type Haproxy](<#Haproxy>)
+  - [func NuevoHaproxy\(sesiones AbridorSesion\) \*Haproxy](<#NuevoHaproxy>)
+  - [func \(h \*Haproxy\) Agregar\(ctx context.Context, direccion string, puerto int\) \(Resultado, error\)](<#Haproxy.Agregar>)
+  - [func \(h \*Haproxy\) Eliminar\(ctx context.Context, direccion string, puerto int\) \(Resultado, error\)](<#Haproxy.Eliminar>)
+  - [func \(h \*Haproxy\) Listar\(ctx context.Context\) \(\[\]Servidor, error\)](<#Haproxy.Listar>)
 - [type Hostname](<#Hostname>)
   - [func NuevoHostname\(sesiones AbridorSesion\) \*Hostname](<#NuevoHostname>)
   - [func \(h \*Hostname\) Escribir\(ctx context.Context, config ConfiguracionHostname\) \(Resultado, error\)](<#Hostname.Escribir>)
@@ -48,6 +53,7 @@ Package services implementa los casos de uso de la consola: descubre el conector
   - [func \(p \*Paquetes\) Listar\(ctx context.Context\) \(\[\]Paquete, error\)](<#Paquetes.Listar>)
 - [type Resultado](<#Resultado>)
 - [type Selector](<#Selector>)
+- [type Servidor](<#Servidor>)
 - [type Systemd](<#Systemd>)
   - [func NuevoSystemd\(sesiones AbridorSesion\) \*Systemd](<#NuevoSystemd>)
   - [func \(s \*Systemd\) CambiarEstado\(ctx context.Context, unidad string, activo, habilitado \*bool\) \(Resultado, error\)](<#Systemd.CambiarEstado>)
@@ -72,6 +78,12 @@ Package services implementa los casos de uso de la consola: descubre el conector
 
 
 ## Variables
+
+<a name="ErrBackendNoEncontrado"></a>ErrBackendNoEncontrado indica que la configuración no tiene un bloque backend.
+
+```go
+var ErrBackendNoEncontrado = errors.New("no se encontró un back-end en la configuración")
+```
 
 <a name="ErrLlaveExistente"></a>ErrLlaveExistente indica que la llave privada de root ya está en el anfitrión y no se sobrescribe.
 
@@ -101,6 +113,18 @@ var ErrMaquinaEncendida = errors.New("la máquina virtual ya está encendida")
 
 ```go
 var ErrMaquinaNoEncontrada = errors.New("la máquina virtual no está en el inventario")
+```
+
+<a name="ErrServidorExistente"></a>ErrServidorExistente indica que el servidor ya está en el back\-end.
+
+```go
+var ErrServidorExistente = errors.New("el servidor ya está en el back-end")
+```
+
+<a name="ErrServidorNoEncontrado"></a>ErrServidorNoEncontrado indica que el servidor no está en el back\-end.
+
+```go
+var ErrServidorNoEncontrado = errors.New("el servidor no está en el back-end")
 ```
 
 <a name="ErrSesionNoDisponible"></a>ErrSesionNoDisponible indica que ningún conector puede atender la máquina en este momento \(por ejemplo, la VM está apagada o no hay llave SSH instalada ni Guest Additions disponible\).
@@ -338,6 +362,53 @@ type EstadoUnidad struct {
     Detalle string
 }
 ```
+
+<a name="Haproxy"></a>
+## type Haproxy
+
+Haproxy implementa el caso de uso del back\-end de HAProxy.
+
+```go
+type Haproxy struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="NuevoHaproxy"></a>
+### func NuevoHaproxy
+
+```go
+func NuevoHaproxy(sesiones AbridorSesion) *Haproxy
+```
+
+NuevoHaproxy construye el servicio con el abridor de sesiones dado.
+
+<a name="Haproxy.Agregar"></a>
+### func \(\*Haproxy\) Agregar
+
+```go
+func (h *Haproxy) Agregar(ctx context.Context, direccion string, puerto int) (Resultado, error)
+```
+
+Agregar agrega un servidor al back\-end y recarga HAProxy.
+
+<a name="Haproxy.Eliminar"></a>
+### func \(\*Haproxy\) Eliminar
+
+```go
+func (h *Haproxy) Eliminar(ctx context.Context, direccion string, puerto int) (Resultado, error)
+```
+
+Eliminar elimina un servidor del back\-end y recarga HAProxy.
+
+<a name="Haproxy.Listar"></a>
+### func \(\*Haproxy\) Listar
+
+```go
+func (h *Haproxy) Listar(ctx context.Context) ([]Servidor, error)
+```
+
+Listar devuelve los servidores del primer bloque backend.
 
 <a name="Hostname"></a>
 ## type Hostname
@@ -582,6 +653,23 @@ type Selector interface {
     Objetivo() domain.Target
     // Establecer vincula la máquina indicada por su nombre.
     Establecer(nombre string)
+}
+```
+
+<a name="Servidor"></a>
+## type Servidor
+
+Servidor describe un servidor del back\-end de HAProxy.
+
+```go
+type Servidor struct {
+    // Direccion es la dirección IPv4 del servidor.
+    Direccion string
+    // Puerto es el puerto TCP.
+    Puerto int
+    // Estado es el estado informado; la consola no consulta el socket,
+    // por lo que se informa «unknown».
+    Estado string
 }
 ```
 

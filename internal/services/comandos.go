@@ -17,4 +17,5 @@ const (
 	binSystemctl = "/usr/bin/systemctl"
 	binChmod     = "/bin/chmod"
 	binChown     = "/bin/chown"
+	binHaproxy   = "/usr/sbin/haproxy"
 )

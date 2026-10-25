@@ -184,9 +184,27 @@ con el resultado de \texttt{systemctl restart}.
 % ------------------------------------------------------------
 \subsection{Gestión de un Balanceador de Carga con HAProxy}
 \label{sec:haproxy}
-% TODO: mecanismo para agregar y eliminar un servidor del back-end del
-% balanceador de carga; verificación del balanceo con back-end creadas
-% manualmente con VirtualBox (entorno de pruebas, fuera de la consola).
+
+El recurso \texttt{/api/haproxy/backend/servers} administra los
+servidores del back-end. El servicio lee
+\texttt{/etc/haproxy/haproxy.cfg}, toma el primer bloque
+\texttt{backend} y trabaja sobre sus líneas \texttt{server}: el alta
+agrega \texttt{server srv\_<ip>\_<puerto> <ip>:<puerto> check} y la
+baja elimina la línea cuyo destino coincide con \texttt{direccion:puerto}.
+
+Cada cambio se valida antes de aplicarse: la configuración propuesta se
+escribe en un archivo temporal, se comprueba con
+\texttt{haproxy -c -f} y solo si es correcta se mueve a
+\texttt{/etc/haproxy/haproxy.cfg}; después se recarga el servicio con
+\texttt{systemctl reload haproxy}. Un error de sintaxis deja intacta la
+configuración anterior, de modo que el balanceador no se queda sin
+servicio. El alta responde \texttt{201} con \texttt{Location}
+(\texttt{409} si el servidor ya existe), la baja \texttt{204}
+(\texttt{404} si no está) y el listado \texttt{200} con
+\texttt{\{servidores: [...]\}}. El estado de cada servidor se informa
+como \texttt{unknown} porque la consola no consulta el socket de
+estadísticas de HAProxy; la verificación funcional del balanceo se
+realiza con las back-end del entorno de pruebas.
 
 % ------------------------------------------------------------
 % 4.5 Interfaz web

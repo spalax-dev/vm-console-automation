@@ -90,7 +90,7 @@ func TestPaquetesEliminarEjecutaAptGet(t *testing.T) {
 	paquetes, _ := nuevoPaquetesDePrueba(sesion, nil)
 
 	if _, err := paquetes.Eliminar(context.Background(), paqueteNano); err != nil {
-		t.Fatalf("Eliminar() error = %v, want nil", err)
+		t.Fatalf(msgEliminarOK, err)
 	}
 
 	cmd := sesion.commands[0]

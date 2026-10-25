@@ -55,9 +55,9 @@ info:
     ## Estado de implementación
 
     `GET /api/session`, `/api/packages`, `/api/keys/root`, `/api/issue`,
-    `/api/hostname`, `/api/users` y `/api/units` ya están conectados con
-    la máquina. El resto de rutas existe y valida sus entradas, pero
-    responde `501` hasta conectar sus casos de uso.
+    Todas las rutas del contrato ya están conectadas con la máquina. La
+    única funcionalidad fuera de alcance es el historial, diferido según
+    `docs/TODO.md` §9.
 
     ## Fuera de alcance
 

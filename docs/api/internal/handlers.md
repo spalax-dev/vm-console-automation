@@ -12,7 +12,7 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
 
 - [type DescubridorSesion](<#DescubridorSesion>)
 - [type Haproxy](<#Haproxy>)
-  - [func NuevoHaproxy\(\) \*Haproxy](<#NuevoHaproxy>)
+  - [func NuevoHaproxy\(servicio ServicioHaproxy\) \*Haproxy](<#NuevoHaproxy>)
   - [func \(h \*Haproxy\) Servidor\(w http.ResponseWriter, r \*http.Request\)](<#Haproxy.Servidor>)
   - [func \(h \*Haproxy\) Servidores\(w http.ResponseWriter, r \*http.Request\)](<#Haproxy.Servidores>)
 - [type Maquinas](<#Maquinas>)
@@ -21,6 +21,7 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
   - [func \(h \*Maquinas\) ServeHTTP\(w http.ResponseWriter, r \*http.Request\)](<#Maquinas.ServeHTTP>)
 - [type OpcionSesion](<#OpcionSesion>)
   - [func ConVinculador\(vinculador VinculadorSesion\) OpcionSesion](<#ConVinculador>)
+- [type ServicioHaproxy](<#ServicioHaproxy>)
 - [type ServicioHostname](<#ServicioHostname>)
 - [type ServicioIssue](<#ServicioIssue>)
 - [type ServicioLlaves](<#ServicioLlaves>)
@@ -68,14 +69,16 @@ type DescubridorSesion interface {
 Haproxy agrupa los recursos de balanceo de carga con HAProxy \(numeral 3.4\).
 
 ```go
-type Haproxy struct{}
+type Haproxy struct {
+    // contains filtered or unexported fields
+}
 ```
 
 <a name="NuevoHaproxy"></a>
 ### func NuevoHaproxy
 
 ```go
-func NuevoHaproxy() *Haproxy
+func NuevoHaproxy(servicio ServicioHaproxy) *Haproxy
 ```
 
 NuevoHaproxy construye el handler de balanceo con HAProxy.
@@ -153,6 +156,22 @@ func ConVinculador(vinculador VinculadorSesion) OpcionSesion
 ```
 
 ConVinculador habilita PUT /api/session con el servicio dado.
+
+<a name="ServicioHaproxy"></a>
+## type ServicioHaproxy
+
+ServicioHaproxy ejecuta las operaciones sobre el back\-end de HAProxy.
+
+```go
+type ServicioHaproxy interface {
+    // Listar devuelve los servidores del back-end.
+    Listar(ctx context.Context) ([]services.Servidor, error)
+    // Agregar agrega un servidor al back-end.
+    Agregar(ctx context.Context, direccion string, puerto int) (services.Resultado, error)
+    // Eliminar elimina un servidor del back-end.
+    Eliminar(ctx context.Context, direccion string, puerto int) (services.Resultado, error)
+}
+```
 
 <a name="ServicioHostname"></a>
 ## type ServicioHostname
