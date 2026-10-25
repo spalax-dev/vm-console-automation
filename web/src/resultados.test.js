@@ -135,6 +135,18 @@ describe('panel de resultado', () => {
     expect(panel.querySelector('#result-limpiar').classList.contains('btn')).toBe(false);
   });
 
+  it('no encoge las fichas cuando el historial crece', () => {
+    agregar({ ...EJEMPLO, mensaje: 'Primera' });
+    agregar({ ...EJEMPLO, mensaje: 'Segunda' });
+
+    const panel = ResultPanel();
+    document.body.appendChild(panel);
+
+    for (const ficha of panel.querySelectorAll('#result-body > article')) {
+      expect(ficha.classList.contains('shrink-0')).toBe(true);
+    }
+  });
+
   it('se desplaza siempre hasta la última operación', () => {
     agregar({ ...EJEMPLO, mensaje: 'Primera' });
 

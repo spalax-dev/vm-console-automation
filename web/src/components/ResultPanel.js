@@ -108,7 +108,7 @@ function pintar(raiz = document) {
 
   if (historial.length === 0) {
     cuerpo.innerHTML = `
-      <div class="flex-1 flex items-center justify-center text-center">
+      <div class="flex-1 shrink-0 flex items-center justify-center text-center">
         <div>
           <div class="text-[12px] text-[#AAAAAA]">Sin operaciones ejecutadas aún</div>
           <div class="text-[11px] text-[#777777] mt-1">Los resultados se conservan al cambiar de módulo.</div>
@@ -168,7 +168,7 @@ function entrada(resultado, reciente) {
   const franja = correcto ? '' : 'bg-[#3A2A28]';
 
   return `
-    <article class="border rounded-[3px] overflow-hidden ${marco} fade-slide">
+    <article class="border rounded-[3px] overflow-hidden shrink-0 ${marco} fade-slide">
       <div class="flex items-start gap-2 px-2 py-1.5 ${franja}">
         <i data-lucide="${correcto ? 'check-circle-2' : 'x-circle'}" class="w-4 h-4 shrink-0 ${correcto ? 'text-vm-success' : 'text-vm-accent'}"></i>
         <div class="flex-1 min-w-0">
