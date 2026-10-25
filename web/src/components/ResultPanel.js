@@ -13,19 +13,19 @@ export function ResultPanel() {
   const el = document.createElement('section');
   el.className = 'card flex flex-col min-h-[280px] max-h-[calc(100vh-8.5rem)] overflow-hidden';
   el.innerHTML = `
-    <header class="px-3 py-1.5 border-b border-vm-border flex items-center justify-between bg-[#F9F9F9]">
+    <header class="px-3 py-1.5 border-b border-vm-border flex items-center justify-between bg-[#f7f7f7]">
       <div class="flex items-center gap-1.5">
-        <i data-lucide="square-terminal" class="w-4 h-4"></i>
-        <span class="text-[12px] font-semibold">Resultado</span>
-        <span id="result-cuenta" class="text-[10px] text-vm-fgSecondary font-mono"></span>
+        <i data-lucide="info" class="w-4 h-4"></i>
+        <span class="text-[12px] font-medium">Resultado</span>
+        <span id="result-cuenta" class="text-[10px] text-vm-fgSecondary"></span>
       </div>
       <button id="result-limpiar" type="button" class="btn h-vm-btn px-1.5" title="Borrar el historial de resultados">
         <i data-lucide="trash-2" class="w-4 h-4"></i>
         <span class="text-[11px]">Limpiar</span>
       </button>
     </header>
-    <div id="result-body" class="flex-1 min-h-0 p-2 overflow-auto flex flex-col gap-2 bg-[#F5F5F5]"></div>
-    <footer class="px-3 py-1 border-t border-vm-border text-[10px] text-vm-fgSecondary font-mono bg-[#F9F9F9]">
+    <div id="result-body" class="flex-1 min-h-0 p-2 overflow-auto flex flex-col gap-2 bg-[#2B2B2B]"></div>
+    <footer class="px-3 py-1 border-t border-vm-border text-[10px] text-vm-fgSecondary font-mono">
       <span id="result-pie">Sin operaciones ejecutadas</span>
     </footer>
   `;
@@ -92,15 +92,15 @@ function pintar(raiz = document) {
   const historial = leer();
 
   if (cuenta) {
-    cuenta.textContent = historial.length > 0 ? `${historial.length} op.` : '';
+    cuenta.textContent = historial.length > 0 ? `(${historial.length})` : '';
   }
 
   if (historial.length === 0) {
     cuerpo.innerHTML = `
       <div class="flex-1 flex items-center justify-center text-center">
         <div>
-          <div class="text-[12px] text-vm-fgSecondary">Sin operaciones ejecutadas aún</div>
-          <div class="text-[11px] text-vm-fgSecondary mt-1">Los resultados se conservan al cambiar de módulo.</div>
+          <div class="text-[12px] text-[#AAAAAA]">Sin operaciones ejecutadas aún</div>
+          <div class="text-[11px] text-[#777777] mt-1">Los resultados se conservan al cambiar de módulo.</div>
         </div>
       </div>
     `;
@@ -121,7 +121,7 @@ function pintar(raiz = document) {
   const ultimo = historial[historial.length - 1];
 
   if (pie) {
-    pie.textContent = `${hora(ultimo.hora)} · rc=${ultimo.codigo ?? '-'}`;
+    pie.textContent = `${hora(ultimo.hora)} · código de salida: ${ultimo.codigo ?? '-'}`;
   }
 }
 
@@ -145,8 +145,7 @@ function alFinal(cuerpo) {
 }
 
 /**
- * Construye la ficha de un resultado: banda de estado, terminal con la
- * salida y detalle técnico plegable.
+ * Construye la ficha de un resultado del historial.
  *
  * @param {object} resultado Resultado guardado.
  * @param {boolean} reciente Indica si es la última operación.
@@ -154,96 +153,32 @@ function alFinal(cuerpo) {
  */
 function entrada(resultado, reciente) {
   const correcto = resultado.ok !== false;
-  const banda = correcto
-    ? 'bg-[#E8F5E9] border-b border-[#A5D6A7] text-[#2E7D32]'
-    : 'bg-[#FDF1EF] border-b border-[#E0B4AE] text-[#C0392B]';
-  const insignia = correcto ? 'bg-[#C8E6C9] text-[#1B5E20]' : 'bg-[#F5C6C0] text-[#7A1B12]';
 
   return `
-    <article class="border border-vm-border rounded-[3px] overflow-hidden bg-vm-surface">
-      <div class="px-2.5 py-1.5 flex items-center justify-between gap-2 ${banda}">
-        <div class="flex items-start gap-1.5 min-w-0">
-          <span class="text-[12px] leading-4">${correcto ? '✔' : '✕'}</span>
-          <span class="text-[12px] font-semibold break-words">${escapar(resultado.mensaje)}</span>
+    <article class="border ${correcto ? 'border-[#3C3C3C]' : 'border-vm-accent'} fade-slide">
+      <div class="flex items-start gap-2 px-2 py-1.5 ${correcto ? '' : 'bg-[#fdf1ef]'}">
+        <i data-lucide="${correcto ? 'check-circle-2' : 'x-circle'}" class="w-4 h-4 shrink-0 ${correcto ? 'text-vm-success' : 'text-vm-accent'}"></i>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-start justify-between gap-2">
+            <span class="text-[12px] break-words">${escapar(resultado.mensaje)}</span>
+            <span class="text-[10px] font-mono text-vm-fgSecondary shrink-0">${hora(resultado.hora)}</span>
+          </div>
         </div>
-        <span class="text-[10px] px-1 font-mono rounded shrink-0 ${insignia}">rc=${escapar(resultado.codigo)}</span>
       </div>
-      <pre class="px-2.5 py-2 bg-[#1E1E1E] text-[#D4D4D4] font-mono text-[11px] leading-relaxed overflow-auto max-h-[180px] whitespace-pre-wrap break-words">${terminal(resultado)}</pre>
       <details class="border-t border-vm-border" ${reciente ? 'open' : ''}>
-        <summary class="px-2.5 py-1 cursor-pointer text-[11px] text-vm-fgSecondary bg-[#F9F9F9] flex items-center justify-between">
-          <span>Detalle técnico</span>
-          <span class="font-mono">${hora(resultado.hora)}</span>
-        </summary>
-        <div class="px-2.5 py-2 flex flex-col gap-1.5 text-[11px]">
-          <div class="flex flex-col gap-0.5">
-            <span class="text-vm-fgSecondary">Orden ejecutada</span>
-            <span class="font-mono break-all border border-vm-border bg-vm-bg px-1.5 py-1">${escapar(resultado.operacion) || '—'}</span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-vm-fgSecondary">Código de salida</span>
-            <span class="font-mono px-1.5 py-0.5 border border-vm-border bg-vm-bg">${escapar(resultado.codigo)}</span>
-          </div>
-          <div class="flex flex-col gap-0.5">
-            <span class="text-vm-fgSecondary">Salida estándar</span>
-            <pre class="font-mono max-h-[120px] overflow-auto whitespace-pre-wrap break-words border border-vm-border bg-vm-bg px-1.5 py-1">${escapar(resultado.salida) || '(vacío)'}</pre>
-          </div>
-          <div class="flex flex-col gap-0.5">
-            <span class="text-vm-fgSecondary">Salida de error</span>
-            <pre class="font-mono max-h-[120px] overflow-auto whitespace-pre-wrap break-words border border-vm-border bg-vm-bg px-1.5 py-1">${escapar(resultado.stderr) || '(vacío)'}</pre>
-          </div>
-          ${
-            resultado.tecnico
-              ? `<div class="flex flex-col gap-0.5">
-                   <span class="text-vm-fgSecondary">Diagnóstico</span>
-                   <span class="font-mono break-all border border-vm-border bg-vm-bg px-1.5 py-1">${escapar(resultado.tecnico)}</span>
-                 </div>`
-              : ''
-          }
+        <summary class="px-2 py-1 cursor-pointer text-[11px] text-vm-fgSecondary">Detalle técnico</summary>
+        <div class="px-2 py-2 flex flex-col gap-1 text-[11px]">
+          <div><span class="text-vm-fgSecondary">Orden ejecutada:</span> <span class="font-mono break-all">${escapar(resultado.operacion) || '-'}</span></div>
+          <div><span class="text-vm-fgSecondary">Código de salida:</span> <span class="font-mono">${escapar(resultado.codigo)}</span></div>
+          <div><span class="text-vm-fgSecondary">Salida:</span></div>
+          <pre class="bg-vm-bg border border-vm-border p-2 overflow-auto text-[11px] font-mono max-h-[120px] whitespace-pre-wrap">${escapar(resultado.salida) || '(vacío)'}</pre>
+          <div><span class="text-vm-fgSecondary">stderr:</span></div>
+          <pre class="bg-vm-bg border border-vm-border p-2 overflow-auto text-[11px] font-mono max-h-[120px] whitespace-pre-wrap">${escapar(resultado.stderr) || '(vacío)'}</pre>
+          ${resultado.tecnico ? `<div><span class="text-vm-fgSecondary">Diagnóstico:</span> <span class="font-mono break-all">${escapar(resultado.tecnico)}</span></div>` : ''}
         </div>
       </details>
     </article>
   `;
-}
-
-/**
- * Compone el cuerpo del terminal con la orden, la salida y el error.
- *
- * @param {object} resultado Resultado guardado.
- * @returns {string} HTML del terminal.
- */
-function terminal(resultado) {
-  const lineas = [`<span class="text-[#888888]">$ ${escapar(resultado.operacion) || 'operación'}</span>`];
-
-  if (resultado.salida) {
-    lineas.push(`<span class="text-[#AAAAAA]">${escapar(recortar(resultado.salida))}</span>`);
-  }
-
-  if (resultado.stderr) {
-    lineas.push(`<span class="text-[#E06C75]">${escapar(recortar(resultado.stderr))}</span>`);
-  }
-
-  if (!resultado.salida && !resultado.stderr) {
-    lineas.push('<span class="text-[#666666]">(sin salida)</span>');
-  }
-
-  return lineas.join('\n');
-}
-
-/**
- * Recorta una salida muy larga para el terminal; el texto completo queda
- * en el detalle técnico.
- *
- * @param {string} texto Salida del proceso.
- * @returns {string} Salida recortada.
- */
-function recortar(texto) {
-  const lineas = String(texto).trimEnd().split('\n');
-
-  if (lineas.length <= 12) {
-    return lineas.join('\n');
-  }
-
-  return `${lineas.slice(0, 12).join('\n')}\n… (${lineas.length - 12} líneas más)`;
 }
 
 /**

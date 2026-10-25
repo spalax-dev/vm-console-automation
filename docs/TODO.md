@@ -179,12 +179,11 @@ de los módulos del numeral 3.
 
 ## Notas de seguimiento
 
-- **25 oct 2026** — Panel de resultado con el aspecto del diseño: cada
-  ficha lleva banda de estado (verde o roja) con el código de salida,
-  cuerpo de terminal oscuro (`#1E1E1E`, orden en `#888888`, salida en
-  `#AAAAAA`, error en `#E06C75`) y detalle técnico plegable en superficie
-  blanca. La salida se recorta a doce líneas en el terminal y se conserva
-  completa en el detalle.
+- **25 oct 2026** — Panel de resultado: las fichas se mantienen como
+  tarjetas claras con mensaje, hora y detalle técnico plegable, y el área
+  que las contiene pasa a gris oscuro (`#2B2B2B`) para que se lea como
+  una consola. Se descartó la ficha tipo terminal completo: añadía ruido
+  sin mejorar la lectura.
 
 - **25 oct 2026** — Historial de resultados en el panel lateral: cada
   operación añade una ficha y las anteriores se conservan, en orden
