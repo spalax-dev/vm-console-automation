@@ -138,7 +138,7 @@ lucide.createIcons({icons});\``);if(r===void 0)throw Error("`createIcons()` only
       <i data-lucide="${t.icono}"></i>
       <span>${t.etiqueta}</span>
     </button>
-  `).join(``),O(t);let n=[...t.querySelectorAll(`.tab`)],r=e=>{window.location.hash=`#/${e}`},i=e=>{let t=n[(e+n.length)%n.length];n.forEach(e=>{e.tabIndex=e===t?0:-1}),t.focus(),r(t.dataset.tab)};return n.forEach((e,t)=>{e.addEventListener(`click`,()=>r(e.dataset.tab)),e.addEventListener(`keydown`,e=>{switch(e.key){case`ArrowRight`:e.preventDefault(),i(t+1);break;case`ArrowLeft`:e.preventDefault(),i(t-1);break;case`Home`:e.preventDefault(),i(0);break;case`End`:e.preventDefault(),i(n.length-1)}})}),t}var V=`vmcons:resultados`,H=[];function U(){try{return window.localStorage}catch{return null}}function Fe(e){return!!e&&typeof e==`object`&&typeof e.mensaje==`string`}function Ie(){let e=U();if(!e)return[...H];try{let t=JSON.parse(e.getItem(V)??`[]`);return Array.isArray(t)?t.filter(Fe):[]}catch{return[]}}function Le(e){return ze([...Ie(),e].slice(-50))}function Re(){return ze([])}function ze(e){H=e;let t=U();if(t)try{t.setItem(V,JSON.stringify(e))}catch{}return e}var Be=`bg-[#2B2B2B] border-[#3C3C3C]`,W=`bg-[#333333] border-[#404040]`,G=`text-[#E5E5E5]`,K=`text-[#999999]`,Ve=`bg-[#242424] border-[#404040] text-[#D4D4D4]`;function He(){let e=document.createElement(`section`);return e.className=`flex flex-col min-h-[280px] max-h-[calc(100vh-8rem)] overflow-hidden border rounded-[3px] sticky top-0 ${Be}`,e.innerHTML=`
+  `).join(``),O(t);let n=[...t.querySelectorAll(`.tab`)],r=e=>{window.location.hash=`#/${e}`},i=e=>{let t=n[(e+n.length)%n.length];n.forEach(e=>{e.tabIndex=e===t?0:-1}),t.focus(),r(t.dataset.tab)};return n.forEach((e,t)=>{e.addEventListener(`click`,()=>r(e.dataset.tab)),e.addEventListener(`keydown`,e=>{switch(e.key){case`ArrowRight`:e.preventDefault(),i(t+1);break;case`ArrowLeft`:e.preventDefault(),i(t-1);break;case`Home`:e.preventDefault(),i(0);break;case`End`:e.preventDefault(),i(n.length-1)}})}),t}var V=`vmcons:resultados`,H=[];function U(){try{return window.localStorage}catch{return null}}function Fe(e){return!!e&&typeof e==`object`&&typeof e.mensaje==`string`}function Ie(){let e=U();if(!e)return[...H];try{let t=JSON.parse(e.getItem(V)??`[]`);return Array.isArray(t)?t.filter(Fe):[]}catch{return[]}}function Le(e){return ze([...Ie(),e].slice(-50))}function Re(){return ze([])}function ze(e){H=e;let t=U();if(t)try{t.setItem(V,JSON.stringify(e))}catch{}return e}var Be=`bg-[#2B2B2B] border-[#3C3C3C]`,W=`bg-[#333333] border-[#404040]`,G=`text-[#E5E5E5]`,K=`text-[#999999]`,Ve=`bg-[#242424] border-[#404040] text-[#D4D4D4] scroll-oscuro`;function He(){let e=document.createElement(`section`);return e.className=`flex flex-col min-h-[280px] max-h-[calc(100vh-8rem)] overflow-hidden border rounded-[3px] sticky top-0 ${Be}`,e.innerHTML=`
     <header class="px-3 py-1.5 border-b flex items-center justify-between ${W}">
       <div class="flex items-center gap-1.5">
         <i data-lucide="info" class="w-4 h-4 ${G}"></i>
@@ -152,7 +152,7 @@ lucide.createIcons({icons});\``);if(r===void 0)throw Error("`createIcons()` only
         <span>Limpiar</span>
       </button>
     </header>
-    <div id="result-body" class="flex-1 min-h-0 p-2 overflow-auto flex flex-col gap-2 ${Be}"></div>
+    <div id="result-body" class="flex-1 min-h-0 p-2 overflow-auto flex flex-col gap-2 scroll-oscuro ${Be}"></div>
     <footer class="px-3 py-1 border-t text-[10px] font-mono text-[#888888] ${W}">
       <span id="result-pie">Sin operaciones ejecutadas</span>
     </footer>

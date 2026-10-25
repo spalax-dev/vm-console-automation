@@ -73,6 +73,14 @@
   }
 }
 
+/* La columna de resultados permanece visible mientras se desplaza el
+   contenido del módulo; el panel interior gestiona su propio scroll. */
+#result-slot {
+  position: sticky;
+  top: 0;
+  align-self: start;
+}
+
 @keyframes fadeSlide {
   from {
     opacity: 0;
@@ -90,6 +98,37 @@
 
 .spin {
   animation: spin 800ms linear infinite;
+}
+
+/* Barra de desplazamiento de las superficies oscuras del panel de
+   resultado: pista del tono del lienzo y pulgar del tono de las tarjetas,
+   para que no aparezca la barra clara del sistema sobre el fondo oscuro. */
+.scroll-oscuro {
+  scrollbar-width: thin;
+  scrollbar-color: #4a4a4a #242424;
+}
+
+.scroll-oscuro::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scroll-oscuro::-webkit-scrollbar-track {
+  background: #242424;
+}
+
+.scroll-oscuro::-webkit-scrollbar-thumb {
+  background: #4a4a4a;
+  border: 2px solid #242424;
+  border-radius: 3px;
+}
+
+.scroll-oscuro::-webkit-scrollbar-thumb:hover {
+  background: #5f5f5f;
+}
+
+.scroll-oscuro::-webkit-scrollbar-corner {
+  background: #242424;
 }
 
 .tty {

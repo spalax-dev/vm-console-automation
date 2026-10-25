@@ -7,7 +7,7 @@ const PANEL = 'bg-[#2B2B2B] border-[#3C3C3C]';
 const TARJETA = 'bg-[#333333] border-[#404040]';
 const TEXTO = 'text-[#E5E5E5]';
 const TEXTO_TENUE = 'text-[#999999]';
-const BLOQUE = 'bg-[#242424] border-[#404040] text-[#D4D4D4]';
+const BLOQUE = 'bg-[#242424] border-[#404040] text-[#D4D4D4] scroll-oscuro';
 
 /**
  * Construye el panel lateral con el historial de resultados. El
@@ -33,7 +33,7 @@ export function ResultPanel() {
         <span>Limpiar</span>
       </button>
     </header>
-    <div id="result-body" class="flex-1 min-h-0 p-2 overflow-auto flex flex-col gap-2 ${PANEL}"></div>
+    <div id="result-body" class="flex-1 min-h-0 p-2 overflow-auto flex flex-col gap-2 scroll-oscuro ${PANEL}"></div>
     <footer class="px-3 py-1 border-t text-[10px] font-mono text-[#888888] ${TARJETA}">
       <span id="result-pie">Sin operaciones ejecutadas</span>
     </footer>

@@ -75,9 +75,11 @@ describe('panel de resultado', () => {
     expect(cuerpo.textContent).toContain('Se instaló nano');
     expect(panel.querySelector('#result-cuenta').textContent).toBe('(1)');
 
-    // El historial no agranda la tarjeta: se desplaza dentro del panel.
+    // El historial no agranda la tarjeta: se desplaza dentro del panel,
+    // con la barra de desplazamiento del mismo tono oscuro.
     expect(cuerpo.className).toContain('overflow-auto');
     expect(cuerpo.className).toContain('min-h-0');
+    expect(cuerpo.className).toContain('scroll-oscuro');
     expect(panel.className).toContain('overflow-hidden');
   });
 
