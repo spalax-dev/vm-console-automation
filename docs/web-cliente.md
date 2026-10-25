@@ -105,13 +105,17 @@ autoridad; la del cliente solo evita un viaje de ida y vuelta.
 
 ## 4. Comandos
 
+Los comandos viven en `Taskfile.yml`, igual que el resto del proyecto:
+
 ```sh
-cd web
-pnpm install        # instala las dependencias
-pnpm dev            # servidor de desarrollo en :5173 con proxy a :8080
-pnpm test           # pruebas del cliente (vitest)
-pnpm build          # compila en web/dist
+task web-install    # instala las dependencias del cliente
+task web-dev        # servidor de desarrollo en :5173 con proxy a la API
+task web-test       # pruebas del cliente (Vitest)
+task web-build      # compila en web/dist
 ```
+
+`task check` incluye `web-test`, de modo que el ciclo de calidad cubre el
+backend y el cliente antes de cada commit.
 
 El proxy de desarrollo toma el destino de `VMCONS_API` (por omisión
 `http://localhost:8080`), de modo que se puede apuntar a otro puerto sin tocar

@@ -12,6 +12,12 @@
 #   task doc        # regenerar docs/api/ desde los comentarios del código
 #   task openapi    # validar el contrato docs/openapi.yaml
 #   task check      # fmt + lint + test + doc-check (antes de cada commit)
+#
+# Cliente web (web/): requiere pnpm.
+#   task web-install  # instalar las dependencias del cliente
+#   task web-dev      # servidor de desarrollo con proxy a la API
+#   task web-test     # pruebas del cliente con Vitest
+#   task web-build    # compilar el cliente en web/dist
 
 version: "3"
 
@@ -62,10 +68,34 @@ tasks:
       - task: lint
       - task: test
       - task: doc-check
+      - task: web-test
 
   build:
     desc: Compilar el binario final (vmcons)
     cmd: go build -o {{.BIN}} .
+
+  # ---------------------------------------------------------------
+  # Cliente web (web/)
+  # ---------------------------------------------------------------
+  web-install:
+    desc: Instalar las dependencias del cliente web
+    dir: web
+    cmd: pnpm install --frozen-lockfile
+
+  web-dev:
+    desc: Servidor de desarrollo del cliente web con proxy a la API
+    dir: web
+    cmd: pnpm dev
+
+  web-test:
+    desc: Ejecutar las pruebas del cliente web con Vitest
+    dir: web
+    cmd: pnpm test
+
+  web-build:
+    desc: Compilar el cliente web en web/dist
+    dir: web
+    cmd: pnpm build
 
   tidy:
     desc: Ordenar dependencias y formato de go.mod
