@@ -145,16 +145,18 @@ lucide.createIcons({icons});\``);if(r===void 0)throw Error("`createIcons()` only
         <span class="text-[12px] font-medium ${K}">Resultado</span>
         <span id="result-cuenta" class="text-[10px] text-[#888888]"></span>
       </div>
-      <button id="result-limpiar" type="button" class="btn h-vm-btn px-1.5" title="Borrar el historial de resultados">
+      <button id="result-limpiar" type="button"
+        class="h-vm-btn px-1.5 inline-flex items-center gap-1 rounded-[3px] border border-[#4A4A4A] bg-[#3A3A3A] text-[#E5E5E5] text-[11px] transition-colors duration-100 hover:border-vm-accent hover:bg-[#454545]"
+        title="Borrar el historial de resultados">
         <i data-lucide="trash-2" class="w-4 h-4"></i>
-        <span class="text-[11px]">Limpiar</span>
+        <span>Limpiar</span>
       </button>
     </header>
     <div id="result-body" class="flex-1 min-h-0 p-2 overflow-auto flex flex-col gap-2 ${ze}"></div>
     <footer class="px-3 py-1 border-t text-[10px] font-mono text-[#888888] ${G}">
       <span id="result-pie">Sin operaciones ejecutadas</span>
     </footer>
-  `,e.querySelector(`#result-limpiar`).addEventListener(`click`,()=>{Le(),Y(e)}),Y(e),e}function J({ok:e=!0,mensaje:t=``,operacion:n=``,codigo:r=0,salida:i=``,stderr:a=``,tecnico:o=``}={}){Ie({ok:e,mensaje:t||We(e,n),operacion:n,codigo:r,salida:i,stderr:a,tecnico:o,hora:new Date().toISOString()}),Y()}function Y(e=document){let t=e.querySelector(`#result-body`),n=e.querySelector(`#result-cuenta`),r=e.querySelector(`#result-pie`);if(!t)return;let i=W();if(n&&(n.textContent=i.length>0?`(${i.length})`:``),i.length===0){t.innerHTML=`
+  `,O(e),e.querySelector(`#result-limpiar`).addEventListener(`click`,()=>{Le(),Y(e)}),Y(e),e}function J({ok:e=!0,mensaje:t=``,operacion:n=``,codigo:r=0,salida:i=``,stderr:a=``,tecnico:o=``}={}){Ie({ok:e,mensaje:t||We(e,n),operacion:n,codigo:r,salida:i,stderr:a,tecnico:o,hora:new Date().toISOString()}),Y()}function Y(e=document){let t=e.querySelector(`#result-body`),n=e.querySelector(`#result-cuenta`),r=e.querySelector(`#result-pie`);if(!t)return;let i=W();if(n&&(n.textContent=i.length>0?`(${i.length})`:``),i.length===0){t.innerHTML=`
       <div class="flex-1 flex items-center justify-center text-center">
         <div>
           <div class="text-[12px] text-[#AAAAAA]">Sin operaciones ejecutadas aún</div>

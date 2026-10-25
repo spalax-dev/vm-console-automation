@@ -124,6 +124,17 @@ describe('panel de resultado', () => {
     expect(leer()[0].mensaje).toContain('apt-get remove -y nano');
   });
 
+  it('pinta los iconos de la cabecera y el botón de limpiar', () => {
+    const panel = ResultPanel();
+    document.body.appendChild(panel);
+
+    expect(panel.querySelector('header svg')).not.toBeNull();
+    expect(panel.querySelector('#result-limpiar svg')).not.toBeNull();
+
+    // El botón forma parte del panel oscuro, no del estilo claro general.
+    expect(panel.querySelector('#result-limpiar').classList.contains('btn')).toBe(false);
+  });
+
   it('se desplaza siempre hasta la última operación', () => {
     agregar({ ...EJEMPLO, mensaje: 'Primera' });
 

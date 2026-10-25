@@ -26,9 +26,11 @@ export function ResultPanel() {
         <span class="text-[12px] font-medium ${TEXTO}">Resultado</span>
         <span id="result-cuenta" class="text-[10px] text-[#888888]"></span>
       </div>
-      <button id="result-limpiar" type="button" class="btn h-vm-btn px-1.5" title="Borrar el historial de resultados">
+      <button id="result-limpiar" type="button"
+        class="h-vm-btn px-1.5 inline-flex items-center gap-1 rounded-[3px] border border-[#4A4A4A] bg-[#3A3A3A] text-[#E5E5E5] text-[11px] transition-colors duration-100 hover:border-vm-accent hover:bg-[#454545]"
+        title="Borrar el historial de resultados">
         <i data-lucide="trash-2" class="w-4 h-4"></i>
-        <span class="text-[11px]">Limpiar</span>
+        <span>Limpiar</span>
       </button>
     </header>
     <div id="result-body" class="flex-1 min-h-0 p-2 overflow-auto flex flex-col gap-2 ${PANEL}"></div>
@@ -36,6 +38,8 @@ export function ResultPanel() {
       <span id="result-pie">Sin operaciones ejecutadas</span>
     </footer>
   `;
+
+  renderIcons(el);
 
   el.querySelector('#result-limpiar').addEventListener('click', () => {
     limpiar();
