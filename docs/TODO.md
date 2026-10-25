@@ -177,6 +177,12 @@ de los módulos del numeral 3.
 
 ## Notas de seguimiento
 
+- **25 oct 2026** — Corregido el registro: el modal deshabilitaba los
+  campos antes de leer `FormData`, por lo que el navegador enviaba
+  `usuario` y `password` vacíos y el servidor respondía «campo usuario».
+  Ahora se leen los datos antes de bloquear el formulario y el servidor
+  recorta espacios del usuario.
+
 - **25 oct 2026** — Arranque sin configuración: `task run` escucha en
   `127.0.0.1:8080`, reinicia una instancia anterior, recompila la
   interfaz si hay `pnpm` y no exige variables de entorno. `task stop`

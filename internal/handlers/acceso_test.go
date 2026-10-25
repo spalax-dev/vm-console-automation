@@ -140,3 +140,23 @@ func TestAccesoOlvidar(t *testing.T) {
 		t.Errorf("Olvidar() se llamó %d veces, want 1", servicio.olvidados)
 	}
 }
+
+// TestAccesoRecortaElUsuario comprueba que los espacios del autocompletado
+// no invalidan un usuario correcto.
+func TestAccesoRecortaElUsuario(t *testing.T) {
+	t.Parallel()
+
+	servicio := &stubAcceso{resultado: services.Resultado{Mensaje: "Credenciales verificadas."}}
+
+	rec := ejecutarCaso(t, NuevoAcceso(servicio).ServeHTTP, rutaRegistro, casoPeticion{
+		nombre: "usuario con espacios", metodo: http.MethodPost, cuerpo: `{"usuario":" jorge ","password":"clave"}`,
+	})
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf(msgCodigo, rec.Code, http.StatusCreated)
+	}
+
+	if servicio.usuario != usuarioJorge {
+		t.Errorf("usuario = %q, want jorge", servicio.usuario)
+	}
+}

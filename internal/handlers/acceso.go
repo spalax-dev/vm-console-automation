@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	"consola-vm/internal/services"
 )
@@ -59,6 +60,8 @@ func (h *Acceso) registrar(w http.ResponseWriter, r *http.Request) {
 
 		return
 	}
+
+	solicitud.Usuario = strings.TrimSpace(solicitud.Usuario)
 
 	if err := validarUsuario(campoUsuario, solicitud.Usuario); err != nil {
 		responderValidacion(w, err)

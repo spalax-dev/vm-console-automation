@@ -163,10 +163,13 @@ export function abrirRegistro({ maquina, alRegistrar }) {
   form.addEventListener('submit', async (evento) => {
     evento.preventDefault();
     errorEl.textContent = '';
+
+    // Los datos se leen antes de deshabilitar los campos: un input
+    // deshabilitado no forma parte de FormData.
+    const datos = new FormData(form);
+
     bloquear(true);
     iniciarProgreso();
-
-    const datos = new FormData(form);
 
     try {
       await api.sesion.registrar(String(datos.get('usuario') || ''), String(datos.get('password') || ''));
