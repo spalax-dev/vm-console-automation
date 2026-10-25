@@ -63,7 +63,10 @@
     @apply h-vm-tabs px-3 inline-flex items-center gap-1.5 text-vm-fgSecondary border-b-2 border-transparent rounded-none transition-all duration-100;
   }
   .tab:hover {
-    @apply text-vm-fg;
+    @apply text-vm-fg bg-[#faf9f9];
+  }
+  .tab:focus-visible {
+    @apply outline-none text-vm-fg bg-[#faf9f9] ring-1 ring-vm-accent ring-inset;
   }
   .tab.active {
     @apply text-[#C0392B] border-[#C0392B];

@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { renderIcons } from './icons.js';
+import { Tabs } from './components/Tabs.js';
 import { renderPaquetes } from './views/paquetes.js';
 import { renderUsuarios } from './views/usuarios.js';
 import { renderHaproxy } from './views/haproxy.js';
@@ -49,6 +50,32 @@ describe('iconos', () => {
     expect(svgs[0].getAttribute('stroke-width')).toBe('1.5');
     expect(svgs[0].getAttribute('width')).toBe('16');
     expect(contenedor.querySelectorAll('i')).toHaveLength(0);
+  });
+});
+
+describe('barra de pestañas', () => {
+  it('marca la pestaña activa y deja una sola alcanzable con Tab', () => {
+    const nav = Tabs('usuarios');
+    document.body.appendChild(nav);
+
+    const activa = nav.querySelector('[aria-selected="true"]');
+
+    expect(activa.dataset.tab).toBe('usuarios');
+    expect(nav.querySelectorAll('[tabindex="0"]')).toHaveLength(1);
+    expect(nav.getAttribute('role')).toBe('tablist');
+  });
+
+  it('se mueve con las flechas y cambia la ruta', () => {
+    window.location.hash = '#/inicio';
+
+    const nav = Tabs('inicio');
+    document.body.appendChild(nav);
+
+    const primera = nav.querySelector('[data-tab="inicio"]');
+    primera.focus();
+    primera.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+
+    expect(window.location.hash).toBe('#/paquetes');
   });
 });
 
