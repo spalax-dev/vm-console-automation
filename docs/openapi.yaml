@@ -1,0 +1,1116 @@
+openapi: 3.1.0
+info:
+  title: vmcons — API de la consola de automatización
+  version: 2.0.0
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+  summary: Contrato REST entre la interfaz web y la consola de administración de VM Debian.
+  description: |
+    Contrato REST entre el frontend (`web/`) y la API de `vmcons`.
+
+    ## Recursos
+
+    | Recurso | Ruta | Operaciones |
+    | --- | --- | --- |
+    | Sesión | `/api/session` | `GET` |
+    | Paquetes | `/api/packages` | `GET`, `POST` |
+    | Paquete | `/api/packages/{name}` | `DELETE` |
+    | Llave de root | `/api/keys/root` | `GET`, `POST` |
+    | `/etc/issue` | `/api/issue` | `GET`, `PUT` |
+    | Hostname | `/api/hostname` | `GET`, `PUT` |
+    | Usuarios | `/api/users` | `GET`, `POST` |
+    | Usuario | `/api/users/{name}` | `GET`, `DELETE` |
+    | Llave de usuario | `/api/users/{name}/key` | `GET` |
+    | Unidades | `/api/units` | `GET` |
+    | Unidad | `/api/units/{unit}` | `GET`, `PUT`, `PATCH` |
+    | Reinicios | `/api/units/{unit}/restarts` | `POST` |
+    | Servidores | `/api/haproxy/backend/servers` | `GET`, `POST` |
+    | Servidor | `/api/haproxy/backend/servers/{server}` | `DELETE` |
+
+    ## Convenciones
+
+    - `POST` crea un recurso y responde `201 Created` con `Location`.
+    - `PUT` reemplaza un recurso y responde `200`.
+    - `PATCH` modifica el estado de un recurso y responde `200`.
+    - `DELETE` responde `204 No Content`.
+    - Los identificadores van en la ruta, no en el cuerpo: el paquete,
+      el usuario, la unidad y el servidor del back-end.
+    - El servidor del back-end se identifica como `{direccion}:{puerto}`.
+    - Las opciones de una operación van en la query, por ejemplo
+      `DELETE /api/users/jorge?files=true`.
+
+    ## Envoltura de respuesta
+
+    Las operaciones con cuerpo devuelven `ResultadoOperacion`:
+
+    - `ok`: indica si la operación terminó correctamente.
+    - `mensaje`: texto comprensible para el usuario.
+    - `operacion`: orden ejecutada (diagnóstico).
+    - `codigo`: código de salida del proceso remoto.
+    - `salida` y `stderr`: salida estándar y de error.
+    - `tecnico`: resumen para diagnóstico.
+    - `campo`: campo que falló la validación, cuando aplica.
+
+    ## Estado de implementación
+
+    `GET /api/session` está conectado al descubrimiento de sesión. El
+    resto de rutas existe y valida sus entradas, pero responde `501`
+    hasta conectar los casos de uso de cada módulo con la VM.
+
+    ## Fuera de alcance
+
+    `GET /api/historial` es una funcionalidad diferida (`docs/TODO.md`
+    §9) y no forma parte de este contrato.
+servers:
+  - url: http://localhost:8080
+    description: Servidor local de la consola (`VMCONS_ADDR`)
+security: []
+tags:
+  - name: session
+    description: Estado de la conexión con la máquina virtual.
+  - name: packages
+    description: Paquetes APT instalados en la máquina (numeral 3.1.1).
+  - name: keys
+    description: Llaves SSH de root (numeral 3.1.2).
+  - name: system
+    description: Configuración del sistema (numerales 3.1.3 y 3.1.4).
+  - name: users
+    description: Cuentas locales de la máquina (numeral 3.2).
+  - name: systemd
+    description: Unidades y demonios con systemd (numeral 3.3).
+  - name: haproxy
+    description: Balanceo de carga con HAProxy (numeral 3.4).
+paths:
+  /api/session:
+    get:
+      tags: [session]
+      summary: Consultar la sesión con la máquina
+      description: |
+        Verifica que la VM esté encendida, descubre su dirección si hace
+        falta y elige el conector en orden de preferencia (`ssh` y luego
+        `guest-additions`). No abre una sesión persistente.
+      operationId: obtenerSesion
+      responses:
+        '200':
+          description: Sesión resuelta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sesion'
+              examples:
+                ssh:
+                  value:
+                    conector: ssh
+                    ip: 192.168.1.50
+                    estado: running
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
+  /api/packages:
+    get:
+      tags: [packages]
+      summary: Listar los paquetes instalados
+      operationId: listarPaquetes
+      responses:
+        '200':
+          description: Paquetes instalados en la máquina.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListaPaquetes'
+        '501':
+          $ref: '#/components/responses/NoImplementado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [packages]
+      summary: Instalar un paquete
+      operationId: instalarPaquete
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudPaquete'
+      responses:
+        '201':
+          description: Paquete instalado.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URI del paquete creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoOperacion'
+        '400':
+          $ref: '#/components/responses/EntradaInvalida'
+        '501':
+          $ref: '#/components/responses/NoImplementado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
+  /api/packages/{name}:
+    delete:
+      tags: [packages]
+      summary: Eliminar un paquete
+      operationId: eliminarPaquete
+      parameters:
+        - $ref: '#/components/parameters/PackageName'
+      responses:
+        '204':
+          description: Paquete eliminado.
+        '400':
+          $ref: '#/components/responses/EntradaInvalida'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '501':
+          $ref: '#/components/responses/NoImplementado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
+  /api/keys/root:
+    get:
+      tags: [keys]
+      summary: Descargar la llave privada de root
+      description: |
+        Entrega la llave privada como archivo adjunto. La llave nunca
+        viaja en el cuerpo JSON ni se escribe en los logs.
+      operationId: descargarLlaveRoot
+      responses:
+        '200':
+          description: Archivo de llave privada.
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: '`attachment; filename="id_rsa_vmcons"`'
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '501':
+          $ref: '#/components/responses/NoImplementado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [keys]
+      summary: Generar el par de llaves SSH de root
+      description: |
+        Genera el par en el anfitrión, instala la llave pública en
+        `authorized_keys`, deshabilita el acceso por contraseña y deja la
+        llave privada disponible para descarga.
+      operationId: generarLlaveRoot
+      responses:
+        '201':
+          description: Par de llaves generado.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URI de la llave creada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoOperacion'
+        '501':
+          $ref: '#/components/responses/NoImplementado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
+  /api/issue:
+    get:
+      tags: [system]
+      summary: Consultar la configuración de /etc/issue
+      operationId: obtenerIssue
+      responses:
+        '200':
+          description: Configuración actual del banner.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfiguracionIssue'
+        '501':
+          $ref: '#/components/responses/NoImplementado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [system]
+      summary: Reemplazar la configuración de /etc/issue
+      operationId: reemplazarIssue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudIssue'
+      responses:
+        '200':
+          $ref: '#/components/responses/OperacionCorrecta'
+        '400':
+          $ref: '#/components/responses/EntradaInvalida'
+        '501':
+          $ref: '#/components/responses/NoImplementado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
+  /api/hostname:
+    get:
+      tags: [system]
+      summary: Consultar el nombre de host
+      operationId: obtenerHostname
+      responses:
+        '200':
+          description: Nombre de host y dirección registrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfiguracionHostname'
+        '501':
+          $ref: '#/components/responses/NoImplementado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [system]
+      summary: Reemplazar el nombre de host y /etc/hosts
+      operationId: reemplazarHostname
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudHostname'
+      responses:
+        '200':
+          $ref: '#/components/responses/OperacionCorrecta'
+        '400':
+          $ref: '#/components/responses/EntradaInvalida'
+        '501':
+          $ref: '#/components/responses/NoImplementado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
+  /api/users:
+    get:
+      tags: [users]
+      summary: Listar los usuarios
+      operationId: listarUsuarios
+      responses:
+        '200':
+          description: Cuentas locales de la máquina.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListaUsuarios'
+        '501':
+          $ref: '#/components/responses/NoImplementado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [users]
+      summary: Crear un usuario
+      description: |
+        Crea la cuenta; si `sudo` es verdadero la agrega al grupo `sudo`.
+        Si `llaves` es verdadero genera un par, instala la pública y deja
+        la privada disponible para descarga.
+      operationId: crearUsuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudUsuario'
+      responses:
+        '201':
+          description: Usuario creado.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URI del usuario creado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoOperacion'
+        '400':
+          $ref: '#/components/responses/EntradaInvalida'
+        '501':
+          $ref: '#/components/responses/NoImplementado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
+  /api/users/{name}:
+    get:
+      tags: [users]
+      summary: Consultar un usuario
+      operationId: obtenerUsuario
+      parameters:
+        - $ref: '#/components/parameters/UserName'
+      responses:
+        '200':
+          description: Datos del usuario.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Usuario'
+        '400':
+          $ref: '#/components/responses/EntradaInvalida'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '501':
+          $ref: '#/components/responses/NoImplementado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    delete:
+      tags: [users]
+      summary: Eliminar un usuario
+      operationId: eliminarUsuario
+      parameters:
+        - $ref: '#/components/parameters/UserName'
+        - name: files
+          in: query
+          required: false
+          description: Eliminar también el directorio personal y sus archivos.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '204':
+          description: Usuario eliminado.
+        '400':
+          $ref: '#/components/responses/EntradaInvalida'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '501':
+          $ref: '#/components/responses/NoImplementado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
+  /api/users/{name}/key:
+    get:
+      tags: [users]
+      summary: Descargar la llave privada de un usuario
+      operationId: descargarLlaveUsuario
+      parameters:
+        - $ref: '#/components/parameters/UserName'
+      responses:
+        '200':
+          description: Archivo de llave privada.
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: '`attachment; filename="id_rsa_<usuario>"`'
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/EntradaInvalida'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '501':
+          $ref: '#/components/responses/NoImplementado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
+  /api/units:
+    get:
+      tags: [systemd]
+      summary: Listar las unidades administradas
+      operationId: listarUnidades
+      responses:
+        '200':
+          description: Unidades conocidas por la consola.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListaUnidades'
+        '501':
+          $ref: '#/components/responses/NoImplementado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
+  /api/units/{unit}:
+    get:
+      tags: [systemd]
+      summary: Consultar el estado de una unidad
+      operationId: obtenerUnidad
+      parameters:
+        - $ref: '#/components/parameters/Unit'
+      responses:
+        '200':
+          description: Estado de la unidad.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadoUnidad'
+        '400':
+          $ref: '#/components/responses/EntradaInvalida'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '501':
+          $ref: '#/components/responses/NoImplementado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [systemd]
+      summary: Desplegar o reemplazar una unidad y sus archivos
+      operationId: desplegarUnidad
+      parameters:
+        - $ref: '#/components/parameters/Unit'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudDespliegue'
+      responses:
+        '200':
+          $ref: '#/components/responses/OperacionCorrecta'
+        '400':
+          $ref: '#/components/responses/EntradaInvalida'
+        '501':
+          $ref: '#/components/responses/NoImplementado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    patch:
+      tags: [systemd]
+      summary: Cambiar el estado de una unidad
+      description: |
+        Activa o desactiva la unidad (`activo`) o su arranque con el
+        sistema (`habilitado`). El cuerpo debe indicar exactamente una de
+        las dos propiedades. Para reiniciar se usa el subrecurso
+        `restarts`.
+      operationId: cambiarEstadoUnidad
+      parameters:
+        - $ref: '#/components/parameters/Unit'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudEstadoUnidad'
+      responses:
+        '200':
+          description: Estado actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadoUnidad'
+        '400':
+          $ref: '#/components/responses/EntradaInvalida'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '501':
+          $ref: '#/components/responses/NoImplementado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
+  /api/units/{unit}/restarts:
+    post:
+      tags: [systemd]
+      summary: Reiniciar una unidad
+      description: |
+        Crea una operación de reinicio sobre la unidad. Es un `POST`
+        porque reiniciar no es idempotente.
+      operationId: reiniciarUnidad
+      parameters:
+        - $ref: '#/components/parameters/Unit'
+      responses:
+        '202':
+          description: Reinicio aceptado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoOperacion'
+        '400':
+          $ref: '#/components/responses/EntradaInvalida'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '501':
+          $ref: '#/components/responses/NoImplementado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
+  /api/haproxy/backend/servers:
+    get:
+      tags: [haproxy]
+      summary: Listar los servidores del back-end
+      operationId: listarServidores
+      responses:
+        '200':
+          description: Servidores configurados en el back-end.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListaBackend'
+        '501':
+          $ref: '#/components/responses/NoImplementado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    post:
+      tags: [haproxy]
+      summary: Agregar un servidor al back-end
+      operationId: agregarServidor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServidorBackend'
+      responses:
+        '201':
+          description: Servidor agregado.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URI del servidor creado (`.../{server}`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoOperacion'
+        '400':
+          $ref: '#/components/responses/EntradaInvalida'
+        '501':
+          $ref: '#/components/responses/NoImplementado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
+  /api/haproxy/backend/servers/{server}:
+    delete:
+      tags: [haproxy]
+      summary: Eliminar un servidor del back-end
+      operationId: eliminarServidor
+      parameters:
+        - $ref: '#/components/parameters/Server'
+      responses:
+        '204':
+          description: Servidor eliminado.
+        '400':
+          $ref: '#/components/responses/EntradaInvalida'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '501':
+          $ref: '#/components/responses/NoImplementado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
+components:
+  parameters:
+    PackageName:
+      name: name
+      in: path
+      required: true
+      description: Nombre del paquete APT.
+      schema:
+        $ref: '#/components/schemas/NombrePaquete'
+    UserName:
+      name: name
+      in: path
+      required: true
+      description: Nombre de usuario POSIX.
+      schema:
+        $ref: '#/components/schemas/NombreUsuario'
+    Unit:
+      name: unit
+      in: path
+      required: true
+      description: Nombre de la unidad systemd, con extensión `.service`.
+      schema:
+        $ref: '#/components/schemas/NombreUnidad'
+    Server:
+      name: server
+      in: path
+      required: true
+      description: Servidor del back-end en formato `direccion:puerto`.
+      schema:
+        $ref: '#/components/schemas/IdentificadorServidor'
+      examples:
+        ipv4:
+          value: '192.168.1.61:8080'
+
+  responses:
+    OperacionCorrecta:
+      description: Operación ejecutada correctamente.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ResultadoOperacion'
+          examples:
+            exito:
+              value:
+                ok: true
+                mensaje: Paquete «nano» instalado.
+                operacion: apt-get install -y nano
+                codigo: 0
+                salida: ''
+                stderr: ''
+    EntradaInvalida:
+      description: Uno o más campos no cumplen las reglas de validación.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ResultadoOperacion'
+          examples:
+            campoInvalido:
+              value:
+                ok: false
+                mensaje: 'El campo «paquete» no es válido: solo letras, dígitos, + . -'
+                campo: nombre
+    NoEncontrado:
+      description: El recurso indicado no existe en la máquina.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ResultadoOperacion'
+          examples:
+            inexistente:
+              value:
+                ok: false
+                mensaje: El usuario «jperez» no existe.
+    NoImplementado:
+      description: |
+        La ruta existe y la entrada es válida, pero el caso de uso todavía
+        no está conectado con la máquina.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ResultadoOperacion'
+          examples:
+            pendiente:
+              value:
+                ok: false
+                mensaje: La operación «instalar el paquete nano» aún no está conectada con la máquina.
+                tecnico: 'endpoint disponible; falta conectar el caso de uso'
+    SinSesion:
+      description: No hay una sesión disponible (VM apagada o inaccesible).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ResultadoOperacion'
+          examples:
+            sinSesion:
+              value:
+                ok: false
+                mensaje: 'No hay una sesión disponible con la máquina: enciéndela o revisa la red.'
+                tecnico: 'no hay una sesión disponible con la máquina: la máquina "debian13" está en estado "poweroff"'
+    ErrorInterno:
+      description: Fallo inesperado de la consola.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ResultadoOperacion'
+          examples:
+            interno:
+              value:
+                ok: false
+                mensaje: No fue posible completar la operación.
+                tecnico: 'error interno'
+
+  schemas:
+    Sesion:
+      type: object
+      required: [conector, ip, estado]
+      properties:
+        conector:
+          type: string
+          enum: [ssh, guest-additions]
+          description: Conector elegido en tiempo de ejecución.
+        ip:
+          type: string
+          format: ipv4
+          description: Dirección descubierta de la máquina.
+        estado:
+          type: string
+          enum: [running, poweroff, paused, saved, unknown]
+          description: Estado de encendido de la máquina.
+
+    ResultadoOperacion:
+      type: object
+      required: [ok, mensaje]
+      properties:
+        ok:
+          type: boolean
+          description: Indica si la operación terminó correctamente.
+        mensaje:
+          type: string
+          description: Texto comprensible para el usuario.
+        operacion:
+          type: string
+          description: Orden ejecutada, para diagnóstico.
+        codigo:
+          type: integer
+          description: Código de salida del proceso remoto (0 si no aplica).
+        salida:
+          type: string
+          description: Salida estándar relevante.
+        stderr:
+          type: string
+          description: Salida de error del proceso remoto.
+        tecnico:
+          type: string
+          description: Resumen técnico para diagnóstico.
+        campo:
+          type: string
+          description: Campo que falló la validación, cuando aplica.
+
+    NombrePaquete:
+      type: string
+      pattern: '^[a-z0-9][a-z0-9+.-]*$'
+      description: Nombre de paquete APT.
+      examples: [nano, nginx, python3-pip]
+
+    NombreUsuario:
+      type: string
+      pattern: '^[a-z_][a-z0-9_-]{0,31}$'
+      description: |
+        Nombre de usuario POSIX: inicia con minúscula o guion bajo y sigue
+        con minúsculas, dígitos, guiones o guiones bajos (máximo 32).
+      examples: [jorge, andrey_t, soporte-1]
+
+    NombreHost:
+      type: string
+      maxLength: 63
+      pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
+      description: Nombre de host según RFC 1123.
+      examples: [debian13, nodo-web-01]
+
+    NombreUnidad:
+      type: string
+      pattern: '^[A-Za-z0-9_.@-]+\.service$'
+      description: Unidad systemd con extensión `.service`.
+      examples: [catalogo.service, vmcons-tarea.service]
+
+    DireccionIPv4:
+      type: string
+      format: ipv4
+      description: Dirección IPv4 válida.
+      examples: [192.168.1.60]
+
+    Puerto:
+      type: integer
+      minimum: 1
+      maximum: 65535
+      description: Puerto TCP.
+
+    IdentificadorServidor:
+      type: string
+      pattern: '^(\d{1,3}\.){3}\d{1,3}:(6553[0-5]|655[0-2]\d|65[0-4]\d{2}|6[0-4]\d{3}|[1-5]\d{4}|[1-9]\d{0,3})$'
+      description: Servidor del back-end como `direccion:puerto` (IPv4 y puerto 1–65535).
+      examples: ['192.168.1.61:8080']
+
+    ModoArchivo:
+      type: string
+      pattern: '^[0-7]{3,4}$'
+      description: Permisos en octal.
+      examples: ['644', '755']
+
+    RutaAbsoluta:
+      type: string
+      pattern: '^/[^\x00]*$'
+      description: Ruta absoluta, sin `..` ni comodines de shell.
+      examples: [/opt/catalogo/app]
+
+    SolicitudPaquete:
+      type: object
+      required: [nombre]
+      additionalProperties: false
+      properties:
+        nombre:
+          $ref: '#/components/schemas/NombrePaquete'
+
+    Paquete:
+      type: object
+      required: [nombre, estado]
+      properties:
+        nombre:
+          $ref: '#/components/schemas/NombrePaquete'
+        version:
+          type: string
+          description: Versión instalada, si se conoce.
+        estado:
+          type: string
+          enum: [installed, absent]
+          description: Presencia del paquete en la máquina.
+
+    ListaPaquetes:
+      type: object
+      required: [paquetes]
+      properties:
+        paquetes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Paquete'
+
+    ConfiguracionIssue:
+      type: object
+      required: [mensaje, nombre_host, fecha, hora, ip]
+      properties:
+        mensaje:
+          type: string
+          maxLength: 512
+          description: Mensaje personalizado del banner.
+        nombre_host:
+          type: boolean
+          description: Incluir el nombre de host.
+        fecha:
+          type: boolean
+          description: Incluir la fecha.
+        hora:
+          type: boolean
+          description: Incluir la hora.
+        ip:
+          type: boolean
+          description: Incluir la dirección IP.
+        contenido:
+          type: string
+          readOnly: true
+          description: Vista previa del `/etc/issue` resultante.
+
+    SolicitudIssue:
+      type: object
+      required: [mensaje, nombre_host, fecha, hora, ip]
+      additionalProperties: false
+      properties:
+        mensaje:
+          type: string
+          maxLength: 512
+          description: Mensaje personalizado, sin NUL.
+        nombre_host:
+          type: boolean
+        fecha:
+          type: boolean
+        hora:
+          type: boolean
+        ip:
+          type: boolean
+
+    ConfiguracionHostname:
+      type: object
+      required: [nombre, ip, actualizar_hosts]
+      properties:
+        nombre:
+          $ref: '#/components/schemas/NombreHost'
+        ip:
+          $ref: '#/components/schemas/DireccionIPv4'
+        actualizar_hosts:
+          type: boolean
+          description: Si `/etc/hosts` refleja el nombre y la IP.
+
+    SolicitudHostname:
+      type: object
+      required: [nombre, ip]
+      additionalProperties: false
+      properties:
+        nombre:
+          $ref: '#/components/schemas/NombreHost'
+        ip:
+          $ref: '#/components/schemas/DireccionIPv4'
+        actualizar_hosts:
+          type: boolean
+          default: true
+          description: Actualizar `/etc/hosts` con el nombre y la IP.
+
+    SolicitudUsuario:
+      type: object
+      required: [nombre]
+      additionalProperties: false
+      properties:
+        nombre:
+          $ref: '#/components/schemas/NombreUsuario'
+        sudo:
+          type: boolean
+          default: false
+          description: Agregar el usuario al grupo `sudo`.
+        llaves:
+          type: boolean
+          default: false
+          description: Generar e instalar un par de llaves para el usuario.
+
+    Usuario:
+      type: object
+      required: [nombre, sudo, llaves]
+      properties:
+        nombre:
+          $ref: '#/components/schemas/NombreUsuario'
+        sudo:
+          type: boolean
+          description: El usuario pertenece al grupo `sudo`.
+        llaves:
+          type: boolean
+          description: El usuario tiene un par de llaves instalado.
+        uid:
+          type: integer
+          description: Identificador numérico del usuario.
+        home:
+          type: string
+          description: Directorio personal.
+
+    ListaUsuarios:
+      type: object
+      required: [usuarios]
+      properties:
+        usuarios:
+          type: array
+          items:
+            $ref: '#/components/schemas/Usuario'
+
+    ArchivoDespliegue:
+      type: object
+      required: [origen, destino, modo]
+      additionalProperties: false
+      properties:
+        origen:
+          type: string
+          description: Ruta del archivo en el equipo anfitrión.
+          examples: [./app/catalogo]
+        destino:
+          $ref: '#/components/schemas/RutaAbsoluta'
+        modo:
+          $ref: '#/components/schemas/ModoArchivo'
+
+    SolicitudDespliegue:
+      type: object
+      required: [archivos]
+      additionalProperties: false
+      properties:
+        archivos:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ArchivoDespliegue'
+        usuario:
+          type: string
+          description: Usuario propietario de los archivos (opcional).
+        grupo:
+          type: string
+          description: Grupo propietario de los archivos (opcional).
+
+    SolicitudEstadoUnidad:
+      oneOf:
+        - type: object
+          required: [activo]
+          additionalProperties: false
+          properties:
+            activo:
+              type: boolean
+              description: Activar (`true`) o desactivar (`false`) la unidad.
+        - type: object
+          required: [habilitado]
+          additionalProperties: false
+          properties:
+            habilitado:
+              type: boolean
+              description: Habilitar (`true`) o deshabilitar (`false`) el arranque con el sistema.
+
+    EstadoUnidad:
+      type: object
+      required: [unidad, activo, habilitado, estado]
+      properties:
+        unidad:
+          $ref: '#/components/schemas/NombreUnidad'
+        activo:
+          type: boolean
+          description: La unidad está activa en este momento.
+        habilitado:
+          type: boolean
+          description: La unidad arranca con el sistema.
+        estado:
+          type: string
+          enum: [active, inactive, failed, unknown]
+          description: Estado informado por systemd.
+        detalle:
+          type: string
+          description: Salida de `systemctl status` para diagnóstico.
+
+    ListaUnidades:
+      type: object
+      required: [unidades]
+      properties:
+        unidades:
+          type: array
+          items:
+            $ref: '#/components/schemas/EstadoUnidad'
+
+    ServidorBackend:
+      type: object
+      required: [direccion, puerto]
+      additionalProperties: false
+      properties:
+        direccion:
+          $ref: '#/components/schemas/DireccionIPv4'
+        puerto:
+          $ref: '#/components/schemas/Puerto'
+
+    ServidorBackendEstado:
+      allOf:
+        - $ref: '#/components/schemas/ServidorBackend'
+        - type: object
+          properties:
+            estado:
+              type: string
+              enum: [up, down, unknown]
+              description: Estado informado por HAProxy.
+
+    ListaBackend:
+      type: object
+      required: [servidores]
+      properties:
+        servidores:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServidorBackendEstado'

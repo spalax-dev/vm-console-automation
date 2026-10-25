@@ -66,6 +66,7 @@ task doc     # regenera docs/api/ a partir de los comentarios del código
 | `gofumpt` | Formateador estricto (superset de `gofmt`) | `task fmt` |
 | `golangci-lint` | Linter estricto con ~40 linters y reglas de estilo | `task lint` |
 | `gomarkdoc` | Genera Markdown desde los comentarios de documentación | `task doc` |
+| Redocly CLI | Valida el contrato OpenAPI (`docs/openapi.yaml`) | `task openapi` |
 
 La configuración vive en `.golangci.yml` (linters, límites de complejidad y longitud) y
 `.gomarkdoc.yml` (formato y carpeta de salida). `task check` encadena formateo, lint,

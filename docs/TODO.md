@@ -17,12 +17,14 @@ Documento de seguimiento del proyecto. Se actualiza conforme se avanza.
 | Adaptadores (`localproc`, `vbox`, `ssh`) | [x] Completo — cobertura 100 % / 89.2 % / 83.6 % |
 | Calidad de código (`task fmt`, `task lint`, `task test`) | [x] 0 issues, todas las pruebas en verde |
 | `docs/arquitectura.md` | [x] Escrito |
+| Contrato OpenAPI (`docs/openapi.yaml`) | [x] 12 rutas, validado con Redocly |
+| Controladores HTTP de los módulos | [~] Registrados y validando; responden 501 hasta conectar servicios |
 | Servicio de descubrimiento/selección de sesión | [x] Completo — cobertura 100 % |
 | Casos de uso (`internal/services`) | [~] Descubrimiento de sesión hecho; módulos pendientes |
-| Endpoints HTTP (`internal/handlers`) | [~] `GET /api/sesion` hecho; módulos pendientes |
-| Ensamblaje (`main.go`: rutas + inyección de dependencias) | [~] Servidor, `web/` embebido y `/api/sesion`; faltan rutas de módulos |
+| Endpoints HTTP (`internal/handlers`) | [~] `GET /api/session` hecho; módulos pendientes |
+| Ensamblaje (`main.go`: rutas + inyección de dependencias) | [~] Servidor, `web/` embebido y todas las rutas registradas; faltan los servicios de módulos |
 | Interfaz web (`web/modules`, `web/static/main.js`) | [ ] Placeholders |
-| Pruebas de `services` y `handlers` | [~] Sesión: `services` 100 % y `handlers` 94.7 % |
+| Pruebas de `services` y `handlers` | [~] `services` 100 %; `handlers` 96.8 % |
 | Escenario: diagrama (numeral 5) | [x] Hecho en PlantUML (`docs/diagramas/`), en §3.1 del informe |
 | Pruebas manuales en video (numeral 4) | [ ] No iniciado |
 | Informe (`docs/informe`) | [~] §3 (diseño y escenario) redactado con los 2 diagramas; resto con TODOs |
@@ -51,7 +53,7 @@ Orden de trabajo obligatorio: **docs → tests → implementación**.
   - [x] Servicio de descubrimiento/selección de sesión: sondea `ssh` y recurre a `guest-additions` cuando no hay llave.
 - [x] **Tests:** pruebas unitarias de `internal/services` con `Machine` y conectores falsos y de `internal/handlers` con `httptest`.
 - [x] **Implementación:** `internal/services/sesion.go` e `internal/handlers/sesion.go`.
-- [~] **`main.go`:** servidor, `web/` embebido, inyección de adaptadores y `/api/sesion`; faltan las rutas de los módulos.
+- [~] **`main.go`:** servidor, `web/` embebido, inyección de adaptadores y `/api/session`; faltan las rutas de los módulos.
 - [ ] **`task fmt` + `task lint` + `task test` en verde antes de cada commit.**
 
 ---
@@ -62,32 +64,32 @@ Orden de trabajo obligatorio: **docs → tests → implementación**.
 
 | # | Requisito | Docs | Tests | Código | UI | Video |
 | --- | --- | --- | --- | --- | --- | --- |
-| 3.1.1 | Instalación y eliminación de aplicaciones (`apt install` / `apt remove`) con formulario y notificación de resultado | [ ] | [ ] | [ ] | [ ] | [ ] |
-| 3.1.2 | Llave SSH para `root`: generar par, instalar en `authorized_keys`, deshabilitar acceso por login/contraseña, **descarga de la llave privada** y mensaje de recomendación de uso | [ ] | [ ] | [ ] | [ ] | [ ] |
-| 3.1.3 | Personalizar `/etc/issue` con nombre de host, fecha, hora, dirección IP y mensaje personalizado | [ ] | [ ] | [ ] | [ ] | [ ] |
-| 3.1.4 | Asignar nombre de host y actualizar `/etc/hosts` | [ ] | [ ] | [ ] | [ ] | [ ] |
+| 3.1.1 | Instalación y eliminación de aplicaciones (`apt install` / `apt remove`) con formulario y notificación de resultado | [x] | [x] | [~] | [ ] | [ ] |
+| 3.1.2 | Llave SSH para `root`: generar par, instalar en `authorized_keys`, deshabilitar acceso por login/contraseña, **descarga de la llave privada** y mensaje de recomendación de uso | [x] | [x] | [~] | [ ] | [ ] |
+| 3.1.3 | Personalizar `/etc/issue` con nombre de host, fecha, hora, dirección IP y mensaje personalizado | [x] | [x] | [~] | [ ] | [ ] |
+| 3.1.4 | Asignar nombre de host y actualizar `/etc/hosts` | [x] | [x] | [~] | [ ] | [ ] |
 
 ### 4.2 Gestión de usuarios
 
 | # | Requisito | Docs | Tests | Código | UI | Video |
 | --- | --- | --- | --- | --- | --- | --- |
-| 3.2.1 | Crear usuario con casilla *sudo*; casilla para generar par de llaves, instalar la pública y **descargar la privada**; deshabilitar login/contraseña al habilitar SSH | [ ] | [ ] | [ ] | [ ] | [ ] |
-| 3.2.2 | Eliminar usuario con casilla para eliminar también todos sus archivos | [ ] | [ ] | [ ] | [ ] | [ ] |
+| 3.2.1 | Crear usuario con casilla *sudo*; casilla para generar par de llaves, instalar la pública y **descargar la privada**; deshabilitar login/contraseña al habilitar SSH | [x] | [x] | [~] | [ ] | [ ] |
+| 3.2.2 | Eliminar usuario con casilla para eliminar también todos sus archivos | [x] | [x] | [~] | [ ] | [ ] |
 
 ### 4.3 Gestión de demonios con systemd
 
 | # | Requisito | Docs | Tests | Código | UI | Video |
 | --- | --- | --- | --- | --- | --- | --- |
-| 3.3 | Transferir archivos de la aplicación del catálogo de libros a la VM y gestionar permisos | [ ] | [ ] | [ ] | [ ] | [ ] |
-| 3.3 | Botones `start`, `stop`, `restart`, `status`, `enable`, `disable` sobre las unidades administradas | [ ] | [ ] | [ ] | [ ] | [ ] |
-| 3.3 | Prueba complementaria con el script de la precondición e) | [ ] | [ ] | [ ] | [ ] | [ ] |
+| 3.3 | Transferir archivos de la aplicación del catálogo de libros a la VM y gestionar permisos | [x] | [x] | [~] | [ ] | [ ] |
+| 3.3 | Botones `start`, `stop`, `restart`, `status`, `enable`, `disable` sobre las unidades administradas | [x] | [x] | [~] | [ ] | [ ] |
+| 3.3 | Prueba complementaria con el script de la precondición e) | [x] | [x] | [~] | [ ] | [ ] |
 
 ### 4.4 Balanceo de carga con HAProxy
 
 | # | Requisito | Docs | Tests | Código | UI | Video |
 | --- | --- | --- | --- | --- | --- | --- |
-| 3.4 | Agregar un servidor al back-end | [ ] | [ ] | [ ] | [ ] | [ ] |
-| 3.4 | Eliminar un servidor del back-end | [ ] | [ ] | [ ] | [ ] | [ ] |
+| 3.4 | Agregar un servidor al back-end | [x] | [x] | [~] | [ ] | [ ] |
+| 3.4 | Eliminar un servidor del back-end | [x] | [x] | [~] | [ ] | [ ] |
 
 ### 4.5 Requisitos transversales de la aplicación web
 
@@ -173,10 +175,28 @@ de los módulos del numeral 3.
 
 ## Notas de seguimiento
 
+- **24 oct 2026** — API replanteada como REST: recursos en inglés
+  (`/api/packages`, `/api/keys/root`, `/api/users`, `/api/units`,
+  `/api/haproxy/backend/servers`), identificadores en la ruta, verbos
+  estándar (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`) y códigos
+  `201/204`. Desaparecen los endpoints con `{accion}` en el cuerpo.
+  Contrato actualizado en `docs/openapi.yaml` (14 rutas) y validado con
+  Redocly; handlers y pruebas ajustados.
+
+- **24 oct 2026** — Contrato y controladores HTTP: se revisó el diseño
+  en Stitch (`docs/stitch/DESIGN.md`), la SPA de `web/` y
+  `docs/diseno-solucion.md`. Se escribió `docs/openapi.yaml` (OpenAPI
+  3.1, 12 rutas, 23 esquemas) que unifica la envoltura
+  `{ok, mensaje, operacion, codigo, salida, stderr, tecnico, campo}` y
+  valida con Redocly (`task openapi`). Los controladores de sistema,
+  usuarios, systemd y HAProxy quedaron registrados en `main.go`, con
+  validación completa según §5 y respuesta `501` mientras no se
+  conecten los casos de uso. Cobertura de `handlers`: 96.8 %.
+
 - **24 oct 2026** — Descubrimiento de sesión implementado con el ciclo
   docs → tests → implementación. `Descubridor` verifica el estado de la
   VM, descubre la dirección si falta y sondea los conectores en orden
-  (`ssh`, `guest-additions`); expone `GET /api/sesion` con
+  (`ssh`, `guest-additions`); expone `GET /api/session` con
   `{conector, ip, estado}` y responde 503 con `ErrSesionNoDisponible`.
   `main.go` arma el servidor, embebe `web/` y lee la configuración de
   variables de entorno. Calidad: `services` 100 % y `handlers` 94.7 % de

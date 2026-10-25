@@ -10,6 +10,7 @@
 #   task test       # formatear el código y ejecutar las pruebas
 #   task build      # compilar el binario final (./vmcons)
 #   task doc        # regenerar docs/api/ desde los comentarios del código
+#   task openapi    # validar el contrato docs/openapi.yaml
 #   task check      # fmt + lint + test + doc-check (antes de cada commit)
 
 version: "3"
@@ -49,6 +50,10 @@ tasks:
     cmds:
       - gomarkdoc --check -o "docs/api/{{`{{.Dir}}`}}.md" ./internal/...
       - gomarkdoc --check -o docs/api/main.md .
+
+  openapi:
+    desc: Validar el contrato OpenAPI con Redocly (requiere red)
+    cmd: npx --yes @redocly/cli@latest lint docs/openapi.yaml
 
   check:
     desc: Ciclo completo de calidad (fmt + lint + test + doc-check)

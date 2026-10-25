@@ -18,7 +18,7 @@ import (
 
 // Valores repetidos en las pruebas del handler de sesión.
 const (
-	rutaSesion  = "/api/sesion"
+	rutaSesion  = "/api/session"
 	conectorSSH = "ssh"
 	ipPrueba    = "192.168.1.50"
 	msgCodigo   = "código = %d, want %d"
@@ -37,7 +37,7 @@ func (s *stubDescubridor) Descubrir(context.Context) (services.InfoSesion, error
 }
 
 // TestSesionHandlerRespondeJSON comprueba el contrato de GET
-// /api/sesion: conector, IP y estado en JSON.
+// /api/session: conector, IP y estado en JSON.
 func TestSesionHandlerRespondeJSON(t *testing.T) {
 	t.Parallel()
 

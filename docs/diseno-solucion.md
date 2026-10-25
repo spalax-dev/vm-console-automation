@@ -38,7 +38,7 @@ según el estado real de la VM.
 
 **Regla transversal del parcial:** la comunicación inicial es por Guest Additions y,
 a partir de la instalación de SSH, **exclusivamente por SSH con llaves de autenticación**.
-El conector activo se expone en `GET /api/sesion` para que la interfaz lo muestre.
+El conector activo se expone en `GET /api/session` para que la interfaz lo muestre.
 
 ### 2.1 Algoritmo de selección
 
@@ -58,7 +58,7 @@ El orden de preferencia lo fija `main.go` al inyectar la lista, no el servicio: 
 puede probar con conectores falsos y cambiar la política sin tocar el caso de uso.
 
 La instalación de SSH cuando aún no hay llave es responsabilidad del módulo 3.1.2
-(`POST /api/sistema/ssh-root`); el descubridor solo informa qué conector está disponible.
+(`GET/POST /api/keys/root`); el descubridor solo informa qué conector está disponible.
 Mientras no exista la llave, la interfaz muestra `guest-additions` y ofrece el módulo de
 llaves.
 
@@ -95,50 +95,75 @@ caso de uso; el adaptador traduce al conector; el núcleo no conoce VirtualBox n
 
 ## 4. Contratos de la interfaz HTTP
 
-Todas las respuestas son JSON. Las rutas son relativas al servidor de la consola.
+El contrato formal y validable vive en **`docs/openapi.yaml`** (OpenAPI 3.1):
+es la fuente de verdad para el frontend y para las pruebas de los *handlers*.
+Esta sección resume las rutas; el documento OpenAPI detalla esquemas, ejemplos
+y códigos de respuesta.
+
+**Estado de implementación:** todas las rutas están registradas y validan sus
+entradas; las que aún no tienen caso de uso responden `501` con el modelo de
+error común. `GET /api/session` sí está conectado al descubrimiento.
+
+Todas las respuestas son JSON (`Content-Type: application/json`). Las peticiones
+con cuerpo envían **JSON** (`Content-Type: application/json`), incluidos
+`DELETE /api/usuarios` y `DELETE /api/haproxy/backend`. Las únicas respuestas que
+no son JSON son las descargas de llaves, que se entregan como archivo adjunto
+(`application/octet-stream` con `Content-Disposition`). Las rutas son relativas
+al servidor de la consola.
 
 ### 4.1 Sesión
 
 | Método y ruta | Parámetros | Respuesta |
 | --- | --- | --- |
-| `GET /api/sesion` | — | `{ conector, ip, estado }` |
+| `GET /api/session` | — | `{ conector, ip, estado }` |
 
 ### 4.2 Preparación del sistema
 
 | Método y ruta | Parámetros | Validación |
 | --- | --- | --- |
-| `POST /api/sistema/paquetes` | `accion` (`install`\|`remove`), `paquete` | nombre de paquete |
-| `POST /api/sistema/ssh-root` | `accion` (`generar`) | — |
-| `GET /api/sistema/ssh-root/llave` | — | descarga con `Content-Disposition` |
-| `GET /api/sistema/issue` | — | plantilla y opciones actuales |
-| `POST /api/sistema/issue` | `mensaje`, `nombre_host`, `fecha`, `hora`, `ip` (todas booleanas menos `mensaje`) | sin saltos de línea peligrosos, longitud ≤ 512 |
-| `POST /api/sistema/hostname` | `nombre`, `ip` | nombre RFC 1123, `netip.Addr` |
+| `GET /api/packages` | — | lista de paquetes instalados |
+| `POST /api/packages` | `nombre` (cuerpo) | nombre de paquete |
+| `DELETE /api/packages/{name}` | — | nombre de paquete |
+| `GET /api/keys/root` | — | descarga con `Content-Disposition` |
+| `POST /api/keys/root` | — | — |
+| `GET /api/issue` | — | configuración actual |
+| `PUT /api/issue` | `mensaje`, `nombre_host`, `fecha`, `hora`, `ip` | sin NUL, longitud ≤ 512 |
+| `GET /api/hostname` | — | configuración actual |
+| `PUT /api/hostname` | `nombre`, `ip`, `actualizar_hosts` | RFC 1123, `netip.Addr` |
 
 ### 4.3 Gestión de usuarios
 
 | Método y ruta | Parámetros | Validación |
 | --- | --- | --- |
-| `POST /api/usuarios` | `nombre`, `sudo` (bool), `llaves` (bool) | nombre de usuario, no existente |
-| `DELETE /api/usuarios` | `nombre`, `archivos` (bool) | nombre de usuario, existente |
-| `GET /api/usuarios/llave` | `nombre` | descarga de la llave privada generada |
+| `GET /api/users` | — | lista de usuarios |
+| `POST /api/users` | `nombre`, `sudo`, `llaves` | nombre de usuario, no existente |
+| `GET /api/users/{name}` | — | nombre de usuario |
+| `DELETE /api/users/{name}` | `files` (query) | nombre de usuario, existente |
+| `GET /api/users/{name}/key` | — | descarga de la llave privada |
 
 ### 4.4 Servicios con systemd
 
 | Método y ruta | Parámetros | Validación |
 | --- | --- | --- |
-| `POST /api/systemd/despliegue` | `unidad`, archivos y permisos | rutas absolutas, sin `..` |
-| `POST /api/systemd/{unidad}/{accion}` | `accion` ∈ `start`,`stop`,`restart`,`enable`,`disable` | nombre de unidad |
-| `GET /api/systemd/{unidad}` | — | devuelve `status` |
+| `GET /api/units` | — | lista de unidades |
+| `GET /api/units/{unit}` | — | nombre de unidad |
+| `PUT /api/units/{unit}` | `archivos[]`, `usuario`, `grupo` | rutas absolutas, sin `..` |
+| `PATCH /api/units/{unit}` | `activo` o `habilitado` (excluyentes) | nombre de unidad |
+| `POST /api/units/{unit}/restarts` | — | nombre de unidad |
 
 ### 4.5 Balanceo con HAProxy
 
 | Método y ruta | Parámetros | Validación |
 | --- | --- | --- |
-| `GET /api/haproxy/backend` | — | lista actual de servidores |
-| `POST /api/haproxy/backend` | `direccion`, `puerto` | `netip.Addr`, puerto 1–65535 |
-| `DELETE /api/haproxy/backend` | `direccion`, `puerto` | debe existir en el back-end |
+| `GET /api/haproxy/backend/servers` | — | lista actual de servidores |
+| `POST /api/haproxy/backend/servers` | `direccion`, `puerto` | `netip.Addr`, puerto 1–65535 |
+| `DELETE /api/haproxy/backend/servers/{server}` | — | `direccion:puerto` existente |
 
----
+Los identificadores (`name`, `unit`, `server`) viajan en la ruta, no en el
+cuerpo. El servidor del back-end se identifica como `direccion:puerto`
+(por ejemplo, `192.168.1.61:8080`). Las acciones de systemd se expresan
+como cambios de estado (`PATCH`) salvo el reinicio, que es un subrecurso
+(`restarts`) por no ser idempotente.
 
 ## 5. Validación de entradas
 
@@ -160,9 +185,12 @@ Se valida **siempre** en el servidor, con mensajes que nombran el campo y el mot
 ## 6. Modelo de respuesta y de error
 
 ```json
-{ "ok": true,  "mensaje": "Paquete «nano» instalado.", "salida": "…" }
+{ "ok": true,  "mensaje": "Paquete «nano» instalado.",
+  "operacion": "apt-get install -y nano", "codigo": 0,
+  "salida": "…", "stderr": "" }
 { "ok": false, "mensaje": "No fue posible instalar «nano».",
-  "operacion": "apt-get install -y nano",
+  "operacion": "apt-get install -y nano", "codigo": 100,
+  "stderr": "E: Unable to locate package nano",
   "tecnico": "exit=100 · stderr=E: Unable to locate package nano" }
 ```
 
@@ -170,12 +198,16 @@ Se valida **siempre** en el servidor, con mensajes que nombran el campo y el mot
 | --- | --- | --- |
 | Entrada inválida | 400 | validación del *handler* |
 | Recurso inexistente (usuario/unidad) | 404 | caso de uso del servicio |
+| Recurso creado | 201 | `POST` con `Location` |
+| Recurso reemplazado o modificado | 200 | `PUT` y `PATCH` |
+| Recurso eliminado | 204 | `DELETE` |
+| Operación aún no conectada | 501 | *handler* sin caso de uso |
 | Sin sesión posible (VM apagada) | 503 | selección de conector |
 | Orden ejecutada con código ≠ 0 | 500 | `domain.ExitError` |
-| Orden ejecutada correctamente | 200 | — |
 
-El campo `mensaje` es el texto que ve el usuario; `operacion` y `tecnico` son la
-información conservada para el diagnóstico, sin exponer llaves privadas.
+El campo `mensaje` es el texto que ve el usuario; `operacion`, `codigo`,
+`salida`, `stderr` y `tecnico` son la información conservada para el
+diagnóstico, sin exponer llaves privadas.
 
 ---
 
@@ -294,14 +326,14 @@ página con pestañas por módulo; el prototipo se genera antes de escribir
 
 | # | Pestaña | Endpoint principal | Contenido |
 | --- | --- | --- | --- |
-| 01 | Inicio | `GET /api/sesion` | tarjeta de sesión (estado, conector, IP, última consulta) y cuadrícula de atajos a los módulos |
-| 02 | Paquetes | `POST /api/sistema/paquetes` | radios *instalar/eliminar* y campo de paquete con validación en línea |
-| 03 | Llaves SSH | `POST /api/sistema/ssh-root` | estado del par, generar, descargar y aviso de uso seguro de la llave |
-| 04 | `/etc/issue` | `GET/POST /api/sistema/issue` | mensaje, casillas host/fecha/hora/IP y vista previa en vivo |
-| 05 | Hostname | `POST /api/sistema/hostname` | nombre (RFC 1123) + IP y casilla de `/etc/hosts` |
-| 06 | Usuarios | `POST/DELETE /api/usuarios` | crear (sudo, llaves), eliminar (con archivos) y descarga de llaves |
-| 07 | systemd | `/api/systemd/…` | despliegue de la unidad + 6 botones de control + insignia de estado |
-| 08 | HAProxy | `/api/haproxy/backend` | tabla del back-end, formulario de alta y eliminación con confirmación |
+| 01 | Inicio | `GET /api/session` | tarjeta de sesión (estado, conector, IP, última consulta) y cuadrícula de atajos a los módulos |
+| 02 | Paquetes | `GET/POST /api/packages` | radios *instalar/eliminar* y campo de paquete con validación en línea |
+| 03 | Llaves SSH | `GET/POST /api/keys/root` | estado del par, generar, descargar y aviso de uso seguro de la llave |
+| 04 | `/etc/issue` | `GET/PUT /api/issue` | mensaje, casillas host/fecha/hora/IP y vista previa en vivo |
+| 05 | Hostname | `GET/PUT /api/hostname` | nombre (RFC 1123) + IP y casilla de `/etc/hosts` |
+| 06 | Usuarios | `GET/POST /api/users` · `GET/DELETE /api/users/{name}` | crear (sudo, llaves), eliminar (con archivos) y descarga de llaves |
+| 07 | systemd | `/api/units/…` | despliegue de la unidad + 6 botones de control + insignia de estado |
+| 08 | HAProxy | `/api/haproxy/backend/servers` | tabla del back-end, formulario de alta y eliminación con confirmación |
 | 09 | Historial | `GET /api/historial` (diferido) | tabla de operaciones con filtros (§10.4) |
 
 **Estados comunes:** VM apagada o inaccesible (503) como estado vacío en

@@ -5,7 +5,6 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -19,7 +18,7 @@ type DescubridorSesion interface {
 	Descubrir(ctx context.Context) (services.InfoSesion, error)
 }
 
-// Sesion expone GET /api/sesion: informa el conector activo, la
+// Sesion expone GET /api/session: informa el conector activo, la
 // dirección de la máquina y su estado de encendido.
 type Sesion struct {
 	descubridor DescubridorSesion
@@ -37,22 +36,10 @@ type respuestaSesion struct {
 	Estado   string `json:"estado"`
 }
 
-// respuestaError es el cuerpo JSON común de los errores de la consola.
-type respuestaError struct {
-	OK      bool   `json:"ok"`
-	Mensaje string `json:"mensaje"`
-	Tecnico string `json:"tecnico,omitempty"`
-}
-
 // ServeHTTP implementa http.Handler: solo admite GET y traduce el
 // resultado del descubrimiento al contrato JSON de la consola.
 func (h *Sesion) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", http.MethodGet)
-		escribirJSON(w, http.StatusMethodNotAllowed, respuestaError{
-			Mensaje: "El recurso de sesión solo admite GET.",
-		})
-
+	if !exigirMetodo(w, r, http.MethodGet) {
 		return
 	}
 
@@ -87,15 +74,4 @@ func (h *Sesion) responderError(w http.ResponseWriter, err error) {
 		Mensaje: "No fue posible determinar el estado de la máquina.",
 		Tecnico: err.Error(),
 	})
-}
-
-// escribirJSON serializa cuerpo como JSON con el código de estado dado.
-// Si la serialización falla, responde 500 sin cuerpo adicional.
-func escribirJSON(w http.ResponseWriter, codigo int, cuerpo any) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(codigo)
-
-	if err := json.NewEncoder(w).Encode(cuerpo); err != nil {
-		slog.Error("escribir la respuesta JSON", "error", err)
-	}
 }

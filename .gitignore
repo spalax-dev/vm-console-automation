@@ -50,7 +50,14 @@ id_rsa*
 *.key
 
 # ---------------------------------------------------------------
-# Dependencias (si se usa vendor opcionalmente)
+# Dependencias y artefactos del frontend (web/)
+# ---------------------------------------------------------------
+node_modules/
+web/dist/
+web/.vite/
+
+# ---------------------------------------------------------------
+# Dependencias de Go (si se usa vendor opcionalmente)
 # ---------------------------------------------------------------
 vendor/
 

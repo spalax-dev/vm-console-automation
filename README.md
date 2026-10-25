@@ -21,7 +21,7 @@ La conexión con la máquina virtual se configura por variables de entorno:
 
 | Variable | Obligatoria | Descripción |
 | --- | --- | --- |
-| `VMCONS_VM` | Sí | Nombre o UUID de la VM en VirtualBox. Sin ella, `GET /api/sesion` responde `503`. |
+| `VMCONS_VM` | Sí | Nombre o UUID de la VM en VirtualBox. Sin ella, `GET /api/session` responde `503`. |
 | `VMCONS_SSH_KEY` | No | Ruta de la llave privada del anfitrión para el conector SSH. |
 | `VMCONS_GUEST_USER` | No | Usuario de Guest Additions (por omisión, `root`). |
 | `VMCONS_GUEST_PASS` | No | Contraseña de Guest Additions. |

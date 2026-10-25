@@ -6,14 +6,35 @@
 import "consola-vm/internal/handlers"
 ```
 
-Package handlers expone los endpoints HTTP de la consola de administración: preparación del sistema, gestión de usuarios, gestión de servicios systemd y balanceo de carga con HAProxy.
+Package handlers expone los endpoints HTTP de la consola de administración: preparación del sistema, gestión de usuarios, gestión de servicios systemd y balanceo de carga con HAProxy. Los handlers solo enrutan, validan y traducen a JSON; los casos de uso viven en internal/services.
 
 ## Index
 
 - [type DescubridorSesion](<#DescubridorSesion>)
+- [type Haproxy](<#Haproxy>)
+  - [func NuevoHaproxy\(\) \*Haproxy](<#NuevoHaproxy>)
+  - [func \(h \*Haproxy\) Servidor\(w http.ResponseWriter, r \*http.Request\)](<#Haproxy.Servidor>)
+  - [func \(h \*Haproxy\) Servidores\(w http.ResponseWriter, r \*http.Request\)](<#Haproxy.Servidores>)
 - [type Sesion](<#Sesion>)
   - [func NuevoSesion\(descubridor DescubridorSesion\) \*Sesion](<#NuevoSesion>)
   - [func \(h \*Sesion\) ServeHTTP\(w http.ResponseWriter, r \*http.Request\)](<#Sesion.ServeHTTP>)
+- [type Sistema](<#Sistema>)
+  - [func NuevoSistema\(\) \*Sistema](<#NuevoSistema>)
+  - [func \(h \*Sistema\) Hostname\(w http.ResponseWriter, r \*http.Request\)](<#Sistema.Hostname>)
+  - [func \(h \*Sistema\) Issue\(w http.ResponseWriter, r \*http.Request\)](<#Sistema.Issue>)
+  - [func \(h \*Sistema\) LlaveRoot\(w http.ResponseWriter, r \*http.Request\)](<#Sistema.LlaveRoot>)
+  - [func \(h \*Sistema\) Paquete\(w http.ResponseWriter, r \*http.Request\)](<#Sistema.Paquete>)
+  - [func \(h \*Sistema\) Paquetes\(w http.ResponseWriter, r \*http.Request\)](<#Sistema.Paquetes>)
+- [type Systemd](<#Systemd>)
+  - [func NuevoSystemd\(\) \*Systemd](<#NuevoSystemd>)
+  - [func \(h \*Systemd\) Reinicios\(w http.ResponseWriter, r \*http.Request\)](<#Systemd.Reinicios>)
+  - [func \(h \*Systemd\) Unidad\(w http.ResponseWriter, r \*http.Request\)](<#Systemd.Unidad>)
+  - [func \(h \*Systemd\) Unidades\(w http.ResponseWriter, r \*http.Request\)](<#Systemd.Unidades>)
+- [type Usuarios](<#Usuarios>)
+  - [func NuevoUsuarios\(\) \*Usuarios](<#NuevoUsuarios>)
+  - [func \(h \*Usuarios\) Coleccion\(w http.ResponseWriter, r \*http.Request\)](<#Usuarios.Coleccion>)
+  - [func \(h \*Usuarios\) Llave\(w http.ResponseWriter, r \*http.Request\)](<#Usuarios.Llave>)
+  - [func \(h \*Usuarios\) Usuario\(w http.ResponseWriter, r \*http.Request\)](<#Usuarios.Usuario>)
 
 
 <a name="DescubridorSesion"></a>
@@ -27,10 +48,46 @@ type DescubridorSesion interface {
 }
 ```
 
+<a name="Haproxy"></a>
+## type Haproxy
+
+Haproxy agrupa los recursos de balanceo de carga con HAProxy \(numeral 3.4\).
+
+```go
+type Haproxy struct{}
+```
+
+<a name="NuevoHaproxy"></a>
+### func NuevoHaproxy
+
+```go
+func NuevoHaproxy() *Haproxy
+```
+
+NuevoHaproxy construye el handler de balanceo con HAProxy.
+
+<a name="Haproxy.Servidor"></a>
+### func \(\*Haproxy\) Servidor
+
+```go
+func (h *Haproxy) Servidor(w http.ResponseWriter, r *http.Request)
+```
+
+Servidor atiende DELETE /api/haproxy/backend/servers/\{server\}: elimina el servidor identificado como «direccion:puerto».
+
+<a name="Haproxy.Servidores"></a>
+### func \(\*Haproxy\) Servidores
+
+```go
+func (h *Haproxy) Servidores(w http.ResponseWriter, r *http.Request)
+```
+
+Servidores atiende GET y POST /api/haproxy/backend/servers: lista o agrega servidores al back\-end.
+
 <a name="Sesion"></a>
 ## type Sesion
 
-Sesion expone GET /api/sesion: informa el conector activo, la dirección de la máquina y su estado de encendido.
+Sesion expone GET /api/session: informa el conector activo, la dirección de la máquina y su estado de encendido.
 
 ```go
 type Sesion struct {
@@ -55,5 +112,158 @@ func (h *Sesion) ServeHTTP(w http.ResponseWriter, r *http.Request)
 ```
 
 ServeHTTP implementa http.Handler: solo admite GET y traduce el resultado del descubrimiento al contrato JSON de la consola.
+
+<a name="Sistema"></a>
+## type Sistema
+
+Sistema agrupa los recursos de preparación del sistema \(numeral 3.1 del enunciado\).
+
+```go
+type Sistema struct{}
+```
+
+<a name="NuevoSistema"></a>
+### func NuevoSistema
+
+```go
+func NuevoSistema() *Sistema
+```
+
+NuevoSistema construye el handler de preparación del sistema.
+
+<a name="Sistema.Hostname"></a>
+### func \(\*Sistema\) Hostname
+
+```go
+func (h *Sistema) Hostname(w http.ResponseWriter, r *http.Request)
+```
+
+Hostname atiende GET y PUT /api/hostname: consulta o reemplaza el nombre de host y su entrada en /etc/hosts.
+
+<a name="Sistema.Issue"></a>
+### func \(\*Sistema\) Issue
+
+```go
+func (h *Sistema) Issue(w http.ResponseWriter, r *http.Request)
+```
+
+Issue atiende GET y PUT /api/issue: consulta o reemplaza el banner previo al inicio de sesión.
+
+<a name="Sistema.LlaveRoot"></a>
+### func \(\*Sistema\) LlaveRoot
+
+```go
+func (h *Sistema) LlaveRoot(w http.ResponseWriter, r *http.Request)
+```
+
+LlaveRoot atiende GET y POST /api/keys/root: descarga la llave privada de root o genera un par nuevo.
+
+<a name="Sistema.Paquete"></a>
+### func \(\*Sistema\) Paquete
+
+```go
+func (h *Sistema) Paquete(w http.ResponseWriter, r *http.Request)
+```
+
+Paquete atiende DELETE /api/packages/\{name\}: elimina el paquete indicado en la ruta.
+
+<a name="Sistema.Paquetes"></a>
+### func \(\*Sistema\) Paquetes
+
+```go
+func (h *Sistema) Paquetes(w http.ResponseWriter, r *http.Request)
+```
+
+Paquetes atiende GET y POST /api/packages: lista los paquetes instalados o instala uno nuevo.
+
+<a name="Systemd"></a>
+## type Systemd
+
+Systemd agrupa los recursos de gestión de unidades con systemd \(numeral 3.3\).
+
+```go
+type Systemd struct{}
+```
+
+<a name="NuevoSystemd"></a>
+### func NuevoSystemd
+
+```go
+func NuevoSystemd() *Systemd
+```
+
+NuevoSystemd construye el handler de gestión de unidades systemd.
+
+<a name="Systemd.Reinicios"></a>
+### func \(\*Systemd\) Reinicios
+
+```go
+func (h *Systemd) Reinicios(w http.ResponseWriter, r *http.Request)
+```
+
+Reinicios atiende POST /api/units/\{unit\}/restarts: reinicia la unidad indicada.
+
+<a name="Systemd.Unidad"></a>
+### func \(\*Systemd\) Unidad
+
+```go
+func (h *Systemd) Unidad(w http.ResponseWriter, r *http.Request)
+```
+
+Unidad atiende GET, PUT y PATCH /api/units/\{unit\}: consulta la unidad, despliega sus archivos o cambia su estado.
+
+<a name="Systemd.Unidades"></a>
+### func \(\*Systemd\) Unidades
+
+```go
+func (h *Systemd) Unidades(w http.ResponseWriter, r *http.Request)
+```
+
+Unidades atiende GET /api/units: lista las unidades administradas.
+
+<a name="Usuarios"></a>
+## type Usuarios
+
+Usuarios agrupa los recursos de gestión de usuarios \(numeral 3.2\).
+
+```go
+type Usuarios struct{}
+```
+
+<a name="NuevoUsuarios"></a>
+### func NuevoUsuarios
+
+```go
+func NuevoUsuarios() *Usuarios
+```
+
+NuevoUsuarios construye el handler de gestión de usuarios.
+
+<a name="Usuarios.Coleccion"></a>
+### func \(\*Usuarios\) Coleccion
+
+```go
+func (h *Usuarios) Coleccion(w http.ResponseWriter, r *http.Request)
+```
+
+Coleccion atiende GET y POST /api/users: lista los usuarios o crea uno nuevo.
+
+<a name="Usuarios.Llave"></a>
+### func \(\*Usuarios\) Llave
+
+```go
+func (h *Usuarios) Llave(w http.ResponseWriter, r *http.Request)
+```
+
+Llave atiende GET /api/users/\{name\}/key: entrega la llave privada generada para el usuario indicado.
+
+<a name="Usuarios.Usuario"></a>
+### func \(\*Usuarios\) Usuario
+
+```go
+func (h *Usuarios) Usuario(w http.ResponseWriter, r *http.Request)
+```
+
+Usuario atiende GET y DELETE /api/users/\{name\}: consulta o elimina la cuenta indicada en la ruta.
 
 Generated by [gomarkdoc](<https://github.com/princjef/gomarkdoc>)

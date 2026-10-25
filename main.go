@@ -87,7 +87,29 @@ func nuevoServidor() *http.Server {
 func nuevoMux() http.Handler {
 	mux := http.NewServeMux()
 
-	mux.Handle("/api/sesion", handlers.NuevoSesion(descubridor()))
+	sistema := handlers.NuevoSistema()
+	usuarios := handlers.NuevoUsuarios()
+	systemd := handlers.NuevoSystemd()
+	haproxy := handlers.NuevoHaproxy()
+
+	mux.Handle("/api/session", handlers.NuevoSesion(descubridor()))
+
+	mux.HandleFunc("/api/packages", sistema.Paquetes)
+	mux.HandleFunc("/api/packages/{name}", sistema.Paquete)
+	mux.HandleFunc("/api/keys/root", sistema.LlaveRoot)
+	mux.HandleFunc("/api/issue", sistema.Issue)
+	mux.HandleFunc("/api/hostname", sistema.Hostname)
+
+	mux.HandleFunc("/api/users", usuarios.Coleccion)
+	mux.HandleFunc("/api/users/{name}", usuarios.Usuario)
+	mux.HandleFunc("/api/users/{name}/key", usuarios.Llave)
+
+	mux.HandleFunc("/api/units", systemd.Unidades)
+	mux.HandleFunc("/api/units/{unit}", systemd.Unidad)
+	mux.HandleFunc("/api/units/{unit}/restarts", systemd.Reinicios)
+
+	mux.HandleFunc("/api/haproxy/backend/servers", haproxy.Servidores)
+	mux.HandleFunc("/api/haproxy/backend/servers/{server}", haproxy.Servidor)
 
 	sub, err := fs.Sub(contenidoWeb, "web")
 	if err != nil {
@@ -109,7 +131,7 @@ func nuevoMux() http.Handler {
 func descubridor() handlers.DescubridorSesion {
 	idVM := os.Getenv(envVM)
 	if idVM == "" {
-		slog.Warn("no se configuró la VM; /api/sesion responderá 503", "variable", envVM)
+		slog.Warn("no se configuró la VM; /api/session responderá 503", "variable", envVM)
 
 		return sinConfigurar{}
 	}
