@@ -43,3 +43,9 @@ tasks:
     cmds:
       - go mod tidy
       - gofmt -s -w .
+
+  diagramas:
+    desc: Renderizar los diagramas PlantUML y copiarlos al informe
+    cmds:
+      - plantuml -tpng docs/diagramas/*.puml
+      - cp docs/diagramas/*.png docs/informe/images/

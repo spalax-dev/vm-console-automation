@@ -1,0 +1,99 @@
+' ============================================================
+' Escenario de aplicación (numeral 5 del parcial — obligatorio)
+'
+' Muestra como mínimo: equipo host; software de virtualización;
+' máquinas virtuales; sistema operativo de cada VM; interfaces de
+' red; direcciones IP; mecanismo de comunicación host <-> VM; disco
+' de almacenamiento; flujo general de la automatización.
+'
+' El balanceador (VM de HAProxy) va en un nodo propio porque es la
+' máquina del módulo 3.4 y termina reenviando el tráfico a las
+' back-end. Las back-end y la VM de pruebas se resumen en un único
+' contenedor: son intercambiables y la consola se conecta con la que
+' toque en cada operación.
+'
+' vmcons usa VirtualBox (Guest Additions) y OpenSSH, y las flechas
+' de uso se dibujan dentro del equipo host. Solo hay un enlace de
+' comunicación con las VM (A/B): la definición de A y B y el flujo
+' numerado se explican en el texto del informe, no en el diagrama.
+'
+' NOTA DE DISEÑO: sin sombras ni esquinas redondeadas, y sin
+' recuadro de leyenda. El tamaño con que se imprime el texto depende
+' del número de caracteres de la fila más ancha; mantener etiquetas
+' cortas.
+' ============================================================
+@startuml escenario
+title Escenario de aplicación — consola **vmcons** sobre Debian 13
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontSize 14
+skinparam shadowing false
+skinparam roundCorner 0
+skinparam node {
+  BackgroundColor #EEF2F7
+  BorderColor #334155
+  FontSize 14
+}
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #475569
+  FontSize 13
+}
+skinparam interface {
+  BackgroundColor #FDE68A
+  BorderColor #B45309
+  FontSize 12
+}
+skinparam storage {
+  BackgroundColor #DCFCE7
+  BorderColor #15803D
+  FontSize 13
+}
+skinparam arrow {
+  FontSize 12
+  Color #1E293B
+}
+
+' ---------------- Equipo anfitrión ----------------
+node "**Equipo host**\nDebian 13 / Windows 11" as host {
+  rectangle "**Navegador**\ninterfaz web" as web
+  rectangle "**vmcons**\nGo · :8080" as consola
+  rectangle "**VirtualBox 7**\nVBoxManage" as vbox
+  rectangle "**OpenSSH**\nssh · scp\nllaves ~/.ssh" as sshc
+  interface "NIC puente\n192.168.1.5" as ifh
+  storage "**Disco VDI multiconexión**\ncrea las back-end" as disco
+}
+
+' ---------------- Red ----------------
+node "**Red en modo puente**\n192.168.1.0/24" as lan
+
+' ---------------- Balanceador (módulo 3.4) ----------------
+node "**VM balanceadora**\nHAProxy · Debian 13.7.0" as bal {
+  interface "enp0s3\n192.168.1.11" as ifb
+}
+
+' ---------------- Back-end y VM de pruebas (resumen) ----------------
+node "**Máquinas virtuales**\nDebian 13.7.0\nVM 1 pruebas · VM 3 y VM 4 back-end\n(o cualesquiera)" as vms {
+  interface "enp0s3\n192.168.1.10 · .12–.13" as ifv
+}
+
+' ---------------- Almacenamiento ----------------
+' (el disco vive dentro del equipo host, declarado arriba)
+
+' ---------------- Uso de VirtualBox y OpenSSH por vmcons ----------------
+web --> consola : **1** formulario
+consola --> vbox
+consola --> sshc
+
+' ---------------- Enlaces físicos de red ----------------
+ifh -[thickness=3]-> lan
+lan -[thickness=3]-> ifb
+lan -[thickness=3]-> ifv
+bal -[thickness=3]-> vms : reenvío
+
+' ---------------- Mecanismo de comunicación host <-> VM ----------------
+host ..> vms : **A / B**
+
+disco ..> vms : **5** despliegue
+
+@enduml

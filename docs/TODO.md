@@ -23,9 +23,9 @@ Documento de seguimiento del proyecto. Se actualiza conforme se avanza.
 | Ensamblaje (`main.go`: rutas + inyección de dependencias) | [ ] Stub (solo comentario de paquete) |
 | Interfaz web (`web/modules`, `web/static/main.js`) | [ ] Placeholders |
 | Pruebas de `services` y `handlers` | [ ] Sin cobertura (ambos paquetes: *no test files*) |
-| Escenario: diagrama (numeral 5) | [ ] No iniciado |
+| Escenario: diagrama (numeral 5) | [x] Hecho en PlantUML (`docs/diagramas/`), en §3.1 del informe |
 | Pruebas manuales en video (numeral 4) | [ ] No iniciado |
-| Informe (`docs/informe`) | [~] Estructura modular lista; cuerpo con TODOs |
+| Informe (`docs/informe`) | [~] §3 (diseño y escenario) redactado con los 2 diagramas; resto con TODOs |
 | Resumen / index terms | [ ] Pendiente de redactar al final |
 
 ---
@@ -110,10 +110,10 @@ Orden de trabajo obligatorio: **docs → tests → implementación**.
 
 ## 6. Escenario de aplicación (numeral 5)
 
-- [ ] Elaborar el diagrama con mínimo: equipo host · software de virtualización · máquinas virtuales · SO de cada VM · interfaces de red · direcciones IP · mecanismo de comunicación host ↔ VM · disco de almacenamiento · flujo general de la automatización.
-- [ ] Guardar el diagrama en `docs/` y referenciarlo desde `docs/informe/body/03-diseno-solucion.tex` (descomentar `\includegraphics`).
-- [ ] Redactar la descripción breve del escenario.
-- [ ] Redactar el mecanismo de comunicación y el flujo general de la automatización.
+- [x] Elaborar el diagrama con mínimo: equipo host · software de virtualización · máquinas virtuales · SO de cada VM · interfaces de red · direcciones IP · mecanismo de comunicación host ↔ VM · disco de almacenamiento · flujo general de la automatización.
+- [x] Guardar el diagrama en `docs/diagramas/escenario.puml` y referenciarlo desde `docs/informe/body/03-diseno-solucion.tex` (regenerar con `task diagramas`).
+- [x] Redactar la descripción breve del escenario.
+- [x] Redactar el mecanismo de comunicación y el flujo general de la automatización.
 
 ---
 
@@ -122,7 +122,7 @@ Orden de trabajo obligatorio: **docs → tests → implementación**.
 Estructura modular lista: `main.tex` (resumen, index terms, introducción, bibliografía) + `body/` (una sección por archivo).
 
 - [ ] `body/02-marco-teorico.tex` — completar secciones con TODO: Debian, APT, systemd, HAProxy.
-- [ ] `body/03-diseno-solucion.tex` — diagrama + descripción del escenario; visión general, estructura del proyecto y decisiones tomadas.
+- [x] `body/03-diseno-solucion.tex` — diagrama + descripción del escenario; visión general, estructura del proyecto y decisiones tomadas.
 - [ ] `body/04-implementacion.tex` — redactar 4.1 (apt, SSH root, `/etc/issue`, hostname), 4.2 (usuarios), 4.3 (systemd), 4.4 (HAProxy).
 - [ ] `body/05-pruebas.tex` — diseño de las pruebas y resultados con evidencias (videos).
 - [ ] `body/06-conclusiones.tex` — problemas y soluciones, herramientas de IA utilizadas, conclusiones del trabajo.
@@ -148,5 +148,7 @@ Estructura modular lista: `main.tex` (resumen, index terms, introducción, bibli
 
 ## Notas de seguimiento
 
+- **24 oct 2026** — Escenario (numeral 5) y §3 del informe: diagramas PlantUML (`docs/diagramas/escenario.puml` y `flujo-procesos.puml`, tarea `task diagramas`), redacción completa de 3.1 y 3.2, y verificación de que las dos figuras caen dentro de la sección III (figuras en las páginas 3 y 4; §III ocupa las páginas 2 a 5). Legibilidad: ~7 pt impreso.
+- **24 oct 2026** — Estilo de los diagramas: sin sombras ni esquinas redondeadas, sin recuadros de leyenda (su contenido pasó al texto y al pie de la figura) y un solo enlace A/B con las VM. El balanceador de HAProxy quedó en nodo propio; `vmcons` muestra sus flechas de uso hacia VirtualBox 7 y OpenSSH.
 - **24 oct 2026** — Informe reorganizado en formato modular (`main.tex` + `body/`); secciones fusionadas en *Diseño de la Solución*, *Implementación* y *Conclusiones*. Compila con `latexmk`.
 - **24 oct 2026** — Se revisaron los criterios del parcial y se construyó este documento de seguimiento.

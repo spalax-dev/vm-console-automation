@@ -1,0 +1,76 @@
+' ============================================================
+' Flujo de proceso de una operación solicitada desde la interfaz.
+'
+' Diagrama de procesos (actividades con puntos de decisión) con
+' carriles por responsable. Insumo de la sección 3.2.1 del informe.
+'
+' NOTA DE DISEÑO: el gráfico debe quedar casi cuadrado y con
+' etiquetas cortas; el texto largo lo alarga en exceso y reduce el
+' tamaño con que se imprime en el informe. El detalle narrativo va
+' en docs/diseno-solucion.md y en body/03-diseno-solucion.tex.
+' ============================================================
+@startuml flujo-procesos
+title Flujo de proceso de una operación de la consola
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontSize 14
+skinparam shadowing false
+skinparam roundCorner 0
+skinparam activity {
+  BackgroundColor #EEF2F7
+  BorderColor #334155
+  FontSize 14
+}
+skinparam ArrowColor #1E293B
+skinparam defaultTextAlignment center
+
+|Interfaz|
+start
+:Completa el formulario;
+
+if (¿Datos válidos?\nno: no se envía) then (no)
+  stop
+else (sí)
+endif
+
+|Handler HTTP|
+:Valida en el servidor;
+
+if (¿Entrada válida?\nno: HTTP 400) then (no)
+  stop
+else (sí)
+endif
+
+|Servicio|
+:Selecciona la sesión;
+
+if (¿VM accesible?\nno: HTTP 503) then (no)
+  stop
+else (sí)
+endif
+
+if (¿Llave SSH instalada?) then (no)
+  :Guest Additions\ninstala SSH;
+else (sí)
+  :Sesión SSH\ncon llaves;
+endif
+
+|Sesión y VM|
+:Ejecuta la orden;
+
+:La VM ejecuta la orden;
+
+if (¿Código de salida = 0?\nno: HTTP 500) then (no)
+  stop
+else (sí)
+endif
+
+|Interfaz|
+:Notifica el resultado;
+
+|Servicio|
+:Registra la operación\ny cierra la sesión;
+
+stop
+
+@enduml
