@@ -10,14 +10,20 @@
 ' máquina del módulo 3.4 y termina reenviando el tráfico a las
 ' back-end. Las back-end y la VM de pruebas se resumen en un único
 ' contenedor: son intercambiables y la consola se conecta con la que
-' toque en cada operación.
+' toque en cada operación. La consola administra VM, no las crea: el
+' disco es solo almacenamiento del anfitrión (numeral 5).
 '
 ' vmcons usa VirtualBox (Guest Additions) y OpenSSH, y las flechas
-' de uso se dibujan dentro del equipo host. Solo hay un enlace de
-' comunicación con las VM (A/B): la definición de A y B y el flujo
-' numerado se explican en el texto del informe, no en el diagrama.
+' de uso se dibujan dentro del equipo host. Un único enlace discontinuo
+' sale de vmcons hacia las VM e indica que la consola las maneja; los
+' mecanismos concretos (Guest Additions y SSH con llaves) se explican
+' en el texto del informe, no en el diagrama. Las direcciones IP no se
+' fijan: cada interfaz recibe la suya por DHCP en tiempo de ejecución.
+' El flujo general de la automatización es el bucle 1 -> 4 del
+' navegador: formulario, validación y sesión en vmcons, ejecución en la
+' VM y notificación del resultado.
 '
-' NOTA DE DISEÑO: sin sombras ni esquinas redondeadas, y sin
+' NOTA DE DISEÑO: sin sombras ni esquinas redondeadas y sin
 ' recuadro de leyenda. El tamaño con que se imprime el texto depende
 ' del número de caracteres de la fila más ancha; mantener etiquetas
 ' cortas.
@@ -60,28 +66,28 @@ node "**Equipo host**\nDebian 13 / Windows 11" as host {
   rectangle "**vmcons**\nGo · :8080" as consola
   rectangle "**VirtualBox 7**\nVBoxManage" as vbox
   rectangle "**OpenSSH**\nssh · scp\nllaves ~/.ssh" as sshc
-  interface "NIC puente\n192.168.1.5" as ifh
-  storage "**Disco VDI multiconexión**\ncrea las back-end" as disco
+  interface "NIC puente\nIP local por DHCP" as ifh
+  storage "**Disco VDI multiconexión**\nalmacenamiento · imagen base" as disco
 }
 
 ' ---------------- Red ----------------
-node "**Red en modo puente**\n192.168.1.0/24" as lan
+node "**Red en modo puente**\nred local · DHCP" as lan
 
 ' ---------------- Balanceador (módulo 3.4) ----------------
 node "**VM balanceadora**\nHAProxy · Debian 13.7.0" as bal {
-  interface "enp0s3\n192.168.1.11" as ifb
+  interface "enp0s3\nIP por DHCP" as ifb
 }
 
 ' ---------------- Back-end y VM de pruebas (resumen) ----------------
-node "**Máquinas virtuales**\nDebian 13.7.0\nVM 1 pruebas · VM 3 y VM 4 back-end\n(o cualesquiera)" as vms {
-  interface "enp0s3\n192.168.1.10 · .12–.13" as ifv
+node "**Máquinas virtuales - Debian 13**" as vms {
+  interface "enp0s3\nIP por DHCP" as ifv
 }
 
 ' ---------------- Almacenamiento ----------------
 ' (el disco vive dentro del equipo host, declarado arriba)
 
 ' ---------------- Uso de VirtualBox y OpenSSH por vmcons ----------------
-web --> consola : **1** formulario
+web <-> consola : **1** formulario\n**4** resultado
 consola --> vbox
 consola --> sshc
 
@@ -91,9 +97,7 @@ lan -[thickness=3]-> ifb
 lan -[thickness=3]-> ifv
 bal -[thickness=3]-> vms : reenvío
 
-' ---------------- Mecanismo de comunicación host <-> VM ----------------
-host ..> vms : **A / B**
-
-disco ..> vms : **5** despliegue
+' ---------------- vmcons maneja las máquinas virtuales ----------------
+consola ..> vms : **gestión de VM**
 
 @enduml

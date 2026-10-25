@@ -183,6 +183,13 @@ información conservada para el diagnóstico, sin exponer llaves privadas.
    armar la respuesta de diagnóstico en cualquier adaptador.
 5. **Interfaces descargables.** Las llaves privadas se entregan como archivo con
    `Content-Disposition`, no como texto pegado en la página.
+6. **La consola administra VM, no las crea.** El enunciado no pide
+   aprovisionar máquinas: los módulos son preparación del sistema,
+   gestión de usuarios, systemd y HAProxy (§3.1 a §3.4). El disco
+   multiconexión de la precondición (c) es *entorno de pruebas*
+   preparado con VirtualBox fuera de la consola, y en el diagrama del
+   numeral 5 aparece únicamente como «disco utilizado para
+   almacenamiento», sin enlaces de creación.
 
 ---
 
@@ -205,14 +212,27 @@ Criterios de estilo acordados para ambos diagramas:
 - Sin sombras, sin esquinas redondeadas y sin recuadros de leyenda:
   `skinparam shadowing false` y `skinparam roundCorner 0`. Lo que antes
   decía la leyenda pasa al texto y al pie de la figura del informe.
-- Un único enlace de comunicación con las VM, rotulado **A / B**; la
-  definición de A (Guest Additions) y B (SSH con llaves) vive en el pie
-  de la Figura 1 y en §3.1.2.
 - En el escenario, `vmcons` dibuja flechas de uso hacia VirtualBox 7 y
   OpenSSH, y el disco multiconexión se declara dentro del equipo host
-  porque vive en el anfitrión.
+  porque vive en el anfitrión: es almacenamiento, sin flechas de
+  creación de VM.
+- El contenedor de VM lleva un título corto («Máquinas virtuales -
+  Debian 13»); los roles (pruebas, back-end) y la posibilidad de
+  añadir otras quedan en §3.1.1 del informe.
+- El flujo general de la automatización se dibuja como bucle 1 → 4 en
+  el navegador: «1 formulario / 4 resultado»; el paso intermedio
+  (validación, sesión y ejecución) ocurre entre `vmcons`, los
+  adaptadores y la VM.
 - El balanceador de HAProxy va en nodo propio (módulo 3.4 y punto de
   partida del reenvío); la VM de pruebas y las back-end se resumen en un
   único contenedor marcado como «o cualesquiera».
 - Legibilidad: el texto debe imprimirse a ≥ 7 pt, lo que obliga a
   mantener cortas las etiquetas y el aspecto de la figura cercano a 1.
+- Direcciones IP: no se fijan en el diagrama. El anfitrión y cada VM
+  reciben la suya por DHCP en cada arranque, y la consola la descubre
+  en tiempo de ejecución con `VBoxManage guestproperty get`; por eso
+  las interfaces se rotulan «IP por DHCP».
+- Un único enlace discontinuo desde `vmcons` hacia las VM, rotulado
+  «gestión de VM»: indica que la consola maneja las máquinas. Los
+  mecanismos concretos (Guest Additions y SSH con llaves) se explican
+  en §3.1.2 del informe.
