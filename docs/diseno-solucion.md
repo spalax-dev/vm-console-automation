@@ -116,6 +116,37 @@ escribe en los logs ni en el cuerpo JSON: solo se entrega como descarga con
 `Content-Disposition: attachment`. La interfaz muestra un aviso recomendando
 su resguardo y el uso exclusivo por parte del administrador.
 
+### 2.4 Entrada del sistema (`/etc/issue`)
+
+El recurso `/api/issue` lee y reemplaza el banner que `agetty` muestra antes
+del inicio de sesión:
+
+| Operación | Acción | Respuesta |
+| --- | --- | --- |
+| `GET /api/issue` | lee `/etc/issue` y deduce las opciones activas | `200` con `{mensaje, nombre_host, fecha, hora, ip, contenido}` |
+| `PUT /api/issue` | reemplaza `/etc/issue` | `200` con el resultado de la orden |
+
+El servicio `Issue` (`internal/services/issue.go`) escribe un formato de una
+línea por elemento, usando las secuencias de `agetty`:
+
+```
+<mensaje personalizado>
+Hostname: \n
+Fecha: \d
+Hora: \t
+IP: \4
+```
+
+Solo se incluyen las líneas de las opciones activas. Al leer, el servicio
+reconoce esas líneas para reconstruir las casillas y trata el resto como
+mensaje personalizado; si el archivo no tiene el formato de la consola (por
+ejemplo, el `/etc/issue` original de Debian), todo el contenido se devuelve
+como mensaje y las opciones quedan desactivadas.
+
+La escritura se hace con `printf` en una sola orden POSIX y deja permisos
+`644`. El mensaje se valida en el servidor: máximo 512 caracteres, sin NUL y
+sin saltos de línea, para que no rompa el formato de una línea por elemento.
+
 ---
 
 ## 3. Flujo de proceso de una operación

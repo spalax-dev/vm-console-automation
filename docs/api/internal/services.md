@@ -14,11 +14,16 @@ Package services implementa los casos de uso de la consola: descubre el conector
 - [type AbridorSesion](<#AbridorSesion>)
 - [type ConfigDescubridor](<#ConfigDescubridor>)
 - [type ConfigLlaves](<#ConfigLlaves>)
+- [type ConfiguracionIssue](<#ConfiguracionIssue>)
 - [type Descubridor](<#Descubridor>)
   - [func NuevoDescubridor\(config \*ConfigDescubridor\) \*Descubridor](<#NuevoDescubridor>)
   - [func \(d \*Descubridor\) Abrir\(ctx context.Context\) \(ports.Session, error\)](<#Descubridor.Abrir>)
   - [func \(d \*Descubridor\) Descubrir\(ctx context.Context\) \(InfoSesion, error\)](<#Descubridor.Descubrir>)
 - [type InfoSesion](<#InfoSesion>)
+- [type Issue](<#Issue>)
+  - [func NuevoIssue\(sesiones AbridorSesion\) \*Issue](<#NuevoIssue>)
+  - [func \(i \*Issue\) Escribir\(ctx context.Context, config ConfiguracionIssue\) \(Resultado, error\)](<#Issue.Escribir>)
+  - [func \(i \*Issue\) Obtener\(ctx context.Context\) \(ConfiguracionIssue, error\)](<#Issue.Obtener>)
 - [type Llaves](<#Llaves>)
   - [func NuevoLlaves\(config ConfigLlaves\) \*Llaves](<#NuevoLlaves>)
   - [func \(l \*Llaves\) Descargar\(\) \(nombre string, contenido \[\]byte, err error\)](<#Llaves.Descargar>)
@@ -96,6 +101,28 @@ type ConfigLlaves struct {
 }
 ```
 
+<a name="ConfiguracionIssue"></a>
+## type ConfiguracionIssue
+
+ConfiguracionIssue describe el banner previo al inicio de sesión.
+
+```go
+type ConfiguracionIssue struct {
+    // Mensaje es el texto personalizado.
+    Mensaje string
+    // NombreHost indica si se incluye el nombre de host.
+    NombreHost bool
+    // Fecha indica si se incluye la fecha.
+    Fecha bool
+    // Hora indica si se incluye la hora.
+    Hora bool
+    // IP indica si se incluye la dirección IPv4.
+    IP  bool
+    // Contenido es el texto completo del archivo, solo en las lecturas.
+    Contenido string
+}
+```
+
 <a name="Descubridor"></a>
 ## type Descubridor
 
@@ -149,6 +176,44 @@ type InfoSesion struct {
     Estado domain.MachineState
 }
 ```
+
+<a name="Issue"></a>
+## type Issue
+
+Issue implementa el caso de uso de personalización de /etc/issue.
+
+```go
+type Issue struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="NuevoIssue"></a>
+### func NuevoIssue
+
+```go
+func NuevoIssue(sesiones AbridorSesion) *Issue
+```
+
+NuevoIssue construye el servicio de /etc/issue con el abridor de sesiones dado.
+
+<a name="Issue.Escribir"></a>
+### func \(\*Issue\) Escribir
+
+```go
+func (i *Issue) Escribir(ctx context.Context, config ConfiguracionIssue) (Resultado, error)
+```
+
+Escribir reemplaza /etc/issue con el mensaje y las opciones dadas.
+
+<a name="Issue.Obtener"></a>
+### func \(\*Issue\) Obtener
+
+```go
+func (i *Issue) Obtener(ctx context.Context) (ConfiguracionIssue, error)
+```
+
+Obtener lee /etc/issue y reconstruye el mensaje y las opciones.
 
 <a name="Llaves"></a>
 ## type Llaves

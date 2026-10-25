@@ -19,6 +19,7 @@ const (
 	conectorGuest    = "guest-additions"
 	msgDescubrirOK   = "Descubrir() error = %v, want nil"
 	msgSesionAbierta = "la sesión no se cerró"
+	msgCodigoCero    = "Codigo = %d, want 0"
 	msgIP            = "IP = %s, want %s"
 )
 

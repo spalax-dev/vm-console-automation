@@ -118,7 +118,7 @@ func TestLlavesGenerarInstalaClave(t *testing.T) {
 	}
 
 	if resultado.Codigo != 0 {
-		t.Errorf("Codigo = %d, want 0", resultado.Codigo)
+		t.Errorf(msgCodigoCero, resultado.Codigo)
 	}
 
 	if resultado.Mensaje == "" {

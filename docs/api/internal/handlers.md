@@ -15,13 +15,14 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
   - [func NuevoHaproxy\(\) \*Haproxy](<#NuevoHaproxy>)
   - [func \(h \*Haproxy\) Servidor\(w http.ResponseWriter, r \*http.Request\)](<#Haproxy.Servidor>)
   - [func \(h \*Haproxy\) Servidores\(w http.ResponseWriter, r \*http.Request\)](<#Haproxy.Servidores>)
+- [type ServicioIssue](<#ServicioIssue>)
 - [type ServicioLlaves](<#ServicioLlaves>)
 - [type ServicioPaquetes](<#ServicioPaquetes>)
 - [type Sesion](<#Sesion>)
   - [func NuevoSesion\(descubridor DescubridorSesion\) \*Sesion](<#NuevoSesion>)
   - [func \(h \*Sesion\) ServeHTTP\(w http.ResponseWriter, r \*http.Request\)](<#Sesion.ServeHTTP>)
 - [type Sistema](<#Sistema>)
-  - [func NuevoSistema\(paquetes ServicioPaquetes, llaves ServicioLlaves\) \*Sistema](<#NuevoSistema>)
+  - [func NuevoSistema\(paquetes ServicioPaquetes, llaves ServicioLlaves, issue ServicioIssue\) \*Sistema](<#NuevoSistema>)
   - [func \(h \*Sistema\) Hostname\(w http.ResponseWriter, r \*http.Request\)](<#Sistema.Hostname>)
   - [func \(h \*Sistema\) Issue\(w http.ResponseWriter, r \*http.Request\)](<#Sistema.Issue>)
   - [func \(h \*Sistema\) LlaveRoot\(w http.ResponseWriter, r \*http.Request\)](<#Sistema.LlaveRoot>)
@@ -85,6 +86,20 @@ func (h *Haproxy) Servidores(w http.ResponseWriter, r *http.Request)
 ```
 
 Servidores atiende GET y POST /api/haproxy/backend/servers: lista o agrega servidores al back\-end.
+
+<a name="ServicioIssue"></a>
+## type ServicioIssue
+
+ServicioIssue lee y reemplaza /etc/issue.
+
+```go
+type ServicioIssue interface {
+    // Obtener devuelve la configuración actual del banner.
+    Obtener(ctx context.Context) (services.ConfiguracionIssue, error)
+    // Escribir reemplaza el banner con la configuración dada.
+    Escribir(ctx context.Context, config services.ConfiguracionIssue) (services.Resultado, error)
+}
+```
 
 <a name="ServicioLlaves"></a>
 ## type ServicioLlaves
@@ -161,7 +176,7 @@ type Sistema struct {
 ### func NuevoSistema
 
 ```go
-func NuevoSistema(paquetes ServicioPaquetes, llaves ServicioLlaves) *Sistema
+func NuevoSistema(paquetes ServicioPaquetes, llaves ServicioLlaves, issue ServicioIssue) *Sistema
 ```
 
 NuevoSistema construye el handler de preparación del sistema con los servicios dados.

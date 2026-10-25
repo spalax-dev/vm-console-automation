@@ -124,6 +124,8 @@ func validarMensajeIssue(mensaje string) error {
 		return campoInvalido(campoMensaje, "no puede superar los 512 caracteres")
 	case strings.ContainsRune(mensaje, 0):
 		return campoInvalido(campoMensaje, "no puede contener el carácter NUL")
+	case strings.ContainsAny(mensaje, "\r\n"):
+		return campoInvalido(campoMensaje, "no puede contener saltos de línea")
 	default:
 		return nil
 	}

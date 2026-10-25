@@ -13,6 +13,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"consola-vm/internal/services"
 )
@@ -36,17 +37,26 @@ type ServicioLlaves interface {
 	Descargar() (nombre string, contenido []byte, err error)
 }
 
+// ServicioIssue lee y reemplaza /etc/issue.
+type ServicioIssue interface {
+	// Obtener devuelve la configuración actual del banner.
+	Obtener(ctx context.Context) (services.ConfiguracionIssue, error)
+	// Escribir reemplaza el banner con la configuración dada.
+	Escribir(ctx context.Context, config services.ConfiguracionIssue) (services.Resultado, error)
+}
+
 // Sistema agrupa los recursos de preparación del sistema (numeral 3.1
 // del enunciado).
 type Sistema struct {
 	paquetes ServicioPaquetes
 	llaves   ServicioLlaves
+	issue    ServicioIssue
 }
 
 // NuevoSistema construye el handler de preparación del sistema con los
 // servicios dados.
-func NuevoSistema(paquetes ServicioPaquetes, llaves ServicioLlaves) *Sistema {
-	return &Sistema{paquetes: paquetes, llaves: llaves}
+func NuevoSistema(paquetes ServicioPaquetes, llaves ServicioLlaves, issue ServicioIssue) *Sistema {
+	return &Sistema{paquetes: paquetes, llaves: llaves, issue: issue}
 }
 
 // paqueteRespuesta es un paquete en la respuesta JSON.
@@ -228,6 +238,16 @@ func (h *Sistema) descargarLlaveRoot(w http.ResponseWriter) {
 	}
 }
 
+// configuracionIssue es el cuerpo de GET /api/issue.
+type configuracionIssue struct {
+	Mensaje    string `json:"mensaje"`
+	NombreHost bool   `json:"nombre_host"`
+	Fecha      bool   `json:"fecha"`
+	Hora       bool   `json:"hora"`
+	IP         bool   `json:"ip"`
+	Contenido  string `json:"contenido,omitempty"`
+}
+
 // Issue atiende GET y PUT /api/issue: consulta o reemplaza el banner
 // previo al inicio de sesión.
 func (h *Sistema) Issue(w http.ResponseWriter, r *http.Request) {
@@ -236,7 +256,7 @@ func (h *Sistema) Issue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodGet {
-		noImplementado(w, "consultar /etc/issue")
+		h.obtenerIssue(w, r)
 
 		return
 	}
@@ -254,7 +274,51 @@ func (h *Sistema) Issue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	noImplementado(w, "personalizar /etc/issue")
+	if !hayOpcionesIssue(solicitud) {
+		responderValidacion(w, campoInvalido(campoMensaje, "indique un mensaje o al menos una opción"))
+
+		return
+	}
+
+	resultado, err := h.issue.Escribir(r.Context(), services.ConfiguracionIssue{
+		Mensaje:    solicitud.Mensaje,
+		NombreHost: solicitud.NombreHost,
+		Fecha:      solicitud.Fecha,
+		Hora:       solicitud.Hora,
+		IP:         solicitud.IP,
+	})
+	if err != nil {
+		responderErrorOperacion(w, resultado, err)
+
+		return
+	}
+
+	escribirResultado(w, http.StatusOK, resultado)
+}
+
+// hayOpcionesIssue informa si la solicitud incluye algún elemento.
+func hayOpcionesIssue(solicitud solicitudIssue) bool {
+	return strings.TrimSpace(solicitud.Mensaje) != "" ||
+		solicitud.NombreHost || solicitud.Fecha || solicitud.Hora || solicitud.IP
+}
+
+// obtenerIssue responde la configuración actual de /etc/issue.
+func (h *Sistema) obtenerIssue(w http.ResponseWriter, r *http.Request) {
+	config, err := h.issue.Obtener(r.Context())
+	if err != nil {
+		responderErrorOperacion(w, services.Resultado{}, err)
+
+		return
+	}
+
+	escribirJSON(w, http.StatusOK, configuracionIssue{
+		Mensaje:    config.Mensaje,
+		NombreHost: config.NombreHost,
+		Fecha:      config.Fecha,
+		Hora:       config.Hora,
+		IP:         config.IP,
+		Contenido:  config.Contenido,
+	})
 }
 
 // Hostname atiende GET y PUT /api/hostname: consulta o reemplaza el

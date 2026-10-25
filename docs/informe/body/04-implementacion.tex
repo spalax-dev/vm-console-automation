@@ -11,12 +11,12 @@ La capa HTTP está implementada: los catorce recursos de la
 aplica las reglas descritas en la \cref{sec:contrato-rest} y cada
 petición se responde con el modelo JSON de la
 \cref{sec:vision-general}. El descubrimiento de sesión
-expone \texttt{GET /api/session}, y los módulos de paquetes y de llaves
-SSH ya ejecutan operaciones reales sobre la máquina. Los demás casos de
-uso, mientras no se conecten, responden \texttt{501} con un mensaje
-comprensible, de modo que la interfaz puede integrarse sin esperar a la
-ejecución real. Las pruebas cubren el 99.0\,\% de los manejadores y el
-100\,\% de los servicios.
+expone \texttt{GET /api/session}, y los módulos de paquetes, llaves SSH
+y \texttt{/etc/issue} ya ejecutan operaciones reales sobre la máquina.
+Los demás casos de uso, mientras no se conecten, responden
+\texttt{501} con un mensaje comprensible, de modo que la interfaz puede
+integrarse sin esperar a la ejecución real. Las pruebas cubren el
+98.4\,\% de los manejadores y el 100\,\% de los servicios.
 
 % ------------------------------------------------------------
 % 4.1 Preparación del sistema
@@ -74,8 +74,22 @@ compartirla.
 
 \subsubsection{Personalización de la Entrada del Sistema}
 \label{sec:issue}
-% TODO: configuración de /etc/issue con opciones para nombre del host,
-% fecha, hora, dirección IP y mensaje personalizado de inicio de sesión.
+
+El recurso \texttt{/api/issue} lee y reemplaza el banner que
+\texttt{agetty} muestra antes del inicio de sesión. El formulario envía
+el mensaje personalizado y las casillas de nombre de host, fecha, hora y
+dirección IP; el servidor exige que haya al menos un elemento y rechaza
+mensajes de más de 512 caracteres, con NUL o con saltos de línea, porque
+el formato es de una línea por elemento.
+
+El servicio escribe el archivo con las secuencias de \texttt{agetty}
+para nombre de host, fecha, hora y dirección IP, precedidas por una
+etiqueta legible. Al leer, reconoce esas etiquetas y reconstruye las
+casillas; si el archivo no sigue el formato de la consola ---por
+ejemplo, el \texttt{/etc/issue} original de Debian--- todo el contenido
+se devuelve como mensaje y las opciones quedan desactivadas, de modo que
+no se pierde un banner ajeno. La escritura usa una sola orden POSIX con
+\texttt{printf} y deja permisos \texttt{644}.
 
 \subsubsection{Asignación del Nombre de Host y Actualización del Archivo de Hosts}
 \label{sec:hostname}

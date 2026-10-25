@@ -54,9 +54,10 @@ info:
 
     ## Estado de implementación
 
-    `GET /api/session`, `/api/packages` y `/api/keys/root` ya están
-    conectados con la máquina. El resto de rutas existe y valida sus
-    entradas, pero responde `501` hasta conectar sus casos de uso.
+    `GET /api/session`, `/api/packages`, `/api/keys/root` y
+    `/api/issue` ya están conectados con la máquina. El resto de rutas
+    existe y valida sus entradas, pero responde `501` hasta conectar
+    sus casos de uso.
 
     ## Fuera de alcance
 

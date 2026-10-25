@@ -99,7 +99,9 @@ func nuevoMux() http.Handler {
 		Ruta:     rutaLlave(),
 	})
 
-	sistema := handlers.NuevoSistema(services.NuevoPaquetes(sesiones), llaves)
+	issue := services.NuevoIssue(sesiones)
+
+	sistema := handlers.NuevoSistema(services.NuevoPaquetes(sesiones), llaves, issue)
 	usuarios := handlers.NuevoUsuarios()
 	systemd := handlers.NuevoSystemd()
 	haproxy := handlers.NuevoHaproxy()
