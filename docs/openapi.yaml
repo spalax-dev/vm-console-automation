@@ -732,8 +732,9 @@ paths:
       description: |
         Enumera las máquinas registradas en VirtualBox y marca con
         `activa` la que está vinculada con la consola. Solo devuelve las
-        administrables: las encendidas que publican Guest Additions y las
-        apagadas, que se listan para poder encenderlas. El filtro `q`
+        administrables: las encendidas que publican Guest Additions con la
+        primera interfaz en modo puente u host-only, y las apagadas, que
+        se listan para poder encenderlas. El filtro `q`
         compara, sin distinguir mayúsculas, contra el nombre y el UUID.
         Es la fuente del selector de la barra superior.
       operationId: listarMaquinas

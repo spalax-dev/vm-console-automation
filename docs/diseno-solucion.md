@@ -58,9 +58,11 @@ El orden de preferencia lo fija `main.go` al inyectar la lista, no el servicio: 
 puede probar con conectores falsos y cambiar la política sin tocar el caso de uso.
 
 El **inventario del selector** aplica el mismo criterio de forma silenciosa: las
-máquinas encendidas solo aparecen si publican Guest Additions (el canal con el
-que la consola instala SSH); las apagadas se listan para poder encenderlas. La
-interfaz avisa de que solo se muestran las máquinas administrables. Si una
+máquinas encendidas solo aparecen si publican Guest Additions y su primera
+interfaz está en modo puente u host-only; en NAT o red interna el anfitrión no
+alcanza la dirección que publica Guest Additions, aunque SSH llegue a
+instalarse. Las apagadas se listan para poder encenderlas. La interfaz avisa de
+que solo se muestran las máquinas administrables. Si una
 máquina no tiene Guest Additions ni un adaptador puente, no hay forma de
 descubrir su dirección ni de ejecutar la primera orden, por lo que se omite en
 lugar de ofrecer una operación que fallaría.

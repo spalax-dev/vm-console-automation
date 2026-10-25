@@ -50,6 +50,20 @@ const (
 	StateUnknown    MachineState = "unknown"
 )
 
+// NetworkMode describe el modo de la primera interfaz de red de una
+// máquina virtual.
+type NetworkMode string
+
+// Modos de red que la consola distingue.
+const (
+	NetworkBridged  NetworkMode = "bridged"
+	NetworkNAT      NetworkMode = "nat"
+	NetworkHostOnly NetworkMode = "hostonly"
+	NetworkInternal NetworkMode = "internal"
+	NetworkNone     NetworkMode = "none"
+	NetworkUnknown  NetworkMode = "unknown"
+)
+
 // Target identifica la máquina administrada. El identificador es opaco
 // para el núcleo: cada adaptador sabe cómo interpretarlo. La dirección
 // se descubre antes de usarla; si es la dirección cero, es desconocida.

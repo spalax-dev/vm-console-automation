@@ -16,6 +16,7 @@ Package vbox adapta Oracle VM VirtualBox a los puertos Machine y Connector de la
   - [func \(c \*Client\) Connect\(ctx context.Context, target domain.Target\) \(ports.Session, error\)](<#Client.Connect>)
   - [func \(c \*Client\) List\(ctx context.Context\) \(\[\]domain.VM, error\)](<#Client.List>)
   - [func \(c \*Client\) Name\(\) string](<#Client.Name>)
+  - [func \(c \*Client\) Network\(ctx context.Context, target domain.Target\) \(domain.NetworkMode, error\)](<#Client.Network>)
   - [func \(c \*Client\) Probe\(ctx context.Context, target domain.Target\) error](<#Client.Probe>)
   - [func \(c \*Client\) Start\(ctx context.Context, target domain.Target\) error](<#Client.Start>)
   - [func \(c \*Client\) State\(ctx context.Context, target domain.Target\) \(domain.MachineState, error\)](<#Client.State>)
@@ -83,6 +84,15 @@ func (c *Client) Name() string
 ```
 
 Name implements ports.Connector.
+
+<a name="Client.Network"></a>
+### func \(\*Client\) Network
+
+```go
+func (c *Client) Network(ctx context.Context, target domain.Target) (domain.NetworkMode, error)
+```
+
+Network implements ports.Machine: interpreta el modo de la primera interfaz de red de «showvminfo \-\-machinereadable».
 
 <a name="Client.Probe"></a>
 ### func \(\*Client\) Probe

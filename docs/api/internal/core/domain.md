@@ -16,6 +16,7 @@ Package domain define los tipos del lenguaje de la consola: órdenes que se ejec
 - [type ExitError](<#ExitError>)
   - [func \(e \*ExitError\) Error\(\) string](<#ExitError.Error>)
 - [type MachineState](<#MachineState>)
+- [type NetworkMode](<#NetworkMode>)
 - [type Result](<#Result>)
 - [type Target](<#Target>)
 - [type VM](<#VM>)
@@ -98,6 +99,28 @@ const (
     StatePaused     MachineState = "paused"
     StateSaved      MachineState = "saved"
     StateUnknown    MachineState = "unknown"
+)
+```
+
+<a name="NetworkMode"></a>
+## type NetworkMode
+
+NetworkMode describe el modo de la primera interfaz de red de una máquina virtual.
+
+```go
+type NetworkMode string
+```
+
+<a name="NetworkBridged"></a>Modos de red que la consola distingue.
+
+```go
+const (
+    NetworkBridged  NetworkMode = "bridged"
+    NetworkNAT      NetworkMode = "nat"
+    NetworkHostOnly NetworkMode = "hostonly"
+    NetworkInternal NetworkMode = "internal"
+    NetworkNone     NetworkMode = "none"
+    NetworkUnknown  NetworkMode = "unknown"
 )
 ```
 

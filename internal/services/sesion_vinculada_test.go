@@ -31,6 +31,11 @@ func (s *stubMaquina) Address(context.Context, domain.Target) (netip.Addr, error
 	return s.direccion, nil
 }
 
+// Network devuelve una red puente.
+func (s *stubMaquina) Network(context.Context, domain.Target) (domain.NetworkMode, error) {
+	return domain.NetworkBridged, nil
+}
+
 // TestDescubridorSinMaquinaVinculada comprueba que la consola sin
 // vínculo responde «sin sesión» en lugar de consultar el hipervisor.
 func TestDescubridorSinMaquinaVinculada(t *testing.T) {

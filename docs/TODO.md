@@ -179,7 +179,7 @@ de los módulos del numeral 3.
 
 - **25 oct 2026** — Inventario administrable: el selector solo lista las
   máquinas encendidas que publican Guest Additions (canal para instalar
-  SSH) y las apagadas, para poder encenderlas. La web muestra el aviso y
+  SSH y red puente u host-only) y las apagadas, para poder encenderlas. La web muestra el aviso y
   el `footer` del selector indica que solo aparecen máquinas con Guest
   Additions. Al generar la llave de root, si `openssh-server` no está
   instalado se instala con APT desde la sesión de Guest Additions y se

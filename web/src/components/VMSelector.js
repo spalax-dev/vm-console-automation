@@ -22,7 +22,7 @@ export function VMSelector({ alVincular } = {}) {
   el.innerHTML = `
     <div class="relative">
       <button id="vm-boton" type="button" class="btn h-vm-btn pr-1.5 max-w-[260px]"
-        aria-haspopup="listbox" aria-expanded="false" aria-controls="vm-panel" title="Elegir la máquina virtual (solo con Guest Additions)">
+        aria-haspopup="listbox" aria-expanded="false" aria-controls="vm-panel" title="Elegir la máquina virtual (Guest Additions y red puente/host-only)">
         <span id="vm-punto" class="w-1.5 h-1.5 rounded-full bg-vm-muted shrink-0"></span>
         <span id="vm-nombre" class="truncate">Buscando máquinas…</span>
         <i data-lucide="chevron-down" class="w-3.5 h-3.5 shrink-0"></i>
@@ -156,7 +156,7 @@ export function VMSelector({ alVincular } = {}) {
       marcarActiva(vinculada ?? activa);
 
       pintar();
-      pie.textContent = `${maquinas.length} máquina(s) administrable(s) · solo con Guest Additions`;
+      pie.textContent = `${maquinas.length} máquina(s) administrable(s) · Guest Additions y red puente/host-only`;
       pie.className = 'px-2 py-1 border-t border-vm-border text-[10px] text-vm-fgSecondary';
     } catch (error) {
       if (actual !== turno) {

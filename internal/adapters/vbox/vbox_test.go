@@ -348,3 +348,43 @@ func TestGuestSessionRunPassesEnvironment(t *testing.T) {
 		}
 	}
 }
+
+// TestNetworkParsesNICMode comprueba la lectura del modo de red.
+func TestNetworkParsesNICMode(t *testing.T) {
+	t.Parallel()
+
+	fake := newFakeExecutor()
+	fake.results["showvminfo"] = domain.Result{Stdout: `nic1="bridged"
+` + vmRunning + `
+`}
+
+	modo, err := New(fake).Network(context.Background(), domain.Target{ID: vmID})
+	if err != nil {
+		t.Fatalf("Network() error = %v, want nil", err)
+	}
+
+	if modo != domain.NetworkBridged {
+		t.Errorf("Network() = %q, want %q", modo, domain.NetworkBridged)
+	}
+}
+
+// TestMapNetwork traduce los modos de VirtualBox.
+func TestMapNetwork(t *testing.T) {
+	t.Parallel()
+
+	casos := map[string]domain.NetworkMode{
+		"bridged":    domain.NetworkBridged,
+		"nat":        domain.NetworkNAT,
+		"natnetwork": domain.NetworkNAT,
+		"hostonly":   domain.NetworkHostOnly,
+		"intnet":     domain.NetworkInternal,
+		"none":       domain.NetworkNone,
+		"otro":       domain.NetworkUnknown,
+	}
+
+	for entrada, esperado := range casos {
+		if obtenido := mapNetwork(entrada); obtenido != esperado {
+			t.Errorf("mapNetwork(%q) = %q, want %q", entrada, obtenido, esperado)
+		}
+	}
+}

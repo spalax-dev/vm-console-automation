@@ -45,7 +45,9 @@ func (s *stubSeleccion) Establecer(id string) { s.id = id }
 // stubGuestAdditions simula la comprobación de Guest Additions.
 type stubGuestAdditions struct {
 	accesibles map[string]bool
+	red        domain.NetworkMode
 	consultas  int
+	redes      int
 }
 
 // Address devuelve una IP solo si la máquina publica Guest Additions.
@@ -62,6 +64,17 @@ func (s *stubGuestAdditions) Address(_ context.Context, target domain.Target) (n
 // State devuelve el estado en ejecución.
 func (s *stubGuestAdditions) State(context.Context, domain.Target) (domain.MachineState, error) {
 	return domain.StateRunning, nil
+}
+
+// Network devuelve el modo de red preprogramado («bridged» por omisión).
+func (s *stubGuestAdditions) Network(context.Context, domain.Target) (domain.NetworkMode, error) {
+	s.redes++
+
+	if s.red == "" {
+		return domain.NetworkBridged, nil
+	}
+
+	return s.red, nil
 }
 
 // inventarioDePrueba arma dos máquinas, una en ejecución.
@@ -351,5 +364,30 @@ func TestVinculacionListaConGuestAdditions(t *testing.T) {
 
 	if len(visibles) != 2 {
 		t.Errorf("visibles = %+v, want las dos máquinas", visibles)
+	}
+}
+
+// TestVinculacionOcultaNAT comprueba que una máquina con Guest Additions
+// pero en NAT no se lista, porque el anfitrión no alcanza su IP.
+func TestVinculacionOcultaNAT(t *testing.T) {
+	t.Parallel()
+
+	maquina := &stubGuestAdditions{
+		accesibles: map[string]bool{nombreDebian: true},
+		red:        domain.NetworkNAT,
+	}
+	vinculacion := NuevoVinculacion(&ConfigVinculacion{
+		Inventario: inventarioDePrueba(),
+		Seleccion:  &stubSeleccion{},
+		Maquina:    maquina,
+	})
+
+	visibles, err := vinculacion.Listar(context.Background(), "")
+	if err != nil {
+		t.Fatalf(msgListarOK, err)
+	}
+
+	if len(visibles) != 1 || visibles[0].Nombre != nombreUbuntu {
+		t.Errorf("visibles = %+v, want solo la máquina apagada", visibles)
 	}
 }

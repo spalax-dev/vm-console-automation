@@ -122,9 +122,23 @@ func (v *Vinculacion) administrable(ctx context.Context, maquina domain.VM) bool
 		return true
 	}
 
-	_, err := v.maquina.Address(ctx, domain.Target{ID: maquina.Name})
+	objetivo := domain.Target{ID: maquina.Name}
 
-	return err == nil
+	if _, err := v.maquina.Address(ctx, objetivo); err != nil {
+		return false
+	}
+
+	modo, err := v.maquina.Network(ctx, objetivo)
+	if err != nil {
+		return false
+	}
+
+	switch modo {
+	case domain.NetworkNAT, domain.NetworkInternal, domain.NetworkNone:
+		return false
+	default:
+		return true
+	}
 }
 
 // Vincular establece la máquina que administra la consola. Acepta el

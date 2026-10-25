@@ -169,6 +169,17 @@ func (c *Client) State(ctx context.Context, target domain.Target) (domain.Machin
 	return parseState(result.Stdout), nil
 }
 
+// Network implements ports.Machine: interpreta el modo de la primera
+// interfaz de red de «showvminfo --machinereadable».
+func (c *Client) Network(ctx context.Context, target domain.Target) (domain.NetworkMode, error) {
+	result, err := c.exe.Execute(ctx, c.bin, "showvminfo", target.ID, "--machinereadable")
+	if err != nil {
+		return domain.NetworkUnknown, fmt.Errorf("leer la red de %q: %w", target.ID, err)
+	}
+
+	return parseNetwork(result.Stdout), nil
+}
+
 // Probe implements ports.Connector: la máquina debe estar en ejecución
 // para que Guest Additions pueda atenderla.
 func (c *Client) Probe(ctx context.Context, target domain.Target) error {
@@ -283,6 +294,41 @@ func parseState(output string) domain.MachineState {
 	}
 
 	return domain.StateUnknown
+}
+
+// parseNetwork extrae el modo de la primera interfaz de la salida de
+// «showvminfo --machinereadable», cuya línea relevante es «nic1="nat"».
+func parseNetwork(output string) domain.NetworkMode {
+	const prefix = `nic1="`
+
+	for _, line := range strings.Split(output, "\n") {
+		value, found := strings.CutPrefix(strings.TrimSpace(line), prefix)
+		if !found {
+			continue
+		}
+
+		return mapNetwork(strings.TrimSuffix(value, `"`))
+	}
+
+	return domain.NetworkUnknown
+}
+
+// mapNetwork traduce el modo de VirtualBox al lenguaje del dominio.
+func mapNetwork(raw string) domain.NetworkMode {
+	switch raw {
+	case "bridged":
+		return domain.NetworkBridged
+	case "nat", "natnetwork":
+		return domain.NetworkNAT
+	case "hostonly":
+		return domain.NetworkHostOnly
+	case "intnet":
+		return domain.NetworkInternal
+	case "none", "null":
+		return domain.NetworkNone
+	default:
+		return domain.NetworkUnknown
+	}
 }
 
 // mapState traduce el vocabulario de VirtualBox al lenguaje del dominio.

@@ -26,6 +26,8 @@ type Machine interface {
 	Address(ctx context.Context, target domain.Target) (netip.Addr, error)
 	// State informa el estado de encendido de la máquina.
 	State(ctx context.Context, target domain.Target) (domain.MachineState, error)
+	// Network informa el modo de la primera interfaz de red.
+	Network(ctx context.Context, target domain.Target) (domain.NetworkMode, error)
 }
 
 // Inventory enumera las máquinas virtuales registradas en el

@@ -52,8 +52,10 @@ const (
 type stubMachine struct {
 	addr     netip.Addr
 	state    domain.MachineState
+	network  domain.NetworkMode
 	stateErr error
 	addrErr  error
+	netErr   error
 	calls    int
 }
 
@@ -67,6 +69,15 @@ func (s *stubMachine) Address(context.Context, domain.Target) (netip.Addr, error
 // State devuelve el estado de encendido preprogramado.
 func (s *stubMachine) State(context.Context, domain.Target) (domain.MachineState, error) {
 	return s.state, s.stateErr
+}
+
+// Network devuelve el modo de red preprogramado («bridged» por omisión).
+func (s *stubMachine) Network(context.Context, domain.Target) (domain.NetworkMode, error) {
+	if s.network == "" {
+		return domain.NetworkBridged, s.netErr
+	}
+
+	return s.network, s.netErr
 }
 
 // stubSession es una sesión falsa que registra la orden ejecutada y si
