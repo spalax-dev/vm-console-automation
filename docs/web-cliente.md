@@ -132,7 +132,13 @@ El panel es un historial: cada operación añade una ficha al final y las
 anteriores se conservan, con desplazamiento propio para que la tarjeta no
 crezca con cada operación. La vista queda siempre fijada a la última ficha
 ---lo último que hizo el usuario--- y esa ficha muestra su detalle técnico
-desplegado; las anteriores quedan plegadas. El contenido vive en `localStorage`
+desplegado; las anteriores quedan plegadas.
+
+Cada ficha reproduce el panel del diseño de Stitch: banda de estado en verde
+o rojo con el código de salida, cuerpo de terminal oscuro (`#1E1E1E`) con la
+orden en gris, la salida en gris claro y el error en rojo, y el detalle
+técnico plegable debajo en superficie blanca. La salida larga se recorta a
+doce líneas en el terminal; el texto completo queda en el detalle. El contenido vive en `localStorage`
 (`vmcons:resultados`, hasta 50 fichas), así que no se pierde al cambiar de
 módulo ni al recargar la página; el botón **Limpiar** vacía el historial y el
 almacenamiento.

@@ -73,7 +73,7 @@ describe('panel de resultado', () => {
     const cuerpo = panel.querySelector('#result-body');
 
     expect(cuerpo.textContent).toContain('Se instaló nano');
-    expect(panel.querySelector('#result-cuenta').textContent).toBe('(1)');
+    expect(panel.querySelector('#result-cuenta').textContent).toBe('1 op.');
 
     // El historial no agranda la tarjeta: se desplaza dentro del panel.
     expect(cuerpo.className).toContain('overflow-auto');
@@ -93,7 +93,7 @@ describe('panel de resultado', () => {
 
     expect(cuerpo.textContent).toContain('Se instaló nano');
     expect(cuerpo.textContent).toContain('No fue posible instalar');
-    expect(panel.querySelector('#result-cuenta').textContent).toBe('(2)');
+    expect(panel.querySelector('#result-cuenta').textContent).toBe('2 op.');
     expect(leer()).toHaveLength(2);
   });
 
