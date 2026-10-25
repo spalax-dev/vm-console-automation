@@ -12,6 +12,7 @@ Package ports declara las interfaces \(puertos\) que el núcleo de la consola ne
 
 - [type Connector](<#Connector>)
 - [type Executor](<#Executor>)
+- [type Inventory](<#Inventory>)
 - [type Machine](<#Machine>)
 - [type Session](<#Session>)
 
@@ -40,6 +41,18 @@ Executor ejecuta un programa en el sistema operativo donde corre la consola, cap
 ```go
 type Executor interface {
     Execute(ctx context.Context, program string, args ...string) (domain.Result, error)
+}
+```
+
+<a name="Inventory"></a>
+## type Inventory
+
+Inventory enumera las máquinas virtuales registradas en el hipervisor, para que la consola pueda elegir con cuál trabajar.
+
+```go
+type Inventory interface {
+    // List devuelve todas las máquinas registradas con su estado.
+    List(ctx context.Context) ([]domain.VM, error)
 }
 ```
 

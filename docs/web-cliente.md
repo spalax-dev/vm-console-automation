@@ -76,7 +76,7 @@ servidor todavía no está implementado.
 
 | Vista | Operaciones |
 | --- | --- |
-| Inicio / barra superior | `GET /api/session` |
+| Inicio / barra superior | `GET /api/session`, `PUT /api/session`, `GET /api/vms?q=` |
 | Paquetes | `GET /api/packages`, `POST /api/packages`, `DELETE /api/packages/{name}` |
 | Llaves SSH | `POST /api/keys/root`, `GET /api/keys/root` |
 | `/etc/issue` | `GET /api/issue`, `PUT /api/issue` |
@@ -132,9 +132,10 @@ el archivo de configuración. El nombre que muestra el selector de VM se toma de
 
 ## 5. Pendientes conocidos
 
-- **Lista de VM**: el selector de la barra superior necesita un recurso
-  `GET /api/vms` que aún no existe en el contrato. Hasta entonces muestra la
-  VM configurada por `VITE_VM_NOMBRE` y el estado real de `GET /api/session`.
+- **Persistencia de la vinculación**: la máquina elegida se guarda en memoria
+  y se pierde al reiniciar el proceso, que vuelve a `VMCONS_VM`. Guardarla
+  corresponde a la tabla de configuración de SQLite diferida en
+  `docs/TODO.md` §9.
 - **Historial**: fuera de alcance (`docs/TODO.md` §9).
 - **Retiro de `web/modules` y `web/static`**: la SPA ya se sirve en la raíz;
   falta borrar la interfaz anterior, sus archivos estáticos y las entradas

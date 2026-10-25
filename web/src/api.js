@@ -151,8 +151,25 @@ export function guardarArchivo(archivo, nombre) {
 export const api = {
   /** Sesión con la máquina virtual (`GET /api/session`). */
   sesion: {
-    /** @returns {Promise<{conector: string, ip: string, estado: string}>} */
+    /** @returns {Promise<{vm: string, conector: string, ip: string, estado: string}>} */
     obtener: () => pedir('GET', '/session'),
+    /**
+     * Vincula la consola con una máquina del inventario.
+     *
+     * @param {string} vm Nombre o UUID de la máquina.
+     * @returns {Promise<object>} Máquina vinculada.
+     */
+    vincular: (vm) => pedir('PUT', '/session', { cuerpo: { vm } }),
+  },
+
+  /** Inventario de máquinas del hipervisor (`GET /api/vms`). */
+  maquinas: {
+    /**
+     * @param {string} [filtro] Texto de búsqueda sobre el nombre o el UUID.
+     * @returns {Promise<{maquinas: Array<object>}>}
+     */
+    listar: (filtro) =>
+      pedir('GET', '/vms', { consulta: { q: filtro && filtro.trim() ? filtro.trim() : undefined } }),
   },
 
   /** Paquetes APT (numeral 3.1.1). */

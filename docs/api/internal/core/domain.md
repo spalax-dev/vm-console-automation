@@ -18,6 +18,7 @@ Package domain define los tipos del lenguaje de la consola: órdenes que se ejec
 - [type MachineState](<#MachineState>)
 - [type Result](<#Result>)
 - [type Target](<#Target>)
+- [type VM](<#VM>)
 
 
 <a name="Quote"></a>
@@ -125,6 +126,22 @@ Target identifica la máquina administrada. El identificador es opaco para el n�
 type Target struct {
     ID      string
     Address netip.Addr
+}
+```
+
+<a name="VM"></a>
+## type VM
+
+VM describe una máquina virtual registrada en el hipervisor, tal como la enumera el inventario. El nombre es único y sirve para vincularla.
+
+```go
+type VM struct {
+    // Name es el nombre con el que el hipervisor registra la máquina.
+    Name string
+    // UUID es el identificador único de la máquina.
+    UUID string
+    // State es el estado de encendido observado.
+    State MachineState
 }
 ```
 

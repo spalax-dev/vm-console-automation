@@ -838,6 +838,9 @@ components:
       type: object
       required: [conector, ip, estado]
       properties:
+        vm:
+          type: string
+          description: Máquina vinculada con la consola, si hay una.
         conector:
           type: string
           enum: [ssh, guest-additions]
@@ -1186,3 +1189,43 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ServidorBackendEstado'
+
+    MaquinaVirtual:
+      type: object
+      required: [nombre, uuid, estado, activa]
+      properties:
+        nombre:
+          type: string
+          description: Nombre con el que VirtualBox registra la máquina.
+          examples: [debian-1]
+        uuid:
+          type: string
+          description: Identificador único de la máquina en el hipervisor.
+        estado:
+          type: string
+          enum: [running, poweroff, paused, saved, unknown]
+          description: Estado de encendido observado.
+        activa:
+          type: boolean
+          description: La consola está vinculada con esta máquina.
+
+    ListaMaquinas:
+      type: object
+      required: [maquinas]
+      properties:
+        maquinas:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaquinaVirtual'
+
+    SolicitudVinculacion:
+      type: object
+      required: [vm]
+      additionalProperties: false
+      properties:
+        vm:
+          type: string
+          description: |
+            Nombre o UUID de la máquina que se vincula. Debe existir en el
+            inventario del hipervisor.
+          examples: [debian-1]

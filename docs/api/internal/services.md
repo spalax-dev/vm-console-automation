@@ -15,12 +15,15 @@ Package services implementa los casos de uso de la consola: descubre el conector
 - [type ConfigDescubridor](<#ConfigDescubridor>)
 - [type ConfigLlaves](<#ConfigLlaves>)
 - [type ConfigUsuarios](<#ConfigUsuarios>)
+- [type ConfigVinculacion](<#ConfigVinculacion>)
 - [type ConfiguracionHostname](<#ConfiguracionHostname>)
 - [type ConfiguracionIssue](<#ConfiguracionIssue>)
 - [type Descubridor](<#Descubridor>)
   - [func NuevoDescubridor\(config \*ConfigDescubridor\) \*Descubridor](<#NuevoDescubridor>)
   - [func \(d \*Descubridor\) Abrir\(ctx context.Context\) \(ports.Session, error\)](<#Descubridor.Abrir>)
   - [func \(d \*Descubridor\) Descubrir\(ctx context.Context\) \(InfoSesion, error\)](<#Descubridor.Descubrir>)
+  - [func \(d \*Descubridor\) Establecer\(nombre string\)](<#Descubridor.Establecer>)
+  - [func \(d \*Descubridor\) Objetivo\(\) domain.Target](<#Descubridor.Objetivo>)
 - [type Hostname](<#Hostname>)
   - [func NuevoHostname\(sesiones AbridorSesion\) \*Hostname](<#NuevoHostname>)
   - [func \(h \*Hostname\) Escribir\(ctx context.Context, config ConfiguracionHostname\) \(Resultado, error\)](<#Hostname.Escribir>)
@@ -34,6 +37,7 @@ Package services implementa los casos de uso de la consola: descubre el conector
   - [func NuevoLlaves\(config ConfigLlaves\) \*Llaves](<#NuevoLlaves>)
   - [func \(l \*Llaves\) Descargar\(\) \(nombre string, contenido \[\]byte, err error\)](<#Llaves.Descargar>)
   - [func \(l \*Llaves\) Generar\(ctx context.Context\) \(Resultado, error\)](<#Llaves.Generar>)
+- [type MaquinaVirtual](<#MaquinaVirtual>)
 - [type Paquete](<#Paquete>)
 - [type Paquetes](<#Paquetes>)
   - [func NuevoPaquetes\(sesiones AbridorSesion\) \*Paquetes](<#NuevoPaquetes>)
@@ -41,6 +45,7 @@ Package services implementa los casos de uso de la consola: descubre el conector
   - [func \(p \*Paquetes\) Instalar\(ctx context.Context, nombre string\) \(Resultado, error\)](<#Paquetes.Instalar>)
   - [func \(p \*Paquetes\) Listar\(ctx context.Context\) \(\[\]Paquete, error\)](<#Paquetes.Listar>)
 - [type Resultado](<#Resultado>)
+- [type Selector](<#Selector>)
 - [type Usuario](<#Usuario>)
 - [type Usuarios](<#Usuarios>)
   - [func NuevoUsuarios\(config ConfigUsuarios\) \*Usuarios](<#NuevoUsuarios>)
@@ -49,6 +54,11 @@ Package services implementa los casos de uso de la consola: descubre el conector
   - [func \(u \*Usuarios\) Eliminar\(ctx context.Context, nombre string, archivos bool\) \(Resultado, error\)](<#Usuarios.Eliminar>)
   - [func \(u \*Usuarios\) Listar\(ctx context.Context\) \(\[\]Usuario, error\)](<#Usuarios.Listar>)
   - [func \(u \*Usuarios\) Obtener\(ctx context.Context, nombre string\) \(Usuario, error\)](<#Usuarios.Obtener>)
+- [type Vinculacion](<#Vinculacion>)
+  - [func NuevoVinculacion\(config \*ConfigVinculacion\) \*Vinculacion](<#NuevoVinculacion>)
+  - [func \(v \*Vinculacion\) Activa\(\) string](<#Vinculacion.Activa>)
+  - [func \(v \*Vinculacion\) Listar\(ctx context.Context, filtro string\) \(\[\]MaquinaVirtual, error\)](<#Vinculacion.Listar>)
+  - [func \(v \*Vinculacion\) Vincular\(ctx context.Context, identificador string\) \(MaquinaVirtual, error\)](<#Vinculacion.Vincular>)
 
 
 ## Variables
@@ -71,10 +81,22 @@ var ErrLlaveNoEncontrada = errors.New("la llave SSH de root no existe")
 var ErrLlaveUsuarioNoEncontrada = errors.New("la llave del usuario no existe")
 ```
 
+<a name="ErrMaquinaNoEncontrada"></a>ErrMaquinaNoEncontrada indica que el identificador recibido no corresponde a ninguna máquina del inventario del hipervisor.
+
+```go
+var ErrMaquinaNoEncontrada = errors.New("la máquina virtual no está en el inventario")
+```
+
 <a name="ErrSesionNoDisponible"></a>ErrSesionNoDisponible indica que ningún conector puede atender la máquina en este momento \(por ejemplo, la VM está apagada o no hay llave SSH instalada ni Guest Additions disponible\).
 
 ```go
 var ErrSesionNoDisponible = errors.New("no hay una sesión disponible con la máquina")
+```
+
+<a name="ErrSinMaquina"></a>ErrSinMaquina indica que la consola todavía no está vinculada con ninguna máquina del inventario. Se envuelve con ErrSesionNoDisponible para que el manejador responda 503 con un mensaje propio.
+
+```go
+var ErrSinMaquina = errors.New("no hay una máquina vinculada")
 ```
 
 <a name="ErrUsuarioExistente"></a>ErrUsuarioExistente indica que la cuenta ya está en la máquina.
@@ -146,6 +168,20 @@ type ConfigUsuarios struct {
     Ejecutor ports.Executor
     // Directorio guarda las llaves privadas de los usuarios.
     Directorio string
+}
+```
+
+<a name="ConfigVinculacion"></a>
+## type ConfigVinculacion
+
+ConfigVinculacion reúne las dependencias de la vinculación.
+
+```go
+type ConfigVinculacion struct {
+    // Inventario enumera las máquinas del hipervisor.
+    Inventario ports.Inventory
+    // Seleccion es la máquina con la que trabaja la consola.
+    Seleccion Selector
 }
 ```
 
@@ -224,6 +260,24 @@ func (d *Descubridor) Descubrir(ctx context.Context) (InfoSesion, error)
 ```
 
 Descubrir resuelve el conector disponible para la máquina. Verifica primero que la máquina esté en ejecución, descubre su dirección si falta y sondea los conectores en orden de preferencia. Devuelve ErrSesionNoDisponible cuando la máquina no puede atenderse o ningún conector supera el sondeo.
+
+<a name="Descubridor.Establecer"></a>
+### func \(\*Descubridor\) Establecer
+
+```go
+func (d *Descubridor) Establecer(nombre string)
+```
+
+Establecer vincula la consola con la máquina indicada. La dirección descubierta se descarta porque pertenece a la máquina anterior.
+
+<a name="Descubridor.Objetivo"></a>
+### func \(\*Descubridor\) Objetivo
+
+```go
+func (d *Descubridor) Objetivo() domain.Target
+```
+
+Objetivo devuelve la máquina con la que trabaja la consola.
 
 <a name="Hostname"></a>
 ## type Hostname
@@ -355,6 +409,24 @@ func (l *Llaves) Generar(ctx context.Context) (Resultado, error)
 
 Generar crea el par de llaves en el anfitrión, instala la pública en authorized\_keys y deshabilita el acceso por contraseña. Devuelve ErrLlaveExistente si la llave privada ya está presente.
 
+<a name="MaquinaVirtual"></a>
+## type MaquinaVirtual
+
+MaquinaVirtual es una máquina del inventario tal como la publica la consola: el nombre, el UUID, su estado y si es la vinculada.
+
+```go
+type MaquinaVirtual struct {
+    // Nombre es el nombre con el que el hipervisor registra la máquina.
+    Nombre string
+    // UUID es el identificador único de la máquina.
+    UUID string
+    // Estado es el estado de encendido observado.
+    Estado domain.MachineState
+    // Activa indica que la consola está vinculada con esta máquina.
+    Activa bool
+}
+```
+
 <a name="Paquete"></a>
 ## type Paquete
 
@@ -436,6 +508,20 @@ type Resultado struct {
     Stderr string
     // Codigo es el código de salida del proceso remoto.
     Codigo int
+}
+```
+
+<a name="Selector"></a>
+## type Selector
+
+Selector es la máquina con la que trabaja la consola. El descubridor de sesión lo implementa: vincular es cambiar su objetivo.
+
+```go
+type Selector interface {
+    // Objetivo devuelve la máquina vinculada.
+    Objetivo() domain.Target
+    // Establecer vincula la máquina indicada por su nombre.
+    Establecer(nombre string)
 }
 ```
 
@@ -523,5 +609,52 @@ func (u *Usuarios) Obtener(ctx context.Context, nombre string) (Usuario, error)
 ```
 
 Obtener devuelve una cuenta de la máquina.
+
+<a name="Vinculacion"></a>
+## type Vinculacion
+
+Vinculacion busca máquinas en el inventario y cambia la que administra la consola.
+
+```go
+type Vinculacion struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="NuevoVinculacion"></a>
+### func NuevoVinculacion
+
+```go
+func NuevoVinculacion(config *ConfigVinculacion) *Vinculacion
+```
+
+NuevoVinculacion construye el servicio con las dependencias dadas.
+
+<a name="Vinculacion.Activa"></a>
+### func \(\*Vinculacion\) Activa
+
+```go
+func (v *Vinculacion) Activa() string
+```
+
+Activa devuelve el nombre de la máquina vinculada, o una cadena vacía si la consola todavía no está vinculada con ninguna.
+
+<a name="Vinculacion.Listar"></a>
+### func \(\*Vinculacion\) Listar
+
+```go
+func (v *Vinculacion) Listar(ctx context.Context, filtro string) ([]MaquinaVirtual, error)
+```
+
+Listar devuelve las máquinas del inventario marcando la vinculada. Si filtro no está vacío, se compara, sin distinguir mayúsculas, contra el nombre y el UUID.
+
+<a name="Vinculacion.Vincular"></a>
+### func \(\*Vinculacion\) Vincular
+
+```go
+func (v *Vinculacion) Vincular(ctx context.Context, identificador string) (MaquinaVirtual, error)
+```
+
+Vincular establece la máquina que administra la consola. Acepta el nombre o el UUID del inventario y guarda siempre el nombre, que es el identificador estable que usan los adaptadores. Vincular una máquina apagada es válido: solo impide abrir sesión con ella.
 
 Generated by [gomarkdoc](<https://github.com/princjef/gomarkdoc>)

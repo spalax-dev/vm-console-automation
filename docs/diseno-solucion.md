@@ -200,6 +200,35 @@ borra del anfitrión las llaves generadas. El listado toma las cuentas de
 `getent passwd`, la pertenencia a `sudo` de `getent group sudo` y la
 existencia de la llave en el anfitrión.
 
+### 2.7 Vinculación de la máquina virtual
+
+Hasta ahora la máquina administrada se fijaba al arrancar con `VMCONS_VM`.
+El recurso `/api/vms` permite buscarla y `PUT /api/session` la vincula en
+caliente, sin reiniciar la consola:
+
+| Operación | Acción | Respuesta |
+| --- | --- | --- |
+| `GET /api/vms?q=` | enumera las máquinas del hipervisor y marca la vinculada | `200` con `{maquinas: [...]}` |
+| `PUT /api/session` | vincula la consola con `{"vm": "nombre-o-uuid"}` | `200` con la máquina vinculada; `404` si no existe |
+
+El inventario se obtiene con `VBoxManage list vms` (nombre y UUID) y
+`VBoxManage list runningvms` (solo los nombres en ejecución). Una máquina
+que no aparece en la segunda lista se informa como `poweroff`: es una
+aproximación deliberada, porque consultar el estado exacto de cada máquina
+con `showvminfo` costaría una ejecución por máquina en cada búsqueda. La
+pantalla de sesión sigue usando `showvminfo` para la máquina vinculada,
+que es la única cuyo estado exacto se necesita.
+
+La vinculación se guarda en memoria, en el mismo objeto que resuelve la
+sesión, protegida con un cerrojo de lectura y escritura porque los
+manejadores HTTP la consultan y la modifican en paralelo. Al reiniciar el
+proceso se vuelve al valor de `VMCONS_VM`; la persistencia queda para la
+tabla de configuración de SQLite que está diferida en `docs/TODO.md` §9.
+Vincular una máquina apagada es válido: la selección se aplica y solo
+falla la apertura de sesión con `503` hasta que se encienda. Si no hay
+ninguna máquina vinculada, `GET /api/session` responde `503` con un
+mensaje que invita a elegir una del inventario.
+
 ---
 
 ## 3. Flujo de proceso de una operación

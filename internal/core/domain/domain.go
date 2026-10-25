@@ -57,3 +57,14 @@ type Target struct {
 	ID      string
 	Address netip.Addr
 }
+
+// VM describe una máquina virtual registrada en el hipervisor, tal como
+// la enumera el inventario. El nombre es único y sirve para vincularla.
+type VM struct {
+	// Name es el nombre con el que el hipervisor registra la máquina.
+	Name string
+	// UUID es el identificador único de la máquina.
+	UUID string
+	// State es el estado de encendido observado.
+	State MachineState
+}

@@ -28,6 +28,13 @@ type Machine interface {
 	State(ctx context.Context, target domain.Target) (domain.MachineState, error)
 }
 
+// Inventory enumera las máquinas virtuales registradas en el
+// hipervisor, para que la consola pueda elegir con cuál trabajar.
+type Inventory interface {
+	// List devuelve todas las máquinas registradas con su estado.
+	List(ctx context.Context) ([]domain.VM, error)
+}
+
 // Connector establece sesiones con la máquina administrada. Cada
 // adaptador publica un nombre propio para que los servicios puedan
 // distinguirlos.

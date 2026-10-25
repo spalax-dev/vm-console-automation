@@ -37,6 +37,36 @@ afterEach(() => {
 });
 
 describe('cliente de la API', () => {
+  it('busca máquinas en el inventario con el filtro en la consulta', async () => {
+    const { llamada } = simularFetch({ cuerpo: { maquinas: [] } });
+
+    await api.maquinas.listar('deb');
+
+    expect(llamada().url).toBe('/api/vms?q=deb');
+    expect(llamada().opciones.method).toBe('GET');
+  });
+
+  it('pide el inventario completo cuando no hay filtro', async () => {
+    const { llamada } = simularFetch({ cuerpo: { maquinas: [] } });
+
+    await api.maquinas.listar('   ');
+
+    expect(llamada().url).toBe('/api/vms');
+  });
+
+  it('vincula la consola con la máquina elegida', async () => {
+    const { llamada } = simularFetch({
+      cuerpo: { nombre: 'debian-1', uuid: 'uuid-1', estado: 'running', activa: true },
+    });
+
+    const maquina = await api.sesion.vincular('debian-1');
+
+    expect(maquina.activa).toBe(true);
+    expect(llamada().url).toBe('/api/session');
+    expect(llamada().opciones.method).toBe('PUT');
+    expect(llamada().opciones.body).toBe(JSON.stringify({ vm: 'debian-1' }));
+  });
+
   it('consulta la sesión con GET /api/session', async () => {
     const { llamada } = simularFetch({
       cuerpo: { conector: 'ssh', ip: '192.168.1.50', estado: 'running' },

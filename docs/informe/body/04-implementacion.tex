@@ -6,7 +6,7 @@
 \section{Implementación}
 \label{sec:implementacion}
 
-La capa HTTP está implementada: los catorce recursos de la
+La capa HTTP está implementada: los quince recursos de la
 \cref{tab:api-rest} tienen su manejador, la validación del servidor
 aplica las reglas descritas en la \cref{sec:contrato-rest} y cada
 petición se responde con el modelo JSON de la
@@ -184,14 +184,26 @@ construyen el árbol del documento bastan para el alcance del enunciado y
 evitan incorporar un \emph{runtime} adicional.
 
 \emph{Armazón.} Una sola página con nueve pestañas ---los ocho módulos
-del enunciado y el historial---, una barra superior con el nombre de la
-máquina activa, su dirección y el estado de la sesión, y un panel
+del enunciado y el historial---, una barra superior con el selector de
+máquina virtual, su dirección y el estado de la sesión, y un panel
 lateral con el resultado de la última operación: mensaje, orden
 ejecutada, código de salida, salida estándar, salida de error y
 diagnóstico. Las pestañas no recargan el documento: cada vista consulta
 su recurso del \cref{sec:contrato-rest} al montarse. El historial se
 muestra deshabilitado porque su persistencia está diferida, tal como se
 registró en \texttt{docs/TODO.md}.
+
+\emph{Selección de la máquina.} El selector de la barra superior
+consulta el inventario del hipervisor (\cref{tab:api-rest}) y permite
+buscar por nombre o UUID mientras se escribe. Elegir una máquina la
+vincula con la consola mediante \texttt{PUT /api/session}: la selección
+se aplica en memoria, el inventario vuelve a marcarla como activa y la
+barra actualiza la dirección y el estado. Vincular una máquina apagada
+es válido ---solo impide abrir sesión con ella---, de modo que el
+operador puede preparar la consola antes de encender el laboratorio. La
+vinculación se guarda en el mismo objeto que resuelve la sesión, con un
+cerrojo de lectura y escritura porque los manejadores la consultan y la
+modifican en paralelo.
 
 \emph{Sistema de diseño.} La apariencia adopta la ergonomía de una
 herramienta de escritorio en lugar de la de un sitio web: lienzo gris,

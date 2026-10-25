@@ -1,19 +1,11 @@
 import { renderIcons } from '../icons.js';
 import { api } from '../api.js';
-import { escapar, mensajeDeError, presentarEstado } from '../ui.js';
+import { mensajeDeError, presentarEstado } from '../ui.js';
+import { VMSelector } from './VMSelector.js';
 
 /**
- * Nombre de la VM configurada en el arranque de la interfaz.
- *
- * El contrato todavía no expone la lista de máquinas de VirtualBox; hasta
- * entonces la barra superior muestra el nombre indicado por la variable
- * `VITE_VM_NOMBRE` y el estado real que devuelve `GET /api/session`.
- */
-const VM_CONFIGURADA = import.meta.env.VITE_VM_NOMBRE || 'máquina activa';
-
-/**
- * Construye la barra superior de la consola: identidad, máquina activa y
- * estado de la sesión.
+ * Construye la barra superior de la consola: identidad, selector de
+ * máquina y estado de la sesión.
  *
  * @returns {HTMLElement} Barra superior lista para insertarse.
  */
@@ -27,9 +19,7 @@ export function Header() {
         <span class="font-semibold text-vm-fg tracking-tight text-[16px]">vmcons</span>
       </div>
       <div class="flex items-center gap-2.5 text-[12px]">
-        <select id="vm-select" class="input h-vm-btn pr-6">
-          <option value="actual">VM activa: ${escapar(VM_CONFIGURADA)}</option>
-        </select>
+        <span id="vm-slot"></span>
         <span class="h-4 w-px bg-vm-border"></span>
         <span id="vm-ip" class="font-mono text-vm-fg">—</span>
       </div>
@@ -49,6 +39,7 @@ export function Header() {
 
   const actualizar = () => consultarSesion(el);
 
+  el.querySelector('#vm-slot').appendChild(VMSelector({ alVincular: actualizar }));
   el.querySelector('#btn-refresh').addEventListener('click', actualizar);
 
   actualizar();

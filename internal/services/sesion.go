@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"sync"
 
 	"consola-vm/internal/core/domain"
 	"consola-vm/internal/core/ports"
@@ -17,6 +18,11 @@ import (
 // máquina en este momento (por ejemplo, la VM está apagada o no hay
 // llave SSH instalada ni Guest Additions disponible).
 var ErrSesionNoDisponible = errors.New("no hay una sesión disponible con la máquina")
+
+// ErrSinMaquina indica que la consola todavía no está vinculada con
+// ninguna máquina del inventario. Se envuelve con ErrSesionNoDisponible
+// para que el manejador responda 503 con un mensaje propio.
+var ErrSinMaquina = errors.New("no hay una máquina vinculada")
 
 // InfoSesion describe el resultado del descubrimiento: el conector
 // elegido, la dirección de la máquina y su estado de encendido.
@@ -43,8 +49,12 @@ type ConfigDescubridor struct {
 // consola puede administrar la máquina virtual.
 type Descubridor struct {
 	maquina    ports.Machine
-	objetivo   domain.Target
 	conectores []ports.Connector
+
+	// mu protege objetivo: los manejadores HTTP consultan la sesión y
+	// vinculan una máquina distinta en paralelo.
+	mu       sync.RWMutex
+	objetivo domain.Target
 }
 
 // NuevoDescubridor construye un descubridor con las dependencias dadas.
@@ -54,6 +64,23 @@ func NuevoDescubridor(config *ConfigDescubridor) *Descubridor {
 		objetivo:   config.Objetivo,
 		conectores: config.Conectores,
 	}
+}
+
+// Objetivo devuelve la máquina con la que trabaja la consola.
+func (d *Descubridor) Objetivo() domain.Target {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	return d.objetivo
+}
+
+// Establecer vincula la consola con la máquina indicada. La dirección
+// descubierta se descarta porque pertenece a la máquina anterior.
+func (d *Descubridor) Establecer(nombre string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	d.objetivo = domain.Target{ID: nombre}
 }
 
 // Descubrir resuelve el conector disponible para la máquina. Verifica
@@ -85,7 +112,7 @@ func (d *Descubridor) Abrir(ctx context.Context) (ports.Session, error) {
 
 	sesion, err := conector.Connect(ctx, objetivo)
 	if err != nil {
-		return nil, fmt.Errorf("abrir la sesión con la máquina %q: %w", d.objetivo.ID, err)
+		return nil, fmt.Errorf("abrir la sesión con la máquina %q: %w", objetivo.ID, err)
 	}
 
 	return sesion, nil
@@ -94,18 +121,26 @@ func (d *Descubridor) Abrir(ctx context.Context) (ports.Session, error) {
 // resolver verifica el estado de la máquina, completa la dirección y
 // elige el conector disponible.
 func (d *Descubridor) resolver(ctx context.Context) (ports.Connector, domain.Target, domain.MachineState, error) {
-	estado, err := d.maquina.State(ctx, d.objetivo)
+	objetivo := d.Objetivo()
+
+	if objetivo.ID == "" {
+		return nil, domain.Target{}, domain.StateUnknown, fmt.Errorf(
+			"%w: %w, elige una del inventario", ErrSesionNoDisponible, ErrSinMaquina,
+		)
+	}
+
+	estado, err := d.maquina.State(ctx, objetivo)
 	if err != nil {
 		return nil, domain.Target{}, domain.StateUnknown, fmt.Errorf("consultar el estado de la máquina: %w", err)
 	}
 
 	if estado != domain.StateRunning {
 		return nil, domain.Target{}, estado, fmt.Errorf(
-			"%w: la máquina %q está en estado %q", ErrSesionNoDisponible, d.objetivo.ID, estado,
+			"%w: la máquina %q está en estado %q", ErrSesionNoDisponible, objetivo.ID, estado,
 		)
 	}
 
-	objetivo, err := d.conDireccion(ctx)
+	objetivo, err = d.conDireccion(ctx, objetivo)
 	if err != nil {
 		return nil, domain.Target{}, estado, err
 	}
@@ -113,7 +148,7 @@ func (d *Descubridor) resolver(ctx context.Context) (ports.Connector, domain.Tar
 	conector := d.primerConectorDisponible(ctx, objetivo)
 	if conector == nil {
 		return nil, domain.Target{}, estado, fmt.Errorf(
-			"%w: ningún conector pudo atender la máquina %q", ErrSesionNoDisponible, d.objetivo.ID,
+			"%w: ningún conector pudo atender la máquina %q", ErrSesionNoDisponible, objetivo.ID,
 		)
 	}
 
@@ -122,17 +157,16 @@ func (d *Descubridor) resolver(ctx context.Context) (ports.Connector, domain.Tar
 
 // conDireccion devuelve el objetivo con una dirección válida, ya sea la
 // que traía o la descubierta con el puerto Machine.
-func (d *Descubridor) conDireccion(ctx context.Context) (domain.Target, error) {
-	if d.objetivo.Address.IsValid() {
-		return d.objetivo, nil
+func (d *Descubridor) conDireccion(ctx context.Context, objetivo domain.Target) (domain.Target, error) {
+	if objetivo.Address.IsValid() {
+		return objetivo, nil
 	}
 
-	direccion, err := d.maquina.Address(ctx, d.objetivo)
+	direccion, err := d.maquina.Address(ctx, objetivo)
 	if err != nil {
 		return domain.Target{}, fmt.Errorf("descubrir la dirección de la máquina: %w", err)
 	}
 
-	objetivo := d.objetivo
 	objetivo.Address = direccion
 
 	return objetivo, nil

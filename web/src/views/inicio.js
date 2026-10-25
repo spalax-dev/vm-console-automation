@@ -79,6 +79,10 @@ async function cargarSesion(el) {
 
     cuerpo.innerHTML = `
       <div class="flex justify-between items-center">
+        <span class="text-vm-fgSecondary">Máquina</span>
+        <span class="font-mono">${escapar(sesion.vm) || 'sin vincular'}</span>
+      </div>
+      <div class="flex justify-between items-center">
         <span class="text-vm-fgSecondary">Estado</span>
         <span class="px-1.5 py-0.5 border text-[11px] rounded-sm ${presentacion.clase}">${presentacion.texto}</span>
       </div>

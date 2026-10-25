@@ -15,13 +15,19 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
   - [func NuevoHaproxy\(\) \*Haproxy](<#NuevoHaproxy>)
   - [func \(h \*Haproxy\) Servidor\(w http.ResponseWriter, r \*http.Request\)](<#Haproxy.Servidor>)
   - [func \(h \*Haproxy\) Servidores\(w http.ResponseWriter, r \*http.Request\)](<#Haproxy.Servidores>)
+- [type Maquinas](<#Maquinas>)
+  - [func NuevoMaquinas\(servicio ServicioMaquinas\) \*Maquinas](<#NuevoMaquinas>)
+  - [func \(h \*Maquinas\) ServeHTTP\(w http.ResponseWriter, r \*http.Request\)](<#Maquinas.ServeHTTP>)
+- [type OpcionSesion](<#OpcionSesion>)
+  - [func ConVinculador\(vinculador VinculadorSesion\) OpcionSesion](<#ConVinculador>)
 - [type ServicioHostname](<#ServicioHostname>)
 - [type ServicioIssue](<#ServicioIssue>)
 - [type ServicioLlaves](<#ServicioLlaves>)
+- [type ServicioMaquinas](<#ServicioMaquinas>)
 - [type ServicioPaquetes](<#ServicioPaquetes>)
 - [type ServicioUsuarios](<#ServicioUsuarios>)
 - [type Sesion](<#Sesion>)
-  - [func NuevoSesion\(descubridor DescubridorSesion\) \*Sesion](<#NuevoSesion>)
+  - [func NuevoSesion\(descubridor DescubridorSesion, opciones ...OpcionSesion\) \*Sesion](<#NuevoSesion>)
   - [func \(h \*Sesion\) ServeHTTP\(w http.ResponseWriter, r \*http.Request\)](<#Sesion.ServeHTTP>)
 - [type Sistema](<#Sistema>)
   - [func NuevoSistema\(paquetes ServicioPaquetes, llaves ServicioLlaves, issue ServicioIssue, hostname ServicioHostname\) \*Sistema](<#NuevoSistema>)
@@ -40,6 +46,7 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
   - [func \(h \*Usuarios\) Coleccion\(w http.ResponseWriter, r \*http.Request\)](<#Usuarios.Coleccion>)
   - [func \(h \*Usuarios\) Llave\(w http.ResponseWriter, r \*http.Request\)](<#Usuarios.Llave>)
   - [func \(h \*Usuarios\) Usuario\(w http.ResponseWriter, r \*http.Request\)](<#Usuarios.Usuario>)
+- [type VinculadorSesion](<#VinculadorSesion>)
 
 
 <a name="DescubridorSesion"></a>
@@ -89,6 +96,53 @@ func (h *Haproxy) Servidores(w http.ResponseWriter, r *http.Request)
 
 Servidores atiende GET y POST /api/haproxy/backend/servers: lista o agrega servidores al back\-end.
 
+<a name="Maquinas"></a>
+## type Maquinas
+
+Maquinas expone GET /api/vms: el inventario que alimenta el selector de la barra superior.
+
+```go
+type Maquinas struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="NuevoMaquinas"></a>
+### func NuevoMaquinas
+
+```go
+func NuevoMaquinas(servicio ServicioMaquinas) *Maquinas
+```
+
+NuevoMaquinas construye el handler del inventario.
+
+<a name="Maquinas.ServeHTTP"></a>
+### func \(\*Maquinas\) ServeHTTP
+
+```go
+func (h *Maquinas) ServeHTTP(w http.ResponseWriter, r *http.Request)
+```
+
+ServeHTTP implementa http.Handler: solo admite GET.
+
+<a name="OpcionSesion"></a>
+## type OpcionSesion
+
+OpcionSesion configura el handler del recurso de sesión.
+
+```go
+type OpcionSesion func(*Sesion)
+```
+
+<a name="ConVinculador"></a>
+### func ConVinculador
+
+```go
+func ConVinculador(vinculador VinculadorSesion) OpcionSesion
+```
+
+ConVinculador habilita PUT /api/session con el servicio dado.
+
 <a name="ServicioHostname"></a>
 ## type ServicioHostname
 
@@ -132,6 +186,20 @@ type ServicioLlaves interface {
 }
 ```
 
+<a name="ServicioMaquinas"></a>
+## type ServicioMaquinas
+
+ServicioMaquinas es el caso de uso del inventario de máquinas virtuales: buscar en el hipervisor y vincular una con la consola.
+
+```go
+type ServicioMaquinas interface {
+    // Listar devuelve las máquinas que coinciden con el filtro.
+    Listar(ctx context.Context, filtro string) ([]services.MaquinaVirtual, error)
+    // Vincular establece la máquina que administra la consola.
+    Vincular(ctx context.Context, identificador string) (services.MaquinaVirtual, error)
+}
+```
+
 <a name="ServicioPaquetes"></a>
 ## type ServicioPaquetes
 
@@ -171,7 +239,7 @@ type ServicioUsuarios interface {
 <a name="Sesion"></a>
 ## type Sesion
 
-Sesion expone GET /api/session: informa el conector activo, la dirección de la máquina y su estado de encendido.
+Sesion expone GET /api/session, que informa el conector activo, la dirección de la máquina y su estado, y PUT /api/session, que vincula la consola con una máquina del inventario.
 
 ```go
 type Sesion struct {
@@ -183,7 +251,7 @@ type Sesion struct {
 ### func NuevoSesion
 
 ```go
-func NuevoSesion(descubridor DescubridorSesion) *Sesion
+func NuevoSesion(descubridor DescubridorSesion, opciones ...OpcionSesion) *Sesion
 ```
 
 NuevoSesion construye el handler del recurso de sesión.
@@ -195,7 +263,7 @@ NuevoSesion construye el handler del recurso de sesión.
 func (h *Sesion) ServeHTTP(w http.ResponseWriter, r *http.Request)
 ```
 
-ServeHTTP implementa http.Handler: solo admite GET y traduce el resultado del descubrimiento al contrato JSON de la consola.
+ServeHTTP implementa http.Handler: traduce el descubrimiento al contrato JSON y acepta la vinculación de una máquina.
 
 <a name="Sistema"></a>
 ## type Sistema
@@ -353,5 +421,19 @@ func (h *Usuarios) Usuario(w http.ResponseWriter, r *http.Request)
 ```
 
 Usuario atiende GET y DELETE /api/users/\{name\}: consulta o elimina la cuenta indicada en la ruta.
+
+<a name="VinculadorSesion"></a>
+## type VinculadorSesion
+
+VinculadorSesion cambia la máquina con la que trabaja la consola.
+
+```go
+type VinculadorSesion interface {
+    // Vincular establece la máquina indicada por su nombre o UUID.
+    Vincular(ctx context.Context, identificador string) (services.MaquinaVirtual, error)
+    // Activa devuelve el nombre de la máquina vinculada.
+    Activa() string
+}
+```
 
 Generated by [gomarkdoc](<https://github.com/princjef/gomarkdoc>)

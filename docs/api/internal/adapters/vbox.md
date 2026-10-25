@@ -14,6 +14,7 @@ Package vbox adapta Oracle VM VirtualBox a los puertos Machine y Connector de la
   - [func New\(exe ports.Executor, opts ...Option\) \*Client](<#New>)
   - [func \(c \*Client\) Address\(ctx context.Context, target domain.Target\) \(netip.Addr, error\)](<#Client.Address>)
   - [func \(c \*Client\) Connect\(ctx context.Context, target domain.Target\) \(ports.Session, error\)](<#Client.Connect>)
+  - [func \(c \*Client\) List\(ctx context.Context\) \(\[\]domain.VM, error\)](<#Client.List>)
   - [func \(c \*Client\) Name\(\) string](<#Client.Name>)
   - [func \(c \*Client\) Probe\(ctx context.Context, target domain.Target\) error](<#Client.Probe>)
   - [func \(c \*Client\) State\(ctx context.Context, target domain.Target\) \(domain.MachineState, error\)](<#Client.State>)
@@ -63,6 +64,15 @@ func (c *Client) Connect(ctx context.Context, target domain.Target) (ports.Sessi
 ```
 
 Connect implements ports.Connector: devuelve una sesión que ejecuta órdenes en la máquina mediante «vboxmanage guestcontrol».
+
+<a name="Client.List"></a>
+### func \(\*Client\) List
+
+```go
+func (c *Client) List(ctx context.Context) ([]domain.VM, error)
+```
+
+List implements ports.Inventory: enumera las máquinas registradas en VirtualBox y marca como en ejecución las que aparecen en «list runningvms». Consultar el estado exacto de cada máquina costaría una ejecución de VBoxManage por máquina, así que las que no están en ejecución se informan como apagadas.
 
 <a name="Client.Name"></a>
 ### func \(\*Client\) Name

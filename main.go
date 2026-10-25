@@ -10,7 +10,6 @@
 package main
 
 import (
-	"context"
 	"embed"
 	"errors"
 	"fmt"
@@ -91,8 +90,9 @@ func nuevoServidor() *http.Server {
 func nuevoMux() http.Handler {
 	mux := http.NewServeMux()
 
-	sesiones := descubridor()
 	ejecutor := localproc.New()
+	consola := nuevaConsola(ejecutor)
+	sesiones := consola.sesiones
 
 	llaves := services.NuevoLlaves(services.ConfigLlaves{
 		Sesiones: sesiones,
@@ -112,7 +112,8 @@ func nuevoMux() http.Handler {
 	systemd := handlers.NuevoSystemd()
 	haproxy := handlers.NuevoHaproxy()
 
-	mux.Handle("/api/session", handlers.NuevoSesion(sesiones))
+	mux.Handle("/api/session", handlers.NuevoSesion(sesiones, handlers.ConVinculador(consola.vinculacion)))
+	mux.Handle("/api/vms", handlers.NuevoMaquinas(consola.vinculacion))
 
 	mux.HandleFunc("/api/packages", sistema.Paquetes)
 	mux.HandleFunc("/api/packages/{name}", sistema.Paquete)
@@ -131,6 +132,14 @@ func nuevoMux() http.Handler {
 	mux.HandleFunc("/api/haproxy/backend/servers", haproxy.Servidores)
 	mux.HandleFunc("/api/haproxy/backend/servers/{server}", haproxy.Servidor)
 
+	servirInterfaz(mux)
+
+	return mux
+}
+
+// servirInterfaz publica la aplicación compilada con Vite en la raíz y
+// conserva la interfaz anterior en /modules/ mientras se retira.
+func servirInterfaz(mux *http.ServeMux) {
 	sub, err := fs.Sub(contenidoWeb, "web")
 	if err != nil {
 		// El sistema de archivos embebido es inmutable: si «web» no
@@ -138,69 +147,52 @@ func nuevoMux() http.Handler {
 		panic(fmt.Errorf("preparar los archivos web: %w", err))
 	}
 
-	// La aplicación compilada con Vite se sirve en la raíz; el enrutado
-	// por fragmento de URL no necesita reescrituras en el servidor.
+	// El enrutado por fragmento de URL no necesita reescrituras.
 	dist, err := fs.Sub(contenidoWeb, "web/dist")
 	if err != nil {
 		panic(fmt.Errorf("preparar la aplicación web: %w", err))
 	}
 
-	// La interfaz anterior se conserva accesible mientras se retira.
 	mux.Handle("/modules/", http.FileServerFS(sub))
 	mux.Handle("/static/", http.FileServerFS(sub))
 
 	mux.Handle("/assets/", http.FileServerFS(dist))
 	mux.Handle("/", http.FileServerFS(dist))
-
-	return mux
 }
 
-// sesiones reúne el descubrimiento y la apertura de sesiones que
-// necesitan el handler de sesión y los servicios de los módulos.
-type sesiones interface {
-	handlers.DescubridorSesion
-	services.AbridorSesion
+// consola reúne el descubrimiento de sesión y el inventario de máquinas
+// que comparten los manejadores.
+type consola struct {
+	sesiones    *services.Descubridor
+	vinculacion *services.Vinculacion
 }
 
-// descubridor construye el caso de uso de descubrimiento de sesión con
-// los adaptadores reales: VirtualBox para el estado y la dirección, SSH
-// como conector preferido y Guest Additions como respaldo.
-func descubridor() sesiones {
-	idVM := os.Getenv(envVM)
-	if idVM == "" {
-		slog.Warn("no se configuró la VM; /api/session responderá 503", "variable", envVM)
+// nuevaConsola arma el descubrimiento de sesión y el inventario con los
+// adaptadores reales: VirtualBox para el estado, la dirección y el
+// inventario, SSH como conector preferido y Guest Additions como respaldo.
+func nuevaConsola(ejecutor ports.Executor) *consola {
+	maquina := vbox.New(ejecutor, vbox.WithGuestCredentials(usuarioInvitado(), os.Getenv(envGuestPass)))
 
-		return sinConfigurar{}
+	if os.Getenv(envVM) == "" {
+		slog.Warn("la consola arranca sin máquina vinculada; elígela en el selector", "variable", envVM)
 	}
 
-	ejecutor := localproc.New()
-
-	return services.NuevoDescubridor(&services.ConfigDescubridor{
-		Maquina:  vbox.New(ejecutor, vbox.WithGuestCredentials(usuarioInvitado(), os.Getenv(envGuestPass))),
-		Objetivo: domain.Target{ID: idVM},
+	sesiones := services.NuevoDescubridor(&services.ConfigDescubridor{
+		Maquina:  maquina,
+		Objetivo: domain.Target{ID: os.Getenv(envVM)},
 		Conectores: []ports.Connector{
 			ssh.New(ejecutor, ssh.WithKey(rutaLlave())),
-			vbox.New(ejecutor, vbox.WithGuestCredentials(usuarioInvitado(), os.Getenv(envGuestPass))),
+			maquina,
 		},
 	})
-}
 
-// sinConfigurar responde «sin sesión» cuando falta la variable con el
-// nombre de la VM, en lugar de fallar al arrancar la consola.
-type sinConfigurar struct{}
-
-// Descubrir implementa handlers.DescubridorSesion.
-func (sinConfigurar) Descubrir(context.Context) (services.InfoSesion, error) {
-	return services.InfoSesion{}, fmt.Errorf(
-		"%w: configure la variable %s", services.ErrSesionNoDisponible, envVM,
-	)
-}
-
-// Abrir implementa services.AbridorSesion.
-func (sinConfigurar) Abrir(context.Context) (ports.Session, error) {
-	return nil, fmt.Errorf(
-		"%w: configure la variable %s", services.ErrSesionNoDisponible, envVM,
-	)
+	return &consola{
+		sesiones: sesiones,
+		vinculacion: services.NuevoVinculacion(&services.ConfigVinculacion{
+			Inventario: maquina,
+			Seleccion:  sesiones,
+		}),
+	}
 }
 
 // direccion devuelve la dirección de escucha configurada.

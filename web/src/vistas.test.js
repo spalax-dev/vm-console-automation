@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { renderIcons } from './icons.js';
 import { Tabs } from './components/Tabs.js';
+import { VMSelector } from './components/VMSelector.js';
 import { renderPaquetes } from './views/paquetes.js';
 import { renderUsuarios } from './views/usuarios.js';
 import { renderHaproxy } from './views/haproxy.js';
@@ -76,6 +77,66 @@ describe('barra de pestañas', () => {
     primera.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
 
     expect(window.location.hash).toBe('#/paquetes');
+  });
+});
+
+describe('selector de máquina virtual', () => {
+  it('muestra la máquina vinculada y lista el inventario', async () => {
+    simularFetch({
+      maquinas: [
+        { nombre: 'debian-1', uuid: 'uuid-1', estado: 'running', activa: true },
+        { nombre: 'ubuntu-lab', uuid: 'uuid-2', estado: 'poweroff', activa: false },
+      ],
+    });
+
+    const selector = VMSelector();
+    document.body.appendChild(selector);
+
+    await vi.waitFor(() => {
+      expect(selector.querySelector('#vm-nombre').textContent).toBe('debian-1');
+    });
+
+    selector.querySelector('#vm-boton').click();
+
+    expect(selector.querySelector('#vm-panel').classList.contains('hidden')).toBe(false);
+    expect(selector.querySelectorAll('[data-maquina]')).toHaveLength(2);
+    expect(selector.querySelector('[aria-selected="true"]').dataset.maquina).toBe('debian-1');
+  });
+
+  it('vincula la máquina elegida y avisa al llamador', async () => {
+    const alVincular = vi.fn();
+
+    vi.stubGlobal('fetch', async (url, opciones) => {
+      const cuerpo = (opciones ?? {}).method === 'PUT'
+        ? { nombre: 'ubuntu-lab', uuid: 'uuid-2', estado: 'poweroff', activa: true }
+        : { maquinas: [{ nombre: 'ubuntu-lab', uuid: 'uuid-2', estado: 'poweroff', activa: false }] };
+
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' },
+        json: async () => cuerpo,
+        text: async () => JSON.stringify(cuerpo),
+        blob: async () => new Blob(['x']),
+      };
+    });
+
+    const selector = VMSelector({ alVincular });
+    document.body.appendChild(selector);
+
+    await vi.waitFor(() => {
+      expect(selector.querySelector('[data-maquina]')).not.toBeNull();
+    });
+
+    selector.querySelector('#vm-boton').click();
+    selector.querySelector('[data-maquina]').click();
+
+    await vi.waitFor(() => {
+      expect(alVincular).toHaveBeenCalled();
+    });
+
+    expect(selector.querySelector('#vm-nombre').textContent).toBe('ubuntu-lab');
+    expect(selector.querySelector('#vm-panel').classList.contains('hidden')).toBe(true);
   });
 });
 

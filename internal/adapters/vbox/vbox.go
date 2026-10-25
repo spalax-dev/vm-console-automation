@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"regexp"
 	"strings"
 
 	"consola-vm/internal/core/domain"
@@ -70,6 +71,65 @@ func New(exe ports.Executor, opts ...Option) *Client {
 // Name implements ports.Connector.
 func (c *Client) Name() string {
 	return "guest-additions"
+}
+
+// List implements ports.Inventory: enumera las máquinas registradas en
+// VirtualBox y marca como en ejecución las que aparecen en
+// «list runningvms». Consultar el estado exacto de cada máquina costaría
+// una ejecución de VBoxManage por máquina, así que las que no están en
+// ejecución se informan como apagadas.
+func (c *Client) List(ctx context.Context) ([]domain.VM, error) {
+	todas, err := c.exe.Execute(ctx, c.bin, "list", "vms")
+	if err != nil {
+		return nil, fmt.Errorf("listar las máquinas virtuales: %w", err)
+	}
+
+	enMarcha, err := c.exe.Execute(ctx, c.bin, "list", "runningvms")
+	if err != nil {
+		return nil, fmt.Errorf("listar las máquinas en ejecución: %w", err)
+	}
+
+	running := make(map[string]struct{})
+
+	for _, maquina := range parseList(enMarcha.Stdout) {
+		running[maquina.Name] = struct{}{}
+	}
+
+	maquinas := parseList(todas.Stdout)
+
+	for i := range maquinas {
+		if _, activa := running[maquinas[i].Name]; activa {
+			maquinas[i].State = domain.StateRunning
+		} else {
+			maquinas[i].State = domain.StatePoweredOff
+		}
+	}
+
+	return maquinas, nil
+}
+
+// listPattern reconoce una línea de «VBoxManage list vms» o «list
+// runningvms»: el nombre entre comillas y el UUID entre llaves.
+var listPattern = regexp.MustCompile(`^"([^"]*)" \{([^}]*)\}$`)
+
+// parseList extrae las máquinas de la salida de VBoxManage, ignorando
+// las líneas que no siguen el formato.
+func parseList(output string) []domain.VM {
+	maquinas := make([]domain.VM, 0, strings.Count(output, "\n"))
+
+	for _, line := range strings.Split(output, "\n") {
+		coincidencia := listPattern.FindStringSubmatch(strings.TrimSpace(line))
+		if coincidencia == nil {
+			continue
+		}
+
+		maquinas = append(maquinas, domain.VM{
+			Name: coincidencia[1],
+			UUID: coincidencia[2],
+		})
+	}
+
+	return maquinas
 }
 
 // Address implements ports.Machine: lee la propiedad que publica Guest

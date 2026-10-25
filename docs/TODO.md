@@ -153,11 +153,11 @@ Estructura modular lista: `main.tex` (resumen, index terms, introducción, bibli
 Decisiones tomadas en la fase de diseño que se implementan **después**
 de los módulos del numeral 3.
 
-- [ ] **Selector global de VM** en la barra superior (diseño §10.3): lista
-  descubierta en tiempo de ejecución con `VBoxManage list vms`; las
-  pestañas y los logs quedan siempre vinculados a la VM seleccionada.
-  Falta el recurso `GET /api/vms` en el contrato; mientras tanto la barra
-  muestra `VITE_VM_NOMBRE` y el estado real de `GET /api/session`.
+- [x] **Selector global de VM** en la barra superior (diseño §10.3): la lista
+  se descubre en tiempo de ejecución con `VBoxManage list vms`
+  (`GET /api/vms?q=`) y la máquina se vincula con `PUT /api/session`.
+- [ ] **Persistir la vinculación** en SQLite para no volver a `VMCONS_VM` al
+  reiniciar la consola.
 - [ ] **Pestaña Historial** (diseño §10.4): tabla de operaciones con
   filtros por búsqueda de texto, fecha, hora, VM y módulo →
   `GET /api/historial`.
@@ -176,6 +176,17 @@ de los módulos del numeral 3.
 ---
 
 ## Notas de seguimiento
+
+- **25 oct 2026** — Vinculación de la máquina virtual: nuevo puerto
+  `Inventory`, implementado por el adaptador de VirtualBox con
+  `VBoxManage list vms` y `list runningvms`; `GET /api/vms?q=` busca por
+  nombre o UUID y `PUT /api/session` vincula la consola en caliente. El
+  objetivo del descubridor pasa a ser mutable con un cerrojo de lectura y
+  escritura, y la consola arranca sin máquina vinculada cuando falta
+  `VMCONS_VM` en lugar de rechazar toda operación. En la interfaz, el
+  selector de la barra superior busca mientras se escribe y muestra el
+  estado de cada máquina. Cobertura de `services` 100 % y `handlers`
+  97.8 %; cero incidencias de `golangci-lint`.
 
 - **25 oct 2026** — Gestión de usuarios (3.2): el servicio `Usuarios`
   lista cuentas regulares (`UID ≥ 1000`), crea con `useradd -m -s

@@ -152,6 +152,49 @@ respuestas son documentos JSON con un campo \texttt{ok}, un
 \texttt{tecnico} y \texttt{campo} con el detalle técnico y el campo de
 validación rechazado.
 
+\subsubsection{Capacidades por Módulo}
+\label{sec:capacidades}
+
+La \cref{tab:capacidades} resume las operaciones que ofrece cada módulo
+de la consola. El detalle de las rutas y de los códigos de respuesta está
+en la \cref{tab:api-rest}, y el estado de implementación se describe en la
+\cref{sec:implementacion}.
+
+\begin{table}[!t]
+  \centering
+  \caption{Operaciones disponibles en cada módulo.}
+  \label{tab:capacidades}
+  \footnotesize
+  \begin{tabularx}{\columnwidth}{@{}l >{\raggedright\arraybackslash}X@{}}
+    \hline
+    Módulo & Operaciones \\
+    \hline
+    Sesión & Consultar el estado de la máquina, el conector activo y su
+    dirección IP. \\
+    Paquetes & Listar los paquetes instalados, instalar uno nuevo y
+    eliminar uno existente con APT. \\
+    Llaves SSH & Generar el par de llaves de \texttt{root}, instalar la
+    pública, deshabilitar el acceso por contraseña y descargar la llave
+    privada. \\
+    \texttt{/etc/issue} & Consultar el banner actual y personalizarlo con
+    un mensaje y con el nombre de host, la fecha, la hora y la dirección
+    IP. \\
+    Hostname & Consultar y cambiar el nombre de la máquina y actualizar
+    su entrada en \texttt{/etc/hosts}. \\
+    Usuarios & Listar y consultar cuentas; crear una con privilegios de
+    \texttt{sudo} y con llaves; descargar la llave privada; eliminar la
+    cuenta con o sin sus archivos. \\
+    systemd & Listar y consultar el estado de las unidades; desplegar una
+    unidad con sus archivos; iniciar, detener, reiniciar, habilitar y
+    deshabilitar el arranque. \\
+    HAProxy & Listar, agregar y eliminar servidores del back-end del
+    balanceador. \\
+    Historial & Consultar las operaciones con filtros de texto, fecha,
+    hora, máquina y módulo (funcionalidad diferida). \\
+    \hline
+  \end{tabularx}
+\end{table}
+
 \subsubsection{Estructura del Proyecto}
 \label{sec:estructura-proyecto}
 
@@ -211,7 +254,8 @@ la ruta y las operaciones se expresan con los métodos HTTP estándar
     \hline
     Recurso & Ruta y métodos \\
     \hline
-    Sesión & \texttt{/api/\allowbreak session} (GET) \\
+    Sesión & \texttt{/api/\allowbreak session} (GET, PUT) \\
+    Inventario & \texttt{/api/\allowbreak vms} (GET) \\
     Paquetes & \texttt{/api/\allowbreak packages} (GET, POST) \\
     Paquete & \texttt{/api/\allowbreak packages/\allowbreak\{name\}} (DELETE) \\
     Llave de root & \texttt{/api/\allowbreak keys/\allowbreak root} (GET, POST) \\
