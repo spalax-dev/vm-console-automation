@@ -134,10 +134,10 @@ crezca con cada operación. La vista queda siempre fijada a la última ficha
 ---lo último que hizo el usuario--- y esa ficha muestra su detalle técnico
 desplegado; las anteriores quedan plegadas.
 
-Cada ficha se mantiene como tarjeta clara con su mensaje, su hora y el detalle
-técnico plegable; lo único que cambia respecto de una lista normal es el fondo
-del área de resultados, que va en gris oscuro (`#2B2B2B`) para leerlo como la
-consola que es. El contenido vive en `localStorage`
+El panel va en tonos oscuros, como una consola: lienzo `#2B2B2B`, tarjetas
+`#333333` con borde `#404040`, texto `#E5E5E5` y bloques de código `#242424`.
+Cada ficha conserva su mensaje, su hora y el detalle técnico plegable; los
+errores cambian el marco a rojo y tiñen la cabecera de la ficha. El contenido vive en `localStorage`
 (`vmcons:resultados`, hasta 50 fichas), así que no se pierde al cambiar de
 módulo ni al recargar la página; el botón **Limpiar** vacía el historial y el
 almacenamiento.
