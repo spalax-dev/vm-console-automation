@@ -69,7 +69,7 @@ func (h *Sesion) responderError(w http.ResponseWriter, err error) {
 		return
 	}
 
-	slog.Error("descubrir la sesión", "error", err)
+	slog.Error("descubrir la sesión", claveError, err)
 	escribirJSON(w, http.StatusInternalServerError, respuestaError{
 		Mensaje: "No fue posible determinar el estado de la máquina.",
 		Tecnico: err.Error(),

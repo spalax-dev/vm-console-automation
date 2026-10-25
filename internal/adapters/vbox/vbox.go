@@ -134,6 +134,11 @@ type Session struct {
 // invitada pasando cada componente como argumento literal, sin shell.
 func (s *Session) Run(ctx context.Context, cmd *domain.Command) (domain.Result, error) {
 	args := []string{"guestcontrol", s.target.ID, "run", "--username", s.client.user, "--password", s.client.pass}
+
+	for _, entorno := range cmd.Env {
+		args = append(args, "--putenv", entorno)
+	}
+
 	if cmd.Dir != "" {
 		args = append(args, "--cwd", cmd.Dir)
 	}

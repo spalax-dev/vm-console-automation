@@ -30,8 +30,10 @@ import (
 )
 
 // contenidoWeb contiene la interfaz: módulos HTML y archivos estáticos.
+// Se enumeran las carpetas necesarias para no embeber node_modules ni
+// artefactos de desarrollo del frontend.
 //
-//go:embed all:web
+//go:embed all:web/modules all:web/static web/index.html
 var contenidoWeb embed.FS
 
 // Variables de entorno que configuran la conexión con la máquina.
@@ -87,12 +89,14 @@ func nuevoServidor() *http.Server {
 func nuevoMux() http.Handler {
 	mux := http.NewServeMux()
 
-	sistema := handlers.NuevoSistema()
+	sesiones := descubridor()
+
+	sistema := handlers.NuevoSistema(services.NuevoPaquetes(sesiones))
 	usuarios := handlers.NuevoUsuarios()
 	systemd := handlers.NuevoSystemd()
 	haproxy := handlers.NuevoHaproxy()
 
-	mux.Handle("/api/session", handlers.NuevoSesion(descubridor()))
+	mux.Handle("/api/session", handlers.NuevoSesion(sesiones))
 
 	mux.HandleFunc("/api/packages", sistema.Paquetes)
 	mux.HandleFunc("/api/packages/{name}", sistema.Paquete)
@@ -125,10 +129,17 @@ func nuevoMux() http.Handler {
 	return mux
 }
 
+// sesiones reúne el descubrimiento y la apertura de sesiones que
+// necesitan el handler de sesión y los servicios de los módulos.
+type sesiones interface {
+	handlers.DescubridorSesion
+	services.AbridorSesion
+}
+
 // descubridor construye el caso de uso de descubrimiento de sesión con
 // los adaptadores reales: VirtualBox para el estado y la dirección, SSH
 // como conector preferido y Guest Additions como respaldo.
-func descubridor() handlers.DescubridorSesion {
+func descubridor() sesiones {
 	idVM := os.Getenv(envVM)
 	if idVM == "" {
 		slog.Warn("no se configuró la VM; /api/session responderá 503", "variable", envVM)
@@ -155,6 +166,13 @@ type sinConfigurar struct{}
 // Descubrir implementa handlers.DescubridorSesion.
 func (sinConfigurar) Descubrir(context.Context) (services.InfoSesion, error) {
 	return services.InfoSesion{}, fmt.Errorf(
+		"%w: configure la variable %s", services.ErrSesionNoDisponible, envVM,
+	)
+}
+
+// Abrir implementa services.AbridorSesion.
+func (sinConfigurar) Abrir(context.Context) (ports.Session, error) {
+	return nil, fmt.Errorf(
 		"%w: configure la variable %s", services.ErrSesionNoDisponible, envVM,
 	)
 }

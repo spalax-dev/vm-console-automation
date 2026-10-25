@@ -20,6 +20,11 @@ const (
 	binAptGet        = "/usr/bin/apt-get"
 	msgConnectFail   = "Connect() error = %v, want nil"
 	msgRunArgsPrefix = "Run() invocó"
+	msgArgs          = "%s %v, want %v"
+	subInstall       = "install"
+	flagPassword     = "--password"
+	flagUsername     = "--username"
+	subGuestControl  = "guestcontrol"
 )
 
 // fakeExecutor registra las órdenes ejecutadas y devuelve respuestas
@@ -182,7 +187,7 @@ func TestGuestSessionRunBuildsGuestControlCommand(t *testing.T) {
 	t.Parallel()
 
 	fake := runningFake()
-	fake.results["guestcontrol"] = domain.Result{Stdout: salidaInstalado}
+	fake.results[subGuestControl] = domain.Result{Stdout: salidaInstalado}
 
 	client := New(fake, WithGuestCredentials(credRoot, credPass))
 
@@ -193,7 +198,7 @@ func TestGuestSessionRunBuildsGuestControlCommand(t *testing.T) {
 
 	result, err := session.Run(context.Background(), &domain.Command{
 		Path: binAptGet,
-		Args: []string{"install", "-y", "nginx"},
+		Args: []string{subInstall, "-y", "nginx"},
 	})
 	if err != nil {
 		t.Fatalf("Run() error = %v, want nil", err)
@@ -204,20 +209,20 @@ func TestGuestSessionRunBuildsGuestControlCommand(t *testing.T) {
 	}
 
 	want := []string{
-		"VBoxManage", "guestcontrol", vmID, "run",
-		"--username", credRoot, "--password", credPass,
+		defaultBinary, subGuestControl, vmID, "run",
+		flagUsername, credRoot, flagPassword, credPass,
 		"--exe", binAptGet,
-		"--", binAptGet, "install", "-y", "nginx",
+		"--", binAptGet, subInstall, "-y", "nginx",
 	}
 
 	got := fake.lastCall()
 	if len(got) != len(want) {
-		t.Fatalf("%s %v, want %v", msgRunArgsPrefix, got, want)
+		t.Fatalf(msgArgs, msgRunArgsPrefix, got, want)
 	}
 
 	for i := range want {
 		if got[i] != want[i] {
-			t.Fatalf("%s %v, want %v", msgRunArgsPrefix, got, want)
+			t.Fatalf(msgArgs, msgRunArgsPrefix, got, want)
 		}
 	}
 }
@@ -226,7 +231,7 @@ func TestGuestSessionRunWrapsExitError(t *testing.T) {
 	t.Parallel()
 
 	fake := runningFake()
-	fake.errs["guestcontrol"] = &domain.ExitError{Code: 100, Command: "apt-get"}
+	fake.errs[subGuestControl] = &domain.ExitError{Code: 100, Command: "apt-get"}
 
 	client := New(fake)
 
@@ -252,7 +257,7 @@ func TestGuestSessionPutUsesCopyTo(t *testing.T) {
 	t.Parallel()
 
 	fake := runningFake()
-	fake.results["guestcontrol"] = domain.Result{}
+	fake.results[subGuestControl] = domain.Result{}
 
 	client := New(fake, WithGuestCredentials(credRoot, credPass))
 
@@ -267,8 +272,8 @@ func TestGuestSessionPutUsesCopyTo(t *testing.T) {
 	}
 
 	want := []string{
-		"VBoxManage", "guestcontrol", vmID, "copyto",
-		"--username", credRoot, "--password", credPass,
+		defaultBinary, subGuestControl, vmID, "copyto",
+		flagUsername, credRoot, flagPassword, credPass,
 		"./svc.service", "/etc/systemd/system/svc.service",
 	}
 
@@ -299,5 +304,47 @@ func TestNewAppliesBinaryOption(t *testing.T) {
 
 	if got := fake.lastCall()[0]; got != customBinary {
 		t.Errorf("programa invocado = %q, want la ruta personalizada", got)
+	}
+}
+
+// TestGuestSessionRunPassesEnvironment comprueba que las variables de
+// entorno de la orden se envían con --putenv.
+func TestGuestSessionRunPassesEnvironment(t *testing.T) {
+	t.Parallel()
+
+	fake := runningFake()
+	client := New(fake, WithGuestCredentials(credRoot, credPass))
+
+	session, err := client.Connect(context.Background(), domain.Target{ID: vmID})
+	if err != nil {
+		t.Fatalf(msgConnectFail, err)
+	}
+
+	_, err = session.Run(context.Background(), &domain.Command{
+		Path: binAptGet,
+		Args: []string{subInstall, "-y", "nano"},
+		Env:  []string{"DEBIAN_FRONTEND=noninteractive"},
+	})
+	if err != nil {
+		t.Fatalf("Run() error = %v, want nil", err)
+	}
+
+	want := []string{
+		defaultBinary, subGuestControl, vmID, "run",
+		flagUsername, credRoot, flagPassword, credPass,
+		"--putenv", "DEBIAN_FRONTEND=noninteractive",
+		"--exe", binAptGet,
+		"--", binAptGet, subInstall, "-y", "nano",
+	}
+
+	got := fake.lastCall()
+	if len(got) != len(want) {
+		t.Fatalf(msgArgs, msgRunArgsPrefix, got, want)
+	}
+
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf(msgArgs, msgRunArgsPrefix, got, want)
+		}
 	}
 }

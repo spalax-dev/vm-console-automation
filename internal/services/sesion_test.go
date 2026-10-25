@@ -43,14 +43,21 @@ func (s *stubMachine) State(context.Context, domain.Target) (domain.MachineState
 	return s.state, s.stateErr
 }
 
-// stubSession es una sesión falsa que solo registra si se cerró.
+// stubSession es una sesión falsa que registra la orden ejecutada y si
+// se cerró.
 type stubSession struct {
-	closed bool
+	closed   bool
+	closeErr error
+	result   domain.Result
+	err      error
+	commands []*domain.Command
 }
 
-// Run devuelve un resultado vacío sin ejecutar nada.
-func (s *stubSession) Run(context.Context, *domain.Command) (domain.Result, error) {
-	return domain.Result{}, nil
+// Run registra la orden y devuelve el resultado preprogramado.
+func (s *stubSession) Run(_ context.Context, cmd *domain.Command) (domain.Result, error) {
+	s.commands = append(s.commands, cmd)
+
+	return s.result, s.err
 }
 
 // Put no transfiere nada y siempre termina bien.
@@ -58,11 +65,11 @@ func (s *stubSession) Put(context.Context, string, string) error {
 	return nil
 }
 
-// Close marca la sesión como cerrada.
+// Close marca la sesión como cerrada y devuelve el error configurado.
 func (s *stubSession) Close() error {
 	s.closed = true
 
-	return nil
+	return s.closeErr
 }
 
 // stubConnector es un conector falso con nombre, sondeo y conexión
@@ -96,6 +103,25 @@ func (c *stubConnector) Connect(context.Context, domain.Target) (ports.Session, 
 	}
 
 	return &stubSession{}, nil
+}
+
+// stubAbridor es un abridor de sesiones falso con sesión o error
+// preprogramados.
+type stubAbridor struct {
+	sesion   ports.Session
+	err      error
+	abiertas int
+}
+
+// Abrir devuelve la sesión preprogramada o el error configurado.
+func (a *stubAbridor) Abrir(context.Context) (ports.Session, error) {
+	a.abiertas++
+
+	if a.err != nil {
+		return nil, a.err
+	}
+
+	return a.sesion, nil
 }
 
 // nuevoDescubridor arma un Descubridor de prueba con una máquina y dos
@@ -265,5 +291,60 @@ func TestDescubridorUsaDireccionDelObjetivo(t *testing.T) {
 
 	if info.IP.String() != ip.String() {
 		t.Errorf(msgIP, info.IP.String(), ip.String())
+	}
+}
+
+// TestAbrirDevuelveSesionDelConectorElegido comprueba que Abrir conecta
+// con el primer conector disponible.
+func TestAbrirDevuelveSesionDelConectorElegido(t *testing.T) {
+	t.Parallel()
+
+	ip := netip.MustParseAddr("192.168.1.55")
+	m := &stubMachine{addr: ip, state: domain.StateRunning}
+	sesion := &stubSession{}
+	sshConn := &stubConnector{name: conectorSSH, session: sesion}
+	gaConn := &stubConnector{name: conectorGuest}
+
+	desc := nuevoDescubridor(m, sshConn, gaConn)
+
+	obtenida, err := desc.Abrir(context.Background())
+	if err != nil {
+		t.Fatalf("Abrir() error = %v, want nil", err)
+	}
+
+	if obtenida != sesion {
+		t.Error("Abrir() no devolvió la sesión del conector SSH")
+	}
+
+	if gaConn.probed != 0 {
+		t.Errorf("guest-additions se sondeó %d veces, want 0", gaConn.probed)
+	}
+}
+
+// TestAbrirFallaSinSesion comprueba que Abrir propaga
+// ErrSesionNoDisponible cuando la máquina no puede atenderse.
+func TestAbrirFallaSinSesion(t *testing.T) {
+	t.Parallel()
+
+	m := &stubMachine{state: domain.StatePoweredOff}
+
+	_, err := nuevoDescubridor(m, &stubConnector{name: conectorSSH}).Abrir(context.Background())
+	if !errors.Is(err, ErrSesionNoDisponible) {
+		t.Fatalf("Abrir() error = %v, want ErrSesionNoDisponible", err)
+	}
+}
+
+// TestAbrirPropagaErrorDeConexion comprueba que el fallo del conector al
+// conectar se propaga envuelto.
+func TestAbrirPropagaErrorDeConexion(t *testing.T) {
+	t.Parallel()
+
+	ip := netip.MustParseAddr("192.168.1.56")
+	m := &stubMachine{addr: ip, state: domain.StateRunning}
+	sshConn := &stubConnector{name: conectorSSH, connect: errors.New("ssh rechazó la llave")}
+
+	_, err := nuevoDescubridor(m, sshConn).Abrir(context.Background())
+	if err == nil {
+		t.Fatal("Abrir() error = nil, want el error de conexión")
 	}
 }

@@ -18,10 +18,11 @@ import (
 
 // Valores repetidos en las pruebas del handler de sesión.
 const (
-	rutaSesion  = "/api/session"
-	conectorSSH = "ssh"
-	ipPrueba    = "192.168.1.50"
-	msgCodigo   = "código = %d, want %d"
+	rutaSesion      = "/api/session"
+	conectorSSH     = "ssh"
+	ipPrueba        = "192.168.1.50"
+	msgCodigo       = "código = %d, want %d"
+	msgJSONInvalido = "respuesta no es JSON válido: %v"
 )
 
 // stubDescubridor es un descubridor falso que devuelve una sesión o un
@@ -58,7 +59,7 @@ func TestSesionHandlerRespondeJSON(t *testing.T) {
 
 	var body map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
-		t.Fatalf("respuesta no es JSON válido: %v", err)
+		t.Fatalf(msgJSONInvalido, err)
 	}
 
 	if body["conector"] != conectorSSH {
@@ -92,7 +93,7 @@ func TestSesionHandlerSinSesionResponde503(t *testing.T) {
 
 	var body map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
-		t.Fatalf("respuesta no es JSON válido: %v", err)
+		t.Fatalf(msgJSONInvalido, err)
 	}
 
 	if body["ok"] != false {

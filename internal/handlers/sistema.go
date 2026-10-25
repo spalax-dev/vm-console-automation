@@ -8,15 +8,45 @@
 // viven en internal/services.
 package handlers
 
-import "net/http"
+import (
+	"context"
+	"net/http"
+
+	"consola-vm/internal/services"
+)
+
+// ServicioPaquetes ejecuta las operaciones de APT sobre la máquina.
+type ServicioPaquetes interface {
+	// Listar devuelve los paquetes instalados.
+	Listar(ctx context.Context) ([]services.Paquete, error)
+	// Instalar instala el paquete indicado.
+	Instalar(ctx context.Context, nombre string) (services.Resultado, error)
+	// Eliminar elimina el paquete indicado.
+	Eliminar(ctx context.Context, nombre string) (services.Resultado, error)
+}
 
 // Sistema agrupa los recursos de preparación del sistema (numeral 3.1
 // del enunciado).
-type Sistema struct{}
+type Sistema struct {
+	paquetes ServicioPaquetes
+}
 
-// NuevoSistema construye el handler de preparación del sistema.
-func NuevoSistema() *Sistema {
-	return &Sistema{}
+// NuevoSistema construye el handler de preparación del sistema con el
+// servicio de paquetes dado.
+func NuevoSistema(paquetes ServicioPaquetes) *Sistema {
+	return &Sistema{paquetes: paquetes}
+}
+
+// paqueteRespuesta es un paquete en la respuesta JSON.
+type paqueteRespuesta struct {
+	Nombre  string `json:"nombre"`
+	Version string `json:"version"`
+	Estado  string `json:"estado"`
+}
+
+// listaPaquetes es el cuerpo de GET /api/packages.
+type listaPaquetes struct {
+	Paquetes []paqueteRespuesta `json:"paquetes"`
 }
 
 // solicitudPaquete es el cuerpo de POST /api/packages.
@@ -48,7 +78,7 @@ func (h *Sistema) Paquetes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodGet {
-		noImplementado(w, "listar los paquetes instalados")
+		h.listarPaquetes(w, r)
 
 		return
 	}
@@ -66,7 +96,36 @@ func (h *Sistema) Paquetes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	noImplementado(w, "instalar el paquete "+solicitud.Nombre)
+	resultado, err := h.paquetes.Instalar(r.Context(), solicitud.Nombre)
+	if err != nil {
+		responderErrorOperacion(w, resultado, err)
+
+		return
+	}
+
+	w.Header().Set("Location", "/api/packages/"+solicitud.Nombre)
+	escribirResultado(w, http.StatusCreated, resultado)
+}
+
+// listarPaquetes responde la colección de paquetes instalados.
+func (h *Sistema) listarPaquetes(w http.ResponseWriter, r *http.Request) {
+	paquetes, err := h.paquetes.Listar(r.Context())
+	if err != nil {
+		responderErrorOperacion(w, services.Resultado{}, err)
+
+		return
+	}
+
+	respuesta := listaPaquetes{Paquetes: make([]paqueteRespuesta, 0, len(paquetes))}
+	for _, paquete := range paquetes {
+		respuesta.Paquetes = append(respuesta.Paquetes, paqueteRespuesta{
+			Nombre:  paquete.Nombre,
+			Version: paquete.Version,
+			Estado:  paquete.Estado,
+		})
+	}
+
+	escribirJSON(w, http.StatusOK, respuesta)
 }
 
 // Paquete atiende DELETE /api/packages/{name}: elimina el paquete
@@ -83,7 +142,14 @@ func (h *Sistema) Paquete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	noImplementado(w, "eliminar el paquete "+nombre)
+	resultado, err := h.paquetes.Eliminar(r.Context(), nombre)
+	if err != nil {
+		responderErrorOperacion(w, resultado, err)
+
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // LlaveRoot atiende GET y POST /api/keys/root: descarga la llave

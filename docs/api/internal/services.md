@@ -11,11 +11,20 @@ Package services implementa los casos de uso de la consola: descubre el conector
 ## Index
 
 - [Variables](<#variables>)
+- [type AbridorSesion](<#AbridorSesion>)
 - [type ConfigDescubridor](<#ConfigDescubridor>)
 - [type Descubridor](<#Descubridor>)
   - [func NuevoDescubridor\(config \*ConfigDescubridor\) \*Descubridor](<#NuevoDescubridor>)
+  - [func \(d \*Descubridor\) Abrir\(ctx context.Context\) \(ports.Session, error\)](<#Descubridor.Abrir>)
   - [func \(d \*Descubridor\) Descubrir\(ctx context.Context\) \(InfoSesion, error\)](<#Descubridor.Descubrir>)
 - [type InfoSesion](<#InfoSesion>)
+- [type Paquete](<#Paquete>)
+- [type Paquetes](<#Paquetes>)
+  - [func NuevoPaquetes\(sesiones AbridorSesion\) \*Paquetes](<#NuevoPaquetes>)
+  - [func \(p \*Paquetes\) Eliminar\(ctx context.Context, nombre string\) \(Resultado, error\)](<#Paquetes.Eliminar>)
+  - [func \(p \*Paquetes\) Instalar\(ctx context.Context, nombre string\) \(Resultado, error\)](<#Paquetes.Instalar>)
+  - [func \(p \*Paquetes\) Listar\(ctx context.Context\) \(\[\]Paquete, error\)](<#Paquetes.Listar>)
+- [type Resultado](<#Resultado>)
 
 
 ## Variables
@@ -24,6 +33,18 @@ Package services implementa los casos de uso de la consola: descubre el conector
 
 ```go
 var ErrSesionNoDisponible = errors.New("no hay una sesión disponible con la máquina")
+```
+
+<a name="AbridorSesion"></a>
+## type AbridorSesion
+
+AbridorSesion obtiene una sesión con la máquina administrada.
+
+```go
+type AbridorSesion interface {
+    // Abrir devuelve una sesión lista para ejecutar órdenes.
+    Abrir(ctx context.Context) (ports.Session, error)
+}
 ```
 
 <a name="ConfigDescubridor"></a>
@@ -62,6 +83,15 @@ func NuevoDescubridor(config *ConfigDescubridor) *Descubridor
 
 NuevoDescubridor construye un descubridor con las dependencias dadas.
 
+<a name="Descubridor.Abrir"></a>
+### func \(\*Descubridor\) Abrir
+
+```go
+func (d *Descubridor) Abrir(ctx context.Context) (ports.Session, error)
+```
+
+Abrir implementa AbridorSesion: resuelve el conector disponible y establece una sesión con la máquina. La sesión queda a cargo del llamador, que debe cerrarla.
+
 <a name="Descubridor.Descubrir"></a>
 ### func \(\*Descubridor\) Descubrir
 
@@ -84,6 +114,90 @@ type InfoSesion struct {
     IP  netip.Addr
     // Estado es el estado de encendido observado.
     Estado domain.MachineState
+}
+```
+
+<a name="Paquete"></a>
+## type Paquete
+
+Paquete describe un paquete instalado en la máquina.
+
+```go
+type Paquete struct {
+    // Nombre es el nombre del paquete.
+    Nombre string
+    // Version es la versión instalada.
+    Version string
+    // Estado es la presencia del paquete; siempre «installed» en los
+    // resultados del listado.
+    Estado string
+}
+```
+
+<a name="Paquetes"></a>
+## type Paquetes
+
+Paquetes implementa el caso de uso de gestión de paquetes APT.
+
+```go
+type Paquetes struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="NuevoPaquetes"></a>
+### func NuevoPaquetes
+
+```go
+func NuevoPaquetes(sesiones AbridorSesion) *Paquetes
+```
+
+NuevoPaquetes construye el servicio de paquetes con el abridor de sesiones dado.
+
+<a name="Paquetes.Eliminar"></a>
+### func \(\*Paquetes\) Eliminar
+
+```go
+func (p *Paquetes) Eliminar(ctx context.Context, nombre string) (Resultado, error)
+```
+
+Eliminar elimina el paquete indicado con APT.
+
+<a name="Paquetes.Instalar"></a>
+### func \(\*Paquetes\) Instalar
+
+```go
+func (p *Paquetes) Instalar(ctx context.Context, nombre string) (Resultado, error)
+```
+
+Instalar instala el paquete indicado con APT.
+
+<a name="Paquetes.Listar"></a>
+### func \(\*Paquetes\) Listar
+
+```go
+func (p *Paquetes) Listar(ctx context.Context) ([]Paquete, error)
+```
+
+Listar devuelve los paquetes instalados en la máquina.
+
+<a name="Resultado"></a>
+## type Resultado
+
+Resultado describe el resultado de una operación ejecutada en la máquina, con la información necesaria para notificar y diagnosticar.
+
+```go
+type Resultado struct {
+    // Mensaje es el texto comprensible para el usuario.
+    Mensaje string
+    // Operacion es la orden ejecutada.
+    Operacion string
+    // Salida es la salida estándar relevante.
+    Salida string
+    // Stderr es la salida de error de la orden.
+    Stderr string
+    // Codigo es el código de salida del proceso remoto.
+    Codigo int
 }
 ```
 

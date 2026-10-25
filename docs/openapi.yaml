@@ -54,9 +54,9 @@ info:
 
     ## Estado de implementación
 
-    `GET /api/session` está conectado al descubrimiento de sesión. El
-    resto de rutas existe y valida sus entradas, pero responde `501`
-    hasta conectar los casos de uso de cada módulo con la VM.
+    `GET /api/session` y los recursos de `/api/packages` ya están
+    conectados con la máquina. El resto de rutas existe y valida sus
+    entradas, pero responde `501` hasta conectar sus casos de uso.
 
     ## Fuera de alcance
 

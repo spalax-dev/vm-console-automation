@@ -15,11 +15,12 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
   - [func NuevoHaproxy\(\) \*Haproxy](<#NuevoHaproxy>)
   - [func \(h \*Haproxy\) Servidor\(w http.ResponseWriter, r \*http.Request\)](<#Haproxy.Servidor>)
   - [func \(h \*Haproxy\) Servidores\(w http.ResponseWriter, r \*http.Request\)](<#Haproxy.Servidores>)
+- [type ServicioPaquetes](<#ServicioPaquetes>)
 - [type Sesion](<#Sesion>)
   - [func NuevoSesion\(descubridor DescubridorSesion\) \*Sesion](<#NuevoSesion>)
   - [func \(h \*Sesion\) ServeHTTP\(w http.ResponseWriter, r \*http.Request\)](<#Sesion.ServeHTTP>)
 - [type Sistema](<#Sistema>)
-  - [func NuevoSistema\(\) \*Sistema](<#NuevoSistema>)
+  - [func NuevoSistema\(paquetes ServicioPaquetes\) \*Sistema](<#NuevoSistema>)
   - [func \(h \*Sistema\) Hostname\(w http.ResponseWriter, r \*http.Request\)](<#Sistema.Hostname>)
   - [func \(h \*Sistema\) Issue\(w http.ResponseWriter, r \*http.Request\)](<#Sistema.Issue>)
   - [func \(h \*Sistema\) LlaveRoot\(w http.ResponseWriter, r \*http.Request\)](<#Sistema.LlaveRoot>)
@@ -84,6 +85,22 @@ func (h *Haproxy) Servidores(w http.ResponseWriter, r *http.Request)
 
 Servidores atiende GET y POST /api/haproxy/backend/servers: lista o agrega servidores al back\-end.
 
+<a name="ServicioPaquetes"></a>
+## type ServicioPaquetes
+
+ServicioPaquetes ejecuta las operaciones de APT sobre la máquina.
+
+```go
+type ServicioPaquetes interface {
+    // Listar devuelve los paquetes instalados.
+    Listar(ctx context.Context) ([]services.Paquete, error)
+    // Instalar instala el paquete indicado.
+    Instalar(ctx context.Context, nombre string) (services.Resultado, error)
+    // Eliminar elimina el paquete indicado.
+    Eliminar(ctx context.Context, nombre string) (services.Resultado, error)
+}
+```
+
 <a name="Sesion"></a>
 ## type Sesion
 
@@ -119,17 +136,19 @@ ServeHTTP implementa http.Handler: solo admite GET y traduce el resultado del de
 Sistema agrupa los recursos de preparación del sistema \(numeral 3.1 del enunciado\).
 
 ```go
-type Sistema struct{}
+type Sistema struct {
+    // contains filtered or unexported fields
+}
 ```
 
 <a name="NuevoSistema"></a>
 ### func NuevoSistema
 
 ```go
-func NuevoSistema() *Sistema
+func NuevoSistema(paquetes ServicioPaquetes) *Sistema
 ```
 
-NuevoSistema construye el handler de preparación del sistema.
+NuevoSistema construye el handler de preparación del sistema con el servicio de paquetes dado.
 
 <a name="Sistema.Hostname"></a>
 ### func \(\*Sistema\) Hostname

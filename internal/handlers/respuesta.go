@@ -10,11 +10,17 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+
+	"consola-vm/internal/core/domain"
+	"consola-vm/internal/services"
 )
 
 // maxCuerpo es el tamaño máximo aceptado para el cuerpo JSON de una
 // petición (1 MiB).
 const maxCuerpo = 1 << 20
+
+// claveError es la clave de los mensajes de error en el log.
+const claveError = "error"
 
 // respuestaError es el cuerpo JSON común de los errores de la consola.
 type respuestaError struct {
@@ -49,7 +55,7 @@ func escribirJSON(w http.ResponseWriter, codigo int, cuerpo any) {
 	w.WriteHeader(codigo)
 
 	if err := json.NewEncoder(w).Encode(cuerpo); err != nil {
-		slog.Error("escribir la respuesta JSON", "error", err)
+		slog.Error("escribir la respuesta JSON", claveError, err)
 	}
 }
 
@@ -100,6 +106,62 @@ func responderValidacion(w http.ResponseWriter, err error) {
 	}
 
 	escribirJSON(w, http.StatusBadRequest, respuestaError{Mensaje: err.Error()})
+}
+
+// respuestaOperacion es el cuerpo JSON de una operación de módulo.
+type respuestaOperacion struct {
+	OK        bool   `json:"ok"`
+	Mensaje   string `json:"mensaje"`
+	Operacion string `json:"operacion,omitempty"`
+	Codigo    int    `json:"codigo"`
+	Salida    string `json:"salida,omitempty"`
+	Stderr    string `json:"stderr,omitempty"`
+	Tecnico   string `json:"tecnico,omitempty"`
+}
+
+// escribirResultado escribe el resultado de una operación con el código
+// HTTP indicado.
+func escribirResultado(w http.ResponseWriter, codigo int, resultado services.Resultado) {
+	escribirJSON(w, codigo, respuestaOperacion{
+		OK:        true,
+		Mensaje:   resultado.Mensaje,
+		Operacion: resultado.Operacion,
+		Codigo:    resultado.Codigo,
+		Salida:    resultado.Salida,
+		Stderr:    resultado.Stderr,
+	})
+}
+
+// responderErrorOperacion traduce el fallo de un caso de uso a la
+// respuesta HTTP correspondiente, conservando el detalle técnico.
+func responderErrorOperacion(w http.ResponseWriter, resultado services.Resultado, err error) {
+	if errors.Is(err, services.ErrSesionNoDisponible) {
+		escribirJSON(w, http.StatusServiceUnavailable, respuestaOperacion{
+			Mensaje: "No hay una sesión disponible con la máquina: enciéndela o revisa la red.",
+			Tecnico: err.Error(),
+		})
+
+		return
+	}
+
+	var exitErr *domain.ExitError
+	if errors.As(err, &exitErr) {
+		escribirJSON(w, http.StatusInternalServerError, respuestaOperacion{
+			Mensaje:   "No fue posible completar la operación.",
+			Operacion: resultado.Operacion,
+			Codigo:    resultado.Codigo,
+			Stderr:    resultado.Stderr,
+			Tecnico:   err.Error(),
+		})
+
+		return
+	}
+
+	slog.Error("ejecutar la operación", claveError, err)
+	escribirJSON(w, http.StatusInternalServerError, respuestaOperacion{
+		Mensaje: "No fue posible completar la operación.",
+		Tecnico: err.Error(),
+	})
 }
 
 // noImplementado responde 501 para una operación validada cuyo caso de

@@ -20,11 +20,11 @@ Documento de seguimiento del proyecto. Se actualiza conforme se avanza.
 | Contrato OpenAPI (`docs/openapi.yaml`) | [x] 12 rutas, validado con Redocly |
 | Controladores HTTP de los módulos | [~] Registrados y validando; responden 501 hasta conectar servicios |
 | Servicio de descubrimiento/selección de sesión | [x] Completo — cobertura 100 % |
-| Casos de uso (`internal/services`) | [~] Descubrimiento de sesión hecho; módulos pendientes |
+| Casos de uso (`internal/services`) | [~] Descubrimiento y paquetes APT hechos; módulos restantes pendientes |
 | Endpoints HTTP (`internal/handlers`) | [~] `GET /api/session` hecho; módulos pendientes |
 | Ensamblaje (`main.go`: rutas + inyección de dependencias) | [~] Servidor, `web/` embebido y todas las rutas registradas; faltan los servicios de módulos |
 | Interfaz web (`web/modules`, `web/static/main.js`) | [ ] Placeholders |
-| Pruebas de `services` y `handlers` | [~] `services` 100 %; `handlers` 96.8 % |
+| Pruebas de `services` y `handlers` | [~] `services` 100 %; `handlers` 96.0 % |
 | Escenario: diagrama (numeral 5) | [x] Hecho en PlantUML (`docs/diagramas/`), en §3.1 del informe |
 | Pruebas manuales en video (numeral 4) | [ ] No iniciado |
 | Informe (`docs/informe`) | [~] §3 (diseño y escenario) redactado con los 2 diagramas; resto con TODOs |
@@ -64,7 +64,7 @@ Orden de trabajo obligatorio: **docs → tests → implementación**.
 
 | # | Requisito | Docs | Tests | Código | UI | Video |
 | --- | --- | --- | --- | --- | --- | --- |
-| 3.1.1 | Instalación y eliminación de aplicaciones (`apt install` / `apt remove`) con formulario y notificación de resultado | [x] | [x] | [~] | [ ] | [ ] |
+| 3.1.1 | Instalación y eliminación de aplicaciones (`apt install` / `apt remove`) con formulario y notificación de resultado | [x] | [x] | [x] | [ ] | [ ] |
 | 3.1.2 | Llave SSH para `root`: generar par, instalar en `authorized_keys`, deshabilitar acceso por login/contraseña, **descarga de la llave privada** y mensaje de recomendación de uso | [x] | [x] | [~] | [ ] | [ ] |
 | 3.1.3 | Personalizar `/etc/issue` con nombre de host, fecha, hora, dirección IP y mensaje personalizado | [x] | [x] | [~] | [ ] | [ ] |
 | 3.1.4 | Asignar nombre de host y actualizar `/etc/hosts` | [x] | [x] | [~] | [ ] | [ ] |
@@ -125,7 +125,7 @@ Estructura modular lista: `main.tex` (resumen, index terms, introducción, bibli
 
 - [x] `body/02-marco-teorico.tex` — completar secciones con TODO: Debian, APT, systemd, HAProxy.
 - [x] `body/03-diseno-solucion.tex` — diagrama + descripción del escenario; visión general, estructura del proyecto y decisiones tomadas.
-- [~] `body/04-implementacion.tex` — capa HTTP y contrato REST documentados; los módulos 4.1 a 4.4 siguen pendientes de conectar los casos de uso.
+- [~] `body/04-implementacion.tex` — capa HTTP, contrato REST y módulo de paquetes documentados; 4.1.2 a 4.4 siguen pendientes de conectar los casos de uso.
 - [ ] `body/05-pruebas.tex` — diseño de las pruebas y resultados con evidencias (videos).
 - [ ] `body/06-conclusiones.tex` — problemas y soluciones, herramientas de IA utilizadas, conclusiones del trabajo.
 - [ ] **Resumen (abstract) y index terms** — redactar al final, 150–250 palabras.
@@ -174,6 +174,15 @@ de los módulos del numeral 3.
 ---
 
 ## Notas de seguimiento
+
+- **24 oct 2026** — Primer módulo conectado: paquetes APT. El servicio
+  `Paquetes` abre una sesión por operación, ejecuta
+  `apt-get install/remove -y` con `DEBIAN_FRONTEND=noninteractive`,
+  lista con `dpkg-query` y traduce `domain.ExitError` a la respuesta
+  `500` con código y `stderr`. `POST /api/packages` responde `201` con
+  `Location`, `DELETE` responde `204` y el listado devuelve solo
+  paquetes instalados. El adaptador `vbox` ahora pasa `cmd.Env` con
+  `--putenv`. Cobertura: `services` 100 %, `handlers` 96.0 %.
 
 - **24 oct 2026** — Informe actualizado con la API REST: nueva
   subsección «Contrato REST de la API» en §3.2 con la tabla de recursos y

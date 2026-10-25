@@ -62,27 +62,9 @@ func NuevoDescubridor(config *ConfigDescubridor) *Descubridor {
 // ErrSesionNoDisponible cuando la máquina no puede atenderse o ningún
 // conector supera el sondeo.
 func (d *Descubridor) Descubrir(ctx context.Context) (InfoSesion, error) {
-	estado, err := d.maquina.State(ctx, d.objetivo)
-	if err != nil {
-		return InfoSesion{}, fmt.Errorf("consultar el estado de la máquina: %w", err)
-	}
-
-	if estado != domain.StateRunning {
-		return InfoSesion{}, fmt.Errorf(
-			"%w: la máquina %q está en estado %q", ErrSesionNoDisponible, d.objetivo.ID, estado,
-		)
-	}
-
-	objetivo, err := d.conDireccion(ctx)
+	conector, objetivo, estado, err := d.resolver(ctx)
 	if err != nil {
 		return InfoSesion{}, err
-	}
-
-	conector := d.primerConectorDisponible(ctx, objetivo)
-	if conector == nil {
-		return InfoSesion{}, fmt.Errorf(
-			"%w: ningún conector pudo atender la máquina %q", ErrSesionNoDisponible, d.objetivo.ID,
-		)
 	}
 
 	return InfoSesion{
@@ -90,6 +72,52 @@ func (d *Descubridor) Descubrir(ctx context.Context) (InfoSesion, error) {
 		IP:       objetivo.Address,
 		Estado:   estado,
 	}, nil
+}
+
+// Abrir implementa AbridorSesion: resuelve el conector disponible y
+// establece una sesión con la máquina. La sesión queda a cargo del
+// llamador, que debe cerrarla.
+func (d *Descubridor) Abrir(ctx context.Context) (ports.Session, error) {
+	conector, objetivo, _, err := d.resolver(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	sesion, err := conector.Connect(ctx, objetivo)
+	if err != nil {
+		return nil, fmt.Errorf("abrir la sesión con la máquina %q: %w", d.objetivo.ID, err)
+	}
+
+	return sesion, nil
+}
+
+// resolver verifica el estado de la máquina, completa la dirección y
+// elige el conector disponible.
+func (d *Descubridor) resolver(ctx context.Context) (ports.Connector, domain.Target, domain.MachineState, error) {
+	estado, err := d.maquina.State(ctx, d.objetivo)
+	if err != nil {
+		return nil, domain.Target{}, domain.StateUnknown, fmt.Errorf("consultar el estado de la máquina: %w", err)
+	}
+
+	if estado != domain.StateRunning {
+		return nil, domain.Target{}, estado, fmt.Errorf(
+			"%w: la máquina %q está en estado %q", ErrSesionNoDisponible, d.objetivo.ID, estado,
+		)
+	}
+
+	objetivo, err := d.conDireccion(ctx)
+	if err != nil {
+		return nil, domain.Target{}, estado, err
+	}
+
+	conector := d.primerConectorDisponible(ctx, objetivo)
+	if conector == nil {
+		return nil, domain.Target{}, estado, fmt.Errorf(
+			"%w: ningún conector pudo atender la máquina %q", ErrSesionNoDisponible, d.objetivo.ID,
+		)
+	}
+
+	return conector, objetivo, estado, nil
 }
 
 // conDireccion devuelve el objetivo con una dirección válida, ya sea la

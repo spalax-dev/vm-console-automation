@@ -10,12 +10,12 @@ La capa HTTP está implementada: los catorce recursos de la
 \cref{tab:api-rest} tienen su manejador, la validación del servidor
 aplica las reglas descritas en la \cref{sec:contrato-rest} y cada
 petición se responde con el modelo JSON de la
-\cref{sec:vision-general}. Mientras los casos de uso de cada módulo no
-se conecten con la máquina virtual, las operaciones válidas responden
-\texttt{501} con un mensaje comprensible, de modo que la interfaz puede
-integrarse sin esperar a la ejecución real. El descubrimiento de sesión
-ya está conectado y expone \texttt{GET /api/session}. Las pruebas de los
-manejadores cubren el 97.2\,\% de las sentencias.
+\cref{sec:vision-general}. El descubrimiento de sesión
+expone \texttt{GET /api/session} y el módulo de paquetes ya ejecuta APT
+sobre la máquina. Los demás casos de uso, mientras no se conecten,
+responden \texttt{501} con un mensaje comprensible, de modo que la
+interfaz puede integrarse sin esperar a la ejecución real. Las pruebas
+cubren el 96.0\,\% de los manejadores y el 100\,\% de los servicios.
 
 % ------------------------------------------------------------
 % 4.1 Preparación del sistema
@@ -25,9 +25,24 @@ manejadores cubren el 97.2\,\% de las sentencias.
 
 \subsubsection{Instalación y Eliminación de Aplicaciones}
 \label{sec:apt}
-% TODO: formulario para indicar la aplicación a instalar o eliminar;
-% ejecución del proceso en la máquina virtual; notificación del
-% resultado al finalizar.
+
+El módulo de paquetes se apoya en el recurso \texttt{/api/packages}. El
+formulario indica la acción y el nombre del paquete; el servidor valida
+el nombre con la regla de paquetes APT antes de tocar la máquina. La
+instalación ejecuta \texttt{apt-get install -y} y la eliminación
+\texttt{apt-get remove -y} sobre ese nombre, con
+\texttt{DEBIAN\_FRONTEND=noninteractive} para que APT no solicite
+confirmaciones aunque la sesión no sea interactiva.
+
+Cada operación abre una sesión con el conector disponible, la cierra al
+terminar y clasifica el resultado. Si el código de salida es cero,
+responde \texttt{201} al instalar (con \texttt{Location}) o
+\texttt{204} al eliminar, e incluye la salida relevante; si es distinto
+de cero, responde \texttt{500} conservando la orden ejecutada, el
+código de salida y el \texttt{stderr} para el diagnóstico. El listado
+usa \texttt{dpkg-query} y filtra por el estado
+\texttt{install ok installed}. La cobertura del servicio de paquetes es
+del 100\,\%.
 
 \subsubsection{Configuración de la Llave de Acceso SSH para el Usuario Root}
 \label{sec:ssh-root}

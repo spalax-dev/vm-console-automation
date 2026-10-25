@@ -62,6 +62,29 @@ La instalación de SSH cuando aún no hay llave es responsabilidad del módulo 3
 Mientras no exista la llave, la interfaz muestra `guest-additions` y ofrece el módulo de
 llaves.
 
+### 2.2 Servicio de paquetes APT
+
+El servicio `Paquetes` (`internal/services/paquetes.go`) implementa el recurso
+`/api/packages` sobre una sesión abierta por el descubridor:
+
+| Operación | Orden remota | Respuesta |
+| --- | --- | --- |
+| `GET /api/packages` | `dpkg-query -W -f='${Package}\t${Version}\t${Status}\n'` | lista de paquetes con estado `installed` |
+| `POST /api/packages` | `apt-get install -y <paquete>` | `201` con el resultado de la orden |
+| `DELETE /api/packages/{name}` | `apt-get remove -y <paquete>` | `204` sin cuerpo |
+
+Las órdenes se ejecutan con `DEBIAN_FRONTEND=noninteractive` para que APT no
+solicite confirmaciones. El servicio abre una sesión por operación, la cierra
+siempre al terminar y traduce el resultado del dominio:
+
+- código de salida `0` → `Resultado` con `salida` y mensaje de éxito;
+- código distinto de `0` → se conserva `domain.ExitError`, el `stderr` y la orden
+  ejecutada para diagnóstico;
+- fallo de conexión → se propaga el error de sesión (`503` en el *handler*).
+
+El listado se filtra por el estado de `dpkg-query` (`install ok installed`);
+las líneas de paquetes configurados a medias o desinstalados no se devuelven.
+
 ---
 
 ## 3. Flujo de proceso de una operación
@@ -102,7 +125,8 @@ y códigos de respuesta.
 
 **Estado de implementación:** todas las rutas están registradas y validan sus
 entradas; las que aún no tienen caso de uso responden `501` con el modelo de
-error común. `GET /api/session` sí está conectado al descubrimiento.
+error común. `GET /api/session` está conectado al descubrimiento y
+`/api/packages` ya ejecuta APT sobre la máquina.
 
 Todas las respuestas son JSON (`Content-Type: application/json`). Las peticiones
 con cuerpo envían **JSON** (`Content-Type: application/json`), incluidos
