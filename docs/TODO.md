@@ -179,6 +179,13 @@ de los módulos del numeral 3.
 
 ## Notas de seguimiento
 
+- **25 oct 2026** — Armazón con altura de ventana: la barra superior y las
+  pestañas quedan fijas y solo el contenido del módulo se desplaza, de
+  modo que Usuarios no arrastra la página entera. El panel de resultado se
+  mantiene visible con `sticky` mientras se recorre el formulario. Se
+  agregó el icono `Loader2`, que faltaba en el registro y dejaba un aviso
+  en la consola del navegador.
+
 - **25 oct 2026** — Panel de resultado: las fichas se mantienen como
   tarjetas claras con mensaje, hora y detalle técnico plegable, y el área
   que las contiene pasa a gris oscuro (`#2B2B2B`) para que se lea como

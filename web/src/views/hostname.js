@@ -11,7 +11,7 @@ import { esIpv4, validarNombreHost } from '../validacion.js';
  */
 export function renderHostname() {
   const el = document.createElement('div');
-  el.className = 'grid grid-cols-[58%_42%] gap-vm-gap items-start';
+  el.className = 'grid grid-cols-[58%_42%] gap-vm-gap';
   el.innerHTML = `
     <section class="card">
       <header class="px-3 py-1.5 border-b border-vm-border bg-[#f7f7f7] flex items-center justify-between">

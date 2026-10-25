@@ -11,7 +11,7 @@ import { VMSelector } from './VMSelector.js';
  */
 export function Header() {
   const el = document.createElement('header');
-  el.className = 'h-vm-header bg-vm-surface border-b border-vm-border flex items-center justify-between px-3';
+  el.className = 'h-vm-header shrink-0 bg-vm-surface border-b border-vm-border flex items-center justify-between px-3';
   el.innerHTML = `
     <div class="flex items-center gap-4">
       <div class="flex items-center gap-2.5 pr-4 border-r border-vm-border">

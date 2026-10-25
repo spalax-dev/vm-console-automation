@@ -67,13 +67,23 @@ function montarArmazon() {
 
   app.innerHTML = '';
 
-  const barra = document.createElement('div');
-  const principal = document.createElement('main');
+  // El armazón ocupa la ventana: la barra superior y las pestañas quedan
+  // fijas y solo el área de contenido se desplaza.
+  app.className = 'flex h-dvh flex-col overflow-hidden';
 
-  principal.className = 'max-w-vm mx-auto px-3 py-3';
+  const barra = document.createElement('div');
+  barra.className = 'shrink-0';
+
+  const principal = document.createElement('main');
+  principal.className = 'flex-1 min-h-0 overflow-y-auto';
+
+  const contenido = document.createElement('div');
+  contenido.className = 'max-w-vm mx-auto px-3 py-3';
+
+  principal.appendChild(contenido);
   app.append(Header(), barra, principal);
 
-  armazon = { barra, principal };
+  armazon = { barra, principal: contenido };
 
   return armazon;
 }

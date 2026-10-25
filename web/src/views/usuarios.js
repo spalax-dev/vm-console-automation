@@ -11,7 +11,7 @@ import { validarNombreUsuario } from '../validacion.js';
  */
 export function renderUsuarios() {
   const el = document.createElement('div');
-  el.className = 'grid grid-cols-[58%_42%] gap-vm-gap items-start';
+  el.className = 'grid grid-cols-[58%_42%] gap-vm-gap';
   el.innerHTML = `
     <div class="flex flex-col gap-vm-gap">
       <section class="card">
@@ -43,9 +43,14 @@ export function renderUsuarios() {
       </section>
       <section class="card">
         <header class="px-3 py-1.5 border-b border-vm-border bg-[#f7f7f7]"><div class="flex items-center gap-1.5"><i data-lucide="download" class="w-4 h-4"></i><span class="text-[12px] font-medium">Descarga de llaves</span></div></header>
-        <div class="p-3 flex items-center gap-2">
-          <select id="descarga-nombre" class="input w-[200px]"></select>
-          <button id="descarga-boton" class="btn"><i data-lucide="download"></i> Descargar llave privada</button>
+        <div class="p-3 flex flex-col gap-2">
+          <div class="flex items-center gap-2">
+            <select id="descarga-nombre" class="input w-[200px]"></select>
+            <button id="descarga-boton" class="btn"><i data-lucide="download"></i> Descargar llave privada</button>
+          </div>
+          <div class="text-[11px] text-vm-fgSecondary">
+            Guarda la llave privada en un lugar seguro y no la compartas; quien la posea tendrá acceso a la cuenta del usuario.
+          </div>
         </div>
       </section>
       <section class="card">

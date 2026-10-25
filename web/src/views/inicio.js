@@ -23,7 +23,7 @@ const MODULOS = [
  */
 export function renderInicio() {
   const el = document.createElement('div');
-  el.className = 'grid grid-cols-[58%_42%] gap-vm-gap items-start';
+  el.className = 'grid grid-cols-[58%_42%] gap-vm-gap';
   el.innerHTML = `
     <div class="flex flex-col gap-vm-gap">
       <section class="card">

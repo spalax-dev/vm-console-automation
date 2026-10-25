@@ -18,7 +18,7 @@ const BLOQUE = 'bg-[#242424] border-[#404040] text-[#D4D4D4]';
  */
 export function ResultPanel() {
   const el = document.createElement('section');
-  el.className = `flex flex-col min-h-[280px] max-h-[calc(100vh-8.5rem)] overflow-hidden border rounded-[3px] ${PANEL}`;
+  el.className = `flex flex-col min-h-[280px] max-h-[calc(100vh-8rem)] overflow-hidden border rounded-[3px] sticky top-0 ${PANEL}`;
   el.innerHTML = `
     <header class="px-3 py-1.5 border-b flex items-center justify-between ${TARJETA}">
       <div class="flex items-center gap-1.5">
