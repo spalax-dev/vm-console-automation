@@ -20,11 +20,11 @@ Documento de seguimiento del proyecto. Se actualiza conforme se avanza.
 | Contrato OpenAPI (`docs/openapi.yaml`) | [x] 12 rutas, validado con Redocly |
 | Controladores HTTP de los módulos | [~] Registrados y validando; responden 501 hasta conectar servicios |
 | Servicio de descubrimiento/selección de sesión | [x] Completo — cobertura 100 % |
-| Casos de uso (`internal/services`) | [~] Descubrimiento y paquetes APT hechos; módulos restantes pendientes |
+| Casos de uso (`internal/services`) | [~] Descubrimiento, paquetes APT y llaves SSH hechos; módulos restantes pendientes |
 | Endpoints HTTP (`internal/handlers`) | [~] `GET /api/session` hecho; módulos pendientes |
 | Ensamblaje (`main.go`: rutas + inyección de dependencias) | [~] Servidor, `web/` embebido y todas las rutas registradas; faltan los servicios de módulos |
 | Interfaz web (`web/modules`, `web/static/main.js`) | [ ] Placeholders |
-| Pruebas de `services` y `handlers` | [~] `services` 100 %; `handlers` 96.0 % |
+| Pruebas de `services` y `handlers` | [~] `services` 100 %; `handlers` 99.0 % |
 | Escenario: diagrama (numeral 5) | [x] Hecho en PlantUML (`docs/diagramas/`), en §3.1 del informe |
 | Pruebas manuales en video (numeral 4) | [ ] No iniciado |
 | Informe (`docs/informe`) | [~] §3 (diseño y escenario) redactado con los 2 diagramas; resto con TODOs |
@@ -65,7 +65,7 @@ Orden de trabajo obligatorio: **docs → tests → implementación**.
 | # | Requisito | Docs | Tests | Código | UI | Video |
 | --- | --- | --- | --- | --- | --- | --- |
 | 3.1.1 | Instalación y eliminación de aplicaciones (`apt install` / `apt remove`) con formulario y notificación de resultado | [x] | [x] | [x] | [ ] | [ ] |
-| 3.1.2 | Llave SSH para `root`: generar par, instalar en `authorized_keys`, deshabilitar acceso por login/contraseña, **descarga de la llave privada** y mensaje de recomendación de uso | [x] | [x] | [~] | [ ] | [ ] |
+| 3.1.2 | Llave SSH para `root`: generar par, instalar en `authorized_keys`, deshabilitar acceso por login/contraseña, **descarga de la llave privada** y mensaje de recomendación de uso | [x] | [x] | [x] | [ ] | [ ] |
 | 3.1.3 | Personalizar `/etc/issue` con nombre de host, fecha, hora, dirección IP y mensaje personalizado | [x] | [x] | [~] | [ ] | [ ] |
 | 3.1.4 | Asignar nombre de host y actualizar `/etc/hosts` | [x] | [x] | [~] | [ ] | [ ] |
 
@@ -125,7 +125,7 @@ Estructura modular lista: `main.tex` (resumen, index terms, introducción, bibli
 
 - [x] `body/02-marco-teorico.tex` — completar secciones con TODO: Debian, APT, systemd, HAProxy.
 - [x] `body/03-diseno-solucion.tex` — diagrama + descripción del escenario; visión general, estructura del proyecto y decisiones tomadas.
-- [~] `body/04-implementacion.tex` — capa HTTP, contrato REST y módulo de paquetes documentados; 4.1.2 a 4.4 siguen pendientes de conectar los casos de uso.
+- [~] `body/04-implementacion.tex` — capa HTTP, contrato REST, paquetes y llaves SSH documentados; 4.1.3 a 4.4 siguen pendientes de conectar los casos de uso.
 - [ ] `body/05-pruebas.tex` — diseño de las pruebas y resultados con evidencias (videos).
 - [ ] `body/06-conclusiones.tex` — problemas y soluciones, herramientas de IA utilizadas, conclusiones del trabajo.
 - [ ] **Resumen (abstract) y index terms** — redactar al final, 150–250 palabras.
@@ -174,6 +174,18 @@ de los módulos del numeral 3.
 ---
 
 ## Notas de seguimiento
+
+- **24 oct 2026** — Llaves SSH de root (3.1.2): el servicio `Llaves`
+  abre la sesión por Guest Additions antes de generar la llave, ejecuta
+  `ssh-keygen -t ed25519` en el anfitrión, instala la pública en
+  `authorized_keys` (700/600) y escribe
+  `/etc/ssh/sshd_config.d/99-vmcons.conf` con
+  `PasswordAuthentication no` y `PermitRootLogin prohibit-password`.
+  `POST /api/keys/root` responde `201` (`409` si la llave existe) y
+  `GET` entrega la privada como adjunto (`404` si no existe). La ruta
+  se configura con `VMCONS_SSH_KEY` y, por omisión, es
+  `<config>/vmcons/id_ed25519`. Cobertura: `services` 100 %,
+  `handlers` 99.0 %.
 
 - **24 oct 2026** — Primer módulo conectado: paquetes APT. El servicio
   `Paquetes` abre una sesión por operación, ejecuta

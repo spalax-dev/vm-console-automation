@@ -15,10 +15,11 @@ import (
 
 // Nombres de los conectores y mensajes repetidos en las pruebas.
 const (
-	conectorSSH    = "ssh"
-	conectorGuest  = "guest-additions"
-	msgDescubrirOK = "Descubrir() error = %v, want nil"
-	msgIP          = "IP = %s, want %s"
+	conectorSSH      = "ssh"
+	conectorGuest    = "guest-additions"
+	msgDescubrirOK   = "Descubrir() error = %v, want nil"
+	msgSesionAbierta = "la sesión no se cerró"
+	msgIP            = "IP = %s, want %s"
 )
 
 // stubMachine es una implementación falsa de ports.Machine que devuelve

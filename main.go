@@ -18,6 +18,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"consola-vm/internal/adapters/localproc"
@@ -90,8 +91,15 @@ func nuevoMux() http.Handler {
 	mux := http.NewServeMux()
 
 	sesiones := descubridor()
+	ejecutor := localproc.New()
 
-	sistema := handlers.NuevoSistema(services.NuevoPaquetes(sesiones))
+	llaves := services.NuevoLlaves(services.ConfigLlaves{
+		Sesiones: sesiones,
+		Ejecutor: ejecutor,
+		Ruta:     rutaLlave(),
+	})
+
+	sistema := handlers.NuevoSistema(services.NuevoPaquetes(sesiones), llaves)
 	usuarios := handlers.NuevoUsuarios()
 	systemd := handlers.NuevoSystemd()
 	haproxy := handlers.NuevoHaproxy()
@@ -153,7 +161,7 @@ func descubridor() sesiones {
 		Maquina:  vbox.New(ejecutor, vbox.WithGuestCredentials(usuarioInvitado(), os.Getenv(envGuestPass))),
 		Objetivo: domain.Target{ID: idVM},
 		Conectores: []ports.Connector{
-			ssh.New(ejecutor, ssh.WithKey(os.Getenv(envSSHKey))),
+			ssh.New(ejecutor, ssh.WithKey(rutaLlave())),
 			vbox.New(ejecutor, vbox.WithGuestCredentials(usuarioInvitado(), os.Getenv(envGuestPass))),
 		},
 	})
@@ -184,6 +192,21 @@ func direccion() string {
 	}
 
 	return direccionProd
+}
+
+// rutaLlave devuelve la ruta de la llave privada de root: la variable
+// de entorno o, por omisión, el directorio de configuración del usuario.
+func rutaLlave() string {
+	if valor := os.Getenv(envSSHKey); valor != "" {
+		return valor
+	}
+
+	configuracion, err := os.UserConfigDir()
+	if err != nil {
+		configuracion = "."
+	}
+
+	return filepath.Join(configuracion, "vmcons", "id_ed25519")
 }
 
 // usuarioInvitado devuelve el usuario de Guest Additions, «root» por

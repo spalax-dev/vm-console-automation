@@ -102,6 +102,34 @@ func TestUnidad(t *testing.T) {
 			},
 			unidadCatalogo,
 		},
+		{
+			casoPeticion{
+				nombre: "desplegar con cuerpo inválido",
+				metodo: http.MethodPut,
+				cuerpo: `{`,
+				codigo: http.StatusBadRequest,
+			},
+			unidadCatalogo,
+		},
+		{
+			casoPeticion{
+				nombre: "desplegar con modo inválido",
+				metodo: http.MethodPut,
+				cuerpo: `{"archivos":[{"origen":"./app","destino":"/opt/app","modo":"rwx"}]}`,
+				codigo: http.StatusBadRequest,
+				campo:  campoModo,
+			},
+			unidadCatalogo,
+		},
+		{
+			casoPeticion{
+				nombre: "estado con cuerpo inválido",
+				metodo: http.MethodPatch,
+				cuerpo: `{`,
+				codigo: http.StatusBadRequest,
+			},
+			unidadCatalogo,
+		},
 		{casoPeticion{nombre: "unidad inválida", metodo: http.MethodGet, codigo: http.StatusBadRequest, campo: campoUnit}, "../etc/passwd"},
 		{casoPeticion{nombre: casoMetodoNoPermitido, metodo: http.MethodDelete, codigo: http.StatusMethodNotAllowed}, unidadCatalogo},
 	}

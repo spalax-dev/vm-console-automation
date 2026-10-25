@@ -10,6 +10,8 @@ package handlers
 
 import (
 	"context"
+	"errors"
+	"log/slog"
 	"net/http"
 
 	"consola-vm/internal/services"
@@ -25,16 +27,26 @@ type ServicioPaquetes interface {
 	Eliminar(ctx context.Context, nombre string) (services.Resultado, error)
 }
 
+// ServicioLlaves genera y entrega las llaves SSH de root.
+type ServicioLlaves interface {
+	// Generar crea el par, instala la pública y deshabilita el acceso
+	// por contraseña.
+	Generar(ctx context.Context) (services.Resultado, error)
+	// Descargar devuelve el nombre y el contenido de la llave privada.
+	Descargar() (nombre string, contenido []byte, err error)
+}
+
 // Sistema agrupa los recursos de preparación del sistema (numeral 3.1
 // del enunciado).
 type Sistema struct {
 	paquetes ServicioPaquetes
+	llaves   ServicioLlaves
 }
 
-// NuevoSistema construye el handler de preparación del sistema con el
-// servicio de paquetes dado.
-func NuevoSistema(paquetes ServicioPaquetes) *Sistema {
-	return &Sistema{paquetes: paquetes}
+// NuevoSistema construye el handler de preparación del sistema con los
+// servicios dados.
+func NuevoSistema(paquetes ServicioPaquetes, llaves ServicioLlaves) *Sistema {
+	return &Sistema{paquetes: paquetes, llaves: llaves}
 }
 
 // paqueteRespuesta es un paquete en la respuesta JSON.
@@ -160,12 +172,60 @@ func (h *Sistema) LlaveRoot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodGet {
-		noImplementado(w, "descargar la llave privada de root")
+		h.descargarLlaveRoot(w)
 
 		return
 	}
 
-	noImplementado(w, "generar la llave SSH de root")
+	resultado, err := h.llaves.Generar(r.Context())
+	if errors.Is(err, services.ErrLlaveExistente) {
+		escribirJSON(w, http.StatusConflict, respuestaOperacion{
+			Mensaje: "La llave SSH de root ya existe en el anfitrión.",
+			Tecnico: err.Error(),
+		})
+
+		return
+	}
+
+	if err != nil {
+		responderErrorOperacion(w, resultado, err)
+
+		return
+	}
+
+	w.Header().Set("Location", "/api/keys/root")
+	escribirResultado(w, http.StatusCreated, resultado)
+}
+
+// descargarLlaveRoot entrega la llave privada como archivo adjunto.
+func (h *Sistema) descargarLlaveRoot(w http.ResponseWriter) {
+	nombre, contenido, err := h.llaves.Descargar()
+	if errors.Is(err, services.ErrLlaveNoEncontrada) {
+		escribirJSON(w, http.StatusNotFound, respuestaOperacion{
+			Mensaje: "No hay una llave SSH de root generada.",
+		})
+
+		return
+	}
+
+	if err != nil {
+		slog.Error("descargar la llave de root", claveError, err)
+		escribirJSON(w, http.StatusInternalServerError, respuestaOperacion{
+			Mensaje: "No fue posible leer la llave privada.",
+			Tecnico: err.Error(),
+		})
+
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+nombre+`"`)
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+
+	if _, err := w.Write(contenido); err != nil {
+		slog.Error("escribir la llave de root", claveError, err)
+	}
 }
 
 // Issue atiende GET y PUT /api/issue: consulta o reemplaza el banner

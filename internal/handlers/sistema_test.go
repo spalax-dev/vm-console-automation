@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -33,6 +34,8 @@ const (
 	rutaPaquetes          = "/api/packages"
 	rutaPaqueteNano       = rutaPaquetes + "/" + nombreNano
 	operacionInstalarNano = "apt-get install -y nano"
+	rutaLlaveRoot         = "/api/keys/root"
+	msgCodigoCuerpo       = "código = %d, want %d (cuerpo %s)"
 )
 
 // stubPaquetes es un servicio de paquetes falso con resultados
@@ -63,9 +66,33 @@ func (s *stubPaquetes) Eliminar(_ context.Context, nombre string) (services.Resu
 	return s.resultado, s.err
 }
 
-// nuevoSistemaPrueba arma el handler de sistema con el servicio falso.
+// stubLlaves es un servicio de llaves falso con resultados
+// preprogramados.
+type stubLlaves struct {
+	resultado   services.Resultado
+	err         error
+	nombre      string
+	contenido   []byte
+	descargaErr error
+	generadas   int
+}
+
+// Generar registra la llamada y devuelve el resultado preprogramado.
+func (s *stubLlaves) Generar(context.Context) (services.Resultado, error) {
+	s.generadas++
+
+	return s.resultado, s.err
+}
+
+// Descargar devuelve la llave preprogramada.
+func (s *stubLlaves) Descargar() (nombre string, contenido []byte, err error) {
+	return s.nombre, s.contenido, s.descargaErr
+}
+
+// nuevoSistemaPrueba arma el handler de sistema con los servicios
+// falsos.
 func nuevoSistemaPrueba() *Sistema {
-	return NuevoSistema(&stubPaquetes{})
+	return NuevoSistema(&stubPaquetes{}, &stubLlaves{})
 }
 
 // casoPeticion describe una petición de prueba contra un handler.
@@ -144,12 +171,12 @@ func TestPaquetesListar(t *testing.T) {
 	t.Parallel()
 
 	servicio := &stubPaquetes{lista: []services.Paquete{{Nombre: nombreNano, Version: "7.2-1"}}}
-	rec := ejecutarCaso(t, NuevoSistema(servicio).Paquetes, rutaPaquetes, casoPeticion{
+	rec := ejecutarCaso(t, NuevoSistema(servicio, &stubLlaves{}).Paquetes, rutaPaquetes, casoPeticion{
 		nombre: casoListar, metodo: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf("código = %d, want %d (cuerpo %s)", rec.Code, http.StatusOK, rec.Body.String())
+		t.Fatalf(msgCodigoCuerpo, rec.Code, http.StatusOK, rec.Body.String())
 	}
 
 	var cuerpo struct {
@@ -174,12 +201,12 @@ func TestPaquetesInstalar(t *testing.T) {
 		Operacion: operacionInstalarNano,
 	}}
 
-	rec := ejecutarCaso(t, NuevoSistema(servicio).Paquetes, rutaPaquetes, casoPeticion{
+	rec := ejecutarCaso(t, NuevoSistema(servicio, &stubLlaves{}).Paquetes, rutaPaquetes, casoPeticion{
 		nombre: casoValido, metodo: http.MethodPost, cuerpo: `{"nombre":"nano"}`,
 	})
 
 	if rec.Code != http.StatusCreated {
-		t.Fatalf("código = %d, want %d (cuerpo %s)", rec.Code, http.StatusCreated, rec.Body.String())
+		t.Fatalf(msgCodigoCuerpo, rec.Code, http.StatusCreated, rec.Body.String())
 	}
 
 	if got := rec.Header().Get("Location"); got != rutaPaqueteNano {
@@ -231,7 +258,7 @@ func TestPaquetesErrorDeOrden(t *testing.T) {
 		err: &domain.ExitError{Code: 100, Command: operacionInstalarNano},
 	}
 
-	rec := ejecutarCaso(t, NuevoSistema(servicio).Paquetes, rutaPaquetes, casoPeticion{
+	rec := ejecutarCaso(t, NuevoSistema(servicio, &stubLlaves{}).Paquetes, rutaPaquetes, casoPeticion{
 		nombre: "fallo de APT", metodo: http.MethodPost, cuerpo: `{"nombre":"nano"}`,
 	})
 
@@ -259,12 +286,12 @@ func TestPaquetesSinSesion(t *testing.T) {
 
 	servicio := &stubPaquetes{err: services.ErrSesionNoDisponible}
 
-	rec := ejecutarCaso(t, NuevoSistema(servicio).Paquetes, rutaPaquetes, casoPeticion{
+	rec := ejecutarCaso(t, NuevoSistema(servicio, &stubLlaves{}).Paquetes, rutaPaquetes, casoPeticion{
 		nombre: "sin sesión", metodo: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusServiceUnavailable {
-		t.Fatalf("código = %d, want %d", rec.Code, http.StatusServiceUnavailable)
+		t.Fatalf(msgCodigo, rec.Code, http.StatusServiceUnavailable)
 	}
 }
 
@@ -294,14 +321,14 @@ func TestPaqueteEliminar(t *testing.T) {
 	t.Parallel()
 
 	servicio := &stubPaquetes{}
-	handler := NuevoSistema(servicio).Paquete
+	handler := NuevoSistema(servicio, &stubLlaves{}).Paquete
 
 	rec := ejecutarCasoConPath(t, handler, rutaPaqueteNano, campoName, nombreNano, casoPeticion{
 		nombre: casoEliminar, metodo: http.MethodDelete,
 	})
 
 	if rec.Code != http.StatusNoContent {
-		t.Fatalf("código = %d, want %d", rec.Code, http.StatusNoContent)
+		t.Fatalf(msgCodigo, rec.Code, http.StatusNoContent)
 	}
 
 	if servicio.nombre != nombreNano {
@@ -313,20 +340,95 @@ func TestPaqueteEliminar(t *testing.T) {
 	}
 }
 
-// TestLlaveRoot cubre la generación y descarga de la llave de root.
-func TestLlaveRoot(t *testing.T) {
+// TestLlaveRootGenerar cubre la generación del par de llaves de root.
+func TestLlaveRootGenerar(t *testing.T) {
 	t.Parallel()
 
-	handler := nuevoSistemaPrueba().LlaveRoot
-	casos := []casoPeticion{
-		{nombre: "descargar", metodo: http.MethodGet, codigo: http.StatusNotImplemented},
-		{nombre: "generar", metodo: http.MethodPost, codigo: http.StatusNotImplemented},
-		{nombre: casoMetodoNoPermitido, metodo: http.MethodPut, codigo: http.StatusMethodNotAllowed},
+	servicio := &stubLlaves{resultado: services.Resultado{
+		Mensaje: "Llave SSH de root generada e instalada.",
+	}}
+
+	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, servicio).LlaveRoot, rutaLlaveRoot, casoPeticion{
+		nombre: "generar", metodo: http.MethodPost,
+	})
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf(msgCodigoCuerpo, rec.Code, http.StatusCreated, rec.Body.String())
 	}
 
-	for _, caso := range casos {
-		rec := ejecutarCaso(t, handler, "/api/keys/root", caso)
-		comprobarCaso(t, rec, caso)
+	if got := rec.Header().Get("Location"); got != rutaLlaveRoot {
+		t.Errorf("Location = %q, want /api/keys/root", got)
+	}
+
+	if servicio.generadas != 1 {
+		t.Errorf("Generar() se llamó %d veces, want 1", servicio.generadas)
+	}
+}
+
+// TestLlaveRootGenerarExistente cubre el conflicto de una llave que ya
+// existe.
+func TestLlaveRootGenerarExistente(t *testing.T) {
+	t.Parallel()
+
+	servicio := &stubLlaves{err: services.ErrLlaveExistente}
+
+	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, servicio).LlaveRoot, rutaLlaveRoot, casoPeticion{
+		nombre: "llave existente", metodo: http.MethodPost,
+	})
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf(msgCodigo, rec.Code, http.StatusConflict)
+	}
+}
+
+// TestLlaveRootDescargar cubre la descarga de la llave privada.
+func TestLlaveRootDescargar(t *testing.T) {
+	t.Parallel()
+
+	servicio := &stubLlaves{nombre: "id_ed25519", contenido: []byte("privada")}
+
+	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, servicio).LlaveRoot, rutaLlaveRoot, casoPeticion{
+		nombre: "descargar", metodo: http.MethodGet,
+	})
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+	}
+
+	if got := rec.Header().Get("Content-Disposition"); got != `attachment; filename="id_ed25519"` {
+		t.Errorf("Content-Disposition = %q", got)
+	}
+
+	if rec.Body.String() != "privada" {
+		t.Errorf("cuerpo = %q, want la llave privada", rec.Body.String())
+	}
+}
+
+// TestLlaveRootSinLlave cubre la descarga cuando no hay llave.
+func TestLlaveRootSinLlave(t *testing.T) {
+	t.Parallel()
+
+	servicio := &stubLlaves{descargaErr: services.ErrLlaveNoEncontrada}
+
+	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, servicio).LlaveRoot, rutaLlaveRoot, casoPeticion{
+		nombre: "sin llave", metodo: http.MethodGet,
+	})
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf(msgCodigo, rec.Code, http.StatusNotFound)
+	}
+}
+
+// TestLlaveRootMetodo cubre el método no permitido.
+func TestLlaveRootMetodo(t *testing.T) {
+	t.Parallel()
+
+	rec := ejecutarCaso(t, nuevoSistemaPrueba().LlaveRoot, rutaLlaveRoot, casoPeticion{
+		nombre: casoMetodoNoPermitido, metodo: http.MethodPut,
+	})
+
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf(msgCodigo, rec.Code, http.StatusMethodNotAllowed)
 	}
 }
 
@@ -377,5 +479,55 @@ func TestHostname(t *testing.T) {
 	for _, caso := range casos {
 		rec := ejecutarCaso(t, handler, "/api/hostname", caso)
 		comprobarCaso(t, rec, caso)
+	}
+}
+
+// TestPaqueteErrorDeOrden cubre el fallo del servicio al eliminar.
+func TestPaqueteErrorDeOrden(t *testing.T) {
+	t.Parallel()
+
+	servicio := &stubPaquetes{err: &domain.ExitError{Code: 100, Command: "apt-get remove"}}
+	handler := NuevoSistema(servicio, &stubLlaves{}).Paquete
+
+	rec := ejecutarCasoConPath(t, handler, "/api/packages/nano", campoName, nombreNano, casoPeticion{
+		nombre: "fallo de APT", metodo: http.MethodDelete,
+	})
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+	}
+}
+
+// TestLlaveRootErrorGenerico cubre un fallo inesperado al generar la
+// llave.
+func TestLlaveRootErrorGenerico(t *testing.T) {
+	t.Parallel()
+
+	servicio := &stubLlaves{err: errors.New("fallo inesperado")}
+	handler := NuevoSistema(&stubPaquetes{}, servicio).LlaveRoot
+
+	rec := ejecutarCaso(t, handler, rutaLlaveRoot, casoPeticion{
+		nombre: "error genérico", metodo: http.MethodPost,
+	})
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+	}
+}
+
+// TestLlaveRootErrorDeDescarga cubre un fallo inesperado al leer la
+// llave privada.
+func TestLlaveRootErrorDeDescarga(t *testing.T) {
+	t.Parallel()
+
+	servicio := &stubLlaves{descargaErr: errors.New("fallo de lectura")}
+	handler := NuevoSistema(&stubPaquetes{}, servicio).LlaveRoot
+
+	rec := ejecutarCaso(t, handler, rutaLlaveRoot, casoPeticion{
+		nombre: "error de descarga", metodo: http.MethodGet,
+	})
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
 	}
 }

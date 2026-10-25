@@ -54,7 +54,7 @@ info:
 
     ## Estado de implementación
 
-    `GET /api/session` y los recursos de `/api/packages` ya están
+    `GET /api/session`, `/api/packages` y `/api/keys/root` ya están
     conectados con la máquina. El resto de rutas existe y valida sus
     entradas, pero responde `501` hasta conectar sus casos de uso.
 
@@ -194,7 +194,7 @@ paths:
             Content-Disposition:
               schema:
                 type: string
-              description: '`attachment; filename="id_rsa_vmcons"`'
+              description: '`attachment; filename="id_ed25519"`'
           content:
             application/octet-stream:
               schema:
@@ -224,6 +224,12 @@ paths:
               schema:
                 type: string
               description: URI de la llave creada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoOperacion'
+        '409':
+          description: La llave privada ya existe en el anfitrión.
           content:
             application/json:
               schema:

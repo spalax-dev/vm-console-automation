@@ -15,12 +15,13 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
   - [func NuevoHaproxy\(\) \*Haproxy](<#NuevoHaproxy>)
   - [func \(h \*Haproxy\) Servidor\(w http.ResponseWriter, r \*http.Request\)](<#Haproxy.Servidor>)
   - [func \(h \*Haproxy\) Servidores\(w http.ResponseWriter, r \*http.Request\)](<#Haproxy.Servidores>)
+- [type ServicioLlaves](<#ServicioLlaves>)
 - [type ServicioPaquetes](<#ServicioPaquetes>)
 - [type Sesion](<#Sesion>)
   - [func NuevoSesion\(descubridor DescubridorSesion\) \*Sesion](<#NuevoSesion>)
   - [func \(h \*Sesion\) ServeHTTP\(w http.ResponseWriter, r \*http.Request\)](<#Sesion.ServeHTTP>)
 - [type Sistema](<#Sistema>)
-  - [func NuevoSistema\(paquetes ServicioPaquetes\) \*Sistema](<#NuevoSistema>)
+  - [func NuevoSistema\(paquetes ServicioPaquetes, llaves ServicioLlaves\) \*Sistema](<#NuevoSistema>)
   - [func \(h \*Sistema\) Hostname\(w http.ResponseWriter, r \*http.Request\)](<#Sistema.Hostname>)
   - [func \(h \*Sistema\) Issue\(w http.ResponseWriter, r \*http.Request\)](<#Sistema.Issue>)
   - [func \(h \*Sistema\) LlaveRoot\(w http.ResponseWriter, r \*http.Request\)](<#Sistema.LlaveRoot>)
@@ -85,6 +86,21 @@ func (h *Haproxy) Servidores(w http.ResponseWriter, r *http.Request)
 
 Servidores atiende GET y POST /api/haproxy/backend/servers: lista o agrega servidores al back\-end.
 
+<a name="ServicioLlaves"></a>
+## type ServicioLlaves
+
+ServicioLlaves genera y entrega las llaves SSH de root.
+
+```go
+type ServicioLlaves interface {
+    // Generar crea el par, instala la pública y deshabilita el acceso
+    // por contraseña.
+    Generar(ctx context.Context) (services.Resultado, error)
+    // Descargar devuelve el nombre y el contenido de la llave privada.
+    Descargar() (nombre string, contenido []byte, err error)
+}
+```
+
 <a name="ServicioPaquetes"></a>
 ## type ServicioPaquetes
 
@@ -145,10 +161,10 @@ type Sistema struct {
 ### func NuevoSistema
 
 ```go
-func NuevoSistema(paquetes ServicioPaquetes) *Sistema
+func NuevoSistema(paquetes ServicioPaquetes, llaves ServicioLlaves) *Sistema
 ```
 
-NuevoSistema construye el handler de preparación del sistema con el servicio de paquetes dado.
+NuevoSistema construye el handler de preparación del sistema con los servicios dados.
 
 <a name="Sistema.Hostname"></a>
 ### func \(\*Sistema\) Hostname

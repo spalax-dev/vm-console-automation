@@ -66,7 +66,7 @@ func TestPaquetesInstalarEjecutaAptGet(t *testing.T) {
 	}
 
 	if !sesion.closed {
-		t.Error("la sesión no se cerró")
+		t.Error(msgSesionAbierta)
 	}
 
 	if resultado.Codigo != 0 {
@@ -133,7 +133,7 @@ func TestPaquetesConservaExitError(t *testing.T) {
 	}
 
 	if !sesion.closed {
-		t.Error("la sesión no se cerró")
+		t.Error(msgSesionAbierta)
 	}
 }
 

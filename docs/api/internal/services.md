@@ -13,11 +13,16 @@ Package services implementa los casos de uso de la consola: descubre el conector
 - [Variables](<#variables>)
 - [type AbridorSesion](<#AbridorSesion>)
 - [type ConfigDescubridor](<#ConfigDescubridor>)
+- [type ConfigLlaves](<#ConfigLlaves>)
 - [type Descubridor](<#Descubridor>)
   - [func NuevoDescubridor\(config \*ConfigDescubridor\) \*Descubridor](<#NuevoDescubridor>)
   - [func \(d \*Descubridor\) Abrir\(ctx context.Context\) \(ports.Session, error\)](<#Descubridor.Abrir>)
   - [func \(d \*Descubridor\) Descubrir\(ctx context.Context\) \(InfoSesion, error\)](<#Descubridor.Descubrir>)
 - [type InfoSesion](<#InfoSesion>)
+- [type Llaves](<#Llaves>)
+  - [func NuevoLlaves\(config ConfigLlaves\) \*Llaves](<#NuevoLlaves>)
+  - [func \(l \*Llaves\) Descargar\(\) \(nombre string, contenido \[\]byte, err error\)](<#Llaves.Descargar>)
+  - [func \(l \*Llaves\) Generar\(ctx context.Context\) \(Resultado, error\)](<#Llaves.Generar>)
 - [type Paquete](<#Paquete>)
 - [type Paquetes](<#Paquetes>)
   - [func NuevoPaquetes\(sesiones AbridorSesion\) \*Paquetes](<#NuevoPaquetes>)
@@ -28,6 +33,18 @@ Package services implementa los casos de uso de la consola: descubre el conector
 
 
 ## Variables
+
+<a name="ErrLlaveExistente"></a>ErrLlaveExistente indica que la llave privada de root ya está en el anfitrión y no se sobrescribe.
+
+```go
+var ErrLlaveExistente = errors.New("la llave SSH de root ya existe")
+```
+
+<a name="ErrLlaveNoEncontrada"></a>ErrLlaveNoEncontrada indica que todavía no se ha generado la llave de root.
+
+```go
+var ErrLlaveNoEncontrada = errors.New("la llave SSH de root no existe")
+```
 
 <a name="ErrSesionNoDisponible"></a>ErrSesionNoDisponible indica que ningún conector puede atender la máquina en este momento \(por ejemplo, la VM está apagada o no hay llave SSH instalada ni Guest Additions disponible\).
 
@@ -60,6 +77,22 @@ type ConfigDescubridor struct {
     Objetivo domain.Target
     // Conectores son los conectores candidatos, en orden de preferencia.
     Conectores []ports.Connector
+}
+```
+
+<a name="ConfigLlaves"></a>
+## type ConfigLlaves
+
+ConfigLlaves reúne las dependencias del servicio de llaves.
+
+```go
+type ConfigLlaves struct {
+    // Sesiones abre la sesión con la máquina para instalar la llave.
+    Sesiones AbridorSesion
+    // Ejecutor lanza ssh-keygen en el equipo anfitrión.
+    Ejecutor ports.Executor
+    // Ruta es la ruta de la llave privada en el anfitrión.
+    Ruta string
 }
 ```
 
@@ -116,6 +149,44 @@ type InfoSesion struct {
     Estado domain.MachineState
 }
 ```
+
+<a name="Llaves"></a>
+## type Llaves
+
+Llaves implementa el caso de uso de las llaves SSH de root.
+
+```go
+type Llaves struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="NuevoLlaves"></a>
+### func NuevoLlaves
+
+```go
+func NuevoLlaves(config ConfigLlaves) *Llaves
+```
+
+NuevoLlaves construye el servicio de llaves con las dependencias dadas.
+
+<a name="Llaves.Descargar"></a>
+### func \(\*Llaves\) Descargar
+
+```go
+func (l *Llaves) Descargar() (nombre string, contenido []byte, err error)
+```
+
+Descargar devuelve el nombre y el contenido de la llave privada, sin exponerla en los logs.
+
+<a name="Llaves.Generar"></a>
+### func \(\*Llaves\) Generar
+
+```go
+func (l *Llaves) Generar(ctx context.Context) (Resultado, error)
+```
+
+Generar crea el par de llaves en el anfitrión, instala la pública en authorized\_keys y deshabilita el acceso por contraseña. Devuelve ErrLlaveExistente si la llave privada ya está presente.
 
 <a name="Paquete"></a>
 ## type Paquete

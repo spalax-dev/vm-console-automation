@@ -85,6 +85,37 @@ siempre al terminar y traduce el resultado del dominio:
 El listado se filtra por el estado de `dpkg-query` (`install ok installed`);
 las líneas de paquetes configurados a medias o desinstalados no se devuelven.
 
+### 2.3 Llaves SSH de root
+
+El recurso `/api/keys/root` gestiona el par de llaves que habilita el acceso
+por SSH con autenticación de llaves:
+
+| Operación | Acción | Respuesta |
+| --- | --- | --- |
+| `POST /api/keys/root` | genera el par en el anfitrión e instala la pública | `201`; `409` si la llave ya existe |
+| `GET /api/keys/root` | descarga la llave privada | `200` como archivo adjunto; `404` si no existe |
+
+El servicio `Llaves` (`internal/services/llaves.go`) ejecuta esta secuencia:
+
+1. Comprueba que la llave privada no exista en el anfitrión; si existe,
+   responde `409` para no sobrescribirla en silencio.
+2. Abre una sesión **antes** de generar la llave: como todavía no hay llave,
+   el descubrimiento elige `guest-additions`.
+3. Genera el par con `ssh-keygen -t ed25519 -N "" -f <ruta> -C vmcons-root`.
+4. Instala la llave pública en `/root/.ssh/authorized_keys` con permisos
+   `700` para el directorio y `600` para el archivo.
+5. Escribe `/etc/ssh/sshd_config.d/99-vmcons.conf` con
+   `PasswordAuthentication no` y `PermitRootLogin prohibit-password`, y
+   recarga el servicio con `systemctl reload ssh`.
+6. Cierra la sesión. A partir de este momento el conector `ssh` queda
+   disponible y pasa a ser el preferido.
+
+La ruta de la llave se configura con `VMCONS_SSH_KEY`; si no se define, se usa
+`<configuración del usuario>/vmcons/id_ed25519`. La llave privada nunca se
+escribe en los logs ni en el cuerpo JSON: solo se entrega como descarga con
+`Content-Disposition: attachment`. La interfaz muestra un aviso recomendando
+su resguardo y el uso exclusivo por parte del administrador.
+
 ---
 
 ## 3. Flujo de proceso de una operación

@@ -11,11 +11,12 @@ La capa HTTP está implementada: los catorce recursos de la
 aplica las reglas descritas en la \cref{sec:contrato-rest} y cada
 petición se responde con el modelo JSON de la
 \cref{sec:vision-general}. El descubrimiento de sesión
-expone \texttt{GET /api/session} y el módulo de paquetes ya ejecuta APT
-sobre la máquina. Los demás casos de uso, mientras no se conecten,
-responden \texttt{501} con un mensaje comprensible, de modo que la
-interfaz puede integrarse sin esperar a la ejecución real. Las pruebas
-cubren el 96.0\,\% de los manejadores y el 100\,\% de los servicios.
+expone \texttt{GET /api/session}, y los módulos de paquetes y de llaves
+SSH ya ejecutan operaciones reales sobre la máquina. Los demás casos de
+uso, mientras no se conecten, responden \texttt{501} con un mensaje
+comprensible, de modo que la interfaz puede integrarse sin esperar a la
+ejecución real. Las pruebas cubren el 99.0\,\% de los manejadores y el
+100\,\% de los servicios.
 
 % ------------------------------------------------------------
 % 4.1 Preparación del sistema
@@ -46,10 +47,30 @@ del 100\,\%.
 
 \subsubsection{Configuración de la Llave de Acceso SSH para el Usuario Root}
 \label{sec:ssh-root}
-% TODO: creación de llaves para root, instalación de la llave pública en
-% authorized_keys, deshabilitación del acceso por login y password,
-% descarga de la llave privada y mensaje de recomendación de uso
-% correcto de la llave.
+
+El recurso \texttt{/api/keys/root} concentra la configuración del
+acceso por llaves. El servicio comprueba primero que la llave privada no
+exista en el anfitrión y, si ya está, responde \texttt{409} para no
+sobrescribirla. Después abre la sesión \emph{antes} de generar la llave:
+como todavía no hay llave, el descubrimiento elige Guest Additions, que
+es el único canal disponible.
+
+La generación se delega en \texttt{ssh-keygen -t ed25519 -N ""} sobre el
+anfitrión. Con la llave pública ya disponible, una sola orden POSIX crea
+\texttt{/root/.ssh} con permisos \texttt{700}, agrega la clave a
+\texttt{authorized\_keys} con \texttt{600}, escribe
+\texttt{/etc/ssh/sshd\_config.d/99-vmcons.conf} con
+\texttt{PasswordAuthentication no} y
+\texttt{PermitRootLogin prohibit-password}, y recarga el servicio con
+\texttt{systemctl reload ssh}. Al cerrar la sesión, el conector
+\texttt{ssh} queda instalado y pasa a ser el preferido para las
+siguientes operaciones.
+
+La llave privada se entrega con \texttt{GET /api/keys/root} como archivo
+adjunto (\texttt{Content-Disposition: attachment}) y nunca se escribe en
+los logs ni en el cuerpo JSON; si todavía no existe, la respuesta es
+\texttt{404}. La interfaz muestra un aviso para resguardarla y no
+compartirla.
 
 \subsubsection{Personalización de la Entrada del Sistema}
 \label{sec:issue}
