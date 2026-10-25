@@ -1,14 +1,40 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-vm-bg: #F0F0F0;
+  --color-vm-surface: #FFFFFF;
+  --color-vm-border: #B0B0B0;
+  --color-vm-borderHover: #C0392B;
+  --color-vm-accent: #C0392B;
+  --color-vm-fg: #1F1F1F;
+  --color-vm-fgSecondary: #666666;
+  --color-vm-success: #27AE60;
+  --color-vm-warning: #F39C12;
+  --color-vm-muted: #7F8C8D;
+
+  --radius-vm: 3px;
+  --radius-vm-md: 4px;
+
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --height-vm-header: 40px;
+  --height-vm-tabs: 30px;
+  --height-vm-btn: 26px;
+  --height-vm-input: 26px;
+
+  --spacing-vm-gap: 16px;
+
+  --max-width-vm: 1100px;
+}
 
 @layer base {
-  * {
-    border-radius: 0;
-  }
   button, input, select, textarea {
     border-radius: 3px;
   }
+}
+
+@layer components {
   .card {
     @apply bg-vm-surface border border-vm-border rounded-vm-md;
   }
@@ -34,34 +60,35 @@
     @apply text-vm-fgSecondary text-[11px];
   }
   .tab {
-    @apply h-vm-tabs px-3 inline-flex items-center gap-1.5 text-vm-fgSecondary border-b-2 border-transparent transition-all duration-100;
+    @apply h-vm-tabs px-3 inline-flex items-center gap-1.5 text-vm-fgSecondary border-b-2 border-transparent rounded-none transition-all duration-100;
   }
   .tab:hover {
     @apply text-vm-fg;
   }
   .tab.active {
-    @apply text-vm-fg border-vm-accent;
+    @apply text-[#C0392B] border-[#C0392B];
   }
 }
 
-@layer utilities {
-  .fade-slide {
-    animation: fadeSlide 150ms ease-out;
+@keyframes fadeSlide {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
   }
-  @keyframes fadeSlide {
-    from {
-      opacity: 0;
-      transform: translateY(4px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
-  .spin {
-    animation: spin 800ms linear infinite;
-  }
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
+}
+
+.fade-slide {
+  animation: fadeSlide 150ms ease-out;
+}
+
+.spin {
+  animation: spin 800ms linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }

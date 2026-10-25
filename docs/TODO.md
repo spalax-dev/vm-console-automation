@@ -195,7 +195,8 @@ de los módulos del numeral 3.
   de ejecución. Las ocho vistas consultan su recurso al montarse y
   muestran carga, vacío y error; las operaciones de escritura alimentan
   el panel de resultado. Se documentó en `docs/web-cliente.md`.
-  Pruebas del cliente con Vitest: 36 casos (`api`, `validacion`, `ui`).
+  Pruebas del cliente con Vitest: 40 casos (\texttt{api},
+  \texttt{validacion}, \texttt{ui} y montaje de vistas en DOM).
   Presupuesto: 64 kB de JavaScript (antes 528 kB) al importar solo los
   iconos utilizados.
 

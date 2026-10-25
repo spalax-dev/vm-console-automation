@@ -2,7 +2,7 @@
 export default {
   content: [
     "./index.html",
-    "./src/**/*.{js,html}",
+    "./src/**/*.{js,html,ts}",
   ],
   theme: {
     extend: {
@@ -25,7 +25,7 @@ export default {
         'vm-md': '4px',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['IBM Plex Sans', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
       height: {
@@ -42,5 +42,4 @@ export default {
       },
     },
   },
-  plugins: [require('@tailwindcss/forms')],
 }

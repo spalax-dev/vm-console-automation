@@ -1,98 +1,278 @@
-const API_BASE = '/api';
+/**
+ * Cliente HTTP del contrato OpenAPI de `vmcons` (`docs/openapi.yaml`).
+ *
+ * Ninguna vista llama a `fetch` directamente: todas las rutas, los cuerpos y
+ * los errores del contrato se resuelven aquí. La base es relativa (`/api`)
+ * porque la SPA se sirve desde el mismo origen que la API; el proxy de Vite
+ * redirige `/api` al servidor Go durante el desarrollo.
+ */
 
-async function request(method, url, body = null) {
-  const opts = {
-    method,
-    headers: {
-      'Accept': 'application/json',
-    },
-  };
-  if (body) {
-    if (body instanceof FormData) {
-      opts.body = body;
-    } else {
-      opts.headers['Content-Type'] = 'application/json';
-      opts.body = JSON.stringify(body);
-    }
+/** Prefijo común de todas las rutas de la API. */
+const BASE = '/api';
+
+/** Cuerpo JSON que se envía por omisión. */
+const CABECERAS_JSON = {
+  Accept: 'application/json',
+  'Content-Type': 'application/json',
+};
+
+/**
+ * Error normalizado de una respuesta fallida de la consola.
+ *
+ * Conserva el código HTTP, el mensaje de la envoltura
+ * `{ok, mensaje, campo, tecnico}` y el detalle técnico para el panel de
+ * resultado.
+ */
+export class ApiError extends Error {
+  /**
+   * Construye el error con la respuesta recibida.
+   *
+   * @param {number} estado Código HTTP de la respuesta.
+   * @param {{mensaje?: string, campo?: string, tecnico?: string}|null} cuerpo Cuerpo de la respuesta.
+   */
+  constructor(estado, cuerpo) {
+    super((cuerpo && cuerpo.mensaje) || `La consola respondió con el código ${estado}.`);
+
+    /** Código HTTP recibido. */
+    this.name = 'ApiError';
+    /** Código HTTP recibido. */
+    this.estado = estado;
+    /** Mensaje comprensible para el usuario. */
+    this.mensaje = this.message;
+    /** Campo rechazado por la validación, cuando aplica. */
+    this.campo = cuerpo && cuerpo.campo;
+    /** Detalle técnico de la respuesta. */
+    this.tecnico = cuerpo && cuerpo.tecnico;
   }
-  const res = await fetch(API_BASE + url, opts);
-  const contentType = res.headers.get('content-type') || '';
-  if (contentType.includes('application/json')) {
-    const json = await res.json();
-    if (!res.ok) throw { status: res.status, ...json };
-    return json;
+
+  /**
+   * Indica si la operación existe en el contrato pero aún no está conectada
+   * con la máquina.
+   *
+   * @returns {boolean} `true` para una respuesta `501`.
+   */
+  get noImplementado() {
+    return this.estado === 501;
   }
-  if (!res.ok) throw { status: res.status, text: await res.text() };
-  return res;
 }
 
-// Cliente REST de la consola. Los nombres de las funciones conservan la
-// forma que usan las vistas; las rutas siguen docs/openapi.yaml.
-export const api = {
-  getSesion: () => request('GET', '/session'),
+/**
+ * Añade la cadena de consulta a una ruta, omitiendo los valores vacíos y los
+ * indicadores en `false`.
+ *
+ * @param {string} ruta Ruta relativa al prefijo de la API.
+ * @param {Record<string, string|number|boolean|undefined>|undefined} consulta Parámetros.
+ * @returns {string} URL completa.
+ */
+function conConsulta(ruta, consulta) {
+  if (!consulta) {
+    return BASE + ruta;
+  }
 
-  listarPaquetes: () => request('GET', '/packages'),
-  paquetes: ({ accion, paquete }) =>
-    accion === 'remove'
-      ? request('DELETE', `/packages/${encodeURIComponent(paquete)}`)
-      : request('POST', '/packages', { nombre: paquete }),
+  const partes = Object.entries(consulta)
+    .filter(([, valor]) => valor !== undefined && valor !== null && valor !== false)
+    .map(([clave, valor]) => `${encodeURIComponent(clave)}=${encodeURIComponent(String(valor))}`);
 
-  sshRootGenerar: () => request('POST', '/keys/root'),
-  getSshRootLlave: async () => {
-    const res = await request('GET', '/keys/root');
-    return res.blob();
-  },
+  return partes.length > 0 ? `${BASE}${ruta}?${partes.join('&')}` : BASE + ruta;
+}
 
-  getIssue: () => request('GET', '/issue'),
-  setIssue: (data) => request('PUT', '/issue', data),
+/**
+ * Ejecuta una petición y traduce la respuesta al valor del contrato.
+ *
+ * @param {string} metodo Verbo HTTP.
+ * @param {string} ruta Ruta relativa al prefijo de la API.
+ * @param {object} [opciones] Opciones de la petición.
+ * @param {unknown} [opciones.cuerpo] Cuerpo JSON que se serializa.
+ * @param {Record<string, string|number|boolean|undefined>} [opciones.consulta] Cadena de consulta.
+ * @param {boolean} [opciones.descarga] Si la respuesta es un archivo binario.
+ * @returns {Promise<unknown>} Cuerpo JSON, `Blob` o `null` para `204`.
+ * @throws {ApiError} Cuando la respuesta no es satisfactoria.
+ */
+async function pedir(metodo, ruta, { cuerpo, consulta, descarga = false } = {}) {
+  const opciones = { method: metodo, headers: { Accept: 'application/json' } };
 
-  getHostname: () => request('GET', '/hostname'),
-  setHostname: (data) => request('PUT', '/hostname', data),
+  if (cuerpo !== undefined) {
+    opciones.headers = CABECERAS_JSON;
+    opciones.body = JSON.stringify(cuerpo);
+  }
 
-  listarUsuarios: () => request('GET', '/users'),
-  crearUsuario: (data) => request('POST', '/users', data),
-  getUsuario: (nombre) => request('GET', `/users/${encodeURIComponent(nombre)}`),
-  eliminarUsuario: ({ nombre, archivos = false }) =>
-    request('DELETE', `/users/${encodeURIComponent(nombre)}?files=${archivos ? 'true' : 'false'}`),
-  getUsuarioLlave: async (nombre) => {
-    const res = await request('GET', `/users/${encodeURIComponent(nombre)}/key`);
-    return res.blob();
-  },
+  const respuesta = await fetch(conConsulta(ruta, consulta), opciones);
 
-  listarUnidades: () => request('GET', '/units'),
-  desplegarSystemd: ({ unidad, ...data }) => {
-    const archivos = (data.archivos || []).map((a) => ({
-      origen: a.origen,
-      destino: a.destino,
-      modo: a.modo,
-    }));
-    return request('PUT', `/units/${encodeURIComponent(unidad)}`, {
-      archivos,
-      usuario: data.usuario,
-      grupo: data.grupo,
-    });
-  },
-  systemdAccion: (unidad, accion) => {
-    const ruta = `/units/${encodeURIComponent(unidad)}`;
-    switch (accion) {
-      case 'start':
-        return request('PATCH', ruta, { activo: true });
-      case 'stop':
-        return request('PATCH', ruta, { activo: false });
-      case 'enable':
-        return request('PATCH', ruta, { habilitado: true });
-      case 'disable':
-        return request('PATCH', ruta, { habilitado: false });
-      case 'restart':
-        return request('POST', `${ruta}/restarts`);
-      default:
-        return Promise.reject(new Error(`Acción desconocida: ${accion}`));
+  if (respuesta.status === 204) {
+    return null;
+  }
+
+  const tipo = respuesta.headers.get('content-type') || '';
+
+  if (!respuesta.ok) {
+    let detalle = null;
+
+    if (tipo.includes('application/json')) {
+      try {
+        detalle = await respuesta.json();
+      } catch {
+        detalle = null;
+      }
     }
-  },
-  systemdStatus: (unidad) => request('GET', `/units/${encodeURIComponent(unidad)}`),
 
-  getHaproxy: () => request('GET', '/haproxy/backend/servers'),
-  addHaproxy: (data) => request('POST', '/haproxy/backend/servers', data),
-  delHaproxy: ({ direccion, puerto }) =>
-    request('DELETE', `/haproxy/backend/servers/${direccion}:${puerto}`),
+    throw new ApiError(respuesta.status, detalle);
+  }
+
+  if (descarga) {
+    return respuesta.blob();
+  }
+
+  if (tipo.includes('application/json')) {
+    return respuesta.json();
+  }
+
+  return respuesta.text();
+}
+
+/**
+ * Descarga un archivo y lo entrega al navegador con el nombre indicado.
+ *
+ * @param {Blob} archivo Contenido descargado.
+ * @param {string} nombre Nombre sugerido para guardar.
+ */
+export function guardarArchivo(archivo, nombre) {
+  const url = URL.createObjectURL(archivo);
+  const enlace = document.createElement('a');
+
+  enlace.href = url;
+  enlace.download = nombre;
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  URL.revokeObjectURL(url);
+}
+
+/** Operaciones del contrato, agrupadas por recurso. */
+export const api = {
+  /** Sesión con la máquina virtual (`GET /api/session`). */
+  sesion: {
+    /** @returns {Promise<{conector: string, ip: string, estado: string}>} */
+    obtener: () => pedir('GET', '/session'),
+  },
+
+  /** Paquetes APT (numeral 3.1.1). */
+  paquetes: {
+    /** @returns {Promise<{paquetes: Array<object>}>} */
+    listar: () => pedir('GET', '/packages'),
+    /**
+     * @param {string} nombre Nombre del paquete.
+     * @returns {Promise<object>} Resultado de la operación.
+     */
+    instalar: (nombre) => pedir('POST', '/packages', { cuerpo: { nombre } }),
+    /**
+     * @param {string} nombre Nombre del paquete.
+     * @returns {Promise<null>} Sin cuerpo.
+     */
+    eliminar: (nombre) => pedir('DELETE', `/packages/${encodeURIComponent(nombre)}`),
+  },
+
+  /** Llaves SSH de root (numeral 3.1.2). */
+  llaves: {
+    /** @returns {Promise<object>} Resultado de la generación. */
+    generarRoot: () => pedir('POST', '/keys/root'),
+    /** @returns {Promise<Blob>} Llave privada. */
+    descargarRoot: () => pedir('GET', '/keys/root', { descarga: true }),
+  },
+
+  /** Banner `/etc/issue` (numeral 3.1.3). */
+  issue: {
+    /** @returns {Promise<object>} Configuración actual. */
+    obtener: () => pedir('GET', '/issue'),
+    /**
+     * @param {{mensaje: string, nombre_host: boolean, fecha: boolean, hora: boolean, ip: boolean}} configuracion Configuración.
+     * @returns {Promise<object>} Resultado de la operación.
+     */
+    reemplazar: (configuracion) => pedir('PUT', '/issue', { cuerpo: configuracion }),
+  },
+
+  /** Nombre de host (numeral 3.1.4). */
+  hostname: {
+    /** @returns {Promise<object>} Configuración actual. */
+    obtener: () => pedir('GET', '/hostname'),
+    /**
+     * @param {{nombre: string, ip: string, actualizar_hosts: boolean}} configuracion Configuración.
+     * @returns {Promise<object>} Resultado de la operación.
+     */
+    reemplazar: (configuracion) => pedir('PUT', '/hostname', { cuerpo: configuracion }),
+  },
+
+  /** Cuentas locales (numeral 3.2). */
+  usuarios: {
+    /** @returns {Promise<{usuarios: Array<object>}>} */
+    listar: () => pedir('GET', '/users'),
+    /**
+     * @param {{nombre: string, sudo: boolean, llaves: boolean}} solicitud Datos del usuario.
+     * @returns {Promise<object>} Resultado de la operación.
+     */
+    crear: (solicitud) => pedir('POST', '/users', { cuerpo: solicitud }),
+    /**
+     * @param {string} nombre Nombre del usuario.
+     * @returns {Promise<object>} Datos del usuario.
+     */
+    obtener: (nombre) => pedir('GET', `/users/${encodeURIComponent(nombre)}`),
+    /**
+     * @param {string} nombre Nombre del usuario.
+     * @param {{archivos?: boolean}} [opciones] Eliminar también el directorio personal.
+     * @returns {Promise<null>} Sin cuerpo.
+     */
+    eliminar: (nombre, opciones = {}) =>
+      pedir('DELETE', `/users/${encodeURIComponent(nombre)}`, {
+        consulta: { files: opciones.archivos ? true : undefined },
+      }),
+    /**
+     * @param {string} nombre Nombre del usuario.
+     * @returns {Promise<Blob>} Llave privada.
+     */
+    descargarLlave: (nombre) => pedir('GET', `/users/${encodeURIComponent(nombre)}/key`, { descarga: true }),
+  },
+
+  /** Unidades systemd (numeral 3.3). */
+  unidades: {
+    /** @returns {Promise<{unidades: Array<object>}>} */
+    listar: () => pedir('GET', '/units'),
+    /**
+     * @param {string} unidad Nombre de la unidad.
+     * @returns {Promise<object>} Estado de la unidad.
+     */
+    obtener: (unidad) => pedir('GET', `/units/${encodeURIComponent(unidad)}`),
+    /**
+     * @param {string} unidad Nombre de la unidad.
+     * @param {object} solicitud Archivos que se despliegan.
+     * @returns {Promise<object>} Resultado de la operación.
+     */
+    desplegar: (unidad, solicitud) => pedir('PUT', `/units/${encodeURIComponent(unidad)}`, { cuerpo: solicitud }),
+    /**
+     * @param {string} unidad Nombre de la unidad.
+     * @param {{activo?: boolean, habilitado?: boolean}} cambio Una sola propiedad.
+     * @returns {Promise<object>} Estado actualizado.
+     */
+    cambiarEstado: (unidad, cambio) => pedir('PATCH', `/units/${encodeURIComponent(unidad)}`, { cuerpo: cambio }),
+    /**
+     * @param {string} unidad Nombre de la unidad.
+     * @returns {Promise<object>} Resultado de la operación.
+     */
+    reiniciar: (unidad) => pedir('POST', `/units/${encodeURIComponent(unidad)}/restarts`),
+  },
+
+  /** Servidores del back-end de HAProxy (numeral 3.4). */
+  haproxy: {
+    /** @returns {Promise<{servidores: Array<object>}>} */
+    listar: () => pedir('GET', '/haproxy/backend/servers'),
+    /**
+     * @param {{direccion: string, puerto: number}} servidor Servidor que se agrega.
+     * @returns {Promise<object>} Resultado de la operación.
+     */
+    agregar: (servidor) => pedir('POST', '/haproxy/backend/servers', { cuerpo: servidor }),
+    /**
+     * @param {string} identificador Servidor como `direccion:puerto`.
+     * @returns {Promise<null>} Sin cuerpo.
+     */
+    eliminar: (identificador) =>
+      pedir('DELETE', `/haproxy/backend/servers/${encodeURIComponent(identificador)}`),
+  },
 };

@@ -1,0 +1,103 @@
+import { describe, expect, it, vi } from 'vitest';
+
+import { ApiError } from './api.js';
+import {
+  escapar,
+  mensajeDeError,
+  presentarEstado,
+  presentarEstadoServidor,
+  presentarEstadoUnidad,
+  resultadoDeError,
+} from './ui.js';
+
+describe('utilidades de presentación', () => {
+  it('escapa los caracteres peligrosos de una plantilla', () => {
+    expect(escapar('<script>alert("x")</script>')).toBe('&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;');
+    expect(escapar(null)).toBe('');
+    expect(escapar(0)).toBe('0');
+  });
+
+  it('traduce los estados de encendido del contrato', () => {
+    expect(presentarEstado('running').texto).toBe('Encendida');
+    expect(presentarEstado('poweroff').texto).toBe('Apagada');
+    expect(presentarEstado('paused').texto).toBe('Pausada');
+    expect(presentarEstado('saved').texto).toBe('Apagada');
+    expect(presentarEstado('desconocido').texto).toBe('Desconocido');
+  });
+
+  it('traduce los estados de una unidad systemd', () => {
+    expect(presentarEstadoUnidad('active').texto).toBe('activa');
+    expect(presentarEstadoUnidad('failed').texto).toBe('falló');
+    expect(presentarEstadoUnidad('inactive').texto).toBe('inactiva');
+  });
+
+  it('traduce los estados de un servidor del back-end', () => {
+    expect(presentarEstadoServidor('up').texto).toBe('UP');
+    expect(presentarEstadoServidor('down').texto).toBe('DOWN');
+    expect(presentarEstadoServidor('otro').texto).toBe('DESCONOCIDO');
+  });
+
+  it('explica un módulo todavía no conectado', () => {
+    const error = new ApiError(501, { mensaje: 'La operación aún no está conectada.' });
+
+    expect(mensajeDeError(error)).toBe('Este módulo aún no está conectado con la máquina.');
+  });
+
+  it('conserva el mensaje del servidor para el resto de errores', () => {
+    const error = new ApiError(400, { mensaje: 'el campo "nombre" no es válido', campo: 'nombre' });
+
+    expect(mensajeDeError(error)).toBe('el campo "nombre" no es válido');
+    expect(resultadoDeError(error, 'POST /api/packages')).toEqual({
+      ok: false,
+      mensaje: 'el campo "nombre" no es válido',
+      operacion: 'POST /api/packages',
+      tecnico: 'nombre',
+    });
+  });
+
+  it('explica un fallo de red', () => {
+    expect(mensajeDeError(new TypeError('Failed to fetch'))).toContain('No fue posible contactar');
+  });
+});
+
+describe('ejecución de operaciones', () => {
+  it('entrega el resultado correcto y recarga la lista', async () => {
+    const informar = vi.fn();
+    const recargar = vi.fn();
+    const { ejecutar } = await import('./ui.js');
+
+    const exito = await ejecutar({
+      accion: async () => ({ mensaje: 'Hecho', operacion: 'apt-get install -y nano', codigo: 0 }),
+      operacion: 'POST /api/packages',
+      informar,
+      recargar,
+    });
+
+    expect(exito).toBe(true);
+    expect(informar).toHaveBeenCalledWith(
+      expect.objectContaining({ ok: true, mensaje: 'Hecho', operacion: 'apt-get install -y nano' }),
+    );
+    expect(recargar).toHaveBeenCalledOnce();
+  });
+
+  it('informa el error sin recargar la lista', async () => {
+    const informar = vi.fn();
+    const recargar = vi.fn();
+    const { ejecutar } = await import('./ui.js');
+
+    const exito = await ejecutar({
+      accion: async () => {
+        throw new ApiError(503, { mensaje: 'Sin sesión', tecnico: 'sin conector' });
+      },
+      operacion: 'GET /api/packages',
+      informar,
+      recargar,
+    });
+
+    expect(exito).toBe(false);
+    expect(informar).toHaveBeenCalledWith(
+      expect.objectContaining({ ok: false, mensaje: 'Sin sesión', tecnico: 'sin conector' }),
+    );
+    expect(recargar).not.toHaveBeenCalled();
+  });
+});

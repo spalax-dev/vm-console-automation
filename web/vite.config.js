@@ -1,5 +1,7 @@
 import { defineConfig } from 'vite'
-import { resolve } from 'path'
+import { resolve } from 'node:path'
+
+const __dirname = import.meta.dirname
 
 export default defineConfig({
   root: './',
@@ -15,7 +17,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: process.env.VMCONS_API ?? 'http://localhost:8080',
         changeOrigin: true,
       },
     },
