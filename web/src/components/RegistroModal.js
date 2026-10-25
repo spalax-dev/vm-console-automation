@@ -140,8 +140,8 @@ export function abrirRegistro({ maquina, alRegistrar }) {
   /** Detiene la animación y fija el resultado final. */
   const terminarProgreso = (exito, texto) => {
     clearInterval(temporizador);
-    barra.style.width = exito ? '100%' : barra.style.width;
-    porcentajeEl.textContent = exito ? '100 %' : porcentajeEl.textContent;
+    barra.style.width = '100%';
+    porcentajeEl.textContent = '100 %';
     barra.className = `h-full transition-all duration-300 ${exito ? 'bg-vm-success' : 'bg-vm-accent'}`;
     pasoEl.textContent = texto;
     ayudaEl.textContent = exito ? 'La máquina quedó registrada.' : 'Revisa el detalle técnico e inténtalo de nuevo.';

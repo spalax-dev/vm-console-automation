@@ -102,7 +102,12 @@ func (a *Acceso) Registrar(ctx context.Context, usuario, password string) (Resul
 
 	salida, err := a.prepararSSH(ctx, objetivo, direccion, password)
 	if errors.Is(err, ErrCredencialesInvalidas) {
+		errorGuest := err
+
 		salida, err = a.prepararSSHPassword(ctx, objetivo, direccion, usuario, password)
+		if err != nil {
+			err = fmt.Errorf("%w (Guest Additions: %w; SSH: %w)", ErrCredencialesInvalidas, errorGuest, err)
+		}
 	}
 
 	if err != nil {
