@@ -15,6 +15,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"consola-vm/internal/core/domain"
 	"consola-vm/internal/core/ports"
@@ -34,6 +36,15 @@ const flagMachineReadable = "--machinereadable"
 // cmdShowVMInfo es el subcomando que describe una máquina.
 const cmdShowVMInfo = "showvminfo"
 
+// cmdGuestProperty es el subcomando que consulta propiedades.
+const cmdGuestProperty = "guestproperty"
+
+// cmdList es el subcomando que enumera máquinas.
+const cmdList = "list"
+
+// msgErrorComando es el contexto de error de VBoxManage.
+const msgErrorComando = "%s: %w"
+
 // Client implementa ports.Machine y ports.Connector sobre VirtualBox.
 type Client struct {
 	exe          ports.Executor
@@ -41,6 +52,10 @@ type Client struct {
 	user         string
 	pass         string
 	credenciales Credenciales
+
+	// mu serializa las llamadas a VBoxManage: el programa usa un bloqueo
+	// global y las peticiones concurrentes fallan mientras otra lo tiene.
+	mu sync.Mutex
 }
 
 // Credenciales resuelve el usuario y la contraseña de Guest Additions
@@ -91,6 +106,55 @@ func New(exe ports.Executor, opts ...Option) *Client {
 	return client
 }
 
+// ejecutar lanza VBoxManage en serie y reintenta una vez las consultas
+// de solo lectura cuando VirtualBox está ocupado.
+func (c *Client) ejecutar(ctx context.Context, args ...string) (domain.Result, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	comando := "VBoxManage"
+	if len(args) > 0 {
+		comando += " " + args[0]
+	}
+
+	resultado, err := c.exe.Execute(ctx, c.bin, args...)
+	if err == nil {
+		return resultado, nil
+	}
+
+	if ctx.Err() != nil || !reintentable(args) {
+		return resultado, fmt.Errorf(msgErrorComando, comando, err)
+	}
+
+	select {
+	case <-ctx.Done():
+		return resultado, fmt.Errorf(msgErrorComando, comando, err)
+	case <-time.After(250 * time.Millisecond):
+	}
+
+	resultado, err = c.exe.Execute(ctx, c.bin, args...)
+	if err != nil {
+		return resultado, fmt.Errorf(msgErrorComando, comando, err)
+	}
+
+	return resultado, nil
+}
+
+// reintentable limita los reintentos a las consultas que no modifican
+// el estado de la máquina.
+func reintentable(args []string) bool {
+	if len(args) == 0 {
+		return false
+	}
+
+	switch args[0] {
+	case "showvminfo", cmdList, cmdGuestProperty, "--version":
+		return true
+	default:
+		return false
+	}
+}
+
 // Name implements ports.Connector.
 func (c *Client) Name() string {
 	return "guest-additions"
@@ -102,12 +166,12 @@ func (c *Client) Name() string {
 // una ejecución de VBoxManage por máquina, así que las que no están en
 // ejecución se informan como apagadas.
 func (c *Client) List(ctx context.Context) ([]domain.VM, error) {
-	todas, err := c.exe.Execute(ctx, c.bin, "list", "vms")
+	todas, err := c.ejecutar(ctx, cmdList, "vms")
 	if err != nil {
 		return nil, fmt.Errorf("listar las máquinas virtuales: %w", err)
 	}
 
-	enMarcha, err := c.exe.Execute(ctx, c.bin, "list", "runningvms")
+	enMarcha, err := c.ejecutar(ctx, cmdList, "runningvms")
 	if err != nil {
 		return nil, fmt.Errorf("listar las máquinas en ejecución: %w", err)
 	}
@@ -134,7 +198,7 @@ func (c *Client) List(ctx context.Context) ([]domain.VM, error) {
 // Start implements ports.Power: arranca la máquina en modo sin interfaz
 // gráfica, que es el que corresponde a una consola de administración.
 func (c *Client) Start(ctx context.Context, target domain.Target) error {
-	if _, err := c.exe.Execute(ctx, c.bin, "startvm", target.ID, "--type", "headless"); err != nil {
+	if _, err := c.ejecutar(ctx, "startvm", target.ID, "--type", "headless"); err != nil {
 		return fmt.Errorf("encender la máquina %q: %w", target.ID, err)
 	}
 
@@ -168,7 +232,7 @@ func parseList(output string) []domain.VM {
 // Address implements ports.Machine: lee la propiedad que publica Guest
 // Additions y devuelve la dirección de la máquina.
 func (c *Client) Address(ctx context.Context, target domain.Target) (netip.Addr, error) {
-	result, err := c.exe.Execute(ctx, c.bin, "guestproperty", "get", target.ID, guestIPv4Property)
+	result, err := c.ejecutar(ctx, cmdGuestProperty, "get", target.ID, guestIPv4Property)
 	if err != nil {
 		return netip.Addr{}, fmt.Errorf("guest-additions: leer la dirección de %q: %w", target.ID, err)
 	}
@@ -184,7 +248,7 @@ func (c *Client) Address(ctx context.Context, target domain.Target) (netip.Addr,
 // State implements ports.Machine: consulta el estado de encendido de la
 // máquina con salida legible por máquina.
 func (c *Client) State(ctx context.Context, target domain.Target) (domain.MachineState, error) {
-	result, err := c.exe.Execute(ctx, c.bin, cmdShowVMInfo, target.ID, flagMachineReadable)
+	result, err := c.ejecutar(ctx, cmdShowVMInfo, target.ID, flagMachineReadable)
 	if err != nil {
 		return domain.StateUnknown, fmt.Errorf("guest-additions: leer el estado de %q: %w", target.ID, err)
 	}
@@ -195,7 +259,7 @@ func (c *Client) State(ctx context.Context, target domain.Target) (domain.Machin
 // Network implements ports.Machine: interpreta el modo de la primera
 // interfaz de red de «showvminfo --machinereadable».
 func (c *Client) Network(ctx context.Context, target domain.Target) (domain.NetworkMode, error) {
-	result, err := c.exe.Execute(ctx, c.bin, cmdShowVMInfo, target.ID, flagMachineReadable)
+	result, err := c.ejecutar(ctx, cmdShowVMInfo, target.ID, flagMachineReadable)
 	if err != nil {
 		return domain.NetworkUnknown, fmt.Errorf("leer la red de %q: %w", target.ID, err)
 	}
@@ -205,7 +269,7 @@ func (c *Client) Network(ctx context.Context, target domain.Target) (domain.Netw
 
 // Version devuelve la versión de VirtualBox del anfitrión.
 func (c *Client) Version(ctx context.Context) (string, error) {
-	result, err := c.exe.Execute(ctx, c.bin, "--version")
+	result, err := c.ejecutar(ctx, "--version")
 	if err != nil {
 		return "", fmt.Errorf("leer la versión de VirtualBox: %w", err)
 	}
@@ -216,7 +280,7 @@ func (c *Client) Version(ctx context.Context) (string, error) {
 // GuestAdditions implements ports.Machine: lee la versión y el nivel de
 // Guest Additions y los usuarios con sesión iniciada.
 func (c *Client) GuestAdditions(ctx context.Context, target domain.Target) (domain.GuestAdditions, error) {
-	result, err := c.exe.Execute(ctx, c.bin, cmdShowVMInfo, target.ID, flagMachineReadable)
+	result, err := c.ejecutar(ctx, cmdShowVMInfo, target.ID, flagMachineReadable)
 	if err != nil {
 		return domain.GuestAdditions{}, fmt.Errorf("leer Guest Additions de %q: %w", target.ID, err)
 	}
@@ -226,7 +290,7 @@ func (c *Client) GuestAdditions(ctx context.Context, target domain.Target) (doma
 		RunLevel: enteroPropiedad(result.Stdout, "GuestAdditionsRunLevel"),
 	}
 
-	usuarios, err := c.exe.Execute(ctx, c.bin, "guestproperty", "get", target.ID,
+	usuarios, err := c.ejecutar(ctx, cmdGuestProperty, "get", target.ID,
 		"/VirtualBox/GuestInfo/OS/LoggedInUsersList")
 	if err == nil {
 		guest.LoggedUsers = parsearUsuarios(usuarios.Stdout)
@@ -349,7 +413,7 @@ func (s *Session) Run(ctx context.Context, cmd *domain.Command) (domain.Result, 
 	args = append(args, "--exe", cmd.Path, "--")
 	args = append(args, cmd.Args...)
 
-	result, err := s.client.exe.Execute(ctx, s.client.bin, args...)
+	result, err := s.client.ejecutar(ctx, args...)
 	if err != nil {
 		return result, fmt.Errorf("guest-additions: ejecutar %q: %w", cmd.Path,
 			errorSanitizado(err, "VBoxManage guestcontrol "+s.target.ID+" run"))
@@ -367,7 +431,7 @@ func (s *Session) Put(ctx context.Context, localPath, remotePath string) error {
 		localPath, remotePath,
 	}
 
-	if _, err := s.client.exe.Execute(ctx, s.client.bin, args...); err != nil {
+	if _, err := s.client.ejecutar(ctx, args...); err != nil {
 		return fmt.Errorf("guest-additions: transferir %q: %w", localPath,
 			errorSanitizado(err, "VBoxManage guestcontrol "+s.target.ID+" copyto"))
 	}

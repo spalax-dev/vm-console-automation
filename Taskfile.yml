@@ -29,13 +29,13 @@ tasks:
   run:
     desc: Ejecutar la consola sin configuración previa (reinicia una instancia anterior)
     cmds:
-      - pkill -f 'consola-vm$' >/dev/null 2>&1 || true
+      - pkill -f '(consola-vm|/vmcons)$' >/dev/null 2>&1 || true
       - if command -v pnpm >/dev/null 2>&1; then (cd web && pnpm build); fi
       - go run .
 
   stop:
     desc: Detener la consola iniciada con task run
-    cmd: pkill -f 'consola-vm$' >/dev/null 2>&1 || true
+    cmd: pkill -f '(consola-vm|/vmcons)$' >/dev/null 2>&1 || true
 
   test:
     desc: Formatear el código y ejecutar las pruebas unitarias

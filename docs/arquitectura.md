@@ -54,8 +54,9 @@ El conector `vbox` publica el nombre `guest-additions` y el conector `ssh` publi
 ## Registro y observabilidad
 
 Cada petición a `/api/` recibe un identificador `X-Request-ID` y se
-registra con método, ruta, estado, duración, tamaño y máquina activa. Los
-errores 4xx se anotan como advertencia y los 5xx como error. El formato se
+registra con un formato compacto: hora, nivel coloreado, método, ruta,
+estado, duración, máquina y solicitud. Los errores 4xx y el `503` se
+anotan como advertencia; los 5xx internos, como error. El formato se
 elige con `VMCONS_LOG` (`text` por omisión o `json`) y el nivel con
 `VMCONS_LOG_LEVEL` (`debug`, `info`, `warn`, `error`).
 

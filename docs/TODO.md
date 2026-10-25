@@ -179,6 +179,13 @@ de los módulos del numeral 3.
 
 ## Notas de seguimiento
 
+- **25 oct 2026** — Estabilidad de VirtualBox: `VBoxManage` se ejecuta
+  en serie dentro del adaptador y las consultas de solo lectura se
+  reintentan una vez si el programa está ocupado. Durante el arranque,
+  `GET /api/session` responde `503` (advertencia, no error) y el
+  selector reintenta hasta 90 s. Los logs usan un formato compacto con
+  color por nivel (`INFO`/`WARN`/`ERROR`) y `503` como advertencia.
+
 - **25 oct 2026** — Corregido `guestcontrol run`: el adaptador pasaba la
   ruta del ejecutable dos veces (`--exe /usr/bin/id -- /usr/bin/id -u`),
   por lo que `id` interpretaba la ruta como nombre de usuario. Ahora los

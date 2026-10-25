@@ -323,13 +323,11 @@ func configurarLog() {
 		nivel = slog.LevelError
 	}
 
-	opciones := &slog.HandlerOptions{Level: nivel}
-
 	var manejador slog.Handler
 	if strings.EqualFold(os.Getenv(envLog), "json") {
-		manejador = slog.NewJSONHandler(os.Stderr, opciones)
+		manejador = slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: nivel})
 	} else {
-		manejador = slog.NewTextHandler(os.Stderr, opciones)
+		manejador = nuevoHandlerConsola(os.Stderr, nivel, colorEn(os.Stderr))
 	}
 
 	slog.SetDefault(slog.New(manejador))

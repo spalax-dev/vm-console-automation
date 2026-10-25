@@ -4,6 +4,7 @@
 package handlers
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -101,15 +102,21 @@ func ConObservabilidad(siguiente http.Handler, vm func() string, logger *slog.Lo
 			atributos = append(atributos, "vm", nombre)
 		}
 
-		switch {
-		case estado >= http.StatusInternalServerError:
-			logger.Error(msgAPI, atributos...)
-		case estado >= http.StatusBadRequest:
-			logger.Warn(msgAPI, atributos...)
-		default:
-			logger.Info(msgAPI, atributos...)
-		}
+		logger.Log(context.Background(), nivelDeEstado(estado), msgAPI, atributos...)
 	})
+}
+
+// nivelDeEstado clasifica el estado HTTP: 503 es una indisponibilidad
+// temporal (advertencia), no un error interno.
+func nivelDeEstado(estado int) slog.Level {
+	switch {
+	case estado >= http.StatusInternalServerError && estado != http.StatusServiceUnavailable:
+		return slog.LevelError
+	case estado >= http.StatusBadRequest:
+		return slog.LevelWarn
+	default:
+		return slog.LevelInfo
+	}
 }
 
 // nombreVM devuelve la máquina activa sin romper si no hay vínculo.
