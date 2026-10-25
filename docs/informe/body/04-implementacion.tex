@@ -295,6 +295,16 @@ un equipo sin salida a Internet. La tarea \texttt{build} del
 \texttt{Taskfile} recompila el cliente antes de enlazar el binario de Go,
 para que el ejecutable nunca quede con una versión anterior de la vista.
 
+La interfaz también puede servirse desde disco: si se define
+\texttt{VMCONS\_WEB}, el binario publica ese directorio en lugar de la
+copia embebida y valida al arrancar que contenga \texttt{index.html}.
+Eso habilita la instalación en el entorno del usuario ---\texttt{task
+install} deja el ejecutable en \texttt{\textasciitilde/.local/bin} y la
+interfaz en \texttt{\textasciitilde/.local/share/vmcons/web}---, con la
+ventaja de que actualizar la vista no obliga a recompilar Go. El arranque
+anuncia en la terminal el nombre en arte ASCII, la URL de la consola, el
+origen de la interfaz y la máquina configurada.
+
 \emph{Pruebas.} El cliente se verifica con Vitest: cuarenta y dos casos sobre
 la construcción de las peticiones, la traducción de errores, las reglas
 de validación, las utilidades de presentación y el montaje de las vistas

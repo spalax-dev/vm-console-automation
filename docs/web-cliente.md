@@ -25,12 +25,22 @@ web/
 └── modules/, static/     interfaz anterior, se retira al cerrar la migración
 ```
 
-`main.go` embebe `web/dist` y sirve la aplicación compilada en la raíz del
-mismo origen que la API: `/assets/` para los archivos con hash y `/` para
-`index.html`. La interfaz anterior queda accesible en `/modules/` mientras se
-retira. Como `web/dist` se versiona, el binario compila en un clon limpio sin
-ejecutar antes el empaquetado del frontend; `task build` lo regenera de todos
-modos.
+`main.go` sirve la aplicación en la raíz del mismo origen que la API:
+`/assets/` para los archivos con hash y `/` para `index.html`. La interfaz
+anterior queda accesible en `/modules/` mientras se retira.
+
+La interfaz se toma de dos fuentes, en este orden:
+
+1. **`VMCONS_WEB`**: si la variable está definida, apunta al directorio que
+   contiene `index.html` y `assets/`. Se valida al arrancar y, si falta o no
+   parece una aplicación compilada, la consola termina con un mensaje claro.
+2. **Copia embebida**: si la variable no está, se usa `web/dist`, que viaja
+   dentro del binario con `//go:embed`. Como `web/dist` se versiona, el
+   binario compila en un clon limpio sin empaquetar antes el frontend.
+
+La instalación en el entorno del usuario usa las dos: el binario en
+`~/.local/bin/vmcons` y la interfaz en `~/.local/share/vmcons/web`, de modo
+que actualizar la vista no obliga a recompilar Go.
 
 Las tipografías (IBM Plex Sans y JetBrains Mono, subset latino) y los iconos
 viajan dentro del binario: la consola no depende de una red externa ni de una
@@ -118,6 +128,14 @@ task web-install    # instala las dependencias del cliente
 task web-dev        # servidor de desarrollo en :5173 con proxy a la API
 task web-test       # pruebas del cliente (Vitest)
 task web-build      # compila en web/dist
+task install        # instala en ~/.local/bin y ~/.local/share/vmcons
+task uninstall      # desinstala de ~/.local
+```
+
+Tras `task install`, el binario usa la copia instalada cuando se define:
+
+```sh
+export VMCONS_WEB="$HOME/.local/share/vmcons/web"
 ```
 
 `task check` incluye `web-test`, de modo que el ciclo de calidad cubre el

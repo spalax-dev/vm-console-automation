@@ -177,6 +177,15 @@ de los módulos del numeral 3.
 
 ## Notas de seguimiento
 
+- **25 oct 2026** — Instalación y arranque: `VMCONS_WEB` permite servir
+  la interfaz desde un directorio en lugar de la copia embebida; se
+  valida al arrancar (`index.html` presente) y el error es explícito.
+  `task install` deja el binario en `~/.local/bin/vmcons` y la interfaz
+  en `~/.local/share/vmcons/web`; `task uninstall` los retira. El
+  arranque imprime el nombre en arte ASCII, la URL, el origen de la
+  interfaz y la máquina vinculada, con color solo si la salida es una
+  terminal y respetando `NO_COLOR`.
+
 - **25 oct 2026** — Back-end de HAProxy (3.4): el servicio `Haproxy`
   interpreta el primer bloque `backend` de `/etc/haproxy/haproxy.cfg`,
   agrega o quita líneas `server` y valida la configuración propuesta con

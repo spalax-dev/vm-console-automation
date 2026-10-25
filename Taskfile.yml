@@ -9,6 +9,8 @@
 #   task run        # ejecutar el servidor web
 #   task test       # formatear el código y ejecutar las pruebas
 #   task build      # compilar el binario final (./vmcons)
+#   task install    # instalar en ~/.local/bin y ~/.local/share/vmcons
+#   task uninstall  # desinstalar de ~/.local
 #   task doc        # regenerar docs/api/ desde los comentarios del código
 #   task openapi    # validar el contrato docs/openapi.yaml
 #   task check      # fmt + lint + test + doc-check (antes de cada commit)
@@ -74,6 +76,27 @@ tasks:
     desc: Compilar el binario final (vmcons) con la interfaz embebida
     deps: [web-build]
     cmd: go build -o {{.BIN}} .
+
+  install:
+    desc: Instalar el binario en ~/.local/bin y la interfaz en ~/.local/share/vmcons
+    cmds:
+      - task: web-build
+      - mkdir -p "$HOME/.local/bin" "$HOME/.local/share/vmcons"
+      - go build -o "$HOME/.local/bin/vmcons" .
+      - rm -rf "$HOME/.local/share/vmcons/web"
+      - cp -R web/dist "$HOME/.local/share/vmcons/web"
+      - echo "vmcons instalado:"
+      - echo "  binario   $HOME/.local/bin/vmcons"
+      - echo "  interfaz  $HOME/.local/share/vmcons/web"
+      - echo "Añade esta línea a tu perfil (~/.zshrc o ~/.bashrc):"
+      - echo "  export VMCONS_WEB=\"\$HOME/.local/share/vmcons/web\""
+
+  uninstall:
+    desc: Eliminar la instalación de ~/.local
+    cmds:
+      - rm -f "$HOME/.local/bin/vmcons"
+      - rm -rf "$HOME/.local/share/vmcons"
+      - echo "vmcons desinstalado de ~/.local"
 
   # ---------------------------------------------------------------
   # Cliente web (web/)

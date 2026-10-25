@@ -45,6 +45,7 @@ const (
 	// #nosec G101 -- es el nombre de la variable de entorno, no la credencial.
 	envGuestPass  = "VMCONS_GUEST_PASS" // contraseña de Guest Additions
 	envDireccion  = "VMCONS_ADDR"       // dirección donde escucha la consola
+	envWeb        = "VMCONS_WEB"        // directorio de la interfaz web
 	direccionProd = ":8080"
 )
 
@@ -63,9 +64,14 @@ func main() {
 // ejecutar construye el servidor, lo pone a escuchar y se bloquea hasta
 // que el servidor se detiene. Devuelve el error de arranque o de cierre.
 func ejecutar() error {
-	servidor := nuevoServidor()
+	servidor, err := nuevoServidor()
+	if err != nil {
+		return err
+	}
 
-	slog.Info("consola vmcons escuchando", "direccion", servidor.Addr)
+	if err := imprimirBanner(servidor.Addr, origenInterfaz(), os.Getenv(envVM)); err != nil {
+		slog.Warn("no se pudo escribir el banner de arranque", "error", err)
+	}
 
 	if err := servidor.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("servir la consola en %q: %w", servidor.Addr, err)
@@ -75,19 +81,24 @@ func ejecutar() error {
 }
 
 // nuevoServidor arma el servidor HTTP con sus rutas y tiempos límite.
-func nuevoServidor() *http.Server {
+func nuevoServidor() (*http.Server, error) {
+	manejador, err := nuevoMux()
+	if err != nil {
+		return nil, err
+	}
+
 	return &http.Server{
 		Addr:              direccion(),
-		Handler:           nuevoMux(),
+		Handler:           manejador,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      tiempoMaximoPeticion,
 		IdleTimeout:       60 * time.Second,
-	}
+	}, nil
 }
 
 // nuevoMux registra los endpoints de la API y el servido de la interfaz.
-func nuevoMux() http.Handler {
+func nuevoMux() (http.Handler, error) {
 	mux := http.NewServeMux()
 
 	ejecutor := localproc.New()
@@ -135,32 +146,36 @@ func nuevoMux() http.Handler {
 	mux.HandleFunc("/api/haproxy/backend/servers", haproxy.Servidores)
 	mux.HandleFunc("/api/haproxy/backend/servers/{server}", haproxy.Servidor)
 
-	servirInterfaz(mux)
+	if err := servirInterfaz(mux); err != nil {
+		return nil, err
+	}
 
-	return mux
+	return mux, nil
 }
 
 // servirInterfaz publica la aplicación compilada con Vite en la raíz y
 // conserva la interfaz anterior en /modules/ mientras se retira.
-func servirInterfaz(mux *http.ServeMux) {
+func servirInterfaz(mux *http.ServeMux) error {
 	sub, err := fs.Sub(contenidoWeb, "web")
 	if err != nil {
 		// El sistema de archivos embebido es inmutable: si «web» no
 		// existe, el binario se compiló mal.
-		panic(fmt.Errorf("preparar los archivos web: %w", err))
+		return fmt.Errorf("preparar los archivos web: %w", err)
 	}
 
-	// El enrutado por fragmento de URL no necesita reescrituras.
-	dist, err := fs.Sub(contenidoWeb, "web/dist")
+	dist, err := interfazWeb()
 	if err != nil {
-		panic(fmt.Errorf("preparar la aplicación web: %w", err))
+		return err
 	}
 
 	mux.Handle("/modules/", http.FileServerFS(sub))
 	mux.Handle("/static/", http.FileServerFS(sub))
 
+	// El enrutado por fragmento de URL no necesita reescrituras.
 	mux.Handle("/assets/", http.FileServerFS(dist))
 	mux.Handle("/", http.FileServerFS(dist))
+
+	return nil
 }
 
 // consola reúne el descubrimiento de sesión y el inventario de máquinas

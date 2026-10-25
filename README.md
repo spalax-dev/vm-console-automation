@@ -26,10 +26,28 @@ La conexión con la máquina virtual se configura por variables de entorno:
 | `VMCONS_GUEST_USER` | No | Usuario de Guest Additions (por omisión, `root`). |
 | `VMCONS_GUEST_PASS` | No | Contraseña de Guest Additions. |
 | `VMCONS_ADDR` | No | Dirección de escucha de la consola (por omisión, `:8080`). |
+| `VMCONS_WEB` | No | Directorio con la interfaz web (`index.html` y `assets/`). Si falta, se usa la copia embebida en el binario. |
 
 ```bash
 VMCONS_VM="Debian 13" VMCONS_SSH_KEY="$HOME/.ssh/vmcons" task run
 ```
+
+## Instalación en el entorno del usuario
+
+```bash
+task install
+```
+
+Deja el binario en `~/.local/bin/vmcons` y la interfaz en
+`~/.local/share/vmcons/web`. Después, para que el binario use esa copia de la
+interfaz en lugar de la embebida:
+
+```bash
+export VMCONS_WEB="$HOME/.local/share/vmcons/web"
+```
+
+Conviene añadir esa línea al perfil (`~/.zshrc` o `~/.bashrc`). Para
+desinstalar: `task uninstall`.
 
 ## Comandos
 
@@ -39,7 +57,9 @@ VMCONS_VM="Debian 13" VMCONS_SSH_KEY="$HOME/.ssh/vmcons" task run
 | `task test` | Formatea y ejecuta las pruebas con `-race` y cobertura. |
 | `task fmt` | Aplica `gofumpt` de forma estricta. |
 | `task lint` | Ejecuta `golangci-lint` con la configuración estricta de `.golangci.yml`. |
-| `task build` | Compila el binario `vmcons`. |
+| `task build` | Compila el binario `vmcons` con la interfaz embebida. |
+| `task install` | Instala el binario y la interfaz en `~/.local`. |
+| `task uninstall` | Elimina la instalación de `~/.local`. |
 | `task doc` | Regenera `docs/api/` desde los comentarios de documentación. |
 | `task doc-check` | Verifica que `docs/api/` esté actualizada. |
 | `task check` | Ciclo completo: `fmt` + `lint` + `test` + `doc-check`. |
