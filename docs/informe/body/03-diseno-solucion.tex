@@ -298,9 +298,12 @@ Redocly; es la fuente de verdad para el frontend y para las pruebas de
 los manejadores. Los códigos de estado distinguen la creación
 (\texttt{201} con \texttt{Location}), el reemplazo y la modificación
 (\texttt{200}), el borrado (\texttt{204}), la entrada inválida
-(\texttt{400}), el recurso inexistente (\texttt{404}), la operación aún
-no conectada (\texttt{501}) y la ausencia de sesión con la máquina
-(\texttt{503}).
+(\texttt{400}), el recurso inexistente (\texttt{404}), el conflicto con
+el estado actual (\texttt{409}), las credenciales rechazadas
+(\texttt{401}) y la ausencia de sesión con la máquina
+(\texttt{503}). Durante el desarrollo, el \texttt{501} señaló los
+módulos cuyo manejador existía pero cuyo caso de uso aún no estaba
+conectado; hoy ninguna ruta del contrato lo devuelve.
 
 Las acciones de systemd se modelan como estado del recurso: activar o
 detener una unidad es un \texttt{PATCH} con \texttt{activo}, habilitar

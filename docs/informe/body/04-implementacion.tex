@@ -6,7 +6,7 @@
 \section{Implementación}
 \label{sec:implementacion}
 
-La capa HTTP está implementada: los dieciséis recursos de la
+La capa HTTP está implementada: los diecinueve recursos de la
 \cref{tab:api-rest} tienen su manejador, la validación del servidor
 aplica las reglas descritas en la \cref{sec:contrato-rest} y cada
 petición se responde con el modelo JSON de la
@@ -17,8 +17,11 @@ systemd y HAProxy--- ejecutan operaciones reales sobre la máquina. No quedan
 respuestas \texttt{501}: todas las rutas del contrato están conectadas.
 La interfaz web consume el contrato completo desde las nueve vistas
 (\cref{sec:interfaz}), incluidos el registro con diagnóstico y el
-historial. Las pruebas cubren el 92.4\,\% de los manejadores y el
-89.0\,\% de los servicios.
+historial. Las 317 pruebas de Go cubren el 92.4\,\% de los manejadores,
+el 89.0\,\% de los servicios, el 100\,\% del núcleo y de
+\texttt{localproc}, el 75.0\,\% de SSH y el 69.1\,\% de VirtualBox; las
+67 pruebas del cliente se describen en la \cref{sec:interfaz}. El
+análisis estático con \texttt{golangci-lint} no reporta incidencias.
 
 % ------------------------------------------------------------
 % 4.1 Preparación del sistema
@@ -300,9 +303,10 @@ cincuenta en el almacenamiento del navegador, de modo que no se pierden al
 cambiar de módulo ni al recargar, y ofrece un botón para vaciarlas. Cuando
 la respuesta no trae un mensaje ---por ejemplo, un borrado sin cuerpo---, la
 ficha describe la orden ejecutada en lugar de un texto genérico. Las pestañas no recargan el documento: cada vista consulta
-su recurso del \cref{sec:contrato-rest} al montarse. El historial se
-muestra deshabilitado porque su persistencia está diferida, tal como se
-registró en \texttt{docs/TODO.md}.
+su recurso del \cref{sec:contrato-rest} al montarse. La pestaña
+Historial consulta \texttt{GET /api/historial}, filtra por texto, fecha,
+hora, máquina y módulo, y exporta el resultado a CSV, como se detalla en
+la \cref{sec:historial}.
 
 \emph{Selección de la máquina.} El selector de la barra superior
 consulta el inventario del hipervisor (\cref{tab:api-rest}) y permite
@@ -392,9 +396,10 @@ inmediato; opcionalmente, \texttt{Cache-Control: no-cache} fuerza una
 lectura fresca. La memoria está acotada y cada respuesta anuncia
 \texttt{X-Cache} con \texttt{HIT} o \texttt{MISS} para el diagnóstico.
 
-\emph{Pruebas.} El cliente se verifica con Vitest: cuarenta y dos casos sobre
+\emph{Pruebas.} El cliente se verifica con Vitest: sesenta y siete casos sobre
 la construcción de las peticiones, la traducción de errores, las reglas
-de validación, las utilidades de presentación y el montaje de las vistas
+de validación, las utilidades de presentación, el historial de
+resultados y el montaje de las vistas
 en un DOM simulado. El empaquetado importa solo los iconos utilizados,
 con lo que el JavaScript entregado al navegador es de 64\,kB en lugar de
 los 528\,kB que resultaban de importar el catálogo completo.

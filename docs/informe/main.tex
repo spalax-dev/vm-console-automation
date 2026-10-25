@@ -17,6 +17,9 @@
 \usepackage{placeins} % \FloatBarrier: los flotantes no pasan de su sección
 \usepackage{tabularx} % tablas con columnas de ancho ajustable
 
+% Marca de trabajo pendiente: buscar «\pendiente» antes de la entrega.
+\newcommand{\pendiente}[1]{\emph{[#1]}}
+
 \usepackage{fontspec}
 \setmainfont{TeX Gyre Heros} % Fuente sans-serif para todo el texto
 \setsansfont{TeX Gyre Heros}
@@ -40,15 +43,35 @@
 \maketitle
 
 % ============================================================
-% RESUMEN: redactar al final, una vez escrito todo el documento.
-% Extensión sugerida: 150--250 palabras.
+% RESUMEN: 150--250 palabras, en una sola columna de texto.
 % ============================================================
 \begin{abstract}
-\emph{(Redactar al final del informe.)}
+Este trabajo presenta una consola web para administrar una máquina
+virtual Debian~13 desde el navegador, desarrollada en Go y distribuida
+como un binario único. La consola convierte en operaciones no
+interactivas la preparación del sistema ---instalación y eliminación de
+paquetes con APT, generación de la llave SSH de \texttt{root} con
+descarga de la llave privada, personalización de \texttt{/etc/issue} y
+cambio de nombre de host con actualización de \texttt{/etc/hosts}---, la
+gestión de usuarios con privilegios de \texttt{sudo} y llaves propias, la
+administración de demonios con systemd y el alta y la baja de servidores
+en el back-end de HAProxy. La comunicación empieza por las Guest
+Additions de VirtualBox, que permiten descubrir la dirección IP y
+ejecutar órdenes mientras no existe SSH, y continúa de forma exclusiva
+por SSH con llaves. La aplicación sigue una arquitectura de puertos y
+adaptadores, expone una API REST documentada con OpenAPI~3.1, valida las
+entradas en el cliente y en el servidor, y presenta cada resultado con un
+mensaje comprensible junto con la salida, el código de retorno y el
+detalle técnico necesario para el diagnóstico. La interfaz, construida
+con Vite y Tailwind CSS, reúne las nueve vistas ---los ocho módulos y el
+historial de operaciones--- y un panel de resultados. El documento
+describe el escenario, las decisiones de diseño, el diseño de las pruebas
+y los problemas encontrados durante el desarrollo.
 \end{abstract}
 
 \begin{IEEEkeywords}
-palabra clave, palabra clave, palabra clave
+automatización de servidores, máquina virtual, Debian, SSH, systemd,
+HAProxy, API REST, Go
 \end{IEEEkeywords}
 
 % ============================================================

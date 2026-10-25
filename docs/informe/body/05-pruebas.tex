@@ -6,12 +6,228 @@
 
 \subsection{Diseño de las Pruebas}
 \label{sec:diseno-pruebas}
-% TODO: describir las pruebas diseñadas para cada elemento de la
-% solución, el estado anterior del sistema, la operación automatizada
-% ejecutada y el estado posterior esperado.
+
+Cada capacidad de la solución se verifica con una prueba que sigue la
+misma estructura: se comprueba y se registra el \emph{estado anterior}
+de la máquina con órdenes ejecutadas fuera de la consola ---terminal de
+la VM, de otra VM o del anfitrión---, se realiza la operación desde la
+interfaz web y se vuelve a comprobar el \emph{estado posterior} con las
+mismas órdenes. La comprobación externa es deliberada: si el estado
+posterior se leyera solo en la interfaz, una respuesta incorrecta del
+servidor podría pasar por un éxito. Cada prueba se graba en video desde
+el navegador y la terminal al mismo tiempo, de modo que el estado
+anterior y el posterior quedan visibles en el mismo registro.
+
+El entorno es el de la \cref{fig:escenario}: el anfitrión con
+VirtualBox~7.2 y la consola, la VM~1 de pruebas con Debian~13.7.0 en
+modo puente, la VM~2 con HAProxy y su configuración por omisión, la VM~3
+y la VM~4 preparadas desde el disco de multiconexión como servidores del
+back-end, y el ejecutable del catálogo de libros junto con el script que
+agrega la fecha y la hora en cada ejecución
+(precondiciones~a--e del enunciado). Las direcciones IP se obtienen por
+DHCP y no se fijan en la prueba: la consola las descubre en tiempo de
+ejecución.
+
+La \cref{tab:diseno-pruebas} resume
+las dieciocho pruebas diseñadas. Las pruebas P05 y P16 incluyen, además
+del camino correcto, el camino de error: un paquete que no existe en los
+repositorios y la baja repetida de un servidor del back-end.
+
+\begin{table*}[!tp]
+  \centering
+  \caption{Diseño de las pruebas: estado anterior, operación y estado
+  posterior esperado de cada elemento de la solución.}
+  \label{tab:diseno-pruebas}
+  \scriptsize
+  \begin{tabularx}{\textwidth}{@{}l >{\raggedright\arraybackslash}p{2.3cm}
+      >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X
+      >{\raggedright\arraybackslash}X
+      >{\raggedright\arraybackslash}p{1.0cm}@{}}
+    \hline
+    ID & Capacidad & Estado anterior & Operación desde la consola &
+    Estado posterior esperado & Video \\
+    \hline
+    P01 & Registro de la máquina & VM~1 apagada y sin registrar; sin
+    llave de root en el anfitrión. & Encender desde el selector y
+    registrar con el usuario y la contraseña de la VM. &
+    \texttt{/api/session} informa la IP y el conector \texttt{ssh}; la
+    máquina aparece registrada y no vuelve a pedir credenciales. & V01 \\
+    P02 & Diagnóstico del registro & VM con Guest Additions~6.0 sobre
+    VirtualBox~7.2, cuyo \texttt{guestcontrol} rechaza la contraseña. &
+    Enviar las credenciales en el modal y abrir el diagnóstico. &
+    Mensaje comprensible y diagnóstico con versión de Guest Additions,
+    puerto 22 y usuario con sesión; el registro se completa por SSH con
+    \texttt{sshpass}. & V02 \\
+    P03 & Instalar paquete & \texttt{dpkg-query -W htop} responde que no
+    está instalado. & Formulario de paquetes: instalar \texttt{htop}. &
+    \texttt{htop} figura como \texttt{install ok installed}, aparece en
+    el listado y la ficha muestra el código de salida cero. & V03 \\
+    P04 & Eliminar paquete & \texttt{htop} instalado. & Eliminar
+    \texttt{htop} y confirmar en el aviso. & \texttt{htop} ya no está
+    instalado, desaparece del listado y la ficha describe la orden
+    ejecutada. & V04 \\
+    P05 & Error de APT & Paquete \texttt{paquete-inexistente} no
+    disponible en los repositorios. & Intentar instalarlo. & Respuesta
+    \texttt{500} con mensaje comprensible, código de salida de APT y
+    \texttt{stderr} en el detalle técnico; la máquina queda sin cambios.
+    & V05 \\
+    P06 & Llave de \texttt{root} & Sin
+    \texttt{/etc/ssh/\allowbreak sshd\_config.d/\allowbreak
+    99-vmcons.conf} ni llave en el
+    anfitrión. & Generar la llave y descargar la privada. &
+    \texttt{authorized\_keys} con permisos \texttt{700}/\texttt{600};
+    \texttt{sshd -T} informa \texttt{passwordauthentication no} y
+    \texttt{permitrootlogin prohibit-password}; la descarga entrega un
+    archivo adjunto y la interfaz recomienda resguardarlo. & V06 \\
+    P07 & Acceso por contraseña & Contraseña de \texttt{root}
+    deshabilitada por P06. & \texttt{ssh -o \allowbreak
+    PubkeyAuthentication=no \allowbreak root@IP}. & El intento por
+    contraseña se rechaza y el acceso con \texttt{-i llave} funciona.
+    & V07 \\
+    P08 & \texttt{/etc/issue} & Banner original de Debian, que la
+    consola muestra como texto ajeno con las casillas desactivadas. &
+    Escribir un mensaje y marcar nombre de host, fecha, hora e IP. &
+    \texttt{cat /etc/issue} muestra las etiquetas y las secuencias de
+    \texttt{agetty}; la consola de inicio de sesión las expande. & V08 \\
+    P09 & Nombre de host y \texttt{/etc/hosts} & \texttt{hostname}
+    devuelve \texttt{debian} y \texttt{/etc/hosts} no menciona la IP de
+    la VM. & Asignar \texttt{vmcons-lab} con la casilla de actualizar
+    \texttt{/etc/hosts}. & \texttt{hostname} devuelve
+    \texttt{vmcons-lab}, \texttt{/etc/hosts} conserva
+    \texttt{localhost} y agrega «IP nombre»; el cambio persiste tras
+    reiniciar. & V09 \\
+    P10 & Crear usuario con \texttt{sudo} y llaves & \texttt{id alumno}
+    responde que no existe la cuenta. & Crear \texttt{alumno} con las
+    casillas de \texttt{sudo} y de llaves, y descargar la privada. &
+    UID mayor o igual a 1000, grupo \texttt{sudo},
+    \texttt{authorized\_keys} del usuario con \texttt{700}/\texttt{600}
+    y contraseña bloqueada; la cuenta aparece en el listado. & V10 \\
+    P11 & Eliminar usuario & \texttt{alumno} existe y tiene
+    \texttt{/home/alumno}. & Eliminar con la casilla de borrar archivos.
+    & \texttt{id alumno} falla, \texttt{/home/alumno} ya no existe y la
+    llave del anfitrión se elimina; la cuenta sale del listado. & V11 \\
+    P12 & Desplegar una unidad & La aplicación del catálogo no está en
+    la VM ni tiene unidad. & Subir el ejecutable y el archivo
+    \texttt{.service} con modo \texttt{0755} y propietario. &
+    \texttt{systemctl cat} muestra la unidad, \texttt{daemon-reload}
+    queda aplicado y el listado la informa inactiva y deshabilitada.
+    & V12 \\
+    P13 & Ciclo de vida de la unidad & Unidad inactiva y deshabilitada.
+    & \texttt{start}, \texttt{enable}, \texttt{restart},
+    \texttt{stop} y \texttt{disable} desde los botones. &
+    \texttt{systemctl is-active} y \texttt{is-enabled} reflejan cada
+    paso; \texttt{status} muestra un PID distinto tras el reinicio.
+    & V13 \\
+    P14 & Script de la precondición e) & Unidad del script inactiva y
+    archivo de registro sin líneas del día. & Iniciar y reiniciar la
+    unidad. & Cada ejecución agrega una línea con la fecha y la hora;
+    tras el reinicio hay dos líneas nuevas y un PID distinto. & V14 \\
+    P15 & Agregar servidor al back-end & \texttt{haproxy.cfg}
+    predeterminado, sin servidores en el primer \texttt{backend}. &
+    Agregar la IP y el puerto de la VM~3. & Línea \texttt{server
+    srv\_\dots\ check} en el \texttt{backend}, configuración válida con
+    \texttt{haproxy -c}, servicio recargado y \texttt{curl} al
+    balanceador atendido por la VM~3. & V15 \\
+    P16 & Eliminar servidor del back-end & Dos servidores en el
+    back-end (VM~3 y VM~4). & Eliminar el de la VM~3. & La línea
+    desaparece, \texttt{haproxy -c} valida y el tráfico solo llega a la
+    VM~4; repetir la baja responde \texttt{404}. & V16 \\
+    P17 & Historial y persistencia & Base con operaciones anteriores de
+    la sesión de pruebas. & Ejecutar tres operaciones y consultar la
+    pestaña Historial con filtros de texto, fecha, máquina y módulo;
+    exportar a CSV. & Las tres operaciones aparecen con descripción
+    legible; los filtros acotan el resultado; el CSV coincide y las
+    filas sobreviven al reinicio de la consola. & V17 \\
+    P18 & Cambio de máquina vinculada & VM~1 vinculada y listados
+    cargados en varias pestañas. & Vincular la VM~3 desde el selector.
+    & La barra muestra la IP de la VM~3 y los listados se recargan sin
+    conservar filas de la VM~1. & V18 \\
+    \hline
+  \end{tabularx}
+\end{table*}
 
 \subsection{Resultados y Evidencias}
 \label{sec:resultados-pruebas}
-% TODO: presentar los resultados obtenidos. Cada prueba quedó grabada
-% en video; incluir las referencias a los videos y/o capturas de pantalla
-% que muestren el estado anterior y posterior de cada proceso.
+
+\subsubsection{Verificación Automática}
+\label{sec:resultados-automaticos}
+
+Las pruebas automatizadas verifican la lógica que no depende de una
+máquina real: la validación de entradas, la traducción de errores, el
+descubrimiento y la selección del conector, la construcción de las
+órdenes, el manejo de los recursos HTTP, la persistencia, la caché y el
+historial. La \cref{tab:cobertura} resume el resultado; las órdenes se
+ejecutan con las tareas del proyecto (\texttt{task test},
+\texttt{task lint}, \texttt{task openapi} y \texttt{pnpm test}).
+
+\begin{table}[!t]
+  \centering
+  \caption{Resultado de las pruebas automatizadas.}
+  \label{tab:cobertura}
+  \footnotesize
+  \begin{tabularx}{\columnwidth}{@{}l >{\raggedleft\arraybackslash}X@{}}
+    \hline
+    Paquete & Cobertura de sentencias \\
+    \hline
+    \texttt{core/domain} & 100.0\,\% \\
+    \texttt{adapters/localproc} & 100.0\,\% \\
+    \texttt{httpcache} & 92.1\,\% \\
+    \texttt{handlers} & 92.4\,\% \\
+    \texttt{services} & 89.0\,\% \\
+    \texttt{adapters/ssh} & 75.0\,\% \\
+    \texttt{adapters/vbox} & 69.1\,\% \\
+    \hline
+  \end{tabularx}
+\end{table}
+
+Las 317 pruebas de Go y las 67 del cliente terminan sin fallos y el
+análisis estático no reporta incidencias. La cobertura de los adaptadores
+de SSH y de VirtualBox es menor porque su lógica consiste en componer
+órdenes que solo tienen sentido frente a un hipervisor o un servidor
+reales; esa parte la cubren las pruebas de campo P01 a P18. El contrato
+OpenAPI se valida sin errores y ninguna de sus rutas devuelve
+\texttt{501}.
+
+\subsubsection{Pruebas de Campo}
+\label{sec:resultados-campo}
+
+Las dieciocho pruebas de la \cref{tab:diseno-pruebas} se ejecutan sobre
+el escenario y se graban en video, con el nombre \texttt{V01} a
+\texttt{V18} según la tabla. Cada grabación empieza con la comprobación
+del estado anterior en la terminal, continúa con la operación en la
+interfaz ---el formulario, la validación y la ficha del panel de
+resultado--- y termina con la comprobación del estado posterior en la
+misma terminal, de modo que la evidencia cubre el ciclo completo y no
+solo la respuesta de la consola. Las capturas de pantalla de apoyo se
+guardan junto a los videos y se referencian desde esta sección.
+
+\begin{table}[!t]
+  \centering
+  \caption{Evidencias de las pruebas de campo.}
+  \label{tab:evidencias}
+  \footnotesize
+  \begin{tabularx}{\columnwidth}{@{}l X >{\raggedright\arraybackslash}p{1.6cm}@{}}
+    \hline
+    Video & Contenido & Resultado \\
+    \hline
+    V01--V02 & Registro y diagnóstico de la máquina & \pendiente{por
+    grabar} \\
+    V03--V05 & Paquetes: instalar, eliminar y error de APT &
+    \pendiente{por grabar} \\
+    V06--V07 & Llave de \texttt{root} y bloqueo de la contraseña &
+    \pendiente{por grabar} \\
+    V08--V09 & \texttt{/etc/issue} y nombre de host & \pendiente{por
+    grabar} \\
+    V10--V11 & Creación y eliminación de usuarios & \pendiente{por
+    grabar} \\
+    V12--V14 & Despliegue y ciclo de vida con systemd &
+    \pendiente{por grabar} \\
+    V15--V16 & Back-end de HAProxy: alta y baja & \pendiente{por
+    grabar} \\
+    V17--V18 & Historial y cambio de máquina & \pendiente{por grabar} \\
+    \hline
+  \end{tabularx}
+\end{table}
+
+% Las tablas de esta sección no deben aparecer dentro de las conclusiones.
+\FloatBarrier

@@ -14,7 +14,7 @@ Documento de seguimiento del proyecto. Se actualiza conforme se avanza.
 | Área | Estado |
 | --- | --- |
 | Núcleo (`internal/core/domain` + `ports`) | [x] Completo — cobertura 100 % |
-| Adaptadores (`localproc`, `vbox`, `ssh`) | [x] Completos — cobertura 100 % / 88.1 % / 87.8 % |
+| Adaptadores (`localproc`, `vbox`, `ssh`) | [x] Completos — cobertura 100 % / 69.1 % / 75.0 % |
 | Calidad de código (`task fmt`, `task lint`, `task test`) | [x] 0 issues, todas las pruebas en verde |
 | `docs/arquitectura.md` | [x] Escrito, con persistencia, observabilidad y herramientas |
 | Contrato OpenAPI (`docs/openapi.yaml`) | [x] 19 rutas, validado con Redocly, sin respuestas 501 |
@@ -25,11 +25,11 @@ Documento de seguimiento del proyecto. Se actualiza conforme se avanza.
 | Ensamblaje (`main.go`: rutas + inyección de dependencias) | [x] Servidor, `web/` embebido, rutas, historial y observabilidad |
 | Interfaz web (`web/src`, Vite) | [x] Vistas por módulo, historial, registro y diagnóstico |
 | Observabilidad y logs | [x] `X-Request-ID`, logs estructurados y errores sanitizados |
-| Pruebas de `services` y `handlers` | [~] `services` 89.7 %; `handlers` 93.4 % (el resto de paquetes, en verde) |
+| Pruebas de `services` y `handlers` | [~] `services` 89.0 %; `handlers` 92.4 %; 317 casos Go y 67 del cliente |
 | Escenario: diagrama (numeral 5) | [x] Hecho en PlantUML (`docs/diagramas/`), en §3.1 del informe |
-| Pruebas manuales en video (numeral 4) | [ ] No iniciado |
-| Informe (`docs/informe`) | [~] §3 y §4 completos; §5, conclusiones y resumen pendientes |
-| Resumen / index terms | [ ] Pendiente de redactar al final |
+| Pruebas manuales en video (numeral 4) | [ ] Diseño listo (§5.1); falta ejecutar y grabar V01–V18 |
+| Informe (`docs/informe`) | [~] §3 a §6 y resumen escritos; §5.2 pendiente de las evidencias |
+| Resumen / index terms | [x] Redactado (225 palabras) |
 
 ---
 
@@ -104,10 +104,11 @@ Orden de trabajo obligatorio: **docs → tests → implementación**.
 
 ## 5. Pruebas (numeral 4)
 
-- [ ] Diseñar una prueba por cada elemento de la solución (estado anterior → operación → estado posterior).
-- [ ] Ejecutar cada prueba y **grabarla en video**, dejando claro el estado anterior y el posterior.
+- [x] Diseñar una prueba por cada elemento de la solución (estado anterior → operación → estado posterior): P01–P18 en `docs/informe/body/05-pruebas.tex` §5.1.
+- [ ] Ejecutar cada prueba y **grabarla en video**, dejando claro el estado anterior y el posterior (V01–V18).
 - [ ] Organizar los videos (nombre, carpeta, índice) para referenciarlos desde el informe.
 - [ ] Registrar capturas de pantalla de apoyo para el informe.
+- [ ] Sustituir las marcas `\pendiente{por grabar}` del cuadro de evidencias (§5.2) por el resultado de cada prueba.
 
 ---
 
@@ -126,26 +127,28 @@ Estructura modular lista: `main.tex` (resumen, index terms, introducción, bibli
 
 - [x] `body/02-marco-teorico.tex` — completar secciones con TODO: Debian, APT, systemd, HAProxy.
 - [x] `body/03-diseno-solucion.tex` — diagrama + descripción del escenario; visión general, estructura del proyecto y decisiones tomadas.
-- [~] `body/04-implementacion.tex` — capa HTTP, contrato REST, paquetes, llaves SSH, `/etc/issue` e interfaz web documentados; 4.1.4 a 4.4 siguen pendientes de conectar los casos de uso.
-- [ ] `body/05-pruebas.tex` — diseño de las pruebas y resultados con evidencias (videos).
-- [ ] `body/06-conclusiones.tex` — problemas y soluciones, herramientas de IA utilizadas, conclusiones del trabajo.
-- [ ] **Resumen (abstract) y index terms** — redactar al final, 150–250 palabras.
+- [x] `body/04-implementacion.tex` — capa HTTP, contrato REST, paquetes, llaves SSH, `/etc/issue`, hostname, usuarios, systemd, HAProxy, historial, observabilidad e interfaz web, con las cifras de prueba y cobertura medidas el 25 oct 2026.
+- [~] `body/05-pruebas.tex` — §5.1 con las 18 pruebas diseñadas (estado anterior → operación → estado posterior) y §5.2 con los resultados automáticos; falta grabar V01–V18 y sustituir las marcas `\pendiente{por grabar}` del cuadro de evidencias.
+- [x] `body/06-conclusiones.tex` — problemas y soluciones, herramientas de IA y conclusiones.
+- [x] **Resumen (abstract) y index terms** — 225 palabras, con las palabras clave del trabajo.
 - [x] Revisar referencias bibliográficas en `ref.bib` y citas \parencite.
-- [x] Verificar compilación limpia con `latexmk` (LuaLaTeX): sin citas ni referencias indefinidas (24 oct 2026).
-- [ ] Detallar problemas encontrados durante el desarrollo y cómo se solucionaron.
-- [ ] Detallar las herramientas de IA empleadas y **para qué** se usaron.
+- [x] Verificar compilación limpia con `latexmk` (LuaLaTeX): 13 páginas, sin citas ni referencias indefinidas y sin *overfull* (25 oct 2026).
+- [x] Detallar problemas encontrados durante el desarrollo y cómo se solucionaron (§6.1).
+- [x] Detallar las herramientas de IA empleadas y **para qué** se usaron (§6.2).
 
 ---
 
 ## 8. Criterios de calidad y cierre
 
-- [ ] `task fmt` → sin archivos pendientes.
-- [ ] `task lint` → 0 issues.
-- [ ] `task test` → verde, con cobertura de `services` y `handlers`.
-- [ ] `latexmk` → PDF sin errores ni warnings de referencias.
+- [x] `task fmt` → sin archivos pendientes.
+- [x] `task lint` → 0 issues (25 oct 2026).
+- [x] `task test` → verde: 317 casos Go; cobertura `services` 89.0 %, `handlers` 92.4 %.
+- [x] `pnpm test` en `web/` → 67 casos en verde.
+- [x] `latexmk` → PDF de 13 páginas sin errores, sin referencias indefinidas ni *overfull*.
 - [ ] Commits incrementales en español, uno por bloque funcional.
 - [ ] Confirmar registro del equipo en Classroom (respuesta al mensaje del docente).
 - [ ] Preparar guion/orden de la sustentación (27 oct, 6:00 pm).
+- [ ] Opcional: subir la cobertura de `adapters/vbox` (69.1 %) y `adapters/ssh` (75.0 %), que bajó al añadir el encendido, el inventario y el respaldo por `sshpass`.
 
 ---
 
@@ -178,6 +181,16 @@ de los módulos del numeral 3.
 ---
 
 ## Notas de seguimiento
+
+- **25 oct 2026** — Informe al día con el código: se corrigieron las cifras
+  desactualizadas de §4 (diecinueve rutas, 317 casos Go, 67 del cliente,
+  cobertura real por paquete), se quitó la afirmación de que el historial
+  estaba deshabilitado y se ajustó §3 para explicar el `501` en pasado.
+  Se escribieron §5.1 (diseño de 18 pruebas con estado anterior, operación
+  y estado posterior), §5.2 (resultado de las pruebas automáticas y cuadro
+  de evidencias), §6 (problemas y soluciones, herramientas de IA y
+  conclusiones) y el resumen con las palabras clave. El PDF compila en 14
+  páginas sin referencias indefinidas ni *overfull*.
 
 - **25 oct 2026** — Armazón con altura de ventana: la barra superior y las
   pestañas quedan fijas y solo el contenido del módulo se desplaza, de

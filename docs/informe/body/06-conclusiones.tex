@@ -11,23 +11,169 @@
 % ------------------------------------------------------------
 \subsection{Problemas Encontrados y Soluciones}
 \label{sec:problemas}
-% TODO: describir los principales problemas surgidos durante el
-% desarrollo (por ejemplo: comunicación inicial con la VM, permisos de
-% sudo, configuración de HAProxy, manejo de errores de comandos, etc.)
-% y la forma en que fueron solucionados.
+
+Los problemas que exigieron más trabajo no estuvieron en las operaciones
+del sistema ---instalar un paquete o recargar un servicio son órdenes
+conocidas--- sino en el canal por el que se ejecutan, en la coherencia de
+lo que muestra la interfaz y en la posibilidad de dejar la máquina
+inaccesible. Los más relevantes fueron los siguientes.
+
+\emph{Comunicación inicial con la máquina.} Mientras SSH no está
+instalado no existe un canal de red utilizable, y sin embargo la consola
+necesita la dirección IP para configurarlo. Se resolvió con las Guest
+Additions: la dirección se lee con \texttt{VBoxManage guestproperty get}
+y las órdenes se ejecutan con \texttt{guestcontrol}. Como consecuencia,
+el orden de las operaciones del módulo de llaves quedó invertido
+respecto de lo intuitivo: primero se abre la sesión por Guest Additions y
+después se genera el par, porque la llave todavía no existe.
+
+\emph{Ruta duplicada en \texttt{guestcontrol run}.} El adaptador
+construía la orden con la ruta del ejecutable antes y después del
+separador (\texttt{--exe /usr/bin/id -- /usr/bin/id -u}), de modo que
+\texttt{id} interpretaba la ruta como nombre de usuario y fallaba aun con
+credenciales correctas. El síntoma era engañoso ---parecía un problema de
+contraseña--- y se encontró al revisar la orden completa, no el mensaje
+de error. Se corrigió dejando solo los argumentos después de
+\texttt{--}.
+
+\emph{Guest Additions incompatible.} El entorno tenía VirtualBox~7.2.18
+con Guest Additions~6.0.0, y en esa combinación
+\texttt{guestcontrol} rechaza credenciales válidas. Además de
+documentarlo, se agregó un diagnóstico que informa la versión de Guest
+Additions, el estado del puerto 22 y el usuario con sesión iniciada, y un
+respaldo que reintenta el registro por SSH con \texttt{sshpass},
+instala la llave y verifica el acceso antes de dar la operación por
+buena.
+
+\emph{No dejar la máquina sin acceso.} Deshabilitar la autenticación por
+contraseña antes de comprobar la llave deja la VM inaccesible. El orden
+quedó fijado: instalar \texttt{openssh-server}, habilitarlo con
+\texttt{systemctl enable --now ssh}, publicar la llave, escribir la
+configuración, recargar el servicio y verificar con \texttt{sshd -T}.
+Además, una máquina ya registrada no vuelve a Guest Additions si SSH
+falla: la consola responde \texttt{503} en lugar de ocultar el problema.
+
+\emph{Hipervisor ocupado y arranque en curso.} \texttt{VBoxManage} falla
+si dos invocaciones coinciden, así que las consultas de solo lectura se
+serializan y se reintentan una vez. Durante el arranque de una VM, la
+dirección todavía no está publicada; en lugar de responder un error del
+servidor, \texttt{GET /api/session} responde \texttt{503} y el selector
+reintenta hasta noventa segundos, con mensajes que distinguen «esperando
+a que arranque» de «esperando Guest Additions o SSH».
+
+\emph{Operaciones no interactivas y validación previa.} APT se ejecuta
+con \texttt{DEBIAN\_FRONTEND=noninteractive} y \texttt{-y}; HAProxy se
+valida con \texttt{haproxy -c} sobre un archivo temporal y solo se mueve
+a \texttt{/etc/haproxy/haproxy.cfg} si la comprobación pasa, de modo que
+un error de sintaxis no deja el balanceador sin servicio; el despliegue
+de unidades ajusta modo y propietario y ejecuta \texttt{daemon-reload}.
+La lista de unidades combina \texttt{list-units} y
+\texttt{list-unit-files} porque el primero no informa la habilitación.
+
+\emph{Coherencia entre máquinas y persistencia.} Al cambiar de máquina,
+la caché podía devolver filas de la anterior por dos motivos: una lectura
+en vuelo que se guardaba después de invalidar y respuestas reutilizadas
+por el navegador. Se resolvió con una generación que avanza en cada
+invalidación y con \texttt{Cache-Control: no-store}. Las credenciales
+dejaron de guardarse en un JSON en claro y pasaron a SQLite con cifrado
+AES-256-GCM y clave local con permisos \texttt{0600}; la dependencia se
+justificó por ser Go puro y no romper el binario único.
+
+\emph{Errores opacos.} Un código de salida distinto de cero no dice nada
+por sí solo. Las órdenes devuelven un \texttt{ExitError} con código y
+salidas, cada petición recibe un \texttt{X-Request-ID} y se registra con
+su duración y su motivo, y los adaptadores sustituyen la orden por una
+versión sin contraseñas para que el detalle técnico sea útil sin exponer
+secretos.
+
+\emph{Detalles de la interfaz.} El modal de registro deshabilitaba los
+campos antes de leer \texttt{FormData}, así que el navegador enviaba
+usuario y contraseña vacíos; se corrigió leyendo primero. Los borrados
+que responden \texttt{204} sin cuerpo dejaban un mensaje genérico, que se
+reemplazó por la descripción de la orden ejecutada.
+
+\emph{Detalles del informe.} Las figuras se desplazaban fuera de su
+sección hasta que se delimitó cada una con \texttt{\textbackslash
+FloatBarrier}, y \texttt{cleveref} imprimía las etiquetas en inglés con
+\texttt{babel} en español, lo que se corrigió con \texttt{\textbackslash
+crefformat}.
 
 % ------------------------------------------------------------
 % 6.2 Herramientas de inteligencia artificial utilizadas
 % ------------------------------------------------------------
 \subsection{Herramientas de Inteligencia Artificial Utilizadas}
 \label{sec:herramientas-ia}
-% TODO: listar las herramientas de IA empleadas (por ejemplo, agentes
-% de código) y detallar para qué fueron utilizadas.
+
+Se empleó un agente de programación que se ejecuta en la terminal
+(OpenCode) sobre modelos de lenguaje de gran escala, junto con servidores
+de contexto conectados a él. Su uso se concentró en tareas de apoyo y no
+en la toma de decisiones de diseño, que quedó en el equipo y se contrastó
+con el enunciado y con el entorno real. En concreto, se utilizó para:
+
+\begin{itemize}
+  \item \emph{Explorar y ordenar el código.} Localizar los puntos de
+  cambio entre capas, revisar la coherencia entre el contrato OpenAPI,
+  los manejadores y el cliente, y detectar rutas o campos
+  desactualizados.
+  \item \emph{Redactar y corregir documentación.} Borradores de
+  \texttt{docs/arquitectura.md}, \texttt{docs/diseno-solucion.md},
+  \texttt{docs/persistencia.md} y de este informe, y revisión de la
+  redacción y de las referencias.
+  \item \emph{Generar el esqueleto de las pruebas.} Casos de prueba de
+  los servicios y de los manejadores con dobles de prueba, y casos del
+  cliente con Vitest, siempre revisados y ajustados a mano.
+  \item \emph{Depurar.} Análisis de trazas, de la orden exacta que se
+  enviaba a \texttt{VBoxManage} y de los registros del servidor para
+  encontrar la ruta duplicada de \texttt{guestcontrol} y el orden de
+  lectura del formulario, entre otros.
+  \item \emph{Consultar documentación técnica vigente.} Un servidor de
+  contexto con documentación de bibliotecas y servicios permitió
+  comprobar opciones de \texttt{sshd}, de \texttt{systemctl} y de
+  \texttt{haproxy} en lugar de confiar en la memoria del modelo.
+  \item \emph{Diseñar la interfaz.} La paleta, la tipografía y la
+  estructura de la consola se trabajaron en una herramienta de diseño
+  asistida y quedaron registradas como tokens en
+  \texttt{docs/stitch/DESIGN.md} antes de implementarlas.
+\end{itemize}
+
+Toda salida del agente se verificó con las pruebas automatizadas, el
+análisis estático y la ejecución sobre las máquinas virtuales. El agente
+aceleró la escritura y la revisión, pero no sustituyó la comprobación en
+el entorno: los fallos más costosos aparecieron precisamente donde el
+código parecía correcto y solo la ejecución real los reveló.
 
 % ------------------------------------------------------------
 % 6.3 Conclusiones del trabajo
 % ------------------------------------------------------------
 \subsection{Conclusiones del Trabajo}
 \label{sec:conclusiones}
-% TODO: conclusiones del trabajo: logros alcanzados frente a los
-% objetivos, aprendizajes y mejoras posibles.
+
+Se cumplieron los objetivos del enunciado. La consola ejecuta de forma no
+interactiva las operaciones de los cuatro módulos ---preparación del
+sistema, usuarios, demonios con systemd y balanceo con HAProxy---, valida
+las entradas en el cliente y en el servidor, notifica el resultado de
+cada operación y conserva el mensaje comprensible junto con la
+información técnica de diagnóstico. El escenario se documentó con su
+diagrama y su descripción, y el informe reúne las decisiones, el diseño
+de pruebas y los problemas resueltos.
+
+El aprendizaje principal está en el canal de administración. Automatizar
+órdenes es la parte sencilla; lo difícil es garantizar que exista un
+camino de comunicación antes de necesitarlo y que ninguna operación deje
+la máquina inaccesible. La transición de Guest Additions a SSH con llaves
+obligó a ordenar las operaciones con cuidado y a comprobar cada paso con
+el propio sistema (\texttt{sshd -T}, \texttt{systemctl is-active},
+\texttt{haproxy -c}) en lugar de confiar en la respuesta de la
+aplicación.
+
+También resultó decisivo tratar los controles como estado del recurso
+(\texttt{activo}, \texttt{habilitado}) en lugar de como acciones, validar
+antes de ejecutar y separar el puerto de ejecución de los adaptadores: el
+núcleo no cambió al pasar de \texttt{VBoxManage} a SSH, y las pruebas
+pudieron ejecutarse con dobles sin una máquina virtual.
+
+Quedan mejoras posibles: autenticación de la consola con usuario y
+contraseña, consulta del socket de estadísticas de HAProxy para informar
+el estado real de cada servidor, apagado de la máquina virtual desde la
+interfaz y una integración continua que ejecute las pruebas y la
+compilación del cliente en cada cambio.
