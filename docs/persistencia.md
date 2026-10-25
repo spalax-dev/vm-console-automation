@@ -42,6 +42,20 @@ CREATE TABLE IF NOT EXISTS credenciales (
 );
 ```
 
+La tabla `operaciones` del historial comparte la misma base:
+
+```sql
+CREATE TABLE operaciones (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    fecha_hora   TEXT NOT NULL,
+    vm           TEXT NOT NULL,
+    modulo       TEXT NOT NULL,
+    operacion    TEXT NOT NULL,
+    resultado    TEXT NOT NULL,
+    detalle      TEXT NOT NULL DEFAULT ''
+);
+```
+
 ## Cifrado
 
 1. Al primer arranque se generan 32 bytes aleatorios en

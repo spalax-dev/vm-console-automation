@@ -11,6 +11,7 @@ Package services implementa los casos de uso de la consola: descubre el conector
 ## Index
 
 - [Variables](<#variables>)
+- [func ModuloDe\(ruta string\) string](<#ModuloDe>)
 - [type AbridorSesion](<#AbridorSesion>)
 - [type Acceso](<#Acceso>)
   - [func NuevoAcceso\(config \*ConfigAcceso\) \*Acceso](<#NuevoAcceso>)
@@ -39,11 +40,16 @@ Package services implementa los casos de uso de la consola: descubre el conector
   - [func \(d \*Descubridor\) Establecer\(nombre string\)](<#Descubridor.Establecer>)
   - [func \(d \*Descubridor\) Objetivo\(\) domain.Target](<#Descubridor.Objetivo>)
 - [type EstadoUnidad](<#EstadoUnidad>)
+- [type FiltroHistorial](<#FiltroHistorial>)
 - [type Haproxy](<#Haproxy>)
   - [func NuevoHaproxy\(sesiones AbridorSesion\) \*Haproxy](<#NuevoHaproxy>)
   - [func \(h \*Haproxy\) Agregar\(ctx context.Context, direccion string, puerto int\) \(Resultado, error\)](<#Haproxy.Agregar>)
   - [func \(h \*Haproxy\) Eliminar\(ctx context.Context, direccion string, puerto int\) \(Resultado, error\)](<#Haproxy.Eliminar>)
   - [func \(h \*Haproxy\) Listar\(ctx context.Context\) \(\[\]Servidor, error\)](<#Haproxy.Listar>)
+- [type Historial](<#Historial>)
+  - [func NuevoHistorial\(almacen \*Almacen\) \*Historial](<#NuevoHistorial>)
+  - [func \(h \*Historial\) Listar\(ctx context.Context, filtro \*FiltroHistorial\) \(\[\]Operacion, error\)](<#Historial.Listar>)
+  - [func \(h \*Historial\) Registrar\(ctx context.Context, operacion \*Operacion\) error](<#Historial.Registrar>)
 - [type Hostname](<#Hostname>)
   - [func NuevoHostname\(sesiones AbridorSesion\) \*Hostname](<#NuevoHostname>)
   - [func \(h \*Hostname\) Escribir\(ctx context.Context, config ConfiguracionHostname\) \(Resultado, error\)](<#Hostname.Escribir>)
@@ -58,6 +64,7 @@ Package services implementa los casos de uso de la consola: descubre el conector
   - [func \(l \*Llaves\) Descargar\(\) \(nombre string, contenido \[\]byte, err error\)](<#Llaves.Descargar>)
   - [func \(l \*Llaves\) Generar\(ctx context.Context\) \(Resultado, error\)](<#Llaves.Generar>)
 - [type MaquinaVirtual](<#MaquinaVirtual>)
+- [type Operacion](<#Operacion>)
 - [type Paquete](<#Paquete>)
 - [type Paquetes](<#Paquetes>)
   - [func NuevoPaquetes\(sesiones AbridorSesion\) \*Paquetes](<#NuevoPaquetes>)
@@ -176,6 +183,15 @@ var ErrUsuarioExistente = errors.New("el usuario ya existe")
 ```go
 var ErrUsuarioNoEncontrado = errors.New("el usuario no existe")
 ```
+
+<a name="ModuloDe"></a>
+## func ModuloDe
+
+```go
+func ModuloDe(ruta string) string
+```
+
+ModuloDe ruta devuelve el nombre del módulo a partir de la ruta HTTP.
 
 <a name="AbridorSesion"></a>
 ## type AbridorSesion
@@ -537,6 +553,24 @@ type EstadoUnidad struct {
 }
 ```
 
+<a name="FiltroHistorial"></a>
+## type FiltroHistorial
+
+FiltroHistorial reúne los filtros de la consulta del historial.
+
+```go
+type FiltroHistorial struct {
+    Texto     string
+    VM        string
+    Modulo    string
+    Desde     string
+    Hasta     string
+    HoraDesde string
+    HoraHasta string
+    Limite    int
+}
+```
+
 <a name="Haproxy"></a>
 ## type Haproxy
 
@@ -583,6 +617,44 @@ func (h *Haproxy) Listar(ctx context.Context) ([]Servidor, error)
 ```
 
 Listar devuelve los servidores del primer bloque backend.
+
+<a name="Historial"></a>
+## type Historial
+
+Historial registra las operaciones y las consulta desde SQLite.
+
+```go
+type Historial struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="NuevoHistorial"></a>
+### func NuevoHistorial
+
+```go
+func NuevoHistorial(almacen *Almacen) *Historial
+```
+
+NuevoHistorial construye el historial sobre la base de la consola.
+
+<a name="Historial.Listar"></a>
+### func \(\*Historial\) Listar
+
+```go
+func (h *Historial) Listar(ctx context.Context, filtro *FiltroHistorial) ([]Operacion, error)
+```
+
+Listar devuelve las operaciones que cumplen el filtro, de la más reciente a la más antigua.
+
+<a name="Historial.Registrar"></a>
+### func \(\*Historial\) Registrar
+
+```go
+func (h *Historial) Registrar(ctx context.Context, operacion *Operacion) error
+```
+
+Registrar agrega una operación al historial.
 
 <a name="Hostname"></a>
 ## type Hostname
@@ -731,6 +803,30 @@ type MaquinaVirtual struct {
     Activa bool
     // Registrada indica que la consola ya preparó SSH en la máquina.
     Registrada bool
+}
+```
+
+<a name="Operacion"></a>
+## type Operacion
+
+Operacion es una entrada del historial de la consola.
+
+```go
+type Operacion struct {
+    // ID es el identificador incremental.
+    ID  int64
+    // FechaHora es la marca temporal en RFC 3339 (UTC).
+    FechaHora string
+    // VM es la máquina sobre la que se actuó.
+    VM  string
+    // Modulo identifica el módulo (paquetes, usuarios, systemd, etc.).
+    Modulo string
+    // Operacion es el método y la ruta ejecutados.
+    Operacion string
+    // Resultado es «ok» o «error».
+    Resultado string
+    // Detalle conserva información técnica breve.
+    Detalle string
 }
 ```
 

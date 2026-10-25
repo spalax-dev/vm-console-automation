@@ -342,6 +342,46 @@ falla la apertura de sesión con `503` hasta que se encienda. Si no hay
 ninguna máquina vinculada, `GET /api/session` responde `503` con un
 mensaje que invita a elegir una del inventario.
 
+### 2.8 Caché de lecturas
+
+Cada listado abre una sesión con la máquina y ejecuta órdenes dentro de ella:
+`dpkg-query` para los paquetes, `getent` para los usuarios, `systemctl` para las
+unidades. Repetir esa consulta cada vez que se abre una pestaña es caro y, en la
+mayoría de los casos, innecesario: esos datos cambian solo cuando el usuario
+ejecuta una operación desde la misma consola.
+
+El servidor guarda las respuestas correctas de `GET` sobre `/api/` durante una
+vigencia corta, distinta por recurso:
+
+| Recurso | Vigencia | Motivo |
+| --- | --- | --- |
+| `/api/session` | 3 s | el estado de encendido puede cambiar desde el hipervisor |
+| `/api/vms` | 5 s | el inventario solo cambia al crear o borrar máquinas |
+| `/api/units` | 5 s | el estado de una unidad cambia al reiniciarla |
+| `/api/packages`, `/api/users`, `/api/haproxy` | 15 s | cambian solo por una operación de la consola |
+| `/api/issue`, `/api/hostname` | 30 s | configuración estable |
+
+Las reglas que hacen segura la caché:
+
+- **Solo se recuerdan respuestas `200`.** Un `503` por falta de sesión o un
+  `501` de un módulo no conectado se vuelven a pedir siempre, para que el
+  usuario vea el cambio en cuanto arranque la máquina o se conecte el caso de uso.
+- **Cualquier escritura vacía la caché completa.** Instalar un paquete, crear un
+  usuario o cambiar el hostname descartan todas las entradas; así no queda una
+  lista vieja después de una operación, que es el riesgo clásico de cachear.
+- **Solo se cachea `/api/`.** Los archivos estáticos ya llevan huella en el
+  nombre y se sirven aparte.
+- **Se puede forzar una lectura fresca** con `Cache-Control: no-cache`; la
+  respuesta se guarda igual, de modo que la siguiente lectura la reutiliza.
+- **La memoria está acotada**: como máximo 256 entradas y 1 MiB por respuesta; al
+  superar el límite se descarta todo, porque las entradas duran segundos.
+- Cada respuesta anuncia `X-Cache: HIT` o `X-Cache: MISS`, un encabezado de
+  diagnóstico que no forma parte del contrato.
+
+En el cliente, además, el armazón se monta una sola vez: cambiar de pestaña
+sustituye solo la barra de pestañas y el contenido, sin reconstruir la barra
+superior ni repetir la consulta de sesión.
+
 ---
 
 ## 3. Flujo de proceso de una operación
@@ -634,9 +674,12 @@ validación en línea bajo el campo.
 - Cada operación registrada en el historial lleva el nombre de la VM a
   la que se le aplicó.
 
-### 10.4 Historial (diferido: `docs/TODO.md` §9)
+### 10.4 Historial
 
-Tabla con `fecha y hora` · `VM` · `módulo` · `operación` · `resultado` ·
-`usuario`, con filtros combinables: **búsqueda de texto, rango de
-fechas, rango horario, VM y módulo**. Sus datos se guardan en SQLite,
-junto con los usuarios de la consola.
+Tabla con `fecha y hora` · `VM` · `módulo` · `operación` · `resultado`,
+con filtros combinables: **búsqueda de texto, rango de fechas, rango
+horario, VM y módulo**. La consola registra automáticamente las
+operaciones mutantes (`POST`, `PUT`, `PATCH`, `DELETE`) desde la capa
+HTTP y las guarda en la tabla `operaciones` de SQLite; `GET
+/api/historial` las consulta con esos filtros y la interfaz exporta el
+resultado a CSV.

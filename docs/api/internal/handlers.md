@@ -10,6 +10,7 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
 
 ## Index
 
+- [func ConHistorial\(siguiente http.Handler, historial ServicioHistorial, vm func\(\) string\) http.Handler](<#ConHistorial>)
 - [type Acceso](<#Acceso>)
   - [func NuevoAcceso\(servicio ServicioAcceso\) \*Acceso](<#NuevoAcceso>)
   - [func \(h \*Acceso\) ServeHTTP\(w http.ResponseWriter, r \*http.Request\)](<#Acceso.ServeHTTP>)
@@ -18,6 +19,9 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
   - [func NuevoHaproxy\(servicio ServicioHaproxy\) \*Haproxy](<#NuevoHaproxy>)
   - [func \(h \*Haproxy\) Servidor\(w http.ResponseWriter, r \*http.Request\)](<#Haproxy.Servidor>)
   - [func \(h \*Haproxy\) Servidores\(w http.ResponseWriter, r \*http.Request\)](<#Haproxy.Servidores>)
+- [type Historial](<#Historial>)
+  - [func NuevoHistorial\(servicio ServicioHistorial\) \*Historial](<#NuevoHistorial>)
+  - [func \(h \*Historial\) ServeHTTP\(w http.ResponseWriter, r \*http.Request\)](<#Historial.ServeHTTP>)
 - [type Maquinas](<#Maquinas>)
   - [func NuevoMaquinas\(servicio ServicioMaquinas\) \*Maquinas](<#NuevoMaquinas>)
   - [func \(h \*Maquinas\) Encender\(w http.ResponseWriter, r \*http.Request\)](<#Maquinas.Encender>)
@@ -28,6 +32,7 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
 - [type RegistroSesion](<#RegistroSesion>)
 - [type ServicioAcceso](<#ServicioAcceso>)
 - [type ServicioHaproxy](<#ServicioHaproxy>)
+- [type ServicioHistorial](<#ServicioHistorial>)
 - [type ServicioHostname](<#ServicioHostname>)
 - [type ServicioIssue](<#ServicioIssue>)
 - [type ServicioLlaves](<#ServicioLlaves>)
@@ -57,6 +62,15 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
   - [func \(h \*Usuarios\) Usuario\(w http.ResponseWriter, r \*http.Request\)](<#Usuarios.Usuario>)
 - [type VinculadorSesion](<#VinculadorSesion>)
 
+
+<a name="ConHistorial"></a>
+## func ConHistorial
+
+```go
+func ConHistorial(siguiente http.Handler, historial ServicioHistorial, vm func() string) http.Handler
+```
+
+ConHistorial envuelve el mux para registrar las operaciones mutantes.
 
 <a name="Acceso"></a>
 ## type Acceso
@@ -135,6 +149,35 @@ func (h *Haproxy) Servidores(w http.ResponseWriter, r *http.Request)
 ```
 
 Servidores atiende GET y POST /api/haproxy/backend/servers: lista o agrega servidores al back\-end.
+
+<a name="Historial"></a>
+## type Historial
+
+Historial expone GET /api/historial con los filtros del diseño.
+
+```go
+type Historial struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="NuevoHistorial"></a>
+### func NuevoHistorial
+
+```go
+func NuevoHistorial(servicio ServicioHistorial) *Historial
+```
+
+NuevoHistorial construye el handler del historial.
+
+<a name="Historial.ServeHTTP"></a>
+### func \(\*Historial\) ServeHTTP
+
+```go
+func (h *Historial) ServeHTTP(w http.ResponseWriter, r *http.Request)
+```
+
+ServeHTTP implementa http.Handler.
 
 <a name="Maquinas"></a>
 ## type Maquinas
@@ -239,6 +282,18 @@ type ServicioHaproxy interface {
     Agregar(ctx context.Context, direccion string, puerto int) (services.Resultado, error)
     // Eliminar elimina un servidor del back-end.
     Eliminar(ctx context.Context, direccion string, puerto int) (services.Resultado, error)
+}
+```
+
+<a name="ServicioHistorial"></a>
+## type ServicioHistorial
+
+ServicioHistorial registra y consulta las operaciones de la consola.
+
+```go
+type ServicioHistorial interface {
+    Registrar(ctx context.Context, operacion *services.Operacion) error
+    Listar(ctx context.Context, filtro *services.FiltroHistorial) ([]services.Operacion, error)
 }
 ```
 

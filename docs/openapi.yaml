@@ -52,6 +52,14 @@ info:
     - `tecnico`: resumen para diagnóstico.
     - `campo`: campo que falló la validación, cuando aplica.
 
+    ## Caché de lectura
+
+    Las respuestas `200` de `GET` se reutilizan durante unos segundos por
+    recurso (3 s la sesión, 5 s el inventario, 15 s los listados y 30 s la
+    configuración). Cualquier `POST`, `PUT`, `PATCH` o `DELETE` correcto
+    vacía la caché completa, y `Cache-Control: no-cache` fuerza una
+    lectura fresca. El encabezado `X-Cache` indica `HIT` o `MISS`.
+
     ## Estado de implementación
 
     `GET /api/session`, `/api/packages`, `/api/keys/root`, `/api/issue`,
@@ -59,10 +67,11 @@ info:
     única funcionalidad fuera de alcance es el historial, diferido según
     `docs/TODO.md` §9.
 
-    ## Fuera de alcance
+    ## Historial
 
-    `GET /api/historial` es una funcionalidad diferida (`docs/TODO.md`
-    §9) y no forma parte de este contrato.
+    `GET /api/historial` devuelve las operaciones registradas en SQLite.
+    Las operaciones que modifican la máquina se registran de forma
+    automática desde la capa HTTP.
 servers:
   - url: http://localhost:8080
     description: Servidor local de la consola (`VMCONS_ADDR`)
@@ -82,6 +91,8 @@ tags:
     description: Unidades y demonios con systemd (numeral 3.3).
   - name: haproxy
     description: Balanceo de carga con HAProxy (numeral 3.4).
+  - name: historial
+    description: Registro de operaciones de la consola.
 paths:
   /api/session:
     get:
@@ -715,6 +726,84 @@ paths:
         '500':
           $ref: '#/components/responses/ErrorInterno'
 
+  /api/historial:
+    get:
+      tags: [historial]
+      summary: Consultar el historial de operaciones
+      description: |
+        Devuelve las operaciones registradas, de la más reciente a la más
+        antigua. Los filtros se combinan con AND; las fechas y horas se
+        interpretan sobre la marca UTC almacenada.
+      operationId: listarHistorial
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Texto sobre VM, módulo, operación o detalle.
+          schema:
+            type: string
+            maxLength: 128
+        - name: vm
+          in: query
+          required: false
+          description: Nombre exacto de la máquina.
+          schema:
+            type: string
+        - name: modulo
+          in: query
+          required: false
+          description: Módulo de la consola.
+          schema:
+            type: string
+            enum: [paquetes, llaves, issue, hostname, usuarios, systemd, haproxy]
+        - name: desde
+          in: query
+          required: false
+          description: Fecha inicial (AAAA-MM-DD).
+          schema:
+            type: string
+            format: date
+        - name: hasta
+          in: query
+          required: false
+          description: Fecha final (AAAA-MM-DD).
+          schema:
+            type: string
+            format: date
+        - name: hora_desde
+          in: query
+          required: false
+          description: Hora inicial (HH:MM).
+          schema:
+            type: string
+            pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+        - name: hora_hasta
+          in: query
+          required: false
+          description: Hora final (HH:MM).
+          schema:
+            type: string
+            pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+        - name: limite
+          in: query
+          required: false
+          description: Número máximo de filas (1–1000; 200 por omisión).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+      responses:
+        '200':
+          description: Operaciones que cumplen los filtros.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListaHistorial'
+        '400':
+          $ref: '#/components/responses/EntradaInvalida'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
   /api/haproxy/backend/servers:
     get:
       tags: [haproxy]
@@ -959,6 +1048,42 @@ components:
         registrada:
           type: boolean
           description: La máquina ya fue registrada en la consola.
+
+    OperacionHistorial:
+      type: object
+      required: [id, fecha_hora, vm, modulo, operacion, resultado]
+      properties:
+        id:
+          type: integer
+          format: int64
+        fecha_hora:
+          type: string
+          format: date-time
+          description: Marca temporal UTC en RFC 3339.
+        vm:
+          type: string
+          description: Máquina sobre la que se actuó.
+        modulo:
+          type: string
+          enum: [paquetes, llaves, issue, hostname, usuarios, systemd, haproxy]
+        operacion:
+          type: string
+          description: Método y ruta ejecutados.
+        resultado:
+          type: string
+          enum: [ok, error]
+        detalle:
+          type: string
+          description: Información técnica breve.
+
+    ListaHistorial:
+      type: object
+      required: [operaciones]
+      properties:
+        operaciones:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperacionHistorial'
 
     ResultadoOperacion:
       type: object

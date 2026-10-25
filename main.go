@@ -26,6 +26,7 @@ import (
 	"consola-vm/internal/core/domain"
 	"consola-vm/internal/core/ports"
 	"consola-vm/internal/handlers"
+	"consola-vm/internal/httpcache"
 	"consola-vm/internal/services"
 )
 
@@ -52,6 +53,22 @@ const (
 
 // tiempoMaximoPeticion acota la duración de cada petición HTTP.
 const tiempoMaximoPeticion = 2 * time.Minute
+
+// politicasCache declara cuánto se reutiliza cada lectura de la API. Las
+// consultas a la máquina abren sesión y ejecutan órdenes, así que se
+// guardan unos segundos; cualquier escritura vacía la caché completa.
+func politicasCache() []httpcache.Politica {
+	return []httpcache.Politica{
+		{Prefijo: "/api/session", TTL: 3 * time.Second},
+		{Prefijo: "/api/vms", TTL: 5 * time.Second},
+		{Prefijo: "/api/units", TTL: 5 * time.Second},
+		{Prefijo: "/api/packages", TTL: 15 * time.Second},
+		{Prefijo: "/api/users", TTL: 15 * time.Second},
+		{Prefijo: "/api/haproxy", TTL: 15 * time.Second},
+		{Prefijo: "/api/issue", TTL: 30 * time.Second},
+		{Prefijo: "/api/hostname", TTL: 30 * time.Second},
+	}
+}
 
 // main ensambla los adaptadores, los servicios y los handlers, y arranca
 // el servidor HTTP de la consola.
@@ -88,6 +105,8 @@ func nuevoServidor() (*http.Server, error) {
 		return nil, err
 	}
 
+	manejador = httpcache.Nuevo(politicasCache()).Envolver(manejador)
+
 	return &http.Server{
 		Addr:              direccion(),
 		Handler:           manejador,
@@ -123,6 +142,7 @@ func nuevoMux() (http.Handler, error) {
 	}))
 	systemd := handlers.NuevoSystemd(services.NuevoSystemd(sesiones))
 	haproxy := handlers.NuevoHaproxy(services.NuevoHaproxy(sesiones))
+	historial := services.NuevoHistorial(consola.registro)
 
 	mux.Handle("/api/session", handlers.NuevoSesion(
 		sesiones,
@@ -152,11 +172,13 @@ func nuevoMux() (http.Handler, error) {
 	mux.HandleFunc("/api/haproxy/backend/servers", haproxy.Servidores)
 	mux.HandleFunc("/api/haproxy/backend/servers/{server}", haproxy.Servidor)
 
+	mux.HandleFunc("/api/historial", handlers.NuevoHistorial(historial).ServeHTTP)
+
 	if err := servirInterfaz(mux); err != nil {
 		return nil, err
 	}
 
-	return mux, nil
+	return handlers.ConHistorial(mux, historial, consola.vinculacion.Activa), nil
 }
 
 // servirInterfaz publica la aplicación compilada con Vite en la raíz y

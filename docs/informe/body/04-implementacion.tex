@@ -319,6 +319,19 @@ ventaja de que actualizar la vista no obliga a recompilar Go. El arranque
 anuncia en la terminal el nombre en arte ASCII, la URL de la consola, el
 origen de la interfaz y la máquina configurada.
 
+\emph{Caché de lectura.} Cada listado abre una sesión con la máquina y
+ejecuta órdenes dentro de ella, de modo que repetirlo al abrir cada
+pestaña resulta caro y casi siempre innecesario. El servidor guarda las
+respuestas correctas de \texttt{GET} sobre la API durante una vigencia
+corta por recurso ---tres segundos la sesión, cinco el inventario y las
+unidades, quince los listados y treinta la configuración--- y descarta
+la caché completa ante cualquier operación de escritura, que es la
+situación en la que los datos cambian. Los errores no se guardan, para
+que un módulo recién conectado o una máquina recién encendida se vean de
+inmediato; opcionalmente, \texttt{Cache-Control: no-cache} fuerza una
+lectura fresca. La memoria está acotada y cada respuesta anuncia
+\texttt{X-Cache} con \texttt{HIT} o \texttt{MISS} para el diagnóstico.
+
 \emph{Pruebas.} El cliente se verifica con Vitest: cuarenta y dos casos sobre
 la construcción de las peticiones, la traducción de errores, las reglas
 de validación, las utilidades de presentación y el montaje de las vistas

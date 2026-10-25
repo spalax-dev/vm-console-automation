@@ -158,14 +158,14 @@ de los módulos del numeral 3.
   (`GET /api/vms?q=`) y la máquina se vincula con `PUT /api/session`.
 - [ ] **Persistir la vinculación** en SQLite para no volver a `VMCONS_VM` al
   reiniciar la consola.
-- [ ] **Pestaña Historial** (diseño §10.4): tabla de operaciones con
+- [x] **Pestaña Historial** (diseño §10.4): tabla de operaciones con
   filtros por búsqueda de texto, fecha, hora, VM y módulo →
-  `GET /api/historial`.
+  `GET /api/historial`, con exportación CSV en la interfaz.
 - [x] **Persistencia en SQLite** en `data/vmcons.db`: tabla `credenciales`
   por VM. La dependencia `modernc.org/sqlite` está justificada en
   `docs/persistencia.md` (puro Go, sin CGO: no rompe el binario único).
-  - [ ] Tabla `operaciones` para el historial (sigue diferida con la
-    pestaña Historial).
+  - [x] Tabla `operaciones` para el historial, registrada automáticamente
+    por el middleware HTTP.
 - [ ] **Autenticación** de la consola con usuario y contraseña guardados
   en SQLite. El enunciado no la pide: opcional, después de los módulos.
 - [ ] **Coherencia con el informe:** si se adopta la persistencia,
@@ -176,6 +176,22 @@ de los módulos del numeral 3.
 ---
 
 ## Notas de seguimiento
+
+- **25 oct 2026** — Caché de lecturas: paquete `internal/httpcache` que
+  guarda las respuestas `200` de `GET /api/…` con vigencia por recurso
+  (3 s sesión, 5 s inventario y unidades, 15 s listados, 30 s
+  configuración) y vacía todo ante cualquier escritura. No se guardan
+  errores; `Cache-Control: no-cache` fuerza una lectura fresca y
+  `X-Cache` anuncia `HIT`/`MISS`. La memoria está acotada a 256 entradas
+  y 1 MiB por respuesta. En el cliente, el armazón se monta una sola vez
+  para no repetir la consulta de sesión al cambiar de pestaña.
+
+- **25 oct 2026** — Historial de operaciones: el middleware HTTP
+  registra `POST`/`PUT`/`PATCH`/`DELETE` de los módulos en la tabla
+  `operaciones` de SQLite (VM activa, módulo, método+ruta, resultado y
+  estado HTTP). `GET /api/historial` filtra por texto, VM, módulo, rango
+  de fechas y rango horario, con límite de 200 por omisión. La pestaña
+  Historial lo consulta y exporta a CSV.
 
 - **25 oct 2026** — Credenciales en SQLite: se reemplazó
   `credenciales.json` por `data/vmcons.db` (tabla `credenciales`) y la

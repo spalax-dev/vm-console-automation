@@ -49,6 +49,20 @@ CREATE TABLE IF NOT EXISTS credenciales (
 	actualizado_en TEXT NOT NULL
 );`
 
+// esquemaOperaciones crea la tabla del historial si no existe.
+const esquemaOperaciones = `
+CREATE TABLE IF NOT EXISTS operaciones (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	fecha_hora TEXT NOT NULL,
+	vm TEXT NOT NULL,
+	modulo TEXT NOT NULL,
+	operacion TEXT NOT NULL,
+	resultado TEXT NOT NULL,
+	detalle TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS operaciones_fecha ON operaciones (fecha_hora);
+CREATE INDEX IF NOT EXISTS operaciones_vm ON operaciones (vm);`
+
 // Almacen guarda las credenciales por máquina en SQLite y cifra la
 // contraseña con una clave local.
 type Almacen struct {
@@ -77,6 +91,10 @@ func NuevoAlmacen(rutaBD, rutaClave string) (*Almacen, error) {
 
 	if _, err := db.ExecContext(context.Background(), esquemaCredenciales); err != nil {
 		return nil, fmt.Errorf("crear el esquema de credenciales: %w", err)
+	}
+
+	if _, err := db.ExecContext(context.Background(), esquemaOperaciones); err != nil {
+		return nil, fmt.Errorf("crear el esquema del historial: %w", err)
 	}
 
 	// #nosec G302 -- es la base de datos, no un ejecutable.

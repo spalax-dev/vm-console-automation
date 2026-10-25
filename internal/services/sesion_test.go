@@ -49,6 +49,7 @@ const (
 	passwordPrueba     = "secreto"
 	vmPrueba           = "vm1"
 	archivoClave       = "credenciales.key"
+	moduloSystemd      = "systemd"
 	msgGuardarOK       = "Guardar() error = %v, want nil"
 	msgPrepararArchivo = "preparar el archivo: %v"
 	// #nosec G101 -- nombre de archivo de prueba, no una credencial.
