@@ -161,11 +161,11 @@ de los módulos del numeral 3.
 - [ ] **Pestaña Historial** (diseño §10.4): tabla de operaciones con
   filtros por búsqueda de texto, fecha, hora, VM y módulo →
   `GET /api/historial`.
-- [ ] **Persistencia en SQLite** en `data/vmcons.db`: tabla `operaciones`
-  (historial por VM) y tabla de usuarios de la consola.
-  - [ ] Justificar la dependencia en `docs/` antes de agregarla, p. ej.
-    `modernc.org/sqlite` (puro Go, sin CGO: no rompe el binario único
-    sin dependencias en tiempo de ejecución).
+- [x] **Persistencia en SQLite** en `data/vmcons.db`: tabla `credenciales`
+  por VM. La dependencia `modernc.org/sqlite` está justificada en
+  `docs/persistencia.md` (puro Go, sin CGO: no rompe el binario único).
+  - [ ] Tabla `operaciones` para el historial (sigue diferida con la
+    pestaña Historial).
 - [ ] **Autenticación** de la consola con usuario y contraseña guardados
   en SQLite. El enunciado no la pide: opcional, después de los módulos.
 - [ ] **Coherencia con el informe:** si se adopta la persistencia,
@@ -176,6 +176,14 @@ de los módulos del numeral 3.
 ---
 
 ## Notas de seguimiento
+
+- **25 oct 2026** — Credenciales en SQLite: se reemplazó
+  `credenciales.json` por `data/vmcons.db` (tabla `credenciales`) y la
+  contraseña se cifra con AES-256-GCM usando `data/credenciales.key`
+  (`0600`). Se justificó `modernc.org/sqlite` en
+  `docs/persistencia.md` por ser puro Go y no romper el binario único.
+  La base y la clave están excluidas de Git. Las máquinas registradas
+  con la versión JSON deben registrarse de nuevo.
 
 - **25 oct 2026** — Registro de máquinas: una VM con Guest Additions y
   red puente/host-only aparece como «sin registrar» y, al elegirla, la

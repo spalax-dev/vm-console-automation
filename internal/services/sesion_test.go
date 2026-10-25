@@ -48,6 +48,8 @@ const (
 	usuarioRoot        = "root"
 	passwordPrueba     = "secreto"
 	vmPrueba           = "vm1"
+	archivoClave       = "credenciales.key"
+	msgGuardarOK       = "Guardar() error = %v, want nil"
 	msgPrepararArchivo = "preparar el archivo: %v"
 	// #nosec G101 -- nombre de archivo de prueba, no una credencial.
 	archivoCredenciales = "credenciales.json"
@@ -194,7 +196,7 @@ func (a *stubAbridor) Abrir(context.Context) (ports.Session, error) {
 func nuevoDescubridor(m *stubMachine, conectores ...ports.Connector) *Descubridor {
 	return NuevoDescubridor(&ConfigDescubridor{
 		Maquina:    m,
-		Objetivo:   domain.Target{ID: "vm1"},
+		Objetivo:   domain.Target{ID: vmPrueba},
 		Conectores: conectores,
 	})
 }
@@ -341,7 +343,7 @@ func TestDescubridorUsaDireccionDelObjetivo(t *testing.T) {
 
 	desc := NuevoDescubridor(&ConfigDescubridor{
 		Maquina:    m,
-		Objetivo:   domain.Target{ID: "vm1", Address: ip},
+		Objetivo:   domain.Target{ID: vmPrueba, Address: ip},
 		Conectores: []ports.Connector{&stubConnector{name: conectorSSH}},
 	})
 

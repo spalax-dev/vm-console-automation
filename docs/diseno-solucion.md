@@ -255,7 +255,8 @@ Una máquina administrable tiene dos estados en `vmcons`:
 
 El registro se expone en `POST /api/session/register` y sigue esta secuencia:
 
-1. guarda el usuario y la contraseña en `credenciales.json` (permisos `0600`);
+1. guarda el usuario y la contraseña en SQLite (`data/vmcons.db`); la
+   contraseña se cifra con AES-256-GCM antes de insertarse;
 2. abre Guest Additions y verifica las credenciales ejecutando `id -u`;
 3. genera la llave de root en el anfitrión si todavía no existe;
 4. instala `openssh-server` si falta, la llave pública en
@@ -270,8 +271,9 @@ Si cualquier paso falla, restaura las credenciales anteriores y la máquina
 queda **sin registrar**. `DELETE /api/session/register` elimina el registro.
 `GET /api/session` y `GET /api/vms` informan el campo `registrada` para que
 la interfaz decida si abre el modal. La contraseña se conserva porque las
-órdenes se ejecutan de forma no interactiva; el archivo queda fuera del
-repositorio y se documenta como un dato sensible del anfitrión.
+órdenes se ejecutan de forma no interactiva; la base y la clave quedan fuera
+del repositorio, con permisos `0600`. El detalle de la persistencia y de la
+dependencia `modernc.org/sqlite` está en `docs/persistencia.md`.
 
 ### 2.9 Servidores del back-end de HAProxy
 

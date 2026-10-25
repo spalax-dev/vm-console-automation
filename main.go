@@ -46,6 +46,7 @@ const (
 	envGuestPass  = "VMCONS_GUEST_PASS" // contraseña de Guest Additions
 	envDireccion  = "VMCONS_ADDR"       // dirección donde escucha la consola
 	envWeb        = "VMCONS_WEB"        // directorio de la interfaz web
+	envDB         = "VMCONS_DB"         // ruta de la base SQLite
 	direccionProd = ":8080"
 )
 
@@ -196,7 +197,11 @@ type consola struct {
 // adaptadores reales: VirtualBox para el estado, la dirección y el
 // inventario, SSH como conector preferido y Guest Additions como respaldo.
 func nuevaConsola(ejecutor ports.Executor) *consola {
-	almacen := services.NuevoAlmacen(rutaCredenciales())
+	almacen, err := services.NuevoAlmacen(rutaBaseDatos(), rutaClaveCifrado())
+	if err != nil {
+		panic(fmt.Errorf("abrir la base de credenciales: %w", err))
+	}
+
 	maquina := vbox.New(ejecutor,
 		vbox.WithCredenciales(almacen),
 		vbox.WithGuestCredentials(usuarioInvitado(), os.Getenv(envGuestPass)),
@@ -248,10 +253,18 @@ func direccion() string {
 	return direccionProd
 }
 
-// rutaCredenciales devuelve la ruta del archivo de credenciales por
-// máquina.
-func rutaCredenciales() string {
-	return filepath.Join(filepath.Dir(rutaLlave()), "credenciales.json")
+// rutaBaseDatos devuelve la ruta de la base SQLite de la consola.
+func rutaBaseDatos() string {
+	if valor := os.Getenv(envDB); valor != "" {
+		return valor
+	}
+
+	return filepath.Join("data", "vmcons.db")
+}
+
+// rutaClaveCifrado devuelve la clave local que cifra las contraseñas.
+func rutaClaveCifrado() string {
+	return filepath.Join(filepath.Dir(rutaBaseDatos()), "credenciales.key")
 }
 
 // rutaLlave devuelve la ruta de la llave privada de root: la variable

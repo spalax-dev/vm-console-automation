@@ -79,8 +79,10 @@ compartirla.
 Una máquina con Guest Additions y red puente u host-only aparece como
 \emph{sin registrar} hasta que el usuario la registra. Al elegirla, la
 interfaz abre un modal flotante y \texttt{POST /api/session/register}
-guarda las credenciales en \texttt{credenciales.json} (permisos
-\texttt{0600}), verifica con Guest Additions que permitan ejecutar
+guarda las credenciales en SQLite (\texttt{data/vmcons.db}); la
+contraseña se cifra con AES-256-GCM y se apoya en una clave local
+(\texttt{data/credenciales.key}, permisos \texttt{0600}). Después verifica
+con Guest Additions que permitan ejecutar
 \texttt{id -u}, instala \texttt{openssh-server} si falta, publica la llave
 de root, deshabilita el acceso por contraseña, comprueba la conexión SSH y
 marca la máquina como registrada. Si un paso falla, restaura el estado

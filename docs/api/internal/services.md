@@ -17,7 +17,7 @@ Package services implementa los casos de uso de la consola: descubre el conector
   - [func \(a \*Acceso\) Olvidar\(\) error](<#Acceso.Olvidar>)
   - [func \(a \*Acceso\) Registrar\(ctx context.Context, usuario, password string\) \(Resultado, error\)](<#Acceso.Registrar>)
 - [type Almacen](<#Almacen>)
-  - [func NuevoAlmacen\(ruta string\) \*Almacen](<#NuevoAlmacen>)
+  - [func NuevoAlmacen\(rutaBD, rutaClave string\) \(\*Almacen, error\)](<#NuevoAlmacen>)
   - [func \(a \*Almacen\) Borrar\(vm string\) error](<#Almacen.Borrar>)
   - [func \(a \*Almacen\) Guardar\(vm string, credenciales Credenciales\) error](<#Almacen.Guardar>)
   - [func \(a \*Almacen\) Guest\(vm string\) \(usuario, password string, ok bool\)](<#Almacen.Guest>)
@@ -230,7 +230,7 @@ Registrar guarda las credenciales, instala SSH con la llave de root y verifica l
 <a name="Almacen"></a>
 ## type Almacen
 
-Almacen guarda las credenciales por máquina en un archivo JSON.
+Almacen guarda las credenciales por máquina en SQLite y cifra la contraseña con una clave local.
 
 ```go
 type Almacen struct {
@@ -242,10 +242,10 @@ type Almacen struct {
 ### func NuevoAlmacen
 
 ```go
-func NuevoAlmacen(ruta string) *Almacen
+func NuevoAlmacen(rutaBD, rutaClave string) (*Almacen, error)
 ```
 
-NuevoAlmacen carga el archivo de credenciales; si no existe o está corrupto, arranca vacío y deja constancia en el log.
+NuevoAlmacen abre la base SQLite, crea el esquema y carga o genera la clave de cifrado.
 
 <a name="Almacen.Borrar"></a>
 ### func \(\*Almacen\) Borrar
@@ -263,7 +263,7 @@ Borrar elimina las credenciales de una máquina.
 func (a *Almacen) Guardar(vm string, credenciales Credenciales) error
 ```
 
-Guardar registra las credenciales de una máquina y persiste el archivo.
+Guardar registra o actualiza las credenciales de una máquina.
 
 <a name="Almacen.Guest"></a>
 ### func \(\*Almacen\) Guest
@@ -443,22 +443,21 @@ type ConfiguracionIssue struct {
 <a name="Credenciales"></a>
 ## type Credenciales
 
-Credenciales son los datos de acceso a una máquina virtual. La contraseña se guarda en un archivo con permisos 0600 porque los canales de Guest Additions y SSH la necesitan de forma no interactiva.
+Credenciales son los datos de acceso a una máquina virtual. La contraseña se cifra con AES\-GCM antes de guardarse en SQLite.
 
 ```go
 type Credenciales struct {
     // Usuario es el usuario con el que se abre la sesión.
-    Usuario string `json:"usuario"`
+    Usuario string
     // Password es la contraseña del usuario.
-    Password string `json:"password,omitempty"`
+    Password string
     // Puerto es el puerto SSH; cero significa el puerto por omisión.
-    Puerto uint16 `json:"puerto,omitempty"`
+    Puerto uint16
     // Direccion es una dirección alternativa (por ejemplo, un reenvío
     // de puertos); vacía significa descubrirla con Guest Additions.
-    Direccion string `json:"direccion,omitempty"`
-    // Registrada indica que la consola ya preparó SSH en la máquina y
-    // puede administrarla sin volver a pedir credenciales.
-    Registrada bool `json:"registrada"`
+    Direccion string
+    // Registrada indica que la consola ya preparó SSH en la máquina.
+    Registrada bool
 }
 ```
 

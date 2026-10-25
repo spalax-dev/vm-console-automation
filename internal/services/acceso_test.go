@@ -35,7 +35,8 @@ func nuevaLlaveDePrueba(t *testing.T) string {
 func nuevoAccesoDePrueba(t *testing.T, estado domain.MachineState, sesion *stubSession, probeErr error) (*Acceso, *Almacen) {
 	t.Helper()
 
-	almacen := NuevoAlmacen(filepath.Join(t.TempDir(), archivoCredenciales))
+	almacen, _, _ := nuevaBaseDePrueba(t)
+
 	maquina := &stubMachine{addr: netip.MustParseAddr(ipPrueba), state: estado}
 	guest := &stubConnector{name: conectorGuest, session: sesion}
 	conectorSSH := &stubConnector{name: conectorSSH, probe: probeErr}
@@ -114,7 +115,7 @@ func TestAccesoRegistrarSinSSH(t *testing.T) {
 func TestAccesoRegistrarSinMaquina(t *testing.T) {
 	t.Parallel()
 
-	almacen := NuevoAlmacen(filepath.Join(t.TempDir(), archivoCredenciales))
+	almacen, _, _ := nuevaBaseDePrueba(t)
 	acceso := NuevoAcceso(&ConfigAcceso{
 		Almacen:  almacen,
 		Objetivo: func() domain.Target { return domain.Target{} },

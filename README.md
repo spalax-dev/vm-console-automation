@@ -26,6 +26,7 @@ La conexión con la máquina virtual se configura por variables de entorno:
 | `VMCONS_GUEST_USER` | No | Usuario de Guest Additions (por omisión, `root`). |
 | `VMCONS_GUEST_PASS` | No | Contraseña de Guest Additions. |
 | `VMCONS_ADDR` | No | Dirección de escucha de la consola (por omisión, `:8080`). |
+| `VMCONS_DB` | No | Ruta de la base SQLite (por omisión, `data/vmcons.db`). |
 | `VMCONS_WEB` | No | Directorio con la interfaz web (`index.html` y `assets/`). Si falta, se usa la copia embebida en el binario. |
 
 ```bash
@@ -69,5 +70,6 @@ desinstalar: `task uninstall`.
 - `docs/arquitectura.md` — capas, puertos y adaptadores.
 - `docs/diseno-solucion.md` — contratos HTTP, validaciones y diseño de la interfaz.
 - `docs/TODO.md` — seguimiento del avance del parcial.
+- `docs/persistencia.md` — base SQLite, cifrado de credenciales y justificación de la dependencia.
 - `docs/api/` — documentación del código generada con `gomarkdoc` (no editar a mano).
 - `docs/informe/` — informe LaTeX.

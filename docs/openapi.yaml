@@ -186,8 +186,9 @@ paths:
         máquina como registrada. Si algo falla, restaura el estado
         anterior y la máquina queda sin registrar.
 
-        La contraseña se guarda en `credenciales.json`, con permisos
-        0600, para las operaciones no interactivas.
+        La contraseña se guarda en SQLite (`data/vmcons.db`) cifrada con
+        AES-256-GCM; la clave local (`data/credenciales.key`) y la base
+        tienen permisos 0600.
       operationId: registrarMaquina
       requestBody:
         required: true
