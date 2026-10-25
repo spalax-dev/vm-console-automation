@@ -170,8 +170,9 @@ de los módulos del numeral 3.
   `docs/persistencia.md` (puro Go, sin CGO: no rompe el binario único).
   - [x] Tabla `operaciones` para el historial, registrada automáticamente
     por el middleware HTTP.
-- [ ] **Autenticación** de la consola con usuario y contraseña guardados
-  en SQLite. El enunciado no la pide: opcional, después de los módulos.
+- [x] **Autenticación** de la consola con usuario y contraseña guardados
+  en SQLite (`usuarios_consola`, hash bcrypt) y cookie firmada de doce
+  horas. El enunciado no la pide: se añadió al cerrar los módulos.
 - [x] **Coherencia con el informe:** la estructura, las decisiones, la
   tabla de capacidades y las rutas se actualizaron con persistencia,
   registro, diagnóstico e historial. La frase «la consola no crea ni

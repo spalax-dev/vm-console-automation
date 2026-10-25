@@ -5,11 +5,14 @@ import { VMSelector } from './VMSelector.js';
 
 /**
  * Construye la barra superior de la consola: identidad, selector de
- * máquina y estado de la sesión.
+ * máquina, estado de la sesión y salida de la cuenta.
  *
+ * @param {object} [opciones] Opciones de la barra.
+ * @param {string} [opciones.usuario] Usuario con la sesión iniciada.
+ * @param {() => void} [opciones.alSalir] Acción del botón «Salir».
  * @returns {HTMLElement} Barra superior lista para insertarse.
  */
-export function Header() {
+export function Header({ usuario = '', alSalir } = {}) {
   const el = document.createElement('header');
   el.className = 'h-vm-header shrink-0 bg-vm-surface border-b border-vm-border flex items-center justify-between px-3';
   el.innerHTML = `
@@ -32,6 +35,10 @@ export function Header() {
       <button id="btn-refresh" class="btn h-vm-btn px-1.5" title="Consultar la sesión">
         <i data-lucide="refresh-cw" class="w-4 h-4"></i>
       </button>
+      <span id="vm-usuario" class="hidden items-center gap-1 text-vm-fgSecondary"></span>
+      <button id="btn-salir" type="button" class="btn h-vm-btn px-1.5 hidden" title="Cerrar la sesión de la consola">
+        <i data-lucide="log-out" class="w-4 h-4"></i>
+      </button>
     </div>
   `;
 
@@ -51,6 +58,21 @@ export function Header() {
     }),
   );
   el.querySelector('#btn-refresh').addEventListener('click', actualizar);
+
+  if (usuario) {
+    const etiqueta = el.querySelector('#vm-usuario');
+    const salir = el.querySelector('#btn-salir');
+
+    etiqueta.textContent = usuario;
+    etiqueta.classList.remove('hidden');
+    etiqueta.classList.add('flex');
+    salir.classList.remove('hidden');
+    salir.addEventListener('click', () => {
+      if (alSalir) {
+        alSalir();
+      }
+    });
+  }
 
   actualizar();
 

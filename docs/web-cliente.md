@@ -48,6 +48,13 @@ CDN para verse igual.
 
 ---
 
+La aplicación no monta el armazón hasta que `GET /api/auth/estado`
+informa `autenticado: true`: si no hay cuenta ofrece crearla y, si la hay,
+pide usuario y contraseña. La salida está en la barra superior y vence la
+cookie con `POST /api/auth/logout`. Como la API responde `401` a cualquier
+ruta sin cookie, una sesión vencida devuelve al formulario en la
+siguiente operación.
+
 ## 2. Cliente de la API
 
 `src/api.js` concentra todas las llamadas. Ninguna vista usa `fetch` de forma
@@ -86,7 +93,8 @@ servidor todavía no está implementado.
 
 | Vista | Operaciones |
 | --- | --- |
-| Inicio / barra superior | `GET /api/session`, `PUT /api/session`, `GET /api/vms?q=`, `POST /api/vms/{vm}/poweron` |
+| Acceso (`views/acceso.js`) | `GET /api/auth/estado`, `POST /api/auth/setup`, `POST /api/auth/login` |
+| Inicio / barra superior | `GET /api/session`, `PUT /api/session`, `GET /api/vms?q=`, `POST /api/vms/{vm}/poweron`, `DELETE /api/session/register` |
 | Paquetes | `GET /api/packages`, `POST /api/packages`, `DELETE /api/packages/{name}` |
 | Llaves SSH | `POST /api/keys/root`, `GET /api/keys/root` |
 | `/etc/issue` | `GET /api/issue`, `PUT /api/issue` |
@@ -192,11 +200,9 @@ el archivo de configuración. El nombre que muestra el selector de VM se toma de
 
 ## 5. Pendientes conocidos
 
-- **Persistencia de la vinculación**: la máquina elegida se guarda en memoria
-  y se pierde al reiniciar el proceso, que vuelve a `VMCONS_VM`. Guardarla
-  corresponde a la tabla de configuración de SQLite diferida en
-  `docs/TODO.md` §9.
-- **Historial**: fuera de alcance (`docs/TODO.md` §9).
 - **Retiro de `web/modules` y `web/static`**: la SPA ya se sirve en la raíz;
   falta borrar la interfaz anterior, sus archivos estáticos y las entradas
   `web/index.html` del `//go:embed` cuando nadie dependa de `/modules/`.
+- **Estado del back-end de HAProxy**: se consulta el socket de estadísticas
+  del balanceador; si `socat` no está instalado en la VM, la vista muestra
+  `unknown` en lugar de un estado inventado.

@@ -21,8 +21,15 @@ internal/
 │   ├── vbox/      # ports.Machine y ports.Connector sobre VBoxManage + Guest Additions
 │   └── ssh/       # ports.Connector sobre el cliente OpenSSH
 ├── handlers/      # adaptadores primarios (HTTP): enrutan y validan
+├── httpcache/     # caché de lecturas de la API con vigencia por recurso
 └── services/      # casos de uso; dependen solo de core/ports
 ```
+
+Dentro de `handlers` conviven los manejadores de cada módulo y los
+middlewares que envuelven el enrutador: `observabilidad.go` (identificador
+de solicitud y log), `historial.go` (registro de operaciones) y
+`auth.go` (exigencia de la cookie de sesión). Los dos primeros son
+transversales; el tercero protege toda la API salvo `/api/auth/...`.
 
 `main.go` es el único lugar que conoce a la vez las interfaces y sus implementaciones: ahí se instancian los adaptadores y se inyectan a los servicios.
 
@@ -50,6 +57,18 @@ El conector `vbox` publica el nombre `guest-additions` y el conector `ssh` publi
 - `core/domain` y `core/ports` no importan nada de `adapters`, `os/exec`, `net/ssh` ni librerías de VirtualBox.
 - Los tipos del dominio usan la stdlib mínima (`net/netip`, `io/fs`), que es multiplataforma.
 - Cada adaptador traduce su vocabulario al dominio: por ejemplo, `vbox` convierte el estado `poweroff` de VirtualBox en `domain.MachinePoweredOff`.
+
+## Autenticación de la consola
+
+La consola exige una cuenta local antes de administrar la máquina. El
+servicio `services/Consola` (`consola.go`) guarda el hash `bcrypt` de la
+contraseña en la tabla `usuarios_consola`, emite una cookie firmada con
+HMAC-SHA256 y valida su vigencia; el secreto se genera en el primer uso y
+se guarda en `configuracion`. `handlers/auth.go` expone las rutas de
+estado, creación de la cuenta, acceso y salida, y su middleware devuelve
+`401` para cualquier `/api/...` que no traiga una cookie válida. La
+interfaz no monta el armazón hasta que `GET /api/auth/estado` confirma la
+sesión.
 
 ## Registro y observabilidad
 

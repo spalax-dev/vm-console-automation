@@ -10,11 +10,19 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
 
 ## Index
 
+- [func ConAutenticacion\(siguiente http.Handler, servicio ServicioConsola\) http.Handler](<#ConAutenticacion>)
 - [func ConHistorial\(siguiente http.Handler, historial ServicioHistorial, vm func\(\) string\) http.Handler](<#ConHistorial>)
 - [func ConObservabilidad\(siguiente http.Handler, vm func\(\) string, logger \*slog.Logger\) http.Handler](<#ConObservabilidad>)
+- [func UsuarioDe\(ctx context.Context\) string](<#UsuarioDe>)
 - [type Acceso](<#Acceso>)
   - [func NuevoAcceso\(servicio ServicioAcceso\) \*Acceso](<#NuevoAcceso>)
   - [func \(h \*Acceso\) ServeHTTP\(w http.ResponseWriter, r \*http.Request\)](<#Acceso.ServeHTTP>)
+- [type Auth](<#Auth>)
+  - [func NuevoAuth\(servicio ServicioConsola\) \*Auth](<#NuevoAuth>)
+  - [func \(a \*Auth\) Configurar\(w http.ResponseWriter, r \*http.Request\)](<#Auth.Configurar>)
+  - [func \(a \*Auth\) Entrar\(w http.ResponseWriter, r \*http.Request\)](<#Auth.Entrar>)
+  - [func \(a \*Auth\) Estado\(w http.ResponseWriter, r \*http.Request\)](<#Auth.Estado>)
+  - [func \(a \*Auth\) Salir\(w http.ResponseWriter, r \*http.Request\)](<#Auth.Salir>)
 - [type DescubridorSesion](<#DescubridorSesion>)
 - [type Diagnostico](<#Diagnostico>)
   - [func NuevoDiagnostico\(servicio ServicioDiagnostico\) \*Diagnostico](<#NuevoDiagnostico>)
@@ -35,6 +43,7 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
   - [func ConVinculador\(vinculador VinculadorSesion\) OpcionSesion](<#ConVinculador>)
 - [type RegistroSesion](<#RegistroSesion>)
 - [type ServicioAcceso](<#ServicioAcceso>)
+- [type ServicioConsola](<#ServicioConsola>)
 - [type ServicioDiagnostico](<#ServicioDiagnostico>)
 - [type ServicioHaproxy](<#ServicioHaproxy>)
 - [type ServicioHistorial](<#ServicioHistorial>)
@@ -68,6 +77,15 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
 - [type VinculadorSesion](<#VinculadorSesion>)
 
 
+<a name="ConAutenticacion"></a>
+## func ConAutenticacion
+
+```go
+func ConAutenticacion(siguiente http.Handler, servicio ServicioConsola) http.Handler
+```
+
+ConAutenticacion exige la cookie de sesión en la API, salvo en las rutas de acceso. Los archivos de la interfaz se sirven sin cookie: la propia aplicación muestra el formulario cuando \`estado\` no está autenticado.
+
 <a name="ConHistorial"></a>
 ## func ConHistorial
 
@@ -85,6 +103,15 @@ func ConObservabilidad(siguiente http.Handler, vm func() string, logger *slog.Lo
 ```
 
 ConObservabilidad registra cada petición de la API con un identificador de solicitud, duración, estado y máquina activa.
+
+<a name="UsuarioDe"></a>
+## func UsuarioDe
+
+```go
+func UsuarioDe(ctx context.Context) string
+```
+
+UsuarioDe devuelve el usuario autenticado del contexto.
 
 <a name="Acceso"></a>
 ## type Acceso
@@ -114,6 +141,62 @@ func (h *Acceso) ServeHTTP(w http.ResponseWriter, r *http.Request)
 ```
 
 ServeHTTP implementa http.Handler.
+
+<a name="Auth"></a>
+## type Auth
+
+Auth agrupa los recursos de autenticación de la consola.
+
+```go
+type Auth struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="NuevoAuth"></a>
+### func NuevoAuth
+
+```go
+func NuevoAuth(servicio ServicioConsola) *Auth
+```
+
+NuevoAuth construye el handler de autenticación.
+
+<a name="Auth.Configurar"></a>
+### func \(\*Auth\) Configurar
+
+```go
+func (a *Auth) Configurar(w http.ResponseWriter, r *http.Request)
+```
+
+Configurar crea la primera cuenta y deja la sesión iniciada.
+
+<a name="Auth.Entrar"></a>
+### func \(\*Auth\) Entrar
+
+```go
+func (a *Auth) Entrar(w http.ResponseWriter, r *http.Request)
+```
+
+Entrar inicia sesión con la cuenta existente.
+
+<a name="Auth.Estado"></a>
+### func \(\*Auth\) Estado
+
+```go
+func (a *Auth) Estado(w http.ResponseWriter, r *http.Request)
+```
+
+Estado informa si hay cuenta y si la petición trae una sesión válida.
+
+<a name="Auth.Salir"></a>
+### func \(\*Auth\) Salir
+
+```go
+func (a *Auth) Salir(w http.ResponseWriter, r *http.Request)
+```
+
+Salir vence la cookie de sesión.
 
 <a name="DescubridorSesion"></a>
 ## type DescubridorSesion
@@ -309,6 +392,26 @@ type ServicioAcceso interface {
     Registrar(ctx context.Context, usuario, password string) (services.Resultado, error)
     // Olvidar elimina el registro y las credenciales.
     Olvidar() error
+}
+```
+
+<a name="ServicioConsola"></a>
+## type ServicioConsola
+
+ServicioConsola autentica a los usuarios de la consola.
+
+```go
+type ServicioConsola interface {
+    // Configurada informa si ya existe una cuenta.
+    Configurada() (bool, error)
+    // Configurar crea la primera cuenta.
+    Configurar(ctx context.Context, usuario, password string) error
+    // Autenticar comprueba las credenciales.
+    Autenticar(ctx context.Context, usuario, password string) (bool, error)
+    // AbrirSesion emite la cookie de sesión.
+    AbrirSesion(usuario string) (string, error)
+    // Validar comprueba una cookie y devuelve el usuario.
+    Validar(token string) (string, bool)
 }
 ```
 

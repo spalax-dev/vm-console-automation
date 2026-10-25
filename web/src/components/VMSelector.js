@@ -50,6 +50,9 @@ export function VMSelector({ alVincular } = {}) {
     <button id="vm-encender" type="button" class="btn h-vm-btn px-1.5 hidden" title="Encender la máquina virtual">
       <i data-lucide="power" class="w-4 h-4"></i>
     </button>
+    <button id="vm-olvidar" type="button" class="btn h-vm-btn px-1.5 hidden" title="Olvidar el registro de esta máquina">
+      <i data-lucide="trash-2" class="w-4 h-4"></i>
+    </button>
   `;
 
   renderIcons(el);
@@ -62,6 +65,7 @@ export function VMSelector({ alVincular } = {}) {
   const lista = el.querySelector('#vm-lista');
   const pie = el.querySelector('#vm-pie');
   const encender = el.querySelector('#vm-encender');
+  const olvidar = el.querySelector('#vm-olvidar');
   const progreso = el.querySelector('#vm-progreso');
   const progresoTexto = el.querySelector('#vm-progreso-texto');
 
@@ -89,6 +93,7 @@ export function VMSelector({ alVincular } = {}) {
       nombre.textContent = 'Elegir máquina';
       punto.className = 'w-1.5 h-1.5 rounded-full bg-vm-muted shrink-0';
       encender.classList.add('hidden');
+      olvidar.classList.add('hidden');
 
       return;
     }
@@ -103,6 +108,9 @@ export function VMSelector({ alVincular } = {}) {
     // ejecución: apagarla desde la consola queda fuera de su alcance.
     encender.classList.toggle('hidden', maquina.estado === 'running');
     encender.disabled = false;
+
+    // Olvidar el registro solo tiene sentido en una máquina registrada.
+    olvidar.classList.toggle('hidden', !maquina.registrada);
   };
 
   /**
@@ -340,12 +348,40 @@ export function VMSelector({ alVincular } = {}) {
     }
   });
 
+  olvidar.addEventListener('click', async () => {
+    if (!activa) {
+      return;
+    }
+
+    const nombreMaquina = activa.nombre;
+    const confirmado = window.confirm(
+      `¿Olvidar el registro de ${nombreMaquina}? Tendrás que registrar la máquina otra vez para administrarla.`,
+    );
+
+    if (!confirmado) {
+      return;
+    }
+
+    olvidar.disabled = true;
+
+    try {
+      await api.sesion.olvidar();
+      marcarActiva({ ...activa, registrada: false });
+      await cargar('');
+      pie.textContent = `Registro de ${nombreMaquina} olvidado; vuelve a registrarla para administrarla.`;
+      pie.className = 'px-2 py-1 border-t border-vm-border text-[10px] text-vm-fgSecondary';
+    } catch (error) {
+      pie.textContent = mensajeDeError(error);
+      pie.className = 'px-2 py-1 border-t border-vm-border text-[10px] text-vm-accent';
+    } finally {
+      olvidar.disabled = false;
+    }
+  });
+
   busqueda.addEventListener('input', () => {
     window.clearTimeout(temporizador);
     temporizador = window.setTimeout(() => cargar(busqueda.value), ESPERA_BUSQUEDA);
-  });
-
-  busqueda.addEventListener('keydown', (evento) => {
+  });  busqueda.addEventListener('keydown', (evento) => {
     if (evento.key === 'Escape') {
       cerrar();
       boton.focus();

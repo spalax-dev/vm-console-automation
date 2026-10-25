@@ -10,6 +10,7 @@ Package services implementa los casos de uso de la consola: descubre el conector
 
 ## Index
 
+- [Constants](<#constants>)
 - [Variables](<#variables>)
 - [func DescribirOperacion\(metodo, patron, ruta string, datos map\[string\]any\) string](<#DescribirOperacion>)
 - [func ModuloDe\(ruta string\) string](<#ModuloDe>)
@@ -36,6 +37,13 @@ Package services implementa los casos de uso de la consola: descubre el conector
 - [type ConfigVinculacion](<#ConfigVinculacion>)
 - [type ConfiguracionHostname](<#ConfiguracionHostname>)
 - [type ConfiguracionIssue](<#ConfiguracionIssue>)
+- [type Consola](<#Consola>)
+  - [func NuevoConsola\(almacen \*Almacen\) \*Consola](<#NuevoConsola>)
+  - [func \(c \*Consola\) AbrirSesion\(usuario string\) \(string, error\)](<#Consola.AbrirSesion>)
+  - [func \(c \*Consola\) Autenticar\(ctx context.Context, usuario, password string\) \(bool, error\)](<#Consola.Autenticar>)
+  - [func \(c \*Consola\) Configurada\(\) \(bool, error\)](<#Consola.Configurada>)
+  - [func \(c \*Consola\) Configurar\(ctx context.Context, usuario, password string\) error](<#Consola.Configurar>)
+  - [func \(c \*Consola\) Validar\(token string\) \(string, bool\)](<#Consola.Validar>)
 - [type Credenciales](<#Credenciales>)
 - [type Descubridor](<#Descubridor>)
   - [func NuevoDescubridor\(config \*ConfigDescubridor\) \*Descubridor](<#NuevoDescubridor>)
@@ -107,6 +115,14 @@ Package services implementa los casos de uso de la consola: descubre el conector
   - [func \(v \*Vinculacion\) Vincular\(ctx context.Context, identificador string\) \(MaquinaVirtual, error\)](<#Vinculacion.Vincular>)
 
 
+## Constants
+
+<a name="VigenciaSesionConsola"></a>VigenciaSesionConsola es el tiempo que dura una sesión de la consola.
+
+```go
+const VigenciaSesionConsola = 12 * time.Hour
+```
+
 ## Variables
 
 <a name="ErrBackendNoEncontrado"></a>ErrBackendNoEncontrado indica que la configuración no tiene un bloque backend.
@@ -115,10 +131,22 @@ Package services implementa los casos de uso de la consola: descubre el conector
 var ErrBackendNoEncontrado = errors.New("no se encontró un back-end en la configuración")
 ```
 
+<a name="ErrConsolaConfigurada"></a>ErrConsolaConfigurada indica que la consola ya tiene una cuenta.
+
+```go
+var ErrConsolaConfigurada = errors.New("la consola ya tiene una cuenta")
+```
+
 <a name="ErrCredencialesInvalidas"></a>ErrCredencialesInvalidas indica que Guest Additions rechazó el usuario o la contraseña.
 
 ```go
 var ErrCredencialesInvalidas = errors.New("las credenciales no permiten ejecutar órdenes")
+```
+
+<a name="ErrDatosConsola"></a>ErrDatosConsola indica que el usuario o la contraseña no cumplen las reglas de validación.
+
+```go
+var ErrDatosConsola = errors.New("los datos de la cuenta no son válidos")
 ```
 
 <a name="ErrDiagnosticoNoDisponible"></a>ErrDiagnosticoNoDisponible envuelve un fallo del diagnóstico.
@@ -520,6 +548,71 @@ type ConfiguracionIssue struct {
     Contenido string
 }
 ```
+
+<a name="Consola"></a>
+## type Consola
+
+Consola autentica a los usuarios de la consola con una cuenta guardada en SQLite y emite cookies de sesión firmadas.
+
+```go
+type Consola struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="NuevoConsola"></a>
+### func NuevoConsola
+
+```go
+func NuevoConsola(almacen *Almacen) *Consola
+```
+
+NuevoConsola construye el servicio de autenticación sobre el almacén.
+
+<a name="Consola.AbrirSesion"></a>
+### func \(\*Consola\) AbrirSesion
+
+```go
+func (c *Consola) AbrirSesion(usuario string) (string, error)
+```
+
+AbrirSesion emite una cookie de sesión firmada para el usuario.
+
+<a name="Consola.Autenticar"></a>
+### func \(\*Consola\) Autenticar
+
+```go
+func (c *Consola) Autenticar(ctx context.Context, usuario, password string) (bool, error)
+```
+
+Autenticar comprueba el usuario y la contraseña. Devuelve false sin error cuando no coinciden, para no revelar cuál de los dos falló.
+
+<a name="Consola.Configurada"></a>
+### func \(\*Consola\) Configurada
+
+```go
+func (c *Consola) Configurada() (bool, error)
+```
+
+Configurada informa si ya existe una cuenta de la consola.
+
+<a name="Consola.Configurar"></a>
+### func \(\*Consola\) Configurar
+
+```go
+func (c *Consola) Configurar(ctx context.Context, usuario, password string) error
+```
+
+Configurar crea la primera cuenta de la consola. Falla con ErrConsolaConfigurada si ya existe una y con ErrDatosConsola si el usuario o la contraseña no son válidos.
+
+<a name="Consola.Validar"></a>
+### func \(\*Consola\) Validar
+
+```go
+func (c *Consola) Validar(token string) (string, bool)
+```
+
+Validar comprueba la firma y la vigencia de una cookie de sesión y devuelve el usuario cuando es válida.
 
 <a name="Credenciales"></a>
 ## type Credenciales
@@ -1090,9 +1183,10 @@ type Servidor struct {
     Direccion string
     // Puerto es el puerto TCP.
     Puerto int
-    // Estado es el estado informado; la consola no consulta el socket,
-    // por lo que se informa «unknown».
+    // Estado es el estado informado por HAProxy: up, down o unknown
+    // cuando el socket de estadísticas no responde.
     Estado string
+    // contains filtered or unexported fields
 }
 ```
 

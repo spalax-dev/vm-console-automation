@@ -77,7 +77,7 @@ func TestUsuariosListar(t *testing.T) {
 	t.Parallel()
 
 	servicio := &stubUsuarios{lista: []services.Usuario{
-		{Nombre: "jorge", Sudo: true, UID: 1000, Home: "/home/jorge"},
+		{Nombre: usuarioJorge, Sudo: true, UID: 1000, Home: "/home/jorge"},
 	}}
 
 	rec := ejecutarCaso(t, NuevoUsuarios(servicio).Coleccion, rutaUsuarios, casoPeticion{

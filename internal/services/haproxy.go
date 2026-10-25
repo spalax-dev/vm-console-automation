@@ -18,6 +18,16 @@ import (
 // rutaHaproxy es la configuración de HAProxy en la máquina.
 const rutaHaproxy = "/etc/haproxy/haproxy.cfg"
 
+// rutaSocketHaproxy es el socket de estadísticas del balanceador; la
+// configuración por omisión de Debian lo define en el bloque global.
+const rutaSocketHaproxy = "/run/haproxy/admin.sock"
+
+// binSocat consulta el socket de estadísticas dentro de la máquina.
+const binSocat = "/usr/bin/socat"
+
+// ordenShowStat pide la tabla de estadísticas por el socket.
+const ordenShowStat = `printf 'show stat\n' | ` + binSocat + ` - UNIX-CONNECT:` + rutaSocketHaproxy
+
 // msgLeerConfig es el contexto de error al leer la configuración.
 const msgLeerConfig = "leer la configuración de HAProxy: %w"
 
@@ -37,9 +47,12 @@ type Servidor struct {
 	Direccion string
 	// Puerto es el puerto TCP.
 	Puerto int
-	// Estado es el estado informado; la consola no consulta el socket,
-	// por lo que se informa «unknown».
+	// Estado es el estado informado por HAProxy: up, down o unknown
+	// cuando el socket de estadísticas no responde.
 	Estado string
+	// nombre es el identificador del servidor en la configuración, que
+	// usa la tabla de estadísticas para informar su estado.
+	nombre string
 }
 
 // Haproxy implementa el caso de uso del back-end de HAProxy.
@@ -71,7 +84,72 @@ func (h *Haproxy) Listar(ctx context.Context) ([]Servidor, error) {
 		return nil, ErrBackendNoEncontrado
 	}
 
+	// El estado de cada servidor se toma del socket de estadísticas. Si la
+	// consulta falla, el listado sigue siendo válido con estado unknown.
+	if len(servidores) > 0 {
+		estados := estadosDeBackend(ctx, sesion)
+
+		for i := range servidores {
+			if estado, ok := estados[servidores[i].nombre]; ok {
+				servidores[i].Estado = estado
+			}
+		}
+	}
+
 	return servidores, nil
+}
+
+// estadosDeBackend consulta el socket de estadísticas y devuelve el estado
+// de cada servidor por su nombre en la configuración. Un error de la
+// consulta no interrumpe el listado: se devuelve un mapa vacío y los
+// servidores conservan el estado unknown.
+func estadosDeBackend(ctx context.Context, sesion ports.Session) map[string]string {
+	cmd := &domain.Command{Path: binSh, Args: []string{"-c", ordenShowStat}}
+
+	resultado, err := sesion.Run(ctx, cmd)
+	if err != nil {
+		return map[string]string{}
+	}
+
+	return parsearEstados(resultado.Stdout)
+}
+
+// parsearEstados traduce el campo status de la salida CSV del socket de
+// estadísticas a up, down o unknown. Las filas incompletas o con estados
+// que la consola no distingue se ignoran.
+func parsearEstados(salida string) map[string]string {
+	estados := make(map[string]string)
+
+	for _, linea := range strings.Split(salida, "\n") {
+		if linea == "" || strings.HasPrefix(linea, "#") {
+			continue
+		}
+
+		campos := strings.Split(linea, ",")
+		if len(campos) < 18 {
+			continue
+		}
+
+		if estado, ok := estadoHaproxy(campos[17]); ok {
+			estados[campos[1]] = estado
+		}
+	}
+
+	return estados
+}
+
+// estadoHaproxy traduce el estado de HAProxy al vocabulario del contrato.
+// Los estados de mantenimiento y de drenaje se informan como down porque
+// el servidor no recibe tráfico nuevo.
+func estadoHaproxy(estado string) (string, bool) {
+	switch estado {
+	case "UP":
+		return "up", true
+	case "DOWN", "MAINT", "DRAIN", "NOLB":
+		return "down", true
+	default:
+		return "", false
+	}
 }
 
 // Agregar agrega un servidor al back-end y recarga HAProxy.
@@ -171,6 +249,7 @@ func parsearServidores(config string) (servidores []Servidor, encontrado bool) {
 			Direccion: destino.Addr().String(),
 			Puerto:    int(destino.Port()),
 			Estado:    "unknown",
+			nombre:    campos[1],
 		})
 	}
 

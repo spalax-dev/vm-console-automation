@@ -137,3 +137,38 @@ export function esRutaAbsoluta(valor) {
 export function identificadorServidor(direccion, puerto) {
   return `${direccion}:${puerto}`;
 }
+
+/** Patrón de usuario de la consola (tres caracteres como mínimo). */
+const USUARIO_CONSOLA = /^[a-z_][a-z0-9_-]{2,31}$/;
+
+/**
+ * Valida el usuario de la consola de administración.
+ *
+ * @param {string} valor Nombre propuesto.
+ * @returns {string|null} Mensaje de error o `null`.
+ */
+export function validarUsuarioConsola(valor) {
+  if (typeof valor !== 'string' || !USUARIO_CONSOLA.test(valor)) {
+    return 'El usuario debe tener entre 3 y 32 caracteres y empezar por minúscula o guion bajo';
+  }
+
+  return null;
+}
+
+/**
+ * Valida la contraseña de la consola.
+ *
+ * @param {string} valor Contraseña propuesta.
+ * @returns {string|null} Mensaje de error o `null`.
+ */
+export function validarPasswordConsola(valor) {
+  if (typeof valor !== 'string' || valor.length < 8 || valor.length > 128) {
+    return 'La contraseña debe tener entre 8 y 128 caracteres';
+  }
+
+  if (valor.includes('\u0000')) {
+    return 'La contraseña no puede contener el carácter NUL';
+  }
+
+  return null;
+}

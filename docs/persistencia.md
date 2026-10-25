@@ -58,7 +58,7 @@ CREATE TABLE operaciones (
 ```
 
 La tabla `configuracion` guarda ajustes simples; por ahora, la última
-máquina vinculada:
+máquina vinculada y el secreto que firma las cookies de la consola:
 
 ```sql
 CREATE TABLE configuracion (
@@ -66,6 +66,30 @@ CREATE TABLE configuracion (
     valor TEXT NOT NULL
 );
 ```
+
+La tabla `usuarios_consola` guarda las cuentas que pueden entrar a la
+consola. Solo se conserva el hash `bcrypt` de la contraseña:
+
+```sql
+CREATE TABLE usuarios_consola (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario   TEXT NOT NULL UNIQUE,
+    hash      TEXT NOT NULL,              -- bcrypt, nunca la contraseña
+    creado_en TEXT NOT NULL
+);
+```
+
+La primera vez que se abre la consola la tabla está vacía y la interfaz
+ofrece crear la cuenta; a partir de ahí, `POST /api/auth/setup` responde
+`409`. El secreto de las cookies se genera con `crypto/rand` en el primer
+arranque y se guarda en `configuracion` con la clave `consola_secreto`.
+
+El hash se calcula con `bcrypt` de `golang.org/x/crypto`, que ya formaba
+parte del grafo de módulos como dependencia indirecta y pasa a usarse
+directamente. Se elige bcrypt —y no SHA-256— porque incorpora sal por
+cuenta y un costo configurable, de modo que una copia de la base no
+permite probar contraseñas a gran velocidad. La contraseña no se guarda
+en ningún otro sitio ni se escribe en los logs.
 
 ## Cifrado
 

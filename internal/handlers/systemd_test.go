@@ -256,7 +256,7 @@ func TestUnidadValidacion(t *testing.T) {
 		},
 		{
 			casoPeticion{
-				nombre: "usuario inválido",
+				nombre: casoUsuarioInvalido,
 				metodo: http.MethodPut,
 				cuerpo: `{"archivos":[{"origen":"./app","destino":"/opt/app","modo":"755"}],"usuario":"José"}`,
 				codigo: http.StatusBadRequest,

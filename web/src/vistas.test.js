@@ -102,6 +102,51 @@ describe('selector de máquina virtual', () => {
     expect(selector.querySelector('#vm-panel').classList.contains('hidden')).toBe(false);
     expect(selector.querySelectorAll('[data-maquina]')).toHaveLength(2);
     expect(selector.querySelector('[aria-selected="true"]').dataset.maquina).toBe('debian-1');
+    expect(selector.querySelector('#vm-olvidar').classList.contains('hidden')).toBe(true);
+  });
+
+  it('olvida el registro de la máquina vinculada tras confirmar', async () => {
+    const llamadas = [];
+
+    vi.stubGlobal('fetch', async (url, opciones = {}) => {
+      const metodo = opciones.method ?? 'GET';
+      llamadas.push(`${metodo} ${url}`);
+
+      if (metodo === 'DELETE') {
+        return {
+          ok: true, status: 204, headers: { get: () => '' }, json: async () => null,
+          text: async () => '', blob: async () => new Blob([]),
+        };
+      }
+
+      const cuerpo = {
+        maquinas: [{ nombre: 'debian-1', uuid: 'uuid-1', estado: 'running', activa: true, registrada: true }],
+      };
+
+      return {
+        ok: true, status: 200, headers: { get: () => 'application/json' },
+        json: async () => cuerpo, text: async () => JSON.stringify(cuerpo), blob: async () => new Blob(['x']),
+      };
+    });
+
+    vi.stubGlobal('confirm', () => true);
+
+    const selector = VMSelector();
+    document.body.appendChild(selector);
+
+    await vi.waitFor(() => {
+      expect(selector.querySelector('#vm-olvidar').classList.contains('hidden')).toBe(false);
+    });
+
+    selector.querySelector('#vm-olvidar').click();
+
+    await vi.waitFor(() => {
+      expect(llamadas.some((llamada) => llamada.startsWith('DELETE /api/session/register'))).toBe(true);
+    });
+
+    await vi.waitFor(() => {
+      expect(selector.querySelector('#vm-pie').textContent).toContain('olvidado');
+    });
   });
 
   it('vincula la máquina elegida y avisa al llamador', async () => {

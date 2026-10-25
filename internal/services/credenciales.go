@@ -100,20 +100,8 @@ func NuevoAlmacen(rutaBD, rutaClave string) (*Almacen, error) {
 
 	db.SetMaxOpenConns(1)
 
-	if _, err := db.ExecContext(context.Background(), esquemaCredenciales); err != nil {
-		return nil, fmt.Errorf("crear el esquema de credenciales: %w", err)
-	}
-
-	if _, err := db.ExecContext(context.Background(), esquemaOperaciones); err != nil {
-		return nil, fmt.Errorf("crear el esquema del historial: %w", err)
-	}
-
-	if err := asegurarDescripcionOperaciones(db); err != nil {
+	if err := crearEsquema(db); err != nil {
 		return nil, err
-	}
-
-	if _, err := db.ExecContext(context.Background(), esquemaConfiguracion); err != nil {
-		return nil, fmt.Errorf("crear el esquema de configuración: %w", err)
 	}
 
 	// #nosec G302 -- es la base de datos, no un ejecutable.
@@ -122,6 +110,28 @@ func NuevoAlmacen(rutaBD, rutaClave string) (*Almacen, error) {
 	}
 
 	return &Almacen{db: db, clave: clave}, nil
+}
+
+// crearEsquema crea las tablas de la consola y aplica las migraciones
+// necesarias sobre bases creadas con una versión anterior.
+func crearEsquema(db *sql.DB) error {
+	esquemas := []struct {
+		nombre string
+		sql    string
+	}{
+		{"credenciales", esquemaCredenciales},
+		{"historial", esquemaOperaciones},
+		{"configuración", esquemaConfiguracion},
+		{"cuentas de la consola", esquemaUsuariosConsola},
+	}
+
+	for _, esquema := range esquemas {
+		if _, err := db.ExecContext(context.Background(), esquema.sql); err != nil {
+			return fmt.Errorf("crear el esquema de %s: %w", esquema.nombre, err)
+		}
+	}
+
+	return asegurarDescripcionOperaciones(db)
 }
 
 // asegurarDescripcionOperaciones agrega la columna descripcion a bases

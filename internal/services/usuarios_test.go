@@ -66,7 +66,7 @@ func TestUsuariosListarFiltraCuentasRegulares(t *testing.T) {
 		t.Errorf("primer usuario = %+v, want jorge con sudo y UID 1000", lista[0])
 	}
 
-	if lista[1].Nombre != "andrey" || !lista[1].Llaves {
+	if lista[1].Nombre != usuarioAndrey || !lista[1].Llaves {
 		t.Errorf("segundo usuario = %+v, want andrey con llaves", lista[1])
 	}
 }
@@ -184,7 +184,7 @@ func TestUsuariosCrearSinLlaves(t *testing.T) {
 
 	usuarios, _, _ := nuevoUsuariosDePrueba(t, ejecutor, sesion, nil)
 
-	if _, err := usuarios.Crear(context.Background(), "andrey", false, false); err != nil {
+	if _, err := usuarios.Crear(context.Background(), usuarioAndrey, false, false); err != nil {
 		t.Fatalf("Crear() error = %v, want nil", err)
 	}
 

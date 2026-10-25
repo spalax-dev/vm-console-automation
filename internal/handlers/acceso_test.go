@@ -111,7 +111,7 @@ func TestAccesoValidacion(t *testing.T) {
 
 	handler := NuevoAcceso(&stubAcceso{}).ServeHTTP
 	casos := []casoPeticion{
-		{nombre: "usuario inválido", metodo: http.MethodPost, cuerpo: `{"usuario":"Root","password":"x"}`, codigo: http.StatusBadRequest, campo: campoUsuario},
+		{nombre: casoUsuarioInvalido, metodo: http.MethodPost, cuerpo: `{"usuario":"Root","password":"x"}`, codigo: http.StatusBadRequest, campo: campoUsuario},
 		{nombre: casoCuerpoInvalido, metodo: http.MethodPost, cuerpo: `{`, codigo: http.StatusBadRequest},
 		{nombre: casoMetodoNoPermitido, metodo: http.MethodGet, codigo: http.StatusMethodNotAllowed},
 	}

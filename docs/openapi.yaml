@@ -27,6 +27,8 @@ info:
     | Reinicios | `/api/units/{unit}/restarts` | `POST` |
     | Servidores | `/api/haproxy/backend/servers` | `GET`, `POST` |
     | Servidor | `/api/haproxy/backend/servers/{server}` | `DELETE` |
+    | Historial | `/api/historial` | `GET` |
+    | Autenticación | `/api/auth/estado`, `/api/auth/setup`, `/api/auth/login`, `/api/auth/logout` | `GET`, `POST` |
 
     ## Convenciones
 
@@ -39,6 +41,13 @@ info:
     - El servidor del back-end se identifica como `{direccion}:{puerto}`.
     - Las opciones de una operación van en la query, por ejemplo
       `DELETE /api/users/jorge?files=true`.
+
+    ## Autenticación
+
+    Salvo `/api/auth/...`, todas las rutas exigen la cookie de sesión
+    `vmcons_sesion`, que se obtiene con `POST /api/auth/login` o con
+    `POST /api/auth/setup` la primera vez. Sin cookie válida la respuesta
+    es `401` con el mensaje «La sesión de la consola no está iniciada».
 
     ## Envoltura de respuesta
 
@@ -73,7 +82,8 @@ info:
 servers:
   - url: http://localhost:8080
     description: Servidor local de la consola (`VMCONS_ADDR`)
-security: []
+security:
+  - cookieAuth: []
 tags:
   - name: session
     description: Estado de la conexión con la máquina virtual.
@@ -91,6 +101,8 @@ tags:
     description: Balanceo de carga con HAProxy (numeral 3.4).
   - name: historial
     description: Registro de operaciones de la consola.
+  - name: auth
+    description: Autenticación de la consola con usuario y contraseña.
 paths:
   /api/session:
     get:
@@ -888,7 +900,114 @@ paths:
         '500':
           $ref: '#/components/responses/ErrorInterno'
 
+  /api/auth/estado:
+    get:
+      tags: [auth]
+      summary: Estado de la autenticación de la consola
+      description: |
+        Informa si la consola ya tiene una cuenta creada y si la petición
+        trae una cookie válida. No exige autenticación: es la consulta con
+        la que la interfaz decide entre el formulario de creación, el de
+        acceso y el armazón.
+      operationId: estadoAutenticacion
+      security: []
+      responses:
+        '200':
+          description: Estado de la autenticación.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadoAutenticacion'
+              examples:
+                configurada:
+                  value:
+                    configurada: true
+                    autenticado: true
+                    usuario: jorge
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
+  /api/auth/setup:
+    post:
+      tags: [auth]
+      summary: Crear la cuenta de la consola
+      description: |
+        Crea la primera cuenta de la consola y deja la sesión iniciada.
+        Solo funciona mientras no exista ninguna cuenta; después responde
+        `409`.
+      operationId: crearCuentaConsola
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredencialesConsola'
+      responses:
+        '201':
+          description: Cuenta creada y sesión iniciada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadoAutenticacion'
+        '400':
+          $ref: '#/components/responses/EntradaInvalida'
+        '409':
+          description: La consola ya tiene una cuenta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoOperacion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: Iniciar sesión en la consola
+      operationId: iniciarSesionConsola
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredencialesConsola'
+      responses:
+        '200':
+          description: Sesión iniciada; la respuesta instala la cookie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadoAutenticacion'
+        '400':
+          $ref: '#/components/responses/EntradaInvalida'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      summary: Cerrar la sesión de la consola
+      operationId: cerrarSesionConsola
+      responses:
+        '204':
+          description: Sesión cerrada y cookie vencida.
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
 components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: vmcons_sesion
+      description: |
+        Cookie `HttpOnly` con el valor `usuario|expira|firma`, firmada con
+        HMAC-SHA256. Dura doce horas.
+
   parameters:
     VM:
       name: vm
@@ -968,6 +1087,17 @@ components:
               value:
                 ok: false
                 mensaje: El usuario «jperez» no existe.
+    NoAutenticado:
+      description: La sesión de la consola no está iniciada o venció.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ResultadoOperacion'
+          examples:
+            sinSesion:
+              value:
+                ok: false
+                mensaje: La sesión de la consola no está iniciada.
     SinSesion:
       description: No hay una sesión disponible (VM apagada o inaccesible).
       content:
@@ -1410,6 +1540,37 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/EstadoUnidad'
+
+    CredencialesConsola:
+      type: object
+      required: [usuario, password]
+      additionalProperties: false
+      properties:
+        usuario:
+          type: string
+          pattern: '^[a-z_][a-z0-9_-]{2,31}$'
+          description: Usuario de la consola.
+          examples: [jorge]
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: Contraseña de la consola; nunca se guarda en claro.
+          examples: [una-clave-larga]
+
+    EstadoAutenticacion:
+      type: object
+      required: [configurada, autenticado]
+      properties:
+        configurada:
+          type: boolean
+          description: Ya existe una cuenta de la consola.
+        autenticado:
+          type: boolean
+          description: La petición trae una cookie válida.
+        usuario:
+          type: string
+          description: Usuario de la sesión, cuando está autenticado.
 
     ServidorBackend:
       type: object

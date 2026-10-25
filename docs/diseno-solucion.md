@@ -276,7 +276,12 @@ El registro se expone en `POST /api/session/register` y sigue esta secuencia:
 6. marca la máquina como registrada y responde `201`.
 
 Si cualquier paso falla, restaura las credenciales anteriores y la máquina
-queda **sin registrar**. `DELETE /api/session/register` elimina el registro.
+queda **sin registrar**. `DELETE /api/session/register` elimina el registro de
+la máquina vinculada: borra su fila de la tabla `credenciales` y la deja de
+nuevo en estado **sin registrar**. En la interfaz, esa operación se ofrece
+como **Olvidar registro** en el selector de máquina, detrás de una
+confirmación; la llave de `root` del anfitrión se conserva porque es común a
+todas las máquinas y su pérdida obligaría a regenerarla en cada registro.
 `GET /api/session/diagnostico` explica el fallo: estado, modo de red,
 versión y nivel de Guest Additions, usuarios con sesión iniciada y si el
 puerto 22 responde, junto con problemas y sugerencias.
@@ -311,8 +316,15 @@ configuración y opera sobre sus líneas `server`:
   configuración anterior.
 
 El identificador del servidor en la ruta es `direccion:puerto`
-(por ejemplo, `192.168.1.61:8080`). El estado de cada servidor se informa como
-`unknown` porque la consola no consulta el socket de estadísticas de HAProxy.
+(por ejemplo, `192.168.1.61:8080`). El estado de cada servidor se toma del
+socket de estadísticas de HAProxy: el listado ejecuta `show stat` sobre
+`/run/haproxy/admin.sock` con `socat` y traduce el campo `status` de cada
+fila (`UP` → `up`, `DOWN` y `MAINT` → `down`, el resto → `unknown`). Si el
+socket no responde o `socat` no está instalado, la consola no falla: devuelve
+los servidores con estado `unknown`, porque el listado debe seguir siendo
+útil aunque la consulta de estado no esté disponible. El socket se configura
+en el bloque `global` de `haproxy.cfg`; la configuración por omisión de
+Debian ya define `stats socket /run/haproxy/admin.sock mode 660 level admin`.
 
 ### 2.7 Vinculación de la máquina virtual
 
@@ -508,6 +520,29 @@ cuerpo. El servidor del back-end se identifica como `direccion:puerto`
 como cambios de estado (`PATCH`) salvo el reinicio, que es un subrecurso
 (`restarts`) por no ser idempotente.
 
+### 4.6 Autenticación de la consola
+
+| Método y ruta | Parámetros | Validación | Respuesta |
+| --- | --- | --- | --- |
+| `GET /api/auth/estado` | — | — | `200` con `{configurada, autenticado, usuario}` |
+| `POST /api/auth/setup` | `usuario`, `password` | usuario y contraseña de la consola | `201` con cookie; `409` si ya hay usuarios |
+| `POST /api/auth/login` | `usuario`, `password` | credenciales | `200` con cookie; `401` si no coinciden |
+| `POST /api/auth/logout` | — | cookie | `204` y cookie vencida |
+
+`GET /api/auth/estado` y las dos operaciones de acceso no exigen cookie:
+son las que permiten entrar. El resto de `/api/...` responde `401` con el
+mensaje «La sesión de la consola no está iniciada» cuando la cookie falta,
+está vencida o la firma no coincide. La interfaz no muestra el armazón
+hasta que `estado` informa `autenticado: true`.
+
+La contraseña nunca se guarda en claro: se deriva con `bcrypt` (costo por
+omisión) y solo se conserva el hash. La sesión es una cookie `HttpOnly`,
+`SameSite=Lax` y `Path=/` con vigencia de doce horas; su valor es
+`usuario|expira|firma`, donde la firma es un HMAC-SHA256 con un secreto
+aleatorio de 32 bytes guardado en la tabla `configuracion`. Al ser sin
+estado, reiniciar la consola no invalida las sesiones vigentes; cerrar
+sesión vence la cookie en el navegador.
+
 ## 5. Validación de entradas
 
 Se valida **siempre** en el servidor, con mensajes que nombran el campo y el motivo.
@@ -522,6 +557,8 @@ Se valida **siempre** en el servidor, con mensajes que nombran el campo y el mot
 | Puerto | entero 1–65535 | `0`, `70000` |
 | Ruta de archivo | absoluta, sin `..` ni comodines de shell | `../../etc/shadow` |
 | Texto libre (`/etc/issue`) | longitud ≤ 512, sin NUL | cadena de 4000 caracteres |
+| Usuario de la consola | `^[a-z_][a-z0-9_-]{2,31}$` | `José`, `a` |
+| Contraseña de la consola | 8–128 caracteres, sin NUL | `1234` |
 
 ---
 
@@ -695,6 +732,10 @@ validación en línea bajo el campo.
   las que ya existen en el hipervisor.
 - Cada operación registrada en el historial lleva el nombre de la VM a
   la que se le aplicó.
+- Si la VM está registrada, el selector ofrece **Olvidar registro**:
+  borra las credenciales guardadas y la marca como *sin registrar*, de modo
+  que la próxima vez pida usuario y contraseña. Pide confirmación porque
+  obliga a repetir el registro.
 
 ### 10.4 Historial
 

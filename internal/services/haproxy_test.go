@@ -12,6 +12,15 @@ import (
 	"consola-vm/internal/core/domain"
 )
 
+const (
+	servidorSrv1    = "srv1"
+	servidorSrv2    = "srv2"
+	estadoUp        = "up"
+	estadoDown      = "down"
+	estadoUP        = "UP"
+	estadoDownMayus = "DOWN"
+)
+
 // configHaproxy simula una configuración con un front-end y un back-end.
 const configHaproxy = `global
     daemon
@@ -41,7 +50,7 @@ func TestHaproxyListar(t *testing.T) {
 
 	servidores, err := nuevoHaproxyDePrueba(sesion, nil).Listar(context.Background())
 	if err != nil {
-		t.Fatalf("Listar() error = %v, want nil", err)
+		t.Fatalf(msgListarOK, err)
 	}
 
 	if len(servidores) != 1 || servidores[0].Direccion != ipServidorPrueba || servidores[0].Puerto != 8080 {
@@ -155,7 +164,7 @@ func TestQuitarServidorDejaBackend(t *testing.T) {
 		t.Fatalf("quitarServidor() error = %v, want nil", err)
 	}
 
-	if strings.Contains(nuevo, "srv1") {
+	if strings.Contains(nuevo, servidorSrv1) {
 		t.Errorf("configuración = %q, el servidor no se quitó", nuevo)
 	}
 
@@ -233,5 +242,129 @@ func TestHaproxyEliminarErrorDeRecarga(t *testing.T) {
 
 	if _, err := nuevoHaproxyDePrueba(sesion, nil).Eliminar(context.Background(), ipServidorPrueba, 8080); err == nil {
 		t.Fatal("Eliminar() error = nil, want el error de recarga")
+	}
+}
+
+// filaEstadistica construye una fila CSV del socket de estadísticas con el
+// estado indicado.
+func filaEstadistica(nombre, estado string) string {
+	return "app," + nombre + strings.Repeat(",", 16) + estado + ",1,1,1"
+}
+
+// estadisticasHaproxy simula la salida de «show stat» con dos servidores.
+var estadisticasHaproxy = strings.Join([]string{
+	"# pxname,svname,qcur,qmax,scur,smax,slim,stot,bin,bout,status",
+	filaEstadistica("FRONTEND", "OPEN"),
+	filaEstadistica(servidorSrv1, estadoUP),
+	filaEstadistica(servidorSrv2, estadoDownMayus),
+	"app,BACKEND,,,,,,,,,,UP",
+}, "\n")
+
+// TestHaproxyListarConEstado toma el estado de cada servidor del socket de
+// estadísticas.
+func TestHaproxyListarConEstado(t *testing.T) {
+	t.Parallel()
+
+	config := configHaproxy + "    server srv2 192.168.1.62:9090 check\n"
+	sesion := &stubSession{results: []domain.Result{
+		{Stdout: config},
+		{Stdout: estadisticasHaproxy},
+	}}
+
+	servidores, err := nuevoHaproxyDePrueba(sesion, nil).Listar(context.Background())
+	if err != nil {
+		t.Fatalf(msgListarOK, err)
+	}
+
+	if len(servidores) != 2 {
+		t.Fatalf("Listar() devolvió %d servidores, want 2", len(servidores))
+	}
+
+	if servidores[0].Estado != estadoUp || servidores[1].Estado != estadoDown {
+		t.Errorf("estados = %q, %q, want up y down", servidores[0].Estado, servidores[1].Estado)
+	}
+}
+
+// TestHaproxyListarSinSocketDejaElEstadoDesconocido comprueba que el
+// listado sigue funcionando cuando el socket no responde.
+func TestHaproxyListarSinSocketDejaElEstadoDesconocido(t *testing.T) {
+	t.Parallel()
+
+	sesion := &stubSession{
+		results: []domain.Result{{Stdout: configHaproxy}},
+		errs:    []error{nil, errors.New("socat no está instalado")},
+	}
+
+	servidores, err := nuevoHaproxyDePrueba(sesion, nil).Listar(context.Background())
+	if err != nil {
+		t.Fatalf(msgListarOK, err)
+	}
+
+	if len(servidores) != 1 || servidores[0].Estado != "unknown" {
+		t.Errorf("servidores = %+v, want un servidor con estado unknown", servidores)
+	}
+}
+
+// TestHaproxyListarSinServidoresNoConsultaElSocket evita la consulta cuando
+// el back-end está vacío.
+func TestHaproxyListarSinServidoresNoConsultaElSocket(t *testing.T) {
+	t.Parallel()
+
+	config := "backend app\n    balance roundrobin\n"
+	sesion := &stubSession{results: []domain.Result{{Stdout: config}}}
+
+	servidores, err := nuevoHaproxyDePrueba(sesion, nil).Listar(context.Background())
+	if err != nil {
+		t.Fatalf(msgListarOK, err)
+	}
+
+	if len(servidores) != 0 {
+		t.Errorf("servidores = %+v, want una lista vacía", servidores)
+	}
+
+	if len(sesion.commands) != 1 {
+		t.Errorf("órdenes ejecutadas = %d, want 1 (solo leer la configuración)", len(sesion.commands))
+	}
+}
+
+// TestParsearEstados traduce el campo status de la salida CSV.
+func TestParsearEstados(t *testing.T) {
+	t.Parallel()
+
+	casos := []struct {
+		nombre  string
+		salida  string
+		esperar map[string]string
+	}{
+		{"vacía", "", map[string]string{}},
+		{"solo cabecera", "# pxname,svname,status", map[string]string{}},
+		{"fila corta", "app,srv1,UP", map[string]string{}},
+		{
+			"estados conocidos",
+			strings.Join([]string{
+				filaEstadistica(servidorSrv1, estadoUP),
+				filaEstadistica(servidorSrv2, estadoDownMayus),
+				filaEstadistica("srv3", "MAINT"),
+				filaEstadistica("srv4", "DRAIN"),
+			}, "\n"),
+			map[string]string{servidorSrv1: estadoUp, servidorSrv2: estadoDown, "srv3": estadoDown, "srv4": estadoDown},
+		},
+	}
+
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			t.Parallel()
+
+			estados := parsearEstados(caso.salida)
+			if len(estados) != len(caso.esperar) {
+				t.Fatalf("estados = %v, want %v", estados, caso.esperar)
+			}
+
+			for nombre, estado := range caso.esperar {
+				if estados[nombre] != estado {
+					t.Errorf("estado de %s = %q, want %q", nombre, estados[nombre], estado)
+				}
+			}
+		})
 	}
 }

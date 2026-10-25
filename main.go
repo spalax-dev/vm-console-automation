@@ -157,6 +157,13 @@ func nuevoMux() (http.Handler, error) {
 		handlers.ConVinculador(consola.vinculacion),
 		handlers.ConRegistro(consola.registro),
 	))
+
+	acceso := handlers.NuevoAuth(services.NuevoConsola(consola.registro))
+	mux.HandleFunc("/api/auth/estado", acceso.Estado)
+	mux.HandleFunc("/api/auth/setup", acceso.Configurar)
+	mux.HandleFunc("/api/auth/login", acceso.Entrar)
+	mux.HandleFunc("/api/auth/logout", acceso.Salir)
+
 	mux.Handle("/api/session/register", handlers.NuevoAcceso(consola.acceso))
 	mux.Handle("/api/session/diagnostico", handlers.NuevoDiagnostico(consola.diagnostico))
 	maquinas := handlers.NuevoMaquinas(consola.vinculacion)
@@ -172,7 +179,10 @@ func nuevoMux() (http.Handler, error) {
 	}
 
 	return handlers.ConObservabilidad(
-		handlers.ConHistorial(mux, historial, consola.vinculacion.Activa),
+		handlers.ConAutenticacion(
+			handlers.ConHistorial(mux, historial, consola.vinculacion.Activa),
+			services.NuevoConsola(consola.registro),
+		),
 		consola.vinculacion.Activa,
 		slog.Default(),
 	), nil

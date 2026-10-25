@@ -21,6 +21,8 @@ un endpoint en `docs/openapi.yaml` y una vista que lo consume en `web/`.
 | Iniciar, detener, habilitar, deshabilitar y reiniciar | `PATCH /api/units/{unit}`, `POST /api/units/{unit}/restarts` | `views/systemd.js` | Completo |
 | Listar, agregar y eliminar servidores del back-end | `/api/haproxy/backend/servers` | `views/haproxy.js` | Completo |
 | Consultar el historial con filtros y exportarlo | `GET /api/historial` | `views/historial.js` | Completo |
+| Olvidar el registro de una máquina | `DELETE /api/session/register` | `components/VMSelector.js` | Completo |
+| Entrar a la consola, crear la cuenta y salir | `/api/auth/estado`, `/api/auth/setup`, `/api/auth/login`, `/api/auth/logout` | `views/acceso.js`, `components/Header.js` | Completo |
 
 ## Comprobaciones automáticas
 
@@ -35,9 +37,9 @@ task openapi
 
 ## Diferencias conocidas
 
-- `DELETE /api/session/register` existe para olvidar una máquina, pero la
-  interfaz no ofrece todavía un botón de «olvidar registro»; no forma
-  parte de las capacidades de la tabla del informe.
+- La sesión de la consola es una cookie firmada de doce horas; no hay
+  recuperación de contraseña: si se olvida, hay que borrar la fila de
+  `usuarios_consola` y volver a crear la cuenta.
 - `GET /api/users/{name}` se usa para consultar una cuenta, pero la vista
   de usuarios trabaja con el listado; el endpoint está cubierto por la
   API y las pruebas.

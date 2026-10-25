@@ -26,6 +26,7 @@ const (
 	casoConsultar         = "consultar"
 	casoEliminar          = "eliminar"
 	casoNombreInvalido    = "nombre inválido"
+	casoUsuarioInvalido   = "usuario inválido"
 	usuarioJorge          = "jorge"
 	usuarioJorgeMayus     = "Jorge"
 	rutaUsuarioJorge      = "/api/users/jorge"

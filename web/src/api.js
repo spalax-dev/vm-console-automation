@@ -155,6 +155,32 @@ export function guardarArchivo(archivo, nombre) {
 
 /** Operaciones del contrato, agrupadas por recurso. */
 export const api = {
+  /** Autenticación de la consola (`/api/auth`). */
+  auth: {
+    /** @returns {Promise<{configurada: boolean, autenticado: boolean, usuario?: string}>} */
+    estado: () => pedir('GET', '/auth/estado'),
+    /**
+     * Crea la primera cuenta de la consola y deja la sesión iniciada.
+     *
+     * @param {string} usuario Usuario de la consola.
+     * @param {string} password Contraseña de la consola.
+     * @returns {Promise<object>} Estado de la autenticación.
+     */
+    configurar: (usuario, password) =>
+      pedir('POST', '/auth/setup', { cuerpo: { usuario, password } }),
+    /**
+     * Inicia sesión con la cuenta existente.
+     *
+     * @param {string} usuario Usuario de la consola.
+     * @param {string} password Contraseña de la consola.
+     * @returns {Promise<object>} Estado de la autenticación.
+     */
+    entrar: (usuario, password) =>
+      pedir('POST', '/auth/login', { cuerpo: { usuario, password } }),
+    /** @returns {Promise<null>} Sin cuerpo; vence la cookie. */
+    salir: () => pedir('POST', '/auth/logout'),
+  },
+
   /** Sesión con la máquina virtual (`GET /api/session`). */
   sesion: {
     /** @returns {Promise<{vm: string, conector: string, ip: string, estado: string}>} */

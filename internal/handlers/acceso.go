@@ -120,3 +120,6 @@ func (h *Acceso) olvidar(w http.ResponseWriter) {
 
 // campoUsuario es el nombre del campo de usuario del cuerpo.
 const campoUsuario = "usuario"
+
+// campoPassword es el nombre del campo de contraseña del cuerpo.
+const campoPassword = "password"
