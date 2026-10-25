@@ -587,7 +587,7 @@ lucide.createIcons({icons});\``);if(r===void 0)throw Error("`createIcons()` only
           <td class="px-3 py-1.5"><span class="px-1.5 py-0.5 border text-[10px] rounded-sm ${t.clase}">${t.texto}</span></td>
           <td class="px-3 py-1.5 text-right"><button class="btn h-vm-btn px-1" data-eliminar="${N(n)}" title="Quitar del back-end"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
         </tr>
-      `}).join(``),O(n))},o=async()=>{n.innerHTML=L(4,`Consultando los servidores…`);try{t=(await M.haproxy.listar()).servidores??[],a()}catch(e){t=[],r.textContent=``,n.innerHTML=L(4,I(e),`text-vm-accent`)}},s=async e=>{window.confirm(`¿Quitar ${e} del back-end?`)&&await z({accion:async()=>(await M.haproxy.eliminar(e),{mensaje:`Se quitó ${e} del back-end.`}),operacion:`DELETE /api/haproxy/backend/servers/${e}`,informar:K,recargar:o})};return n.addEventListener(`click`,e=>{let t=e.target.closest(`[data-eliminar]`);t&&s(t.dataset.eliminar)}),e.querySelector(`#backend-refresh`).addEventListener(`click`,o),i.addEventListener(`submit`,async e=>{e.preventDefault();let t=i.elements.direccion.value.trim(),n=Number(i.elements.puerto.value.trim());if(!Z(t)){K({ok:!1,mensaje:`La dirección debe ser una IPv4 válida, por ejemplo 192.168.1.111.`,operacion:`POST /api/haproxy/backend/servers`});return}if(!Xe(n)){K({ok:!1,mensaje:`El puerto debe ser un número entre 1 y 65535.`,operacion:`POST /api/haproxy/backend/servers`});return}R(i,!0);let r=await z({accion:async()=>(await M.haproxy.agregar({direccion:t,puerto:n}),{mensaje:`Se agregó ${t}:${n} al back-end.`}),operacion:`POST /api/haproxy/backend/servers ${t}:${n}`,informar:K,recargar:o});R(i,!1),r&&i.reset()}),o(),e}var lt=[`paquetes`,`llaves`,`issue`,`hostname`,`usuarios`,`systemd`,`haproxy`];function ut(){let e=document.createElement(`div`);e.className=`flex flex-col gap-vm-gap`,e.innerHTML=`
+      `}).join(``),O(n))},o=async()=>{n.innerHTML=L(4,`Consultando los servidores…`);try{t=(await M.haproxy.listar()).servidores??[],a()}catch(e){t=[],r.textContent=``,n.innerHTML=L(4,I(e),`text-vm-accent`)}},s=async e=>{window.confirm(`¿Quitar ${e} del back-end?`)&&await z({accion:async()=>(await M.haproxy.eliminar(e),{mensaje:`Se quitó ${e} del back-end.`}),operacion:`DELETE /api/haproxy/backend/servers/${e}`,informar:K,recargar:o})};return n.addEventListener(`click`,e=>{let t=e.target.closest(`[data-eliminar]`);t&&s(t.dataset.eliminar)}),e.querySelector(`#backend-refresh`).addEventListener(`click`,o),i.addEventListener(`submit`,async e=>{e.preventDefault();let t=i.elements.direccion.value.trim(),n=Number(i.elements.puerto.value.trim());if(!Z(t)){K({ok:!1,mensaje:`La dirección debe ser una IPv4 válida, por ejemplo 192.168.1.111.`,operacion:`POST /api/haproxy/backend/servers`});return}if(!Xe(n)){K({ok:!1,mensaje:`El puerto debe ser un número entre 1 y 65535.`,operacion:`POST /api/haproxy/backend/servers`});return}R(i,!0);let r=await z({accion:async()=>(await M.haproxy.agregar({direccion:t,puerto:n}),{mensaje:`Se agregó ${t}:${n} al back-end.`}),operacion:`POST /api/haproxy/backend/servers ${t}:${n}`,informar:K,recargar:o});R(i,!1),r&&i.reset()}),o(),e}var lt=[`paquetes`,`llaves`,`issue`,`hostname`,`usuarios`,`systemd`,`haproxy`,`sesion`,`maquinas`];function ut(){let e=document.createElement(`div`);e.className=`flex flex-col gap-vm-gap`,e.innerHTML=`
     <section class="card">
       <form id="filtros-historial" class="p-3 flex flex-wrap items-center gap-2">
         <div class="flex items-center gap-1 border border-vm-border px-2 h-vm-input flex-1 min-w-[200px]">
@@ -621,12 +621,13 @@ lucide.createIcons({icons});\``);if(r===void 0)throw Error("`createIcons()` only
               <th class="text-left px-3 py-1 font-medium text-vm-fgSecondary">FECHA Y HORA</th>
               <th class="text-left px-3 py-1 font-medium text-vm-fgSecondary">VM</th>
               <th class="text-left px-3 py-1 font-medium text-vm-fgSecondary">MÓDULO</th>
+              <th class="text-left px-3 py-1 font-medium text-vm-fgSecondary">DESCRIPCIÓN</th>
               <th class="text-left px-3 py-1 font-medium text-vm-fgSecondary">OPERACIÓN</th>
               <th class="text-left px-3 py-1 font-medium text-vm-fgSecondary">RESULTADO</th>
             </tr>
           </thead>
           <tbody id="historial-filas">
-            <tr><td colspan="5" class="px-3 py-6 text-center text-vm-fgSecondary">Consultando…</td></tr>
+            <tr><td colspan="6" class="px-3 py-6 text-center text-vm-fgSecondary">Consultando…</td></tr>
           </tbody>
         </table>
       </div>
@@ -636,7 +637,7 @@ lucide.createIcons({icons});\``);if(r===void 0)throw Error("`createIcons()` only
       </footer>
     </section>
   `,O(e);let t=e.querySelector(`#filtros-historial`),n=e.querySelector(`#historial-filas`),r=e.querySelector(`#historial-estado`),i=e.querySelector(`#historial-total`),a=e.querySelector(`#exportar-historial`),o=[],s=()=>{let e=new FormData(t),n={};for(let t of[`q`,`desde`,`hasta`,`hora_desde`,`hora_hasta`,`vm`,`modulo`]){let r=String(e.get(t)||``).trim();r&&(n[t]=r)}return n},c=e=>{let t=new Date(e);return Number.isNaN(t.getTime())?e:t.toLocaleString(`es-CO`)},l=()=>{o.length===0?(n.innerHTML=`
-        <tr><td colspan="5" class="px-3 py-6 text-center text-vm-fgSecondary">
+        <tr><td colspan="6" class="px-3 py-6 text-center text-vm-fgSecondary">
           No hay operaciones que coincidan con los filtros.
         </td></tr>
       `,a.disabled=!0):(n.innerHTML=o.map(e=>`
@@ -644,6 +645,7 @@ lucide.createIcons({icons});\``);if(r===void 0)throw Error("`createIcons()` only
           <td class="px-3 py-1 font-mono text-[11px] whitespace-nowrap">${N(c(e.fecha_hora))}</td>
           <td class="px-3 py-1 font-mono text-[11px]">${N(e.vm||`—`)}</td>
           <td class="px-3 py-1">${N(e.modulo)}</td>
+          <td class="px-3 py-1">${N(e.descripcion||e.operacion)}</td>
           <td class="px-3 py-1 font-mono text-[11px]">${N(e.operacion)}</td>
           <td class="px-3 py-1">
             <span class="px-1.5 py-0.5 border text-[10px] rounded-sm ${e.resultado===`ok`?`border-vm-success text-vm-success`:`border-vm-accent text-vm-accent`}">
@@ -652,7 +654,7 @@ lucide.createIcons({icons});\``);if(r===void 0)throw Error("`createIcons()` only
           </td>
         </tr>
       `).join(``),a.disabled=!1)},u=async()=>{r.textContent=`Consultando…`,r.className=`text-vm-fgSecondary`;try{o=(await M.historial.listar(s())).operaciones??[],l(),r.textContent=o.length===0?`Sin operaciones`:`Historial actualizado`,i.textContent=String(o.length)}catch(e){o=[],n.innerHTML=`
-        <tr><td colspan="5" class="px-3 py-6 text-center text-vm-accent">${N(I(e))}</td></tr>
-      `,r.textContent=`No fue posible consultar el historial`,r.className=`text-vm-accent`,i.textContent=`0`,a.disabled=!0}};return t.addEventListener(`submit`,e=>{e.preventDefault(),u()}),e.querySelector(`#limpiar-historial`).addEventListener(`click`,()=>{t.reset(),u()}),a.addEventListener(`click`,()=>{let e=o.map(e=>[e.fecha_hora,e.vm,e.modulo,e.operacion,e.resultado,e.detalle].map(e=>`"${String(e??``).replaceAll(`"`,`""`)}"`).join(`,`)).join(`
-`),t=document.createElement(`a`);t.href=URL.createObjectURL(new Blob([`fecha_hora,vm,modulo,operacion,resultado,detalle
+        <tr><td colspan="6" class="px-3 py-6 text-center text-vm-accent">${N(I(e))}</td></tr>
+      `,r.textContent=`No fue posible consultar el historial`,r.className=`text-vm-accent`,i.textContent=`0`,a.disabled=!0}};return t.addEventListener(`submit`,e=>{e.preventDefault(),u()}),e.querySelector(`#limpiar-historial`).addEventListener(`click`,()=>{t.reset(),u()}),a.addEventListener(`click`,()=>{let e=o.map(e=>[e.fecha_hora,e.vm,e.modulo,e.descripcion,e.operacion,e.resultado,e.detalle].map(e=>`"${String(e??``).replaceAll(`"`,`""`)}"`).join(`,`)).join(`
+`),t=document.createElement(`a`);t.href=URL.createObjectURL(new Blob([`fecha_hora,vm,modulo,descripcion,operacion,resultado,detalle
 `+e],{type:`text/csv;charset=utf-8`})),t.download=`historial-vmcons.csv`,t.click(),URL.revokeObjectURL(t.href)}),u(),e}var dt={inicio:Be,paquetes:et,llaves:nt,issue:it,hostname:at,usuarios:ot,systemd:st,haproxy:ct,historial:ut},ft=`inicio`,Q=null;function pt(){let e=window.location.hash.replace(/^#\/?/,``);return Object.hasOwn(dt,e)?e:ft}function mt(){let e=document.getElementById(`app`);e.innerHTML=``;let t=document.createElement(`div`),n=document.createElement(`main`);return n.className=`max-w-vm mx-auto px-3 py-3`,e.append(Ae(),t,n),Q={barra:t,principal:n},Q}function $(){let{barra:e,principal:t}=Q??mt(),n=pt();e.replaceChildren(Ne(n));let r=dt[n]();r.classList.add(`fade-slide`),t.replaceChildren(r);let i=document.getElementById(`result-slot`);if(i&&!document.getElementById(`resultado-global`)){let e=Le();e.id=`resultado-global`,i.appendChild(e)}}window.addEventListener(`hashchange`,$),document.addEventListener(`vmcons:maquina`,$),$();
