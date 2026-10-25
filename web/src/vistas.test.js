@@ -108,7 +108,7 @@ describe('selector de máquina virtual', () => {
 
     vi.stubGlobal('fetch', async (url, opciones) => {
       const cuerpo = (opciones ?? {}).method === 'PUT'
-        ? { nombre: 'ubuntu-lab', uuid: 'uuid-2', estado: 'poweroff', activa: true }
+        ? { nombre: 'ubuntu-lab', uuid: 'uuid-2', estado: 'poweroff', activa: true, registrada: true }
         : { maquinas: [{ nombre: 'ubuntu-lab', uuid: 'uuid-2', estado: 'poweroff', activa: false }] };
 
       return {

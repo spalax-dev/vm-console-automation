@@ -1,8 +1,10 @@
 /**
  * Punto de entrada de la SPA: enrutado por hash y montaje del armazón.
  *
- * Cada módulo es una vista independiente que consulta su recurso del
- * contrato OpenAPI al montarse. La navegación no recarga la página.
+ * La barra superior se monta una sola vez: contiene el selector de
+ * máquina, que consulta el inventario y la sesión. Reconstruirla en cada
+ * cambio de pestaña multiplicaría esas consultas al hipervisor sin
+ * aportar nada, así que solo se sustituyen las pestañas y el contenido.
  */
 
 import './styles.css';
@@ -41,6 +43,9 @@ const rutas = {
 /** Ruta que se muestra cuando el fragmento no corresponde a una vista. */
 const RUTA_INICIAL = 'inicio';
 
+/** Partes del armazón que se reemplazan al navegar. */
+let armazon = null;
+
 /**
  * Devuelve la ruta activa a partir del fragmento de la URL.
  *
@@ -53,23 +58,38 @@ function rutaActual() {
 }
 
 /**
- * Monta el armazón y la vista de la ruta activa.
+ * Construye el armazón la primera vez y devuelve sus partes móviles.
+ *
+ * @returns {{barra: HTMLElement, principal: HTMLElement}} Contenedores.
  */
-function montar() {
+function montarArmazon() {
   const app = document.getElementById('app');
-  const actual = rutaActual();
 
   app.innerHTML = '';
-  app.appendChild(Header());
-  app.appendChild(Tabs(actual));
 
+  const barra = document.createElement('div');
   const principal = document.createElement('main');
+
   principal.className = 'max-w-vm mx-auto px-3 py-3';
+  app.append(Header(), barra, principal);
+
+  armazon = { barra, principal };
+
+  return armazon;
+}
+
+/**
+ * Monta las pestañas y la vista de la ruta activa.
+ */
+function montar() {
+  const { barra, principal } = armazon ?? montarArmazon();
+  const actual = rutaActual();
+
+  barra.replaceChildren(Tabs(actual));
 
   const vista = rutas[actual]();
   vista.classList.add('fade-slide');
-  principal.appendChild(vista);
-  app.appendChild(principal);
+  principal.replaceChildren(vista);
 
   const ranura = document.getElementById('result-slot');
 
