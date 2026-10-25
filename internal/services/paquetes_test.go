@@ -45,7 +45,7 @@ func TestPaquetesInstalarEjecutaAptGet(t *testing.T) {
 	}
 
 	if abridor.abiertas != 1 {
-		t.Errorf("Abrir() se llamó %d veces, want 1", abridor.abiertas)
+		t.Errorf(msgAbrirUna, abridor.abiertas)
 	}
 
 	if len(sesion.commands) != 1 {
@@ -158,7 +158,7 @@ func TestPaquetesListarFiltraInstalados(t *testing.T) {
 
 	lista, err := paquetes.Listar(context.Background())
 	if err != nil {
-		t.Fatalf("Listar() error = %v, want nil", err)
+		t.Fatalf(msgListarOK, err)
 	}
 
 	if len(lista) != 2 {
@@ -188,7 +188,7 @@ func TestPaquetesListarVacioDevuelveSlice(t *testing.T) {
 
 	lista, err := paquetes.Listar(context.Background())
 	if err != nil {
-		t.Fatalf("Listar() error = %v, want nil", err)
+		t.Fatalf(msgListarOK, err)
 	}
 
 	if lista == nil {

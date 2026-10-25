@@ -14,6 +14,7 @@ Package services implementa los casos de uso de la consola: descubre el conector
 - [type AbridorSesion](<#AbridorSesion>)
 - [type ConfigDescubridor](<#ConfigDescubridor>)
 - [type ConfigLlaves](<#ConfigLlaves>)
+- [type ConfigUsuarios](<#ConfigUsuarios>)
 - [type ConfiguracionHostname](<#ConfiguracionHostname>)
 - [type ConfiguracionIssue](<#ConfiguracionIssue>)
 - [type Descubridor](<#Descubridor>)
@@ -40,6 +41,14 @@ Package services implementa los casos de uso de la consola: descubre el conector
   - [func \(p \*Paquetes\) Instalar\(ctx context.Context, nombre string\) \(Resultado, error\)](<#Paquetes.Instalar>)
   - [func \(p \*Paquetes\) Listar\(ctx context.Context\) \(\[\]Paquete, error\)](<#Paquetes.Listar>)
 - [type Resultado](<#Resultado>)
+- [type Usuario](<#Usuario>)
+- [type Usuarios](<#Usuarios>)
+  - [func NuevoUsuarios\(config ConfigUsuarios\) \*Usuarios](<#NuevoUsuarios>)
+  - [func \(u \*Usuarios\) Crear\(ctx context.Context, nombre string, sudo, llaves bool\) \(Resultado, error\)](<#Usuarios.Crear>)
+  - [func \(u \*Usuarios\) DescargarLlave\(nombre string\) \(archivo string, contenido \[\]byte, err error\)](<#Usuarios.DescargarLlave>)
+  - [func \(u \*Usuarios\) Eliminar\(ctx context.Context, nombre string, archivos bool\) \(Resultado, error\)](<#Usuarios.Eliminar>)
+  - [func \(u \*Usuarios\) Listar\(ctx context.Context\) \(\[\]Usuario, error\)](<#Usuarios.Listar>)
+  - [func \(u \*Usuarios\) Obtener\(ctx context.Context, nombre string\) \(Usuario, error\)](<#Usuarios.Obtener>)
 
 
 ## Variables
@@ -56,10 +65,28 @@ var ErrLlaveExistente = errors.New("la llave SSH de root ya existe")
 var ErrLlaveNoEncontrada = errors.New("la llave SSH de root no existe")
 ```
 
+<a name="ErrLlaveUsuarioNoEncontrada"></a>ErrLlaveUsuarioNoEncontrada indica que no se ha generado la llave del usuario.
+
+```go
+var ErrLlaveUsuarioNoEncontrada = errors.New("la llave del usuario no existe")
+```
+
 <a name="ErrSesionNoDisponible"></a>ErrSesionNoDisponible indica que ningún conector puede atender la máquina en este momento \(por ejemplo, la VM está apagada o no hay llave SSH instalada ni Guest Additions disponible\).
 
 ```go
 var ErrSesionNoDisponible = errors.New("no hay una sesión disponible con la máquina")
+```
+
+<a name="ErrUsuarioExistente"></a>ErrUsuarioExistente indica que la cuenta ya está en la máquina.
+
+```go
+var ErrUsuarioExistente = errors.New("el usuario ya existe")
+```
+
+<a name="ErrUsuarioNoEncontrado"></a>ErrUsuarioNoEncontrado indica que la cuenta no está en la máquina.
+
+```go
+var ErrUsuarioNoEncontrado = errors.New("el usuario no existe")
 ```
 
 <a name="AbridorSesion"></a>
@@ -103,6 +130,22 @@ type ConfigLlaves struct {
     Ejecutor ports.Executor
     // Ruta es la ruta de la llave privada en el anfitrión.
     Ruta string
+}
+```
+
+<a name="ConfigUsuarios"></a>
+## type ConfigUsuarios
+
+ConfigUsuarios reúne las dependencias del servicio de usuarios.
+
+```go
+type ConfigUsuarios struct {
+    // Sesiones abre la sesión con la máquina.
+    Sesiones AbridorSesion
+    // Ejecutor lanza ssh-keygen en el anfitrión.
+    Ejecutor ports.Executor
+    // Directorio guarda las llaves privadas de los usuarios.
+    Directorio string
 }
 ```
 
@@ -395,5 +438,90 @@ type Resultado struct {
     Codigo int
 }
 ```
+
+<a name="Usuario"></a>
+## type Usuario
+
+Usuario describe una cuenta local de la máquina.
+
+```go
+type Usuario struct {
+    // Nombre es el nombre de la cuenta.
+    Nombre string
+    // Sudo indica si pertenece al grupo sudo.
+    Sudo bool
+    // Llaves indica si tiene un par de llaves generado.
+    Llaves bool
+    // UID es el identificador numérico.
+    UID int
+    // Home es el directorio personal.
+    Home string
+}
+```
+
+<a name="Usuarios"></a>
+## type Usuarios
+
+Usuarios implementa el caso de uso de gestión de cuentas locales.
+
+```go
+type Usuarios struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="NuevoUsuarios"></a>
+### func NuevoUsuarios
+
+```go
+func NuevoUsuarios(config ConfigUsuarios) *Usuarios
+```
+
+NuevoUsuarios construye el servicio de usuarios con las dependencias dadas.
+
+<a name="Usuarios.Crear"></a>
+### func \(\*Usuarios\) Crear
+
+```go
+func (u *Usuarios) Crear(ctx context.Context, nombre string, sudo, llaves bool) (Resultado, error)
+```
+
+Crear crea una cuenta, la agrega a sudo si se pide y genera sus llaves cuando corresponde.
+
+<a name="Usuarios.DescargarLlave"></a>
+### func \(\*Usuarios\) DescargarLlave
+
+```go
+func (u *Usuarios) DescargarLlave(nombre string) (archivo string, contenido []byte, err error)
+```
+
+DescargarLlave devuelve el nombre y el contenido de la llave privada del usuario.
+
+<a name="Usuarios.Eliminar"></a>
+### func \(\*Usuarios\) Eliminar
+
+```go
+func (u *Usuarios) Eliminar(ctx context.Context, nombre string, archivos bool) (Resultado, error)
+```
+
+Eliminar elimina una cuenta y, opcionalmente, sus archivos.
+
+<a name="Usuarios.Listar"></a>
+### func \(\*Usuarios\) Listar
+
+```go
+func (u *Usuarios) Listar(ctx context.Context) ([]Usuario, error)
+```
+
+Listar devuelve las cuentas regulares \(UID entre 1000 y 65533\).
+
+<a name="Usuarios.Obtener"></a>
+### func \(\*Usuarios\) Obtener
+
+```go
+func (u *Usuarios) Obtener(ctx context.Context, nombre string) (Usuario, error)
+```
+
+Obtener devuelve una cuenta de la máquina.
 
 Generated by [gomarkdoc](<https://github.com/princjef/gomarkdoc>)

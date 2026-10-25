@@ -20,11 +20,11 @@ Documento de seguimiento del proyecto. Se actualiza conforme se avanza.
 | Contrato OpenAPI (`docs/openapi.yaml`) | [x] 12 rutas, validado con Redocly |
 | Controladores HTTP de los módulos | [~] Registrados y validando; responden 501 hasta conectar servicios |
 | Servicio de descubrimiento/selección de sesión | [x] Completo — cobertura 100 % |
-| Casos de uso (`internal/services`) | [~] Preparación del sistema completa; usuarios, systemd y HAProxy pendientes |
+| Casos de uso (`internal/services`) | [~] Preparación del sistema y usuarios completos; systemd y HAProxy pendientes |
 | Endpoints HTTP (`internal/handlers`) | [~] `GET /api/session` hecho; módulos pendientes |
 | Ensamblaje (`main.go`: rutas + inyección de dependencias) | [~] Servidor, `web/` embebido y todas las rutas registradas; faltan los servicios de módulos |
 | Interfaz web (`web/modules`, `web/static/main.js`) | [ ] Placeholders |
-| Pruebas de `services` y `handlers` | [~] `services` 100 %; `handlers` 97.8 % |
+| Pruebas de `services` y `handlers` | [~] `services` 98.0 %; `handlers` 96.4 % |
 | Escenario: diagrama (numeral 5) | [x] Hecho en PlantUML (`docs/diagramas/`), en §3.1 del informe |
 | Pruebas manuales en video (numeral 4) | [ ] No iniciado |
 | Informe (`docs/informe`) | [~] §3 (diseño y escenario) redactado con los 2 diagramas; resto con TODOs |
@@ -73,8 +73,8 @@ Orden de trabajo obligatorio: **docs → tests → implementación**.
 
 | # | Requisito | Docs | Tests | Código | UI | Video |
 | --- | --- | --- | --- | --- | --- | --- |
-| 3.2.1 | Crear usuario con casilla *sudo*; casilla para generar par de llaves, instalar la pública y **descargar la privada**; deshabilitar login/contraseña al habilitar SSH | [x] | [x] | [~] | [ ] | [ ] |
-| 3.2.2 | Eliminar usuario con casilla para eliminar también todos sus archivos | [x] | [x] | [~] | [ ] | [ ] |
+| 3.2.1 | Crear usuario con casilla *sudo*; casilla para generar par de llaves, instalar la pública y **descargar la privada**; deshabilitar login/contraseña al habilitar SSH | [x] | [x] | [x] | [ ] | [ ] |
+| 3.2.2 | Eliminar usuario con casilla para eliminar también todos sus archivos | [x] | [x] | [x] | [ ] | [ ] |
 
 ### 4.3 Gestión de demonios con systemd
 
@@ -176,6 +176,16 @@ de los módulos del numeral 3.
 ---
 
 ## Notas de seguimiento
+
+- **25 oct 2026** — Gestión de usuarios (3.2): el servicio `Usuarios`
+  lista cuentas regulares (`UID ≥ 1000`), crea con `useradd -m -s
+  /bin/bash`, agrega a `sudo` con `usermod -aG`, genera el par en el
+  anfitrión e instala la pública en `authorized_keys` con `700`/`600` y
+  propietario del usuario, y bloquea la contraseña con `passwd -l`.
+  Elimina con `userdel` o `userdel -r` y borra las llaves del
+  anfitrión. `POST` responde `201` (`409` si existe), `DELETE` `204`
+  (`404` si no existe) y `GET .../key` entrega la privada. Cobertura:
+  `services` 98.0 %, `handlers` 96.4 %.
 
 - **25 oct 2026** — La SPA se sirve desde el binario: `main.go` embebe
   `web/dist` y lo publica en la raíz (`/assets/` para los archivos con

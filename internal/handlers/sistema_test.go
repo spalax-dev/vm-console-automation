@@ -39,6 +39,8 @@ const (
 	rutaIssue             = "/api/issue"
 	rutaHostname          = "/api/hostname"
 	hostDebian            = "debian13"
+	rutaUsuarios          = "/api/users"
+	llavePrivadaPrueba    = "privada"
 	textoBienvenido       = "Bienvenido"
 )
 
@@ -259,7 +261,7 @@ func TestPaquetesInstalar(t *testing.T) {
 		t.Fatalf(msgCodigoCuerpo, rec.Code, http.StatusCreated, rec.Body.String())
 	}
 
-	if got := rec.Header().Get("Location"); got != rutaPaqueteNano {
+	if got := rec.Header().Get(cabeceraLocation); got != rutaPaqueteNano {
 		t.Errorf("Location = %q, want %q", got, rutaPaqueteNano)
 	}
 
@@ -406,7 +408,7 @@ func TestLlaveRootGenerar(t *testing.T) {
 		t.Fatalf(msgCodigoCuerpo, rec.Code, http.StatusCreated, rec.Body.String())
 	}
 
-	if got := rec.Header().Get("Location"); got != rutaLlaveRoot {
+	if got := rec.Header().Get(cabeceraLocation); got != rutaLlaveRoot {
 		t.Errorf("Location = %q, want /api/keys/root", got)
 	}
 
@@ -435,7 +437,7 @@ func TestLlaveRootGenerarExistente(t *testing.T) {
 func TestLlaveRootDescargar(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubLlaves{nombre: "id_ed25519", contenido: []byte("privada")}
+	servicio := &stubLlaves{nombre: "id_ed25519", contenido: []byte(llavePrivadaPrueba)}
 
 	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, servicio, &stubIssue{}, &stubHostname{}).LlaveRoot, rutaLlaveRoot, casoPeticion{
 		nombre: "descargar", metodo: http.MethodGet,
@@ -449,7 +451,7 @@ func TestLlaveRootDescargar(t *testing.T) {
 		t.Errorf("Content-Disposition = %q", got)
 	}
 
-	if rec.Body.String() != "privada" {
+	if rec.Body.String() != llavePrivadaPrueba {
 		t.Errorf("cuerpo = %q, want la llave privada", rec.Body.String())
 	}
 }
@@ -494,7 +496,7 @@ func TestIssueObtener(t *testing.T) {
 	}}
 
 	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, &stubLlaves{}, servicio, &stubHostname{}).Issue, rutaIssue, casoPeticion{
-		nombre: "consultar", metodo: http.MethodGet,
+		nombre: casoConsultar, metodo: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusOK {
@@ -606,7 +608,7 @@ func TestHostnameObtener(t *testing.T) {
 	}}
 
 	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, &stubLlaves{}, &stubIssue{}, servicio).Hostname, rutaHostname, casoPeticion{
-		nombre: "consultar", metodo: http.MethodGet,
+		nombre: casoConsultar, metodo: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusOK {

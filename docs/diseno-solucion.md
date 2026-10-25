@@ -170,6 +170,36 @@ El nombre se valida como RFC 1123 y la IP con `netip.Addr` antes de ejecutar
 nada. Si `hostname -I` no devuelve una IPv4, la lectura termina con un error
 comprensible en lugar de inventar una dirección.
 
+### 2.6 Gestión de usuarios
+
+El recurso `/api/users` administra las cuentas locales de la máquina:
+
+| Operación | Acción | Respuesta |
+| --- | --- | --- |
+| `GET /api/users` | lista las cuentas regulares (UID ≥ 1000) | `200` con `{usuarios: [...]}` |
+| `POST /api/users` | crea la cuenta, con `sudo` y llaves opcionales | `201`; `409` si ya existe |
+| `GET /api/users/{name}` | consulta una cuenta | `200`; `404` si no existe |
+| `DELETE /api/users/{name}` | elimina la cuenta; `files=true` borra sus archivos | `204`; `404` si no existe |
+| `GET /api/users/{name}/key` | descarga la llave privada | `200` como adjunto; `404` si no existe |
+
+El servicio `Usuarios` (`internal/services/usuarios.go`) abre una sesión por
+operación y traduce el resultado del dominio. Para crear:
+
+1. comprueba que la cuenta no exista (`getent passwd`);
+2. ejecuta `useradd -m -s /bin/bash`;
+3. si `sudo` es verdadero, `usermod -aG sudo`;
+4. si `llaves` es verdadero, genera el par en el anfitrión
+   (`ssh-keygen`), instala la pública en
+   `/home/<usuario>/.ssh/authorized_keys` con `700`/`600` y propietario del
+   usuario, y bloquea el acceso por contraseña con `passwd -l`.
+
+Las llaves de usuario se guardan en `<config>/vmcons/users/<usuario>_ed25519`;
+la privada solo se entrega por `GET .../key`. La eliminación usa
+`userdel -r` cuando se piden los archivos y `userdel` en caso contrario, y
+borra del anfitrión las llaves generadas. El listado toma las cuentas de
+`getent passwd`, la pertenencia a `sudo` de `getent group sudo` y la
+existencia de la llave en el anfitrión.
+
 ---
 
 ## 3. Flujo de proceso de una operación

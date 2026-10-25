@@ -19,6 +19,7 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
 - [type ServicioIssue](<#ServicioIssue>)
 - [type ServicioLlaves](<#ServicioLlaves>)
 - [type ServicioPaquetes](<#ServicioPaquetes>)
+- [type ServicioUsuarios](<#ServicioUsuarios>)
 - [type Sesion](<#Sesion>)
   - [func NuevoSesion\(descubridor DescubridorSesion\) \*Sesion](<#NuevoSesion>)
   - [func \(h \*Sesion\) ServeHTTP\(w http.ResponseWriter, r \*http.Request\)](<#Sesion.ServeHTTP>)
@@ -35,7 +36,7 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
   - [func \(h \*Systemd\) Unidad\(w http.ResponseWriter, r \*http.Request\)](<#Systemd.Unidad>)
   - [func \(h \*Systemd\) Unidades\(w http.ResponseWriter, r \*http.Request\)](<#Systemd.Unidades>)
 - [type Usuarios](<#Usuarios>)
-  - [func NuevoUsuarios\(\) \*Usuarios](<#NuevoUsuarios>)
+  - [func NuevoUsuarios\(servicio ServicioUsuarios\) \*Usuarios](<#NuevoUsuarios>)
   - [func \(h \*Usuarios\) Coleccion\(w http.ResponseWriter, r \*http.Request\)](<#Usuarios.Coleccion>)
   - [func \(h \*Usuarios\) Llave\(w http.ResponseWriter, r \*http.Request\)](<#Usuarios.Llave>)
   - [func \(h \*Usuarios\) Usuario\(w http.ResponseWriter, r \*http.Request\)](<#Usuarios.Usuario>)
@@ -144,6 +145,26 @@ type ServicioPaquetes interface {
     Instalar(ctx context.Context, nombre string) (services.Resultado, error)
     // Eliminar elimina el paquete indicado.
     Eliminar(ctx context.Context, nombre string) (services.Resultado, error)
+}
+```
+
+<a name="ServicioUsuarios"></a>
+## type ServicioUsuarios
+
+ServicioUsuarios ejecuta las operaciones sobre las cuentas locales.
+
+```go
+type ServicioUsuarios interface {
+    // Listar devuelve las cuentas regulares de la máquina.
+    Listar(ctx context.Context) ([]services.Usuario, error)
+    // Obtener devuelve una cuenta.
+    Obtener(ctx context.Context, nombre string) (services.Usuario, error)
+    // Crear crea la cuenta con sudo y llaves opcionales.
+    Crear(ctx context.Context, nombre string, sudo, llaves bool) (services.Resultado, error)
+    // Eliminar elimina la cuenta y, si se pide, sus archivos.
+    Eliminar(ctx context.Context, nombre string, archivos bool) (services.Resultado, error)
+    // DescargarLlave devuelve la llave privada de la cuenta.
+    DescargarLlave(nombre string) (archivo string, contenido []byte, err error)
 }
 ```
 
@@ -292,14 +313,16 @@ Unidades atiende GET /api/units: lista las unidades administradas.
 Usuarios agrupa los recursos de gestión de usuarios \(numeral 3.2\).
 
 ```go
-type Usuarios struct{}
+type Usuarios struct {
+    // contains filtered or unexported fields
+}
 ```
 
 <a name="NuevoUsuarios"></a>
 ### func NuevoUsuarios
 
 ```go
-func NuevoUsuarios() *Usuarios
+func NuevoUsuarios(servicio ServicioUsuarios) *Usuarios
 ```
 
 NuevoUsuarios construye el handler de gestión de usuarios.
@@ -320,7 +343,7 @@ Coleccion atiende GET y POST /api/users: lista los usuarios o crea uno nuevo.
 func (h *Usuarios) Llave(w http.ResponseWriter, r *http.Request)
 ```
 
-Llave atiende GET /api/users/\{name\}/key: entrega la llave privada generada para el usuario indicado.
+Llave atiende GET /api/users/\{name\}/key: entrega la llave privada generada para el usuario.
 
 <a name="Usuarios.Usuario"></a>
 ### func \(\*Usuarios\) Usuario

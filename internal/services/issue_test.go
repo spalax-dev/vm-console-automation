@@ -60,7 +60,7 @@ func TestIssueEscribirGeneraContenido(t *testing.T) {
 	}
 
 	if !sesion.closed {
-		t.Error("la sesión no se cerró")
+		t.Error(msgSesionAbierta)
 	}
 
 	if resultado.Codigo != 0 {

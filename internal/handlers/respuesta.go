@@ -22,6 +22,12 @@ const maxCuerpo = 1 << 20
 // claveError es la clave de los mensajes de error en el log.
 const claveError = "error"
 
+// Cabeceras HTTP usadas por los handlers.
+const (
+	cabeceraContentType = "Content-Type"
+	cabeceraLocation    = "Location"
+)
+
 // respuestaError es el cuerpo JSON común de los errores de la consola.
 type respuestaError struct {
 	OK      bool   `json:"ok"`
@@ -51,7 +57,7 @@ func campoInvalido(campo, motivo string) error {
 // escribirJSON serializa cuerpo como JSON con el código de estado dado.
 // Si la serialización falla, solo deja constancia en el log.
 func escribirJSON(w http.ResponseWriter, codigo int, cuerpo any) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set(cabeceraContentType, "application/json; charset=utf-8")
 	w.WriteHeader(codigo)
 
 	if err := json.NewEncoder(w).Encode(cuerpo); err != nil {

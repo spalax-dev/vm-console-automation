@@ -121,15 +121,33 @@ deja el sistema a medio configurar.
 
 \subsubsection{Creación de Usuarios y Privilegios de sudo}
 \label{sec:crear-usuario}
-% TODO: creación de usuario con casilla de verificación para privilegios
-% sudo; casilla para generar el par de llaves criptográficas, instalar
-% la llave pública y habilitar el descargue de la llave privada;
-% deshabilitación del acceso por login y password al habilitar SSH.
+
+El recurso \texttt{/api/users} administra las cuentas locales. La
+creación comprueba primero que la cuenta no exista, ejecuta
+\texttt{useradd -m -s /bin/bash} y, si la casilla está marcada, agrega
+el usuario al grupo \texttt{sudo} con \texttt{usermod -aG sudo}.
+
+Si se piden llaves, el par se genera en el anfitrión con
+\texttt{ssh-keygen}, la pública se instala en
+\texttt{/home/<usuario>/.ssh/authorized\_keys} con propietario del
+usuario y permisos \texttt{700}/\texttt{600}, y se bloquea el acceso por
+contraseña con \texttt{passwd -l}. La llave privada queda en
+\texttt{<config>/vmcons/users/<usuario>\_ed25519} y solo se entrega por
+\texttt{GET /api/users/\{name\}/key} como archivo adjunto. La respuesta
+de creación es \texttt{201} con \texttt{Location}, o \texttt{409} si
+la cuenta ya existe. El listado filtra las cuentas regulares
+(\texttt{UID} mayor o igual a 1000) y consulta la pertenencia a
+\texttt{sudo} y la existencia de la llave.
 
 \subsubsection{Eliminación de Usuarios}
 \label{sec:eliminar-usuario}
-% TODO: eliminación de usuarios con casilla de verificación que indica
-% si también deben eliminarse todos sus archivos.
+
+La eliminación usa \texttt{DELETE /api/users/\{name\}}; el parámetro
+\texttt{files=true} indica que también deben borrarse los archivos. El
+servicio comprueba que la cuenta exista y ejecuta \texttt{userdel -r}
+cuando se piden los archivos, o \texttt{userdel} en caso contrario.
+Después elimina del anfitrión el par de llaves generado. La respuesta es
+\texttt{204} sin cuerpo, o \texttt{404} si la cuenta no existe.
 
 % ------------------------------------------------------------
 % 4.3 Gestión de demonios con systemd

@@ -27,6 +27,13 @@ const (
 	ipHostPrueba     = "192.168.1.60"
 	salidaHostname   = "debian13\n"
 	comandoCat       = "cat"
+	msgAbrirUna      = "Abrir() se llamó %d veces, want 1"
+	msgListarOK      = "Listar() error = %v, want nil"
+	msgEscribirPub   = "escribir la llave pública: %v"
+	nombreJorge      = "jorge"
+	archivoJorge     = "jorge_ed25519"
+	msgCrearDir      = "crear el directorio: %v"
+	lineaJorge       = "jorge:x:1000:1000::/home/jorge:/bin/bash\n"
 	msgIP            = "IP = %s, want %s"
 )
 

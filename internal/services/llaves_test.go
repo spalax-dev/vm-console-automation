@@ -73,7 +73,7 @@ func TestLlavesGenerarInstalaClave(t *testing.T) {
 		}
 
 		if err := os.WriteFile(ruta+".pub", []byte(clavePublica+"\n"), 0o600); err != nil {
-			t.Fatalf("escribir la llave pública: %v", err)
+			t.Fatalf(msgEscribirPub, err)
 		}
 	}
 
@@ -83,7 +83,7 @@ func TestLlavesGenerarInstalaClave(t *testing.T) {
 	}
 
 	if abridor.abiertas != 1 {
-		t.Errorf("Abrir() se llamó %d veces, want 1", abridor.abiertas)
+		t.Errorf(msgAbrirUna, abridor.abiertas)
 	}
 
 	if len(ejecutor.calls) != 1 {
@@ -207,7 +207,7 @@ func TestLlavesGenerarErrorDeInstalacion(t *testing.T) {
 	llaves, _, ruta := nuevoLlavesDePrueba(t, ejecutor, sesion, nil)
 	ejecutor.onExecute = func() {
 		if err := os.WriteFile(ruta+".pub", []byte(clavePublica+"\n"), 0o600); err != nil {
-			t.Fatalf("escribir la llave pública: %v", err)
+			t.Fatalf(msgEscribirPub, err)
 		}
 	}
 
@@ -292,7 +292,7 @@ func TestLlavesGenerarErrorDeDirectorio(t *testing.T) {
 
 	directorio := filepath.Join(t.TempDir(), "solo-lectura")
 	if err := os.Mkdir(directorio, 0o500); err != nil {
-		t.Fatalf("crear el directorio: %v", err)
+		t.Fatalf(msgCrearDir, err)
 	}
 
 	t.Cleanup(func() {
@@ -333,7 +333,7 @@ func TestLlavesDescargarErrorDeLectura(t *testing.T) {
 	llaves, _, ruta := nuevoLlavesDePrueba(t, &stubExecutor{}, &stubSession{}, nil)
 
 	if err := os.Mkdir(ruta, 0o700); err != nil {
-		t.Fatalf("crear el directorio: %v", err)
+		t.Fatalf(msgCrearDir, err)
 	}
 
 	if _, _, err := llaves.Descargar(); err == nil {

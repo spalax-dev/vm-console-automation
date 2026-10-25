@@ -73,18 +73,16 @@ func (l *Llaves) Generar(ctx context.Context) (Resultado, error) {
 
 	defer cerrarSesion(sesion)
 
-	if _, err := l.ejecutor.Execute(
-		ctx, "ssh-keygen", "-t", "ed25519", "-N", "", "-f", l.ruta, "-C", "vmcons-root",
-	); err != nil {
-		return Resultado{}, fmt.Errorf("generar el par de llaves: %w", err)
+	if err := generarPar(ctx, l.ejecutor, l.ruta, "vmcons-root"); err != nil {
+		return Resultado{}, err
 	}
 
-	clave, err := os.ReadFile(l.ruta + ".pub")
+	clave, err := leerClavePublica(l.ruta)
 	if err != nil {
-		return Resultado{}, fmt.Errorf("leer la llave pública: %w", err)
+		return Resultado{}, err
 	}
 
-	cmd := guionInstalacion(strings.TrimSpace(string(clave)))
+	cmd := guionInstalacion(clave)
 
 	resultado, err := sesion.Run(ctx, cmd)
 	salida := Resultado{
@@ -115,6 +113,29 @@ func (l *Llaves) Descargar() (nombre string, contenido []byte, err error) {
 	}
 
 	return filepath.Base(l.ruta), contenido, nil
+}
+
+// generarPar crea un par de llaves ed25519 en el anfitrión.
+func generarPar(ctx context.Context, ejecutor ports.Executor, ruta, comentario string) error {
+	if _, err := ejecutor.Execute(
+		ctx, "ssh-keygen", "-t", "ed25519", "-N", "", "-f", ruta, "-C", comentario,
+	); err != nil {
+		return fmt.Errorf("generar el par de llaves: %w", err)
+	}
+
+	return nil
+}
+
+// leerClavePublica devuelve el contenido de la llave pública sin el
+// salto de línea final.
+func leerClavePublica(ruta string) (string, error) {
+	// #nosec G304 -- la ruta proviene de la configuración de la consola.
+	clave, err := os.ReadFile(ruta + ".pub")
+	if err != nil {
+		return "", fmt.Errorf("leer la llave pública: %w", err)
+	}
+
+	return strings.TrimSpace(string(clave)), nil
 }
 
 // guionInstalacion construye el guion POSIX que instala la llave pública

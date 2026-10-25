@@ -139,7 +139,7 @@ func (h *Sistema) Paquetes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Location", "/api/packages/"+solicitud.Nombre)
+	w.Header().Set(cabeceraLocation, "/api/packages/"+solicitud.Nombre)
 	escribirResultado(w, http.StatusCreated, resultado)
 }
 
@@ -217,7 +217,7 @@ func (h *Sistema) LlaveRoot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Location", "/api/keys/root")
+	w.Header().Set(cabeceraLocation, "/api/keys/root")
 	escribirResultado(w, http.StatusCreated, resultado)
 }
 
@@ -242,11 +242,12 @@ func (h *Sistema) descargarLlaveRoot(w http.ResponseWriter) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set(cabeceraContentType, "application/octet-stream")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+nombre+`"`)
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
 
+	// #nosec G705 -- es la descarga binaria de una llave, no HTML.
 	if _, err := w.Write(contenido); err != nil {
 		slog.Error("escribir la llave de root", claveError, err)
 	}

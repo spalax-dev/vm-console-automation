@@ -31,7 +31,7 @@ func TestHostnameObtener(t *testing.T) {
 
 	config, err := hostname.Obtener(context.Background())
 	if err != nil {
-		t.Fatalf("Obtener() error = %v, want nil", err)
+		t.Fatalf(msgObtenerOK, err)
 	}
 
 	if config.Nombre != "debian13" {
@@ -60,7 +60,7 @@ func TestHostnameObtenerSinEntrada(t *testing.T) {
 
 	config, err := nuevoHostnameDePrueba(sesion, nil).Obtener(context.Background())
 	if err != nil {
-		t.Fatalf("Obtener() error = %v, want nil", err)
+		t.Fatalf(msgObtenerOK, err)
 	}
 
 	if config.ActualizarHosts {
@@ -128,7 +128,7 @@ func TestHostnameEscribirActualizaHosts(t *testing.T) {
 	}
 
 	if !sesion.closed {
-		t.Error("la sesión no se cerró")
+		t.Error(msgSesionAbierta)
 	}
 
 	if resultado.Codigo != 0 {

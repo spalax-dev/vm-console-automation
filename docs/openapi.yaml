@@ -54,10 +54,10 @@ info:
 
     ## Estado de implementación
 
-    `GET /api/session`, `/api/packages`, `/api/keys/root`, `/api/issue`
-    y `/api/hostname` ya están conectados con la máquina. El resto de
-    rutas existe y valida sus entradas, pero responde `501` hasta
-    conectar sus casos de uso.
+    `GET /api/session`, `/api/packages`, `/api/keys/root`, `/api/issue`,
+    `/api/hostname` y `/api/users` ya están conectados con la máquina. El
+    resto de rutas existe y valida sus entradas, pero responde `501`
+    hasta conectar sus casos de uso.
 
     ## Fuera de alcance
 
@@ -102,11 +102,42 @@ paths:
               examples:
                 ssh:
                   value:
+                    vm: debian-1
                     conector: ssh
                     ip: 192.168.1.50
                     estado: running
         '503':
           $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+    put:
+      tags: [session]
+      summary: Vincular la consola con una máquina virtual
+      description: |
+        Establece la máquina que administra la consola a partir del
+        inventario del hipervisor. La vinculación es inmediata y se
+        conserva mientras el proceso esté en ejecución; al reiniciar se
+        vuelve al valor de `VMCONS_VM`. No exige que la máquina esté
+        encendida: vincular una máquina apagada es válido y solo impide
+        abrir sesión con ella hasta que se encienda.
+      operationId: vincularMaquina
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudVinculacion'
+      responses:
+        '200':
+          description: Máquina vinculada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaquinaVirtual'
+        '400':
+          $ref: '#/components/responses/EntradaInvalida'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
         '500':
           $ref: '#/components/responses/ErrorInterno'
 
@@ -368,6 +399,12 @@ paths:
                 $ref: '#/components/schemas/ResultadoOperacion'
         '400':
           $ref: '#/components/responses/EntradaInvalida'
+        '409':
+          description: El usuario ya existe en la máquina.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoOperacion'
         '501':
           $ref: '#/components/responses/NoImplementado'
         '503':
@@ -653,6 +690,34 @@ paths:
           $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
+  /api/vms:
+    get:
+      tags: [session]
+      summary: Buscar las máquinas virtuales del hipervisor
+      description: |
+        Enumera las máquinas registradas en VirtualBox y marca con
+        `activa` la que está vinculada con la consola. El filtro `q`
+        compara, sin distinguir mayúsculas, contra el nombre y el UUID.
+        Es la fuente del selector de la barra superior.
+      operationId: listarMaquinas
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Texto de búsqueda sobre el nombre o el UUID.
+          schema:
+            type: string
+            maxLength: 128
+      responses:
+        '200':
+          description: Máquinas encontradas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListaMaquinas'
         '500':
           $ref: '#/components/responses/ErrorInterno'
 
