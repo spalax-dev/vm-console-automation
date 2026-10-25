@@ -39,7 +39,7 @@ Verificar que el entorno de pruebas exista antes de ejecutar las pruebas registr
 - [ ] **c)** Disco virtual multiconexión con todo lo necesario para crear máquinas listas para el balanceo — *pruebas de despliegue*.
 - [ ] **d)** Ejecutable de la aplicación de catálogo de libros + archivos requeridos — *pruebas de systemd*.
 - [ ] **e)** Script que agrega fecha y hora a un archivo en cada ejecución — *pruebas de systemd*.
-- [ ] Registrar IPs, nombres de VM y rutas de discos (insumo para el diagrama del escenario).
+- [ ] Registrar el esquema de red (subred local y DHCP), los nombres de las VM y las rutas de los discos (insumo para el diagrama del escenario). Las direcciones IP se asignan por DHCP, así que no se fijan en el diagrama.
 
 ---
 
@@ -121,13 +121,13 @@ Orden de trabajo obligatorio: **docs → tests → implementación**.
 
 Estructura modular lista: `main.tex` (resumen, index terms, introducción, bibliografía) + `body/` (una sección por archivo).
 
-- [ ] `body/02-marco-teorico.tex` — completar secciones con TODO: Debian, APT, systemd, HAProxy.
+- [x] `body/02-marco-teorico.tex` — completar secciones con TODO: Debian, APT, systemd, HAProxy.
 - [x] `body/03-diseno-solucion.tex` — diagrama + descripción del escenario; visión general, estructura del proyecto y decisiones tomadas.
 - [ ] `body/04-implementacion.tex` — redactar 4.1 (apt, SSH root, `/etc/issue`, hostname), 4.2 (usuarios), 4.3 (systemd), 4.4 (HAProxy).
 - [ ] `body/05-pruebas.tex` — diseño de las pruebas y resultados con evidencias (videos).
 - [ ] `body/06-conclusiones.tex` — problemas y soluciones, herramientas de IA utilizadas, conclusiones del trabajo.
 - [ ] **Resumen (abstract) y index terms** — redactar al final, 150–250 palabras.
-- [ ] Revisar referencias bibliográficas en `ref.bib` y citas \parencite.
+- [x] Revisar referencias bibliográficas en `ref.bib` y citas \parencite.
 - [ ] Verificar compilación limpia con `latexmk` (LuaLaTeX): sin citas ni referencias indefinidas.
 - [ ] Detallar problemas encontrados durante el desarrollo y cómo se solucionaron.
 - [ ] Detallar las herramientas de IA empleadas y **para qué** se usaron.
@@ -148,7 +148,9 @@ Estructura modular lista: `main.tex` (resumen, index terms, introducción, bibli
 
 ## Notas de seguimiento
 
+- **24 oct 2026** — Marco teórico (§2) redactado con criterio de profundidad: se desarrollan los puntos que el lector necesita entender (descubrimiento de la IP con Guest Additions antes de SSH, autenticación por llaves no interactiva, unidades y ciclo de vida de systemd, front-end/back-end de HAProxy) y se dejan breves los que son de dominio común; Debian se fusionó con APT en una única subsección y se retiraron las secciones de Go y de arquitectura de puertos y adaptadores por no ser lo esencial (el patrón se cita ahora en 3.2.2, donde se aplica). Revisión de fuentes: `ref.bib` con 9 entradas, todas citadas y citadas todas, sin la plantilla de ejemplo; las 8 URL devuelven 200; `plantuml -checkonly` OK en los 2 diagramas; informe de 6 páginas con 0 *overfull*, 0 referencias indefinidas y las dos figuras dentro de §3.
 - **24 oct 2026** — Escenario (numeral 5) y §3 del informe: diagramas PlantUML (`docs/diagramas/escenario.puml` y `flujo-procesos.puml`, tarea `task diagramas`), redacción completa de 3.1 y 3.2, y verificación de que las dos figuras caen dentro de la sección III (figuras en las páginas 3 y 4; §III ocupa las páginas 2 a 5). Legibilidad: ~7 pt impreso.
-- **24 oct 2026** — Estilo de los diagramas: sin sombras ni esquinas redondeadas, sin recuadros de leyenda (su contenido pasó al texto y al pie de la figura) y un solo enlace A/B con las VM. El balanceador de HAProxy quedó en nodo propio; `vmcons` muestra sus flechas de uso hacia VirtualBox 7 y OpenSSH.
+- **24 oct 2026** — Alcance confirmado contra el enunciado: **la consola no crea máquinas virtuales** (el enunciado no lo pide; el disco multiconexión es precondición (c), entorno de pruebas). El diagrama conserva el disco como «almacenamiento · imagen base» sin la flecha «5 despliegue», el contenedor pasó a llamarse «Máquinas virtuales - Debian 13» y el flujo se dibuja como bucle 1 → 4 (formulario/resultado) en el navegador.
+- **24 oct 2026** — Estilo de los diagramas: sin sombras ni esquinas redondeadas, sin recuadros de leyenda (su contenido pasó al texto y al pie de la figura). El balanceador de HAProxy quedó en nodo propio; `vmcons` dibuja flechas de uso hacia VirtualBox 7 y OpenSSH y un único enlace discontinuo hacia las VM rotulado «gestión de VM» (sin letras A/B). Las direcciones IP ya no se fijan en el diagrama ni en el texto: las interfaces se rotulan «IP por DHCP» y la consola descubre la dirección en tiempo de ejecución. Aprovechado para corregir las etiquetas de `cleveref`, que salían en inglés («fig. 1», «section»).
 - **24 oct 2026** — Informe reorganizado en formato modular (`main.tex` + `body/`); secciones fusionadas en *Diseño de la Solución*, *Implementación* y *Conclusiones*. Compila con `latexmk`.
 - **24 oct 2026** — Se revisaron los criterios del parcial y se construyó este documento de seguimiento.
