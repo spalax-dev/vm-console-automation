@@ -26,13 +26,15 @@ La conexión con la máquina virtual se configura por variables de entorno:
 | `VMCONS_SSH_KEY` | No | Ruta de la llave privada del anfitrión para el conector SSH. |
 | `VMCONS_GUEST_USER` | No | Usuario de Guest Additions (por omisión, `root`). |
 | `VMCONS_GUEST_PASS` | No | Contraseña de Guest Additions. |
-| `VMCONS_ADDR` | No | Dirección de escucha de la consola (por omisión, `:8080`). |
+| `VMCONS_ADDR` | No | Dirección de escucha; por omisión `127.0.0.1:8080`. No hace falta definirla para `task run`. |
 | `VMCONS_DB` | No | Ruta de la base SQLite (por omisión, `data/vmcons.db`). |
 | `VMCONS_WEB` | No | Directorio con la interfaz web (`index.html` y `assets/`). Si falta, se usa la copia embebida en el binario. |
 
 ```bash
-VMCONS_VM="Debian 13" VMCONS_SSH_KEY="$HOME/.ssh/vmcons" task run
+task run
 ```
+
+Las variables son opcionales: la consola arranca en `http://localhost:8080`, restaura la última VM vinculada desde SQLite y la eliges en el selector.
 
 ## Instalación en el entorno del usuario
 
@@ -55,7 +57,8 @@ desinstalar: `task uninstall`.
 
 | Comando | Efecto |
 | --- | --- |
-| `task run` | Ejecuta el servidor web de la consola. |
+| `task run` | Ejecuta la consola sin variables de entorno; reinicia una instancia anterior y, si hay `pnpm`, recompila la interfaz. |
+| `task stop` | Detiene la consola iniciada con `task run`. |
 | `task test` | Formatea y ejecuta las pruebas con `-race` y cobertura. |
 | `task fmt` | Aplica `gofumpt` de forma estricta. |
 | `task lint` | Ejecuta `golangci-lint` con la configuración estricta de `.golangci.yml`. |

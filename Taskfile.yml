@@ -6,7 +6,8 @@
 #   go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest   # documentación Markdown
 #
 # Uso:
-#   task run        # ejecutar el servidor web
+#   task run        # ejecutar la consola sin variables de entorno (reinicia)
+#   task stop       # detener la consola
 #   task test       # formatear el código y ejecutar las pruebas
 #   task build      # compilar el binario final (./vmcons)
 #   task install    # instalar en ~/.local/bin y ~/.local/share/vmcons
@@ -26,8 +27,15 @@ vars:
 
 tasks:
   run:
-    desc: Ejecutar el servidor web de la consola
-    cmd: go run .
+    desc: Ejecutar la consola sin configuración previa (reinicia una instancia anterior)
+    cmds:
+      - pkill -f 'consola-vm$' >/dev/null 2>&1 || true
+      - if command -v pnpm >/dev/null 2>&1; then (cd web && pnpm build); fi
+      - go run .
+
+  stop:
+    desc: Detener la consola iniciada con task run
+    cmd: pkill -f 'consola-vm$' >/dev/null 2>&1 || true
 
   test:
     desc: Formatear el código y ejecutar las pruebas unitarias

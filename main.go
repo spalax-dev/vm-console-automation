@@ -48,7 +48,7 @@ const (
 	envDireccion  = "VMCONS_ADDR"       // dirección donde escucha la consola
 	envWeb        = "VMCONS_WEB"        // directorio de la interfaz web
 	envDB         = "VMCONS_DB"         // ruta de la base SQLite
-	direccionProd = ":8080"
+	direccionProd = "127.0.0.1:8080"
 )
 
 // tiempoMaximoPeticion acota la duración de cada petición HTTP.

@@ -177,6 +177,11 @@ de los módulos del numeral 3.
 
 ## Notas de seguimiento
 
+- **25 oct 2026** — Arranque sin configuración: `task run` escucha en
+  `127.0.0.1:8080`, reinicia una instancia anterior, recompila la
+  interfaz si hay `pnpm` y no exige variables de entorno. `task stop`
+  detiene la consola. `VMCONS_ADDR` queda como override opcional.
+
 - **25 oct 2026** — Respaldo de registro por SSH: si Guest Additions
   rechaza las credenciales (por ejemplo, por una versión antigua de
   Guest Additions), el registro reintenta con `sshpass` sobre la misma
