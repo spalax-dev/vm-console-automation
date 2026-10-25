@@ -11,7 +11,7 @@ import { agregar, leer, limpiar } from '../resultados.js';
  */
 export function ResultPanel() {
   const el = document.createElement('section');
-  el.className = 'card flex flex-col min-h-[280px]';
+  el.className = 'card flex flex-col min-h-[280px] max-h-[calc(100vh-8.5rem)] overflow-hidden';
   el.innerHTML = `
     <header class="px-3 py-1.5 border-b border-vm-border flex items-center justify-between bg-[#f7f7f7]">
       <div class="flex items-center gap-1.5">
@@ -24,7 +24,7 @@ export function ResultPanel() {
         <span class="text-[11px]">Limpiar</span>
       </button>
     </header>
-    <div id="result-body" class="flex-1 p-2 overflow-auto max-h-[64vh] flex flex-col gap-2"></div>
+    <div id="result-body" class="flex-1 min-h-0 p-2 overflow-auto flex flex-col gap-2"></div>
     <footer class="px-3 py-1 border-t border-vm-border text-[10px] text-vm-fgSecondary font-mono">
       <span id="result-pie">Sin operaciones ejecutadas</span>
     </footer>

@@ -129,7 +129,8 @@ resultado, que muestra el mensaje, la orden ejecutada, el código de salida y
 `stderr`. La lista afectada se vuelve a consultar tras una operación exitosa.
 
 El panel es un historial: cada operación añade una ficha al final y las
-anteriores se conservan. El contenido vive en `localStorage`
+anteriores se conservan, con desplazamiento propio para que la tarjeta no
+crezca con cada operación. El contenido vive en `localStorage`
 (`vmcons:resultados`, hasta 50 fichas), así que no se pierde al cambiar de
 módulo ni al recargar la página; el botón **Limpiar** vacía el historial y el
 almacenamiento.

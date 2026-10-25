@@ -70,8 +70,15 @@ describe('panel de resultado', () => {
     const panel = ResultPanel();
     document.body.appendChild(panel);
 
-    expect(panel.querySelector('#result-body').textContent).toContain('Se instaló nano');
+    const cuerpo = panel.querySelector('#result-body');
+
+    expect(cuerpo.textContent).toContain('Se instaló nano');
     expect(panel.querySelector('#result-cuenta').textContent).toBe('(1)');
+
+    // El historial no agranda la tarjeta: se desplaza dentro del panel.
+    expect(cuerpo.className).toContain('overflow-auto');
+    expect(cuerpo.className).toContain('min-h-0');
+    expect(panel.className).toContain('overflow-hidden');
   });
 
   it('añade un resultado nuevo sin borrar los anteriores', () => {

@@ -138,7 +138,7 @@ lucide.createIcons({icons});\``);if(r===void 0)throw Error("`createIcons()` only
       <i data-lucide="${t.icono}"></i>
       <span>${t.etiqueta}</span>
     </button>
-  `).join(``),O(t);let n=[...t.querySelectorAll(`.tab`)],r=e=>{window.location.hash=`#/${e}`},i=e=>{let t=n[(e+n.length)%n.length];n.forEach(e=>{e.tabIndex=e===t?0:-1}),t.focus(),r(t.dataset.tab)};return n.forEach((e,t)=>{e.addEventListener(`click`,()=>r(e.dataset.tab)),e.addEventListener(`keydown`,e=>{switch(e.key){case`ArrowRight`:e.preventDefault(),i(t+1);break;case`ArrowLeft`:e.preventDefault(),i(t-1);break;case`Home`:e.preventDefault(),i(0);break;case`End`:e.preventDefault(),i(n.length-1)}})}),t}var V=`vmcons:resultados`,H=[];function U(){try{return window.localStorage}catch{return null}}function Pe(e){return!!e&&typeof e==`object`&&typeof e.mensaje==`string`}function W(){let e=U();if(!e)return[...H];try{let t=JSON.parse(e.getItem(V)??`[]`);return Array.isArray(t)?t.filter(Pe):[]}catch{return[]}}function Fe(e){return G([...W(),e].slice(-50))}function Ie(){return G([])}function G(e){H=e;let t=U();if(t)try{t.setItem(V,JSON.stringify(e))}catch{}return e}function Le(){let e=document.createElement(`section`);return e.className=`card flex flex-col min-h-[280px]`,e.innerHTML=`
+  `).join(``),O(t);let n=[...t.querySelectorAll(`.tab`)],r=e=>{window.location.hash=`#/${e}`},i=e=>{let t=n[(e+n.length)%n.length];n.forEach(e=>{e.tabIndex=e===t?0:-1}),t.focus(),r(t.dataset.tab)};return n.forEach((e,t)=>{e.addEventListener(`click`,()=>r(e.dataset.tab)),e.addEventListener(`keydown`,e=>{switch(e.key){case`ArrowRight`:e.preventDefault(),i(t+1);break;case`ArrowLeft`:e.preventDefault(),i(t-1);break;case`Home`:e.preventDefault(),i(0);break;case`End`:e.preventDefault(),i(n.length-1)}})}),t}var V=`vmcons:resultados`,H=[];function U(){try{return window.localStorage}catch{return null}}function Pe(e){return!!e&&typeof e==`object`&&typeof e.mensaje==`string`}function W(){let e=U();if(!e)return[...H];try{let t=JSON.parse(e.getItem(V)??`[]`);return Array.isArray(t)?t.filter(Pe):[]}catch{return[]}}function Fe(e){return G([...W(),e].slice(-50))}function Ie(){return G([])}function G(e){H=e;let t=U();if(t)try{t.setItem(V,JSON.stringify(e))}catch{}return e}function Le(){let e=document.createElement(`section`);return e.className=`card flex flex-col min-h-[280px] max-h-[calc(100vh-8.5rem)] overflow-hidden`,e.innerHTML=`
     <header class="px-3 py-1.5 border-b border-vm-border flex items-center justify-between bg-[#f7f7f7]">
       <div class="flex items-center gap-1.5">
         <i data-lucide="info" class="w-4 h-4"></i>
@@ -150,7 +150,7 @@ lucide.createIcons({icons});\``);if(r===void 0)throw Error("`createIcons()` only
         <span class="text-[11px]">Limpiar</span>
       </button>
     </header>
-    <div id="result-body" class="flex-1 p-2 overflow-auto max-h-[64vh] flex flex-col gap-2"></div>
+    <div id="result-body" class="flex-1 min-h-0 p-2 overflow-auto flex flex-col gap-2"></div>
     <footer class="px-3 py-1 border-t border-vm-border text-[10px] text-vm-fgSecondary font-mono">
       <span id="result-pie">Sin operaciones ejecutadas</span>
     </footer>
