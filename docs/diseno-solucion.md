@@ -374,6 +374,14 @@ Las reglas que hacen segura la caché:
 - **Cualquier escritura vacía la caché completa.** Instalar un paquete, crear un
   usuario o cambiar el hostname descartan todas las entradas; así no queda una
   lista vieja después de una operación, que es el riesgo clásico de cachear.
+- **Una lectura en vuelo no contamina.** Cada invalidación avanza una
+  generación; la respuesta que empezó a calcularse antes del cambio de máquina
+  no se guarda al terminar, porque describe el estado anterior. Sin esta regla,
+  una lista que tardaba en llegar podía quedar cacheada como si fuera de la
+  máquina nueva.
+- **El navegador no cachea la API.** Las respuestas llevan
+  `Cache-Control: no-store`: la única caché es la del servidor, que sabe cuándo
+  invalidarla.
 - **Solo se cachea `/api/`.** Los archivos estáticos ya llevan huella en el
   nombre y se sirven aparte.
 - **Se puede forzar una lectura fresca** con `Cache-Control: no-cache`; la

@@ -109,7 +109,9 @@ selector y el estado de la sesión— conserva su estado.
 Al vincular otra máquina (o encenderla) se emite el evento `vmcons:maquina`:
 la barra superior vuelve a consultar la sesión y la vista activa se monta de
 nuevo, de modo que los listados que se ven pertenecen siempre a la máquina
-recién elegida y no a la anterior.
+recién elegida y no a la anterior. El aviso se emite en cuanto el servidor
+acepta el vínculo, sin esperar a que se registren las credenciales de Guest
+Additions.
 
 ---
 

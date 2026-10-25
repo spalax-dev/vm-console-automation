@@ -200,6 +200,42 @@ describe('encendido de la máquina', () => {
   });
 });
 
+describe('cambio de máquina', () => {
+  it('avisa aunque la máquina no tenga credenciales registradas', async () => {
+    const alVincular = vi.fn();
+
+    vi.stubGlobal('fetch', async (url, opciones) => {
+      const porVincular = (opciones ?? {}).method === 'PUT';
+      const cuerpo = porVincular
+        ? { nombre: 'ubuntu-lab', uuid: 'uuid-2', estado: 'poweroff', activa: true, registrada: false }
+        : { maquinas: [{ nombre: 'ubuntu-lab', uuid: 'uuid-2', estado: 'poweroff', activa: false }] };
+
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: (clave) => (clave.toLowerCase() === 'content-type' ? 'application/json' : null) },
+        json: async () => cuerpo,
+        text: async () => JSON.stringify(cuerpo),
+        blob: async () => new Blob(['x']),
+      };
+    });
+
+    const selector = VMSelector({ alVincular });
+    document.body.appendChild(selector);
+
+    await vi.waitFor(() => {
+      expect(selector.querySelector('[data-maquina]')).not.toBeNull();
+    });
+
+    selector.querySelector('#vm-boton').click();
+    selector.querySelector('[data-maquina]').click();
+
+    await vi.waitFor(() => {
+      expect(alVincular).toHaveBeenCalled();
+    });
+  });
+});
+
 describe('vistas conectadas', () => {
   it('pinta los paquetes que devuelve la API', async () => {
     prepararRanura();

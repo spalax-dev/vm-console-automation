@@ -15,6 +15,8 @@ import (
 
 // Rutas y mensajes repetidos en las pruebas.
 const (
+	cabeceraTipo = "Content-Type"
+	tipoJSON     = "application/json"
 	rutaSesion   = "/api/session"
 	rutaPaquetes = "/api/packages"
 	rutaVMs      = "/api/vms"
@@ -64,7 +66,7 @@ func (c *contador) Manejador(estado int) http.Handler {
 		numero := c.llamadas
 		c.mu.Unlock()
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(cabeceraTipo, tipoJSON)
 		w.WriteHeader(estado)
 
 		if _, err := w.Write([]byte(`{"llamada":` + strconv.Itoa(numero) + `}`)); err != nil {
@@ -293,5 +295,72 @@ func TestCambiarDeMaquinaInvalidaLasLecturas(t *testing.T) {
 
 	if contador.Lecturas() != 2 {
 		t.Errorf("lecturas = %d, want 2 tras cambiar de máquina", contador.Lecturas())
+	}
+}
+
+// TestRespuestaEnVueloNoContaminaLaCache reproduce la carrera que deja
+// datos de la máquina anterior: una lectura lenta que empezó antes de
+// cambiar de máquina no debe guardarse al terminar.
+func TestRespuestaEnVueloNoContaminaLaCache(t *testing.T) {
+	t.Parallel()
+
+	cache, _ := nuevoCache(time.Minute)
+
+	var (
+		mu       sync.Mutex
+		llamadas int
+	)
+
+	enVuelo := make(chan struct{})
+	liberar := make(chan struct{})
+
+	manejador := cache.Envolver(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		mu.Lock()
+		llamadas++
+		numero := llamadas
+		mu.Unlock()
+
+		if numero == 1 {
+			close(enVuelo)
+			<-liberar
+		}
+
+		w.Header().Set(cabeceraTipo, tipoJSON)
+
+		if _, err := w.Write([]byte(`{"llamada":` + strconv.Itoa(numero) + `}`)); err != nil {
+			return
+		}
+	}))
+
+	var espera sync.WaitGroup
+
+	espera.Add(1)
+
+	go func() {
+		defer espera.Done()
+
+		manejador.ServeHTTP(httptest.NewRecorder(),
+			httptest.NewRequestWithContext(context.Background(), http.MethodGet, rutaPaquetes, http.NoBody))
+	}()
+
+	<-enVuelo
+
+	// Cambiar de máquina mientras la lectura anterior sigue en curso.
+	manejador.ServeHTTP(httptest.NewRecorder(),
+		httptest.NewRequestWithContext(context.Background(), http.MethodPut, rutaSesion, http.NoBody))
+
+	close(liberar)
+	espera.Wait()
+
+	// La siguiente lectura debe pedir los datos a la máquina nueva.
+	manejador.ServeHTTP(httptest.NewRecorder(),
+		httptest.NewRequestWithContext(context.Background(), http.MethodGet, rutaPaquetes, http.NoBody))
+
+	mu.Lock()
+	total := llamadas
+	mu.Unlock()
+
+	if total != 3 {
+		t.Errorf("llamadas = %d, want 3 (lectura, cambio y lectura nueva)", total)
 	}
 }

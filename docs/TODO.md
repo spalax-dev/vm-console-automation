@@ -179,6 +179,15 @@ de los módulos del numeral 3.
 
 ## Notas de seguimiento
 
+- **25 oct 2026** — Corregido el refresco al cambiar de máquina. La caché
+  no debía servir datos de la máquina anterior por dos motivos: una
+  lectura que ya estaba en vuelo podía guardarse *después* de la
+  invalidación, y el navegador podía reutilizar respuestas de la API. Lo
+  primero se resuelve con una generación que avanza en cada
+  invalidación; lo segundo con `Cache-Control: no-store`. En el cliente,
+  el aviso de cambio de máquina se emite en cuanto el servidor acepta el
+  vínculo, aunque el registro de credenciales quede pendiente.
+
 - **25 oct 2026** — Observabilidad y verificación: cada petición de la
   API recibe `X-Request-ID` y se registra con método, ruta, estado,
   duración, tamaño y VM; `VMCONS_LOG=json` y `VMCONS_LOG_LEVEL` controlan

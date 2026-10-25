@@ -216,22 +216,24 @@ export function VMSelector({ alVincular } = {}) {
       marcarActiva(vinculada);
       cerrar();
 
+      // La máquina ya está vinculada en el servidor: se avisa de inmediato
+      // para que la vista activa pida sus datos, aunque falte registrar
+      // las credenciales de Guest Additions.
+      if (alVincular) {
+        alVincular(vinculada);
+      }
+
       if (!maquina.registrada) {
         abrirRegistro({
           maquina: vinculada,
           alRegistrar: () => {
             cargar('');
+
             if (alVincular) {
               alVincular(vinculada);
             }
           },
         });
-
-        return;
-      }
-
-      if (alVincular) {
-        alVincular(maquina);
       }
     } catch (error) {
       pie.textContent = mensajeDeError(error);

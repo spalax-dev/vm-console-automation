@@ -56,6 +56,11 @@ type Cache struct {
 	mu       sync.Mutex
 	entradas map[string]entrada
 
+	// generacion cuenta las invalidaciones. Una respuesta que empezó a
+	// calcularse antes de una invalidación no se guarda al terminar: sus
+	// datos son de la máquina o del estado anterior.
+	generacion uint64
+
 	// reloj permite inyectar el tiempo en las pruebas.
 	reloj func() time.Time
 }
@@ -86,6 +91,12 @@ func (c *Cache) Envolver(siguiente http.Handler) http.Handler {
 
 		clave := r.URL.RequestURI()
 
+		// El navegador no debe cachear la API: la caché es del servidor,
+		// que sabe cuándo invalidarla.
+		w.Header().Set("Cache-Control", "no-store")
+
+		generacion := c.generacionActual()
+
 		if r.Header.Get("Cache-Control") != "no-cache" {
 			if guardada, encontrada := c.buscar(clave); encontrada {
 				escribirEntrada(w, guardada, "HIT")
@@ -98,19 +109,29 @@ func (c *Cache) Envolver(siguiente http.Handler) http.Handler {
 		siguiente.ServeHTTP(grabador, r)
 
 		if grabador.estado == http.StatusOK {
-			c.guardar(clave, grabador.entrada())
+			c.guardar(clave, grabador.entrada(), generacion)
 		}
 
 		grabador.volcar(w, "MISS")
 	})
 }
 
-// vaciar descarta todas las entradas. Se llama tras una escritura.
+// vaciar descarta todas las entradas y avanza la generación. Se llama
+// tras una escritura: lo que estuviera en vuelo ya no se guarda.
 func (c *Cache) vaciar() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.entradas = make(map[string]entrada)
+	c.generacion++
+}
+
+// generacionActual devuelve la marca de la última invalidación.
+func (c *Cache) generacionActual() uint64 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.generacion
 }
 
 // buscar devuelve la entrada vigente para la clave.
@@ -132,8 +153,9 @@ func (c *Cache) buscar(clave string) (entrada, bool) {
 	return guardada, true
 }
 
-// guardar almacena la respuesta si el recurso tiene una política activa.
-func (c *Cache) guardar(clave string, nueva entrada) {
+// guardar almacena la respuesta si el recurso tiene una política activa
+// y no hubo una invalidación desde que empezó la petición.
+func (c *Cache) guardar(clave string, nueva entrada, generacion uint64) {
 	ttl := c.vigenciaDe(clave)
 	if ttl <= 0 {
 		return
@@ -147,6 +169,10 @@ func (c *Cache) guardar(clave string, nueva entrada) {
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	if c.generacion != generacion {
+		return
+	}
 
 	if len(c.entradas) >= maximoEntradas {
 		c.entradas = make(map[string]entrada)
