@@ -179,6 +179,12 @@ de los módulos del numeral 3.
 
 ## Notas de seguimiento
 
+- **25 oct 2026** — Dependencias de desarrollo: `gofumpt`,
+  `golangci-lint` y `gomarkdoc` quedaron fijados en la directiva `tool`
+  de `go.mod` y se ejecutan con `go tool`; `task setup` descarga las
+  herramientas y las dependencias de `web/`, y `task doctor` verifica el
+  entorno. Ya no hace falta instalar binarios en el `PATH`.
+
 - **25 oct 2026** — Estabilidad de VirtualBox: `VBoxManage` se ejecuta
   en serie dentro del adaptador y las consultas de solo lectura se
   reintentan una vez si el programa está ocupado. Durante el arranque,

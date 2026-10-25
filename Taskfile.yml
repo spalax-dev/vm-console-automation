@@ -1,9 +1,8 @@
 # Taskfile — automatización del ciclo de desarrollo de la consola.
 #
-# Herramientas requeridas (instalación recomendada):
-#   go install mvdan.cc/gofumpt@latest                              # formateador
-#   curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(go env GOPATH)/bin   # linter
-#   go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest   # documentación Markdown
+# Instalación de dependencias de desarrollo:
+#   task setup      # descarga las herramientas de go.mod y las de web/
+#   task doctor     # comprobar herramientas y dependencias del sistema
 #
 # Uso:
 #   task run        # ejecutar la consola sin variables de entorno (reinicia)
@@ -26,6 +25,25 @@ vars:
   PKGS: ./...
 
 tasks:
+  setup:
+    desc: Instalar las dependencias de desarrollo de Go y del frontend
+    cmds:
+      - task: setup-go
+      - task: setup-web
+
+  setup-go:
+    desc: Descargar las herramientas y dependencias fijadas en go.mod
+    cmd: go mod download
+
+  setup-web:
+    desc: Instalar las dependencias del frontend con pnpm
+    dir: web
+    cmd: pnpm install --frozen-lockfile
+
+  doctor:
+    desc: Comprobar las dependencias de desarrollo y del sistema
+    cmd: ./scripts/dev-doctor.sh
+
   run:
     desc: Ejecutar la consola sin configuración previa (reinicia una instancia anterior)
     cmds:
@@ -45,24 +63,24 @@ tasks:
 
   fmt:
     desc: Formatear el código Go con gofumpt (estricto)
-    cmd: gofumpt -l -w .
+    cmd: go tool gofumpt -l -w .
 
   lint:
     desc: Verificar la calidad del código con golangci-lint
-    cmd: golangci-lint run {{.PKGS}}
+    cmd: go tool golangci-lint run {{.PKGS}}
 
   doc:
     desc: Generar la documentación Markdown desde los comentarios del código
     cmds:
       - rm -rf docs/api
-      - gomarkdoc -o "docs/api/{{`{{.Dir}}`}}.md" ./internal/...
-      - gomarkdoc -o docs/api/main.md .
+      - go tool gomarkdoc -o "docs/api/{{`{{.Dir}}`}}.md" ./internal/...
+      - go tool gomarkdoc -o docs/api/main.md .
 
   doc-check:
     desc: Verificar que la documentación generada en docs/api/ esté actualizada
     cmds:
-      - gomarkdoc --check -o "docs/api/{{`{{.Dir}}`}}.md" ./internal/...
-      - gomarkdoc --check -o docs/api/main.md .
+      - go tool gomarkdoc --check -o "docs/api/{{`{{.Dir}}`}}.md" ./internal/...
+      - go tool gomarkdoc --check -o docs/api/main.md .
 
   openapi:
     desc: Validar el contrato OpenAPI con Redocly (requiere red)

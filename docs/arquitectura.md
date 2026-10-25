@@ -82,6 +82,11 @@ task doc     # regenera docs/api/ a partir de los comentarios del código
 | `gofumpt` | Formateador estricto (superset de `gofmt`) | `task fmt` |
 | `golangci-lint` | Linter estricto con ~40 linters y reglas de estilo | `task lint` |
 | `gomarkdoc` | Genera Markdown desde los comentarios de documentación | `task doc` |
+
+Las tres están fijadas en la directiva `tool` de `go.mod` y se ejecutan con
+`go tool`, igual que `npx` en Node. `task setup` descarga las herramientas y
+las dependencias de `web/`; `task doctor` comprueba que todo esté disponible.
+No es necesario instalar los binarios en el `PATH`.
 | Redocly CLI | Valida el contrato OpenAPI (`docs/openapi.yaml`) | `task openapi` |
 
 La configuración vive en `.golangci.yml` (linters, límites de complejidad y longitud) y

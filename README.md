@@ -8,13 +8,39 @@ Consola web de administración de máquinas virtuales GNU/Linux desarrollada en 
 - VirtualBox 7 con `VBoxManage` en el `PATH`.
 - Cliente OpenSSH (`ssh` y `scp`) en el `PATH`.
 - `sshpass` para el respaldo de registro por SSH con contraseña.
-- Herramientas de desarrollo:
+### Dependencias de desarrollo
 
 ```bash
-go install mvdan.cc/gofumpt@latest
-go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
-go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest
+# 1. Instalar Task (una sola vez)
+go install github.com/go-task/task/v3/cmd/task@latest
+
+# 2. Instalar herramientas de Go y dependencias del frontend
+task setup
+
+# 3. Comprobar que todo está disponible
+task doctor
 ```
+
+`task setup` ejecuta `go mod download` y `pnpm install --frozen-lockfile`.
+Las herramientas `gofumpt`, `golangci-lint` y `gomarkdoc` están fijadas en
+`go.mod` con directivas `tool` y se ejecutan con `go tool`, igual que
+`npx` en Node; no hace falta añadir nada al `PATH`.
+
+Para `pnpm`, si no está instalado:
+
+```bash
+corepack enable
+corepack prepare pnpm@latest --activate
+```
+
+Dependencias del sistema (Debian/Ubuntu):
+
+```bash
+sudo apt install virtualbox openssh-client sshpass
+```
+
+Opcionales para diagramas e informe: `plantuml`, `latexmk`, `texlive` y
+`biber`. `npx` (Node) se usa para validar OpenAPI con Redocly.
 
 ## Configuración
 
@@ -22,7 +48,7 @@ La conexión con la máquina virtual se configura por variables de entorno:
 
 | Variable | Obligatoria | Descripción |
 | --- | --- | --- |
-| `VMCONS_VM` | Sí | Nombre o UUID de la VM en VirtualBox. Sin ella, `GET /api/session` responde `503`. |
+| `VMCONS_VM` | No | Nombre o UUID de la VM en VirtualBox. Si falta, se restaura la última vinculada desde SQLite. |
 | `VMCONS_SSH_KEY` | No | Ruta de la llave privada del anfitrión para el conector SSH. |
 | `VMCONS_GUEST_USER` | No | Usuario de Guest Additions (por omisión, `root`). |
 | `VMCONS_GUEST_PASS` | No | Contraseña de Guest Additions. |
@@ -59,6 +85,8 @@ desinstalar: `task uninstall`.
 
 | Comando | Efecto |
 | --- | --- |
+| `task setup` | Instala las dependencias de desarrollo de Go y del frontend. |
+| `task doctor` | Comprueba herramientas y dependencias del sistema. |
 | `task run` | Ejecuta la consola sin variables de entorno; reinicia una instancia anterior y, si hay `pnpm`, recompila la interfaz. |
 | `task stop` | Detiene la consola iniciada con `task run`. |
 | `task test` | Formatea y ejecuta las pruebas con `-race` y cobertura. |
