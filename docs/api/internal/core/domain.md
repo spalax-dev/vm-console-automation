@@ -15,6 +15,7 @@ Package domain define los tipos del lenguaje de la consola: órdenes que se ejec
   - [func \(c \*Command\) ShellLine\(\) string](<#Command.ShellLine>)
 - [type ExitError](<#ExitError>)
   - [func \(e \*ExitError\) Error\(\) string](<#ExitError.Error>)
+- [type GuestAdditions](<#GuestAdditions>)
 - [type MachineState](<#MachineState>)
 - [type NetworkMode](<#NetworkMode>)
 - [type Result](<#Result>)
@@ -80,6 +81,22 @@ func (e *ExitError) Error() string
 ```
 
 Error implementa la interfaz error.
+
+<a name="GuestAdditions"></a>
+## type GuestAdditions
+
+GuestAdditions describe lo que la máquina informa sobre Guest Additions.
+
+```go
+type GuestAdditions struct {
+    // Version es la versión instalada, vacía si no se informa.
+    Version string
+    // RunLevel es el nivel de ejecución (0 apagado, 2 completo).
+    RunLevel int
+    // LoggedUsers son los usuarios con sesión iniciada.
+    LoggedUsers []string
+}
+```
 
 <a name="MachineState"></a>
 ## type MachineState

@@ -65,6 +65,11 @@ func (s *stubGuestAdditions) State(context.Context, domain.Target) (domain.Machi
 	return domain.StateRunning, nil
 }
 
+// GuestAdditions no informa datos en esta prueba.
+func (s *stubGuestAdditions) GuestAdditions(context.Context, domain.Target) (domain.GuestAdditions, error) {
+	return domain.GuestAdditions{}, nil
+}
+
 // Network devuelve el modo de red preprogramado por máquina («bridged»
 // por omisión).
 func (s *stubGuestAdditions) Network(_ context.Context, target domain.Target) (domain.NetworkMode, error) {

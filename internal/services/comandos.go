@@ -12,6 +12,9 @@ const claveErrorLog = "error"
 // llaves.
 const msgCrearDirLlaves = "crear el directorio de llaves: %w"
 
+// msgEstadoMaquina es el contexto de error al consultar el estado.
+const msgEstadoMaquina = "consultar el estado de la máquina: %w"
+
 const (
 	binCat     = "/bin/cat"
 	binSh      = "/bin/sh"

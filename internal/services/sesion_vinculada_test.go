@@ -36,6 +36,11 @@ func (s *stubMaquina) Network(context.Context, domain.Target) (domain.NetworkMod
 	return domain.NetworkBridged, nil
 }
 
+// GuestAdditions no informa datos en esta prueba.
+func (s *stubMaquina) GuestAdditions(context.Context, domain.Target) (domain.GuestAdditions, error) {
+	return domain.GuestAdditions{}, nil
+}
+
 // TestDescubridorSinMaquinaVinculada comprueba que la consola sin
 // vínculo responde «sin sesión» en lugar de consultar el hipervisor.
 func TestDescubridorSinMaquinaVinculada(t *testing.T) {

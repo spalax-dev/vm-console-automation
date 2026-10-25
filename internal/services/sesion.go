@@ -131,7 +131,7 @@ func (d *Descubridor) resolver(ctx context.Context) (ports.Connector, domain.Tar
 
 	estado, err := d.maquina.State(ctx, objetivo)
 	if err != nil {
-		return nil, domain.Target{}, domain.StateUnknown, fmt.Errorf("consultar el estado de la máquina: %w", err)
+		return nil, domain.Target{}, domain.StateUnknown, fmt.Errorf(msgEstadoMaquina, err)
 	}
 
 	if estado != domain.StateRunning {

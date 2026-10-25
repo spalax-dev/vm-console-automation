@@ -142,7 +142,6 @@ func nuevoMux() (http.Handler, error) {
 	}))
 	systemd := handlers.NuevoSystemd(services.NuevoSystemd(sesiones))
 	haproxy := handlers.NuevoHaproxy(services.NuevoHaproxy(sesiones))
-	historial := services.NuevoHistorial(consola.registro)
 
 	mux.Handle("/api/session", handlers.NuevoSesion(
 		sesiones,
@@ -150,6 +149,7 @@ func nuevoMux() (http.Handler, error) {
 		handlers.ConRegistro(consola.registro),
 	))
 	mux.Handle("/api/session/register", handlers.NuevoAcceso(consola.acceso))
+	mux.Handle("/api/session/diagnostico", handlers.NuevoDiagnostico(consola.diagnostico))
 	maquinas := handlers.NuevoMaquinas(consola.vinculacion)
 
 	mux.Handle("/api/vms", maquinas)
@@ -172,13 +172,21 @@ func nuevoMux() (http.Handler, error) {
 	mux.HandleFunc("/api/haproxy/backend/servers", haproxy.Servidores)
 	mux.HandleFunc("/api/haproxy/backend/servers/{server}", haproxy.Servidor)
 
-	mux.HandleFunc("/api/historial", handlers.NuevoHistorial(historial).ServeHTTP)
+	historial := registrarHistorial(mux, consola.registro)
 
 	if err := servirInterfaz(mux); err != nil {
 		return nil, err
 	}
 
 	return handlers.ConHistorial(mux, historial, consola.vinculacion.Activa), nil
+}
+
+// registrarHistorial registra el endpoint del historial.
+func registrarHistorial(mux *http.ServeMux, almacen *services.Almacen) *services.Historial {
+	historial := services.NuevoHistorial(almacen)
+	mux.HandleFunc("/api/historial", handlers.NuevoHistorial(historial).ServeHTTP)
+
+	return historial
 }
 
 // servirInterfaz publica la aplicación compilada con Vite en la raíz y
@@ -212,6 +220,7 @@ type consola struct {
 	sesiones    *services.Descubridor
 	vinculacion *services.Vinculacion
 	acceso      *services.Acceso
+	diagnostico *services.DiagnosticoServicio
 	registro    *services.Almacen
 }
 
@@ -262,6 +271,12 @@ func nuevaConsola(ejecutor ports.Executor) *consola {
 			Ejecutor:    ejecutor,
 			RutaLlave:   rutaLlave(),
 			Objetivo:    sesiones.Objetivo,
+		}),
+		diagnostico: services.NuevoDiagnostico(&services.ConfigDiagnostico{
+			Maquina:        maquina,
+			Registro:       almacen,
+			Objetivo:       sesiones.Objetivo,
+			VersionSistema: maquina.Version,
 		}),
 		registro: almacen,
 		vinculacion: services.NuevoVinculacion(&services.ConfigVinculacion{

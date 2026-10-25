@@ -288,7 +288,7 @@ func (a *Acceso) resolver(ctx context.Context) (domain.Target, netip.Addr, error
 
 	estado, err := a.maquina.State(ctx, objetivo)
 	if err != nil {
-		return domain.Target{}, netip.Addr{}, fmt.Errorf("consultar el estado de la máquina: %w", err)
+		return domain.Target{}, netip.Addr{}, fmt.Errorf(msgEstadoMaquina, err)
 	}
 
 	if estado != domain.StateRunning {

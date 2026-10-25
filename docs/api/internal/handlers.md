@@ -15,6 +15,9 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
   - [func NuevoAcceso\(servicio ServicioAcceso\) \*Acceso](<#NuevoAcceso>)
   - [func \(h \*Acceso\) ServeHTTP\(w http.ResponseWriter, r \*http.Request\)](<#Acceso.ServeHTTP>)
 - [type DescubridorSesion](<#DescubridorSesion>)
+- [type Diagnostico](<#Diagnostico>)
+  - [func NuevoDiagnostico\(servicio ServicioDiagnostico\) \*Diagnostico](<#NuevoDiagnostico>)
+  - [func \(h \*Diagnostico\) ServeHTTP\(w http.ResponseWriter, r \*http.Request\)](<#Diagnostico.ServeHTTP>)
 - [type Haproxy](<#Haproxy>)
   - [func NuevoHaproxy\(servicio ServicioHaproxy\) \*Haproxy](<#NuevoHaproxy>)
   - [func \(h \*Haproxy\) Servidor\(w http.ResponseWriter, r \*http.Request\)](<#Haproxy.Servidor>)
@@ -31,6 +34,7 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
   - [func ConVinculador\(vinculador VinculadorSesion\) OpcionSesion](<#ConVinculador>)
 - [type RegistroSesion](<#RegistroSesion>)
 - [type ServicioAcceso](<#ServicioAcceso>)
+- [type ServicioDiagnostico](<#ServicioDiagnostico>)
 - [type ServicioHaproxy](<#ServicioHaproxy>)
 - [type ServicioHistorial](<#ServicioHistorial>)
 - [type ServicioHostname](<#ServicioHostname>)
@@ -111,6 +115,35 @@ type DescubridorSesion interface {
     Descubrir(ctx context.Context) (services.InfoSesion, error)
 }
 ```
+
+<a name="Diagnostico"></a>
+## type Diagnostico
+
+Diagnostico expone GET /api/session/diagnostico.
+
+```go
+type Diagnostico struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="NuevoDiagnostico"></a>
+### func NuevoDiagnostico
+
+```go
+func NuevoDiagnostico(servicio ServicioDiagnostico) *Diagnostico
+```
+
+NuevoDiagnostico construye el handler del diagnóstico.
+
+<a name="Diagnostico.ServeHTTP"></a>
+### func \(\*Diagnostico\) ServeHTTP
+
+```go
+func (h *Diagnostico) ServeHTTP(w http.ResponseWriter, r *http.Request)
+```
+
+ServeHTTP implementa http.Handler.
 
 <a name="Haproxy"></a>
 ## type Haproxy
@@ -266,6 +299,17 @@ type ServicioAcceso interface {
     Registrar(ctx context.Context, usuario, password string) (services.Resultado, error)
     // Olvidar elimina el registro y las credenciales.
     Olvidar() error
+}
+```
+
+<a name="ServicioDiagnostico"></a>
+## type ServicioDiagnostico
+
+ServicioDiagnostico explica por qué una máquina no se puede registrar.
+
+```go
+type ServicioDiagnostico interface {
+    Obtener(ctx context.Context) (services.Diagnostico, error)
 }
 ```
 

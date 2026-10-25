@@ -246,6 +246,32 @@ paths:
         '500':
           $ref: '#/components/responses/ErrorInterno'
 
+  /api/session/diagnostico:
+    get:
+      tags: [session]
+      summary: Diagnosticar la máquina vinculada
+      description: |
+        Explica por qué una máquina no se puede registrar: estado, modo de
+        red, dirección, versión y nivel de Guest Additions, usuarios con
+        sesión iniciada y si el puerto SSH responde. Devuelve problemas y
+        sugerencias concretas.
+      operationId: diagnosticarMaquina
+      responses:
+        '200':
+          description: Diagnóstico de la máquina vinculada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Diagnostico'
+        '409':
+          description: La consola no tiene una máquina vinculada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoOperacion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
   /api/packages:
     get:
       tags: [packages]
@@ -1050,6 +1076,40 @@ components:
         registrada:
           type: boolean
           description: La máquina ya fue registrada en la consola.
+
+    Diagnostico:
+      type: object
+      required: [vm, estado, red, registrada, ssh_abierto, problemas, sugerencias]
+      properties:
+        vm:
+          type: string
+        estado:
+          type: string
+          enum: [running, poweroff, paused, saved, unknown]
+        red:
+          type: string
+          enum: [bridged, nat, hostonly, internal, none, unknown]
+        ip:
+          type: string
+          format: ipv4
+        registrada:
+          type: boolean
+        guest_additions_version:
+          type: string
+        guest_additions_run_level:
+          type: integer
+        usuario_sugerido:
+          type: string
+        ssh_abierto:
+          type: boolean
+        problemas:
+          type: array
+          items:
+            type: string
+        sugerencias:
+          type: array
+          items:
+            type: string
 
     OperacionHistorial:
       type: object

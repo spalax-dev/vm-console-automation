@@ -29,6 +29,7 @@ Package services implementa los casos de uso de la consola: descubre el conector
 - [type ArchivoDespliegue](<#ArchivoDespliegue>)
 - [type ConfigAcceso](<#ConfigAcceso>)
 - [type ConfigDescubridor](<#ConfigDescubridor>)
+- [type ConfigDiagnostico](<#ConfigDiagnostico>)
 - [type ConfigLlaves](<#ConfigLlaves>)
 - [type ConfigUsuarios](<#ConfigUsuarios>)
 - [type ConfigVinculacion](<#ConfigVinculacion>)
@@ -41,6 +42,10 @@ Package services implementa los casos de uso de la consola: descubre el conector
   - [func \(d \*Descubridor\) Descubrir\(ctx context.Context\) \(InfoSesion, error\)](<#Descubridor.Descubrir>)
   - [func \(d \*Descubridor\) Establecer\(nombre string\)](<#Descubridor.Establecer>)
   - [func \(d \*Descubridor\) Objetivo\(\) domain.Target](<#Descubridor.Objetivo>)
+- [type Diagnostico](<#Diagnostico>)
+- [type DiagnosticoServicio](<#DiagnosticoServicio>)
+  - [func NuevoDiagnostico\(config \*ConfigDiagnostico\) \*DiagnosticoServicio](<#NuevoDiagnostico>)
+  - [func \(d \*DiagnosticoServicio\) Obtener\(ctx context.Context\) \(Diagnostico, error\)](<#DiagnosticoServicio.Obtener>)
 - [type EstadoUnidad](<#EstadoUnidad>)
 - [type FiltroHistorial](<#FiltroHistorial>)
 - [type Haproxy](<#Haproxy>)
@@ -113,6 +118,12 @@ var ErrBackendNoEncontrado = errors.New("no se encontró un back-end en la confi
 
 ```go
 var ErrCredencialesInvalidas = errors.New("las credenciales no permiten ejecutar órdenes")
+```
+
+<a name="ErrDiagnosticoNoDisponible"></a>ErrDiagnosticoNoDisponible envuelve un fallo del diagnóstico.
+
+```go
+var ErrDiagnosticoNoDisponible = errors.New("no se pudo diagnosticar la máquina")
 ```
 
 <a name="ErrLlaveExistente"></a>ErrLlaveExistente indica que la llave privada de root ya está en el anfitrión y no se sobrescribe.
@@ -389,6 +400,21 @@ type ConfigDescubridor struct {
 }
 ```
 
+<a name="ConfigDiagnostico"></a>
+## type ConfigDiagnostico
+
+ConfigDiagnostico reúne las dependencias del diagnóstico.
+
+```go
+type ConfigDiagnostico struct {
+    Maquina        ports.Machine
+    Registro       Registro
+    Objetivo       func() domain.Target
+    VersionSistema func(ctx context.Context) (string, error)
+    ProbarSSH      func(ctx context.Context, direccion netip.Addr) bool
+}
+```
+
 <a name="ConfigLlaves"></a>
 ## type ConfigLlaves
 
@@ -558,6 +584,67 @@ func (d *Descubridor) Objetivo() domain.Target
 ```
 
 Objetivo devuelve la máquina con la que trabaja la consola.
+
+<a name="Diagnostico"></a>
+## type Diagnostico
+
+Diagnostico reúne el estado de una máquina para explicar por qué no se puede registrar.
+
+```go
+type Diagnostico struct {
+    // VM es la máquina vinculada.
+    VM  string
+    // Estado es el estado de encendido.
+    Estado domain.MachineState
+    // Red es el modo de la primera interfaz.
+    Red domain.NetworkMode
+    // IP es la dirección descubierta.
+    IP  netip.Addr
+    // Registrada indica si ya está registrada.
+    Registrada bool
+    // GuestAdditionsVersion es la versión que informa la VM.
+    GuestAdditionsVersion string
+    // GuestAdditionsRunLevel es el nivel de Guest Additions.
+    GuestAdditionsRunLevel int
+    // UsuarioSugerido es el primer usuario con sesión iniciada.
+    UsuarioSugerido string
+    // SSHAbierto indica si el puerto 22 responde.
+    SSHAbierto bool
+    // Problemas describe lo que impide el registro.
+    Problemas []string
+    // Sugerencias indica qué hacer para resolverlo.
+    Sugerencias []string
+}
+```
+
+<a name="DiagnosticoServicio"></a>
+## type DiagnosticoServicio
+
+DiagnosticoServicio explica el estado de la máquina vinculada.
+
+```go
+type DiagnosticoServicio struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="NuevoDiagnostico"></a>
+### func NuevoDiagnostico
+
+```go
+func NuevoDiagnostico(config *ConfigDiagnostico) *DiagnosticoServicio
+```
+
+NuevoDiagnostico construye el servicio.
+
+<a name="DiagnosticoServicio.Obtener"></a>
+### func \(\*DiagnosticoServicio\) Obtener
+
+```go
+func (d *DiagnosticoServicio) Obtener(ctx context.Context) (Diagnostico, error)
+```
+
+Obtener devuelve el diagnóstico de la máquina vinculada.
 
 <a name="EstadoUnidad"></a>
 ## type EstadoUnidad

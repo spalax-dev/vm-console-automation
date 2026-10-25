@@ -271,6 +271,9 @@ El registro se expone en `POST /api/session/register` y sigue esta secuencia:
 
 Si cualquier paso falla, restaura las credenciales anteriores y la máquina
 queda **sin registrar**. `DELETE /api/session/register` elimina el registro.
+`GET /api/session/diagnostico` explica el fallo: estado, modo de red,
+versión y nivel de Guest Additions, usuarios con sesión iniciada y si el
+puerto 22 responde, junto con problemas y sugerencias.
 `GET /api/session` y `GET /api/vms` informan el campo `registrada` para que
 la interfaz decida si abre el modal. La contraseña se conserva porque las
 órdenes se ejecutan de forma no interactiva; la base y la clave quedan fuera

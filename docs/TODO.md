@@ -177,6 +177,12 @@ de los módulos del numeral 3.
 
 ## Notas de seguimiento
 
+- **25 oct 2026** — Diagnóstico de registro: `GET /api/session/diagnostico`
+  informa estado, red, IP, versión/nivel de Guest Additions, usuario con
+  sesión iniciada y si SSH responde. El modal lo muestra al abrirse y
+  tras un fallo, con problemas y sugerencias; sugiere el usuario `jorge`
+  cuando hay una sesión iniciada.
+
 - **25 oct 2026** — Corregido el registro: el modal deshabilitaba los
   campos antes de leer `FormData`, por lo que el navegador enviaba
   `usuario` y `password` vacíos y el servidor respondía «campo usuario».

@@ -50,6 +50,17 @@ const (
 	StateUnknown    MachineState = "unknown"
 )
 
+// GuestAdditions describe lo que la máquina informa sobre Guest
+// Additions.
+type GuestAdditions struct {
+	// Version es la versión instalada, vacía si no se informa.
+	Version string
+	// RunLevel es el nivel de ejecución (0 apagado, 2 completo).
+	RunLevel int
+	// LoggedUsers son los usuarios con sesión iniciada.
+	LoggedUsers []string
+}
+
 // NetworkMode describe el modo de la primera interfaz de red de una
 // máquina virtual.
 type NetworkMode string

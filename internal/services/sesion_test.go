@@ -64,9 +64,11 @@ type stubMachine struct {
 	addr     netip.Addr
 	state    domain.MachineState
 	network  domain.NetworkMode
+	guest    domain.GuestAdditions
 	stateErr error
 	addrErr  error
 	netErr   error
+	guestErr error
 	calls    int
 }
 
@@ -80,6 +82,11 @@ func (s *stubMachine) Address(context.Context, domain.Target) (netip.Addr, error
 // State devuelve el estado de encendido preprogramado.
 func (s *stubMachine) State(context.Context, domain.Target) (domain.MachineState, error) {
 	return s.state, s.stateErr
+}
+
+// GuestAdditions devuelve la información preprogramada.
+func (s *stubMachine) GuestAdditions(context.Context, domain.Target) (domain.GuestAdditions, error) {
+	return s.guest, s.guestErr
 }
 
 // Network devuelve el modo de red preprogramado («bridged» por omisión).

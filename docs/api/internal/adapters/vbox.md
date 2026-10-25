@@ -14,12 +14,14 @@ Package vbox adapta Oracle VM VirtualBox a los puertos Machine y Connector de la
   - [func New\(exe ports.Executor, opts ...Option\) \*Client](<#New>)
   - [func \(c \*Client\) Address\(ctx context.Context, target domain.Target\) \(netip.Addr, error\)](<#Client.Address>)
   - [func \(c \*Client\) Connect\(ctx context.Context, target domain.Target\) \(ports.Session, error\)](<#Client.Connect>)
+  - [func \(c \*Client\) GuestAdditions\(ctx context.Context, target domain.Target\) \(domain.GuestAdditions, error\)](<#Client.GuestAdditions>)
   - [func \(c \*Client\) List\(ctx context.Context\) \(\[\]domain.VM, error\)](<#Client.List>)
   - [func \(c \*Client\) Name\(\) string](<#Client.Name>)
   - [func \(c \*Client\) Network\(ctx context.Context, target domain.Target\) \(domain.NetworkMode, error\)](<#Client.Network>)
   - [func \(c \*Client\) Probe\(ctx context.Context, target domain.Target\) error](<#Client.Probe>)
   - [func \(c \*Client\) Start\(ctx context.Context, target domain.Target\) error](<#Client.Start>)
   - [func \(c \*Client\) State\(ctx context.Context, target domain.Target\) \(domain.MachineState, error\)](<#Client.State>)
+  - [func \(c \*Client\) Version\(ctx context.Context\) \(string, error\)](<#Client.Version>)
 - [type Credenciales](<#Credenciales>)
 - [type Option](<#Option>)
   - [func WithBinary\(bin string\) Option](<#WithBinary>)
@@ -68,6 +70,15 @@ func (c *Client) Connect(ctx context.Context, target domain.Target) (ports.Sessi
 ```
 
 Connect implements ports.Connector: devuelve una sesión que ejecuta órdenes en la máquina mediante «vboxmanage guestcontrol».
+
+<a name="Client.GuestAdditions"></a>
+### func \(\*Client\) GuestAdditions
+
+```go
+func (c *Client) GuestAdditions(ctx context.Context, target domain.Target) (domain.GuestAdditions, error)
+```
+
+GuestAdditions implements ports.Machine: lee la versión y el nivel de Guest Additions y los usuarios con sesión iniciada.
 
 <a name="Client.List"></a>
 ### func \(\*Client\) List
@@ -122,6 +133,15 @@ func (c *Client) State(ctx context.Context, target domain.Target) (domain.Machin
 ```
 
 State implements ports.Machine: consulta el estado de encendido de la máquina con salida legible por máquina.
+
+<a name="Client.Version"></a>
+### func \(\*Client\) Version
+
+```go
+func (c *Client) Version(ctx context.Context) (string, error)
+```
+
+Version devuelve la versión de VirtualBox del anfitrión.
 
 <a name="Credenciales"></a>
 ## type Credenciales

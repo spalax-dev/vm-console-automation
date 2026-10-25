@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net/netip"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"consola-vm/internal/core/domain"
@@ -25,6 +26,12 @@ const guestIPv4Property = "/VirtualBox/GuestInfo/Net/0/V4/IP"
 // defaultBinary es el nombre del programa VBoxManage; en Windows,
 // exec.LookPath resuelve VBoxManage.exe sin necesidad de la extensión.
 const defaultBinary = "VBoxManage"
+
+// flagMachineReadable pide la salida legible por máquina de showvminfo.
+const flagMachineReadable = "--machinereadable"
+
+// cmdShowVMInfo es el subcomando que describe una máquina.
+const cmdShowVMInfo = "showvminfo"
 
 // Client implementa ports.Machine y ports.Connector sobre VirtualBox.
 type Client struct {
@@ -176,7 +183,7 @@ func (c *Client) Address(ctx context.Context, target domain.Target) (netip.Addr,
 // State implements ports.Machine: consulta el estado de encendido de la
 // máquina con salida legible por máquina.
 func (c *Client) State(ctx context.Context, target domain.Target) (domain.MachineState, error) {
-	result, err := c.exe.Execute(ctx, c.bin, "showvminfo", target.ID, "--machinereadable")
+	result, err := c.exe.Execute(ctx, c.bin, cmdShowVMInfo, target.ID, flagMachineReadable)
 	if err != nil {
 		return domain.StateUnknown, fmt.Errorf("guest-additions: leer el estado de %q: %w", target.ID, err)
 	}
@@ -187,12 +194,101 @@ func (c *Client) State(ctx context.Context, target domain.Target) (domain.Machin
 // Network implements ports.Machine: interpreta el modo de la primera
 // interfaz de red de «showvminfo --machinereadable».
 func (c *Client) Network(ctx context.Context, target domain.Target) (domain.NetworkMode, error) {
-	result, err := c.exe.Execute(ctx, c.bin, "showvminfo", target.ID, "--machinereadable")
+	result, err := c.exe.Execute(ctx, c.bin, cmdShowVMInfo, target.ID, flagMachineReadable)
 	if err != nil {
 		return domain.NetworkUnknown, fmt.Errorf("leer la red de %q: %w", target.ID, err)
 	}
 
 	return parseNetwork(result.Stdout), nil
+}
+
+// Version devuelve la versión de VirtualBox del anfitrión.
+func (c *Client) Version(ctx context.Context) (string, error) {
+	result, err := c.exe.Execute(ctx, c.bin, "--version")
+	if err != nil {
+		return "", fmt.Errorf("leer la versión de VirtualBox: %w", err)
+	}
+
+	return strings.TrimSpace(result.Stdout), nil
+}
+
+// GuestAdditions implements ports.Machine: lee la versión y el nivel de
+// Guest Additions y los usuarios con sesión iniciada.
+func (c *Client) GuestAdditions(ctx context.Context, target domain.Target) (domain.GuestAdditions, error) {
+	result, err := c.exe.Execute(ctx, c.bin, cmdShowVMInfo, target.ID, flagMachineReadable)
+	if err != nil {
+		return domain.GuestAdditions{}, fmt.Errorf("leer Guest Additions de %q: %w", target.ID, err)
+	}
+
+	guest := domain.GuestAdditions{
+		Version:  valorPropiedad(result.Stdout, "GuestAdditionsVersion"),
+		RunLevel: enteroPropiedad(result.Stdout, "GuestAdditionsRunLevel"),
+	}
+
+	usuarios, err := c.exe.Execute(ctx, c.bin, "guestproperty", "get", target.ID,
+		"/VirtualBox/GuestInfo/OS/LoggedInUsersList")
+	if err == nil {
+		guest.LoggedUsers = parsearUsuarios(usuarios.Stdout)
+	}
+
+	return guest, nil
+}
+
+// valorPropiedad extrae «clave="valor"» de showvminfo.
+func valorPropiedad(salida, clave string) string {
+	prefijo := clave + `="`
+
+	for _, linea := range strings.Split(salida, "\n") {
+		valor, encontrado := strings.CutPrefix(strings.TrimSpace(linea), prefijo)
+		if encontrado {
+			return strings.TrimSuffix(valor, `"`)
+		}
+	}
+
+	return ""
+}
+
+// enteroPropiedad extrae «clave=valor» de showvminfo.
+func enteroPropiedad(salida, clave string) int {
+	prefijo := clave + "="
+
+	for _, linea := range strings.Split(salida, "\n") {
+		valor, encontrado := strings.CutPrefix(strings.TrimSpace(linea), prefijo)
+		if !encontrado {
+			continue
+		}
+
+		numero, err := strconv.Atoi(strings.TrimSpace(valor))
+		if err == nil {
+			return numero
+		}
+	}
+
+	return 0
+}
+
+// parsearUsuarios interpreta la propiedad de usuarios conectados.
+func parsearUsuarios(salida string) []string {
+	const prefijo = "Value:"
+
+	for _, linea := range strings.Split(salida, "\n") {
+		valor, encontrado := strings.CutPrefix(strings.TrimSpace(linea), prefijo)
+		if !encontrado {
+			continue
+		}
+
+		usuarios := []string{}
+
+		for _, usuario := range strings.Split(strings.TrimSpace(valor), ",") {
+			if usuario != "" {
+				usuarios = append(usuarios, usuario)
+			}
+		}
+
+		return usuarios
+	}
+
+	return nil
 }
 
 // Probe implements ports.Connector: la máquina debe estar en ejecución

@@ -28,6 +28,8 @@ type Machine interface {
 	State(ctx context.Context, target domain.Target) (domain.MachineState, error)
 	// Network informa el modo de la primera interfaz de red.
 	Network(ctx context.Context, target domain.Target) (domain.NetworkMode, error)
+	// GuestAdditions informa versión, nivel y usuarios conectados.
+	GuestAdditions(ctx context.Context, target domain.Target) (domain.GuestAdditions, error)
 }
 
 // Inventory enumera las máquinas virtuales registradas en el

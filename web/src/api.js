@@ -171,6 +171,8 @@ export const api = {
       pedir('POST', '/session/register', { cuerpo: { usuario, password } }),
     /** @returns {Promise<null>} Sin cuerpo. */
     olvidar: () => pedir('DELETE', '/session/register'),
+    /** @returns {Promise<object>} Diagnóstico de la máquina vinculada. */
+    diagnostico: () => pedir('GET', '/session/diagnostico'),
   },
 
   /** Historial de operaciones (`GET /api/historial`). */
