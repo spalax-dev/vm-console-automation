@@ -90,12 +90,12 @@ func main() {
 // ejecutar construye el servidor, lo pone a escuchar y se bloquea hasta
 // que el servidor se detiene. Devuelve el error de arranque o de cierre.
 func ejecutar() error {
-	servidor, err := nuevoServidor()
+	servidor, maquina, err := nuevoServidor()
 	if err != nil {
 		return err
 	}
 
-	if err := imprimirBanner(servidor.Addr, origenInterfaz(), os.Getenv(envVM)); err != nil {
+	if err := imprimirBanner(servidor.Addr, origenInterfaz(), maquina); err != nil {
 		slog.Warn("no se pudo escribir el banner de arranque", claveError, err)
 	}
 
@@ -107,10 +107,11 @@ func ejecutar() error {
 }
 
 // nuevoServidor arma el servidor HTTP con sus rutas y tiempos límite.
-func nuevoServidor() (*http.Server, error) {
-	manejador, err := nuevoMux()
+// Devuelve también la máquina vinculada, para el banner de arranque.
+func nuevoServidor() (*http.Server, string, error) {
+	manejador, maquina, err := nuevoMux()
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	manejador = httpcache.Nuevo(politicasCache()).Envolver(manejador)
@@ -122,11 +123,13 @@ func nuevoServidor() (*http.Server, error) {
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      tiempoMaximoPeticion,
 		IdleTimeout:       60 * time.Second,
-	}, nil
+	}, maquina, nil
 }
 
 // nuevoMux registra los endpoints de la API y el servido de la interfaz.
-func nuevoMux() (http.Handler, error) {
+// Devuelve la máquina vinculada, que puede venir de la configuración o
+// del registro persistido.
+func nuevoMux() (http.Handler, string, error) {
 	mux := http.NewServeMux()
 
 	ejecutor := localproc.New()
@@ -167,14 +170,14 @@ func nuevoMux() (http.Handler, error) {
 	historial := registrarHistorial(mux, consola.registro)
 
 	if err := servirInterfaz(mux); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	return handlers.ConObservabilidad(
 		handlers.ConHistorial(mux, historial, consola.vinculacion.Activa),
 		consola.vinculacion.Activa,
 		slog.Default(),
-	), nil
+	), consola.sesiones.Objetivo().ID, nil
 }
 
 // registrarModulos registra los recursos de los cuatro módulos.
