@@ -128,6 +128,12 @@ Las operaciones de escritura envían su resultado al panel lateral de
 resultado, que muestra el mensaje, la orden ejecutada, el código de salida y
 `stderr`. La lista afectada se vuelve a consultar tras una operación exitosa.
 
+El panel es un historial: cada operación añade una ficha al final y las
+anteriores se conservan. El contenido vive en `localStorage`
+(`vmcons:resultados`, hasta 50 fichas), así que no se pierde al cambiar de
+módulo ni al recargar la página; el botón **Limpiar** vacía el historial y el
+almacenamiento.
+
 ### 3.1 Validación previa
 
 El navegador valida con las mismas expresiones del contrato antes de enviar:

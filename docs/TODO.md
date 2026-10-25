@@ -160,8 +160,8 @@ de los módulos del numeral 3.
 - [x] **Persistir la vinculación** en SQLite (`configuracion.vm_activa`);
   al arrancar sin `VMCONS_VM` se restaura la última máquina vinculada.
 - [x] **Pestaña Historial** (diseño §10.4): tabla de operaciones con
-  filtros por búsqueda de texto, fecha, hora, VM y módulo →
-  `GET /api/historial`, con exportación CSV en la interfaz.
+  descripción legible y filtros por búsqueda de texto, fecha, hora, VM y
+  módulo → `GET /api/historial`, con exportación CSV en la interfaz.
 - [x] **Persistencia en SQLite** en `data/vmcons.db`: tabla `credenciales`
   por VM. La dependencia `modernc.org/sqlite` está justificada en
   `docs/persistencia.md` (puro Go, sin CGO: no rompe el binario único).
@@ -178,6 +178,14 @@ de los módulos del numeral 3.
 ---
 
 ## Notas de seguimiento
+
+- **25 oct 2026** — Historial de resultados en el panel lateral: cada
+  operación añade una ficha y las anteriores se conservan, en orden
+  cronológico y con desplazamiento automático a la última. El contenido
+  se guarda en `localStorage` (`vmcons:resultados`, máximo 50 fichas)
+  para que sobreviva al cambio de módulo y a la recarga, con un botón
+  **Limpiar** que vacía el historial. Si el navegador bloquea el
+  almacenamiento, se usa un respaldo en memoria.
 
 - **25 oct 2026** — Dependencias de desarrollo: `gofumpt`,
   `golangci-lint` y `gomarkdoc` quedaron fijados en la directiva `tool`
@@ -262,10 +270,13 @@ de los módulos del numeral 3.
 
 - **25 oct 2026** — Historial de operaciones: el middleware HTTP
   registra `POST`/`PUT`/`PATCH`/`DELETE` de los módulos en la tabla
-  `operaciones` de SQLite (VM activa, módulo, método+ruta, resultado y
-  estado HTTP). `GET /api/historial` filtra por texto, VM, módulo, rango
-  de fechas y rango horario, con límite de 200 por omisión. La pestaña
-  Historial lo consulta y exporta a CSV.
+  `operaciones` de SQLite (VM activa, módulo, método+ruta, descripción,
+  resultado y estado HTTP). La descripción resume la acción con el nombre
+  del paquete, usuario, unidad o servidor, sin guardar contraseñas ni el
+  cuerpo completo. Las bases anteriores reciben la columna `descripcion`
+  automáticamente. `GET /api/historial` filtra por texto —incluida la
+  descripción—, VM, módulo, rango de fechas y rango horario, con límite de
+  200 por omisión. La pestaña Historial lo consulta y exporta a CSV.
 
 - **25 oct 2026** — Credenciales en SQLite: se reemplazó
   `credenciales.json` por `data/vmcons.db` (tabla `credenciales`) y la
