@@ -107,14 +107,17 @@ export function mensajeDeError(error) {
  *
  * @param {unknown} error Error recibido.
  * @param {string} [operacion] Orden que se intentó ejecutar.
- * @returns {{ok: boolean, mensaje: string, operacion: string, tecnico: string}} Resultado fallido.
+ * @returns {{ok: boolean, mensaje: string, operacion: string, tecnico: string, codigo: number|undefined, stderr: string, solicitud: string}} Resultado fallido.
  */
 export function resultadoDeError(error, operacion = '') {
   return {
     ok: false,
     mensaje: mensajeDeError(error),
     operacion,
+    codigo: error && error.codigo,
+    stderr: (error && error.stderr) || '',
     tecnico: (error && (error.tecnico || error.campo)) || '',
+    solicitud: (error && error.solicitud) || '',
   };
 }
 

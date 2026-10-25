@@ -28,6 +28,8 @@ La conexión con la máquina virtual se configura por variables de entorno:
 | `VMCONS_GUEST_PASS` | No | Contraseña de Guest Additions. |
 | `VMCONS_ADDR` | No | Dirección de escucha; por omisión `127.0.0.1:8080`. No hace falta definirla para `task run`. |
 | `VMCONS_DB` | No | Ruta de la base SQLite (por omisión, `data/vmcons.db`). |
+| `VMCONS_LOG` | No | `text` (por omisión) o `json` para los logs. |
+| `VMCONS_LOG_LEVEL` | No | `debug`, `info`, `warn` o `error`. |
 | `VMCONS_WEB` | No | Directorio con la interfaz web (`index.html` y `assets/`). Si falta, se usa la copia embebida en el binario. |
 
 ```bash

@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"consola-vm/internal/core/domain"
@@ -271,5 +272,33 @@ func TestConnectPasswordUsesSSHPass(t *testing.T) {
 
 	if _, err := os.Stat(llamada[2]); !errors.Is(err, os.ErrNotExist) {
 		t.Error("el archivo temporal no se eliminó")
+	}
+}
+
+// TestRunSanitizaElError comprueba que la orden remota no se filtra en
+// el error.
+func TestRunSanitizaElError(t *testing.T) {
+	t.Parallel()
+
+	fake := newFakeExecutor()
+	connector := New(fake, WithKey(writeTempKey(t)))
+
+	session, err := connector.Connect(context.Background(), runningTarget())
+	if err != nil {
+		t.Fatalf(msgConnectFail, err)
+	}
+
+	fake.errs[binarySSH] = &domain.ExitError{
+		Code:    1,
+		Command: "sshpass -f /tmp/pass ssh root@10.0.2.15 'printf secreto | sudo -S'",
+	}
+
+	_, err = session.Run(context.Background(), &domain.Command{Path: binAptGet})
+	if err == nil {
+		t.Fatal("Run() error = nil, want el error de SSH")
+	}
+
+	if strings.Contains(err.Error(), "secreto") {
+		t.Errorf("Run() error = %q, expone la contraseña", err.Error())
 	}
 }

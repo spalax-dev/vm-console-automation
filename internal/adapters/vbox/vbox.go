@@ -9,6 +9,7 @@ package vbox
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/netip"
 	"regexp"
@@ -350,7 +351,8 @@ func (s *Session) Run(ctx context.Context, cmd *domain.Command) (domain.Result, 
 
 	result, err := s.client.exe.Execute(ctx, s.client.bin, args...)
 	if err != nil {
-		return result, fmt.Errorf("guest-additions: ejecutar %q: %w", cmd.Path, err)
+		return result, fmt.Errorf("guest-additions: ejecutar %q: %w", cmd.Path,
+			errorSanitizado(err, "VBoxManage guestcontrol "+s.target.ID+" run"))
 	}
 
 	return result, nil
@@ -366,7 +368,8 @@ func (s *Session) Put(ctx context.Context, localPath, remotePath string) error {
 	}
 
 	if _, err := s.client.exe.Execute(ctx, s.client.bin, args...); err != nil {
-		return fmt.Errorf("guest-additions: transferir %q: %w", localPath, err)
+		return fmt.Errorf("guest-additions: transferir %q: %w", localPath,
+			errorSanitizado(err, "VBoxManage guestcontrol "+s.target.ID+" copyto"))
 	}
 
 	return nil
@@ -376,6 +379,17 @@ func (s *Session) Put(ctx context.Context, localPath, remotePath string) error {
 // entre órdenes, por lo que no hay recursos que liberar.
 func (s *Session) Close() error {
 	return nil
+}
+
+// errorSanitizado reemplaza la orden completa por una versión sin
+// argumentos sensibles (por ejemplo, la contraseña de Guest Additions).
+func errorSanitizado(err error, comando string) error {
+	var exitErr *domain.ExitError
+	if errors.As(err, &exitErr) {
+		return &domain.ExitError{Code: exitErr.Code, Command: comando}
+	}
+
+	return err
 }
 
 // parseAddress extrae la dirección de la salida de «guestproperty get»,

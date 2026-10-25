@@ -43,6 +43,8 @@ export class ApiError extends Error {
     this.campo = cuerpo && cuerpo.campo;
     /** Detalle técnico de la respuesta. */
     this.tecnico = cuerpo && cuerpo.tecnico;
+    /** Identificador de la solicitud para correlacionar con los logs. */
+    this.solicitud = '';
   }
 
   /**
@@ -97,6 +99,7 @@ async function pedir(metodo, ruta, { cuerpo, consulta, descarga = false } = {}) 
   }
 
   const respuesta = await fetch(conConsulta(ruta, consulta), opciones);
+  const solicitud = respuesta.headers.get('X-Request-ID') || '';
 
   if (respuesta.status === 204) {
     return null;
@@ -115,7 +118,10 @@ async function pedir(metodo, ruta, { cuerpo, consulta, descarga = false } = {}) 
       }
     }
 
-    throw new ApiError(respuesta.status, detalle);
+    const error = new ApiError(respuesta.status, detalle);
+    error.solicitud = solicitud;
+
+    throw error;
   }
 
   if (descarga) {

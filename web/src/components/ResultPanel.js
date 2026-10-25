@@ -15,13 +15,13 @@ export function ResultPanel() {
       <div class="flex items-center gap-1.5"><i data-lucide="info" class="w-4 h-4"></i><span class="text-[12px] font-medium">Resultado</span></div>
       <span id="result-estado" class="text-[11px] text-vm-fgSecondary">En espera</span>
     </header>
-    <div id="result-body" class="flex-1 p-3 flex items-center justify-center text-center">
+    <div id="result-body" class="flex-1 p-3 flex items-center justify-center text-center tty">
       <div>
-        <div class="text-[12px] text-vm-fgSecondary">Sin operaciones ejecutadas aún</div>
-        <div class="text-[11px] text-vm-fgSecondary mt-1">Selecciona un módulo para ejecutar tareas sobre la máquina.</div>
+        <div class="text-[12px] tty-muted">Sin operaciones ejecutadas aún</div>
+        <div class="text-[11px] tty-muted mt-1">Selecciona un módulo para ejecutar tareas sobre la máquina.</div>
       </div>
     </div>
-    <footer class="px-3 py-1 border-t border-vm-border text-[10px] text-vm-fgSecondary font-mono">
+    <footer class="px-3 py-1 border-t border-[#333] text-[10px] tty-muted font-mono tty">
       <span id="result-pie">Código de salida: -</span>
     </footer>
   `;
@@ -40,8 +40,9 @@ export function ResultPanel() {
  * @param {string} [resultado.salida] Salida estándar.
  * @param {string} [resultado.stderr] Salida de error.
  * @param {string} [resultado.tecnico] Detalle técnico.
+ * @param {string} [resultado.solicitud] Identificador de la solicitud.
  */
-export function showResult({ ok = true, mensaje = '', operacion = '', codigo = 0, salida = '', stderr = '', tecnico = '' } = {}) {
+export function showResult({ ok = true, mensaje = '', operacion = '', codigo = 0, salida = '', stderr = '', tecnico = '', solicitud = '' } = {}) {
   const cuerpo = document.getElementById('result-body');
   const etiqueta = document.getElementById('result-estado');
   const pie = document.getElementById('result-pie');
@@ -50,23 +51,24 @@ export function showResult({ ok = true, mensaje = '', operacion = '', codigo = 0
     return;
   }
 
-  cuerpo.className = 'flex-1 p-3 overflow-auto';
+  cuerpo.className = 'flex-1 p-3 overflow-auto tty';
   cuerpo.innerHTML = `
     <div class="flex flex-col gap-2 fade-slide">
-      <div class="flex items-start gap-2 px-2 py-1.5 border ${ok ? 'border-vm-border' : 'border-vm-accent bg-[#fdf1ef]'}">
+      <div class="flex items-start gap-2 px-2 py-1.5 border ${ok ? 'border-[#3a3a3a] bg-[#242424]' : 'border-vm-accent bg-[#2a1a1a]'}">
         <i data-lucide="${ok ? 'check-circle-2' : 'x-circle'}" class="w-4 h-4 shrink-0 ${ok ? 'text-vm-success' : 'text-vm-accent'}"></i>
-        <span class="text-[12px]">${escapar(mensaje || (ok ? 'Operación exitosa' : 'Error en la operación'))}</span>
+        <span class="text-[12px] text-[#e6e6e6]">${escapar(mensaje || (ok ? 'Operación exitosa' : 'Error en la operación'))}</span>
       </div>
-      <details class="border border-vm-border" ${ok ? '' : 'open'}>
-        <summary class="px-2 py-1 cursor-pointer text-[11px] text-vm-fgSecondary">Detalle técnico</summary>
+      <details class="border border-[#3a3a3a]" ${ok ? '' : 'open'}>
+        <summary class="px-2 py-1 cursor-pointer text-[11px] tty-muted">Detalle técnico</summary>
         <div class="px-2 py-2 flex flex-col gap-1 text-[11px]">
-          <div><span class="text-vm-fgSecondary">Orden ejecutada:</span> <span class="font-mono break-all">${escapar(operacion) || '-'}</span></div>
-          <div><span class="text-vm-fgSecondary">Código de salida:</span> <span class="font-mono">${escapar(codigo)}</span></div>
-          <div><span class="text-vm-fgSecondary">Salida:</span></div>
-          <pre class="bg-vm-bg border border-vm-border p-2 overflow-auto text-[11px] font-mono max-h-[140px] whitespace-pre-wrap">${escapar(salida) || '(vacío)'}</pre>
-          <div><span class="text-vm-fgSecondary">stderr:</span></div>
-          <pre class="bg-vm-bg border border-vm-border p-2 overflow-auto text-[11px] font-mono max-h-[140px] whitespace-pre-wrap">${escapar(stderr) || '(vacío)'}</pre>
-          ${tecnico ? `<div><span class="text-vm-fgSecondary">Diagnóstico:</span> <span class="font-mono break-all">${escapar(tecnico)}</span></div>` : ''}
+          <div><span class="tty-muted">Orden ejecutada:</span> <span class="font-mono break-all">${escapar(operacion) || '-'}</span></div>
+          <div><span class="tty-muted">Código de salida:</span> <span class="font-mono">${escapar(codigo)}</span></div>
+          <div><span class="tty-muted">Salida:</span></div>
+          <pre class="bg-[#161616] border border-[#333] p-2 overflow-auto text-[11px] font-mono max-h-[140px] whitespace-pre-wrap text-[#d6d6d6]">${escapar(salida) || '(vacío)'}</pre>
+          <div><span class="tty-muted">stderr:</span></div>
+          <pre class="bg-[#161616] border border-[#333] p-2 overflow-auto text-[11px] font-mono max-h-[140px] whitespace-pre-wrap text-[#d6d6d6]">${escapar(stderr) || '(vacío)'}</pre>
+          ${tecnico ? `<div><span class="tty-muted">Diagnóstico:</span> <span class="font-mono break-all">${escapar(tecnico)}</span></div>` : ''}
+          ${solicitud ? `<div><span class="tty-muted">Solicitud:</span> <span class="font-mono">${escapar(solicitud)}</span></div>` : ''}
         </div>
       </details>
     </div>

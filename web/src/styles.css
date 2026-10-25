@@ -92,6 +92,15 @@
   animation: spin 800ms linear infinite;
 }
 
+.tty {
+  background: #1f1f1f;
+  color: #d6d6d6;
+}
+
+.tty-muted {
+  color: #9a9a9a;
+}
+
 .barra-indeterminada {
   width: 35%;
   animation: barraIndeterminada 1.1s ease-in-out infinite;

@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"consola-vm/internal/adapters/localproc"
@@ -39,7 +40,12 @@ import (
 var contenidoWeb embed.FS
 
 // Variables de entorno que configuran la conexión con la máquina.
+// claveError es la clave de los errores en el log de arranque.
+const claveError = "error"
+
 const (
+	envLog       = "VMCONS_LOG"
+	envLogLevel  = "VMCONS_LOG_LEVEL"
 	envVM        = "VMCONS_VM"         // nombre o UUID de la VM en VirtualBox
 	envSSHKey    = "VMCONS_SSH_KEY"    // ruta de la llave privada en el anfitrión
 	envGuestUser = "VMCONS_GUEST_USER" // usuario de Guest Additions
@@ -73,8 +79,10 @@ func politicasCache() []httpcache.Politica {
 // main ensambla los adaptadores, los servicios y los handlers, y arranca
 // el servidor HTTP de la consola.
 func main() {
+	configurarLog()
+
 	if err := ejecutar(); err != nil {
-		slog.Error("la consola terminó con error", "error", err)
+		slog.Error("la consola terminó con error", claveError, err)
 		os.Exit(1)
 	}
 }
@@ -88,7 +96,7 @@ func ejecutar() error {
 	}
 
 	if err := imprimirBanner(servidor.Addr, origenInterfaz(), os.Getenv(envVM)); err != nil {
-		slog.Warn("no se pudo escribir el banner de arranque", "error", err)
+		slog.Warn("no se pudo escribir el banner de arranque", claveError, err)
 	}
 
 	if err := servidor.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -155,6 +163,25 @@ func nuevoMux() (http.Handler, error) {
 	mux.Handle("/api/vms", maquinas)
 	mux.HandleFunc("/api/vms/{vm}/poweron", maquinas.Encender)
 
+	registrarModulos(mux, sistema, usuarios, systemd, haproxy)
+	historial := registrarHistorial(mux, consola.registro)
+
+	if err := servirInterfaz(mux); err != nil {
+		return nil, err
+	}
+
+	return handlers.ConObservabilidad(
+		handlers.ConHistorial(mux, historial, consola.vinculacion.Activa),
+		consola.vinculacion.Activa,
+		slog.Default(),
+	), nil
+}
+
+// registrarModulos registra los recursos de los cuatro módulos.
+func registrarModulos(
+	mux *http.ServeMux, sistema *handlers.Sistema, usuarios *handlers.Usuarios,
+	systemd *handlers.Systemd, haproxy *handlers.Haproxy,
+) {
 	mux.HandleFunc("/api/packages", sistema.Paquetes)
 	mux.HandleFunc("/api/packages/{name}", sistema.Paquete)
 	mux.HandleFunc("/api/keys/root", sistema.LlaveRoot)
@@ -171,14 +198,6 @@ func nuevoMux() (http.Handler, error) {
 
 	mux.HandleFunc("/api/haproxy/backend/servers", haproxy.Servidores)
 	mux.HandleFunc("/api/haproxy/backend/servers/{server}", haproxy.Servidor)
-
-	historial := registrarHistorial(mux, consola.registro)
-
-	if err := servirInterfaz(mux); err != nil {
-		return nil, err
-	}
-
-	return handlers.ConHistorial(mux, historial, consola.vinculacion.Activa), nil
 }
 
 // registrarHistorial registra el endpoint del historial.
@@ -288,6 +307,31 @@ func nuevaConsola(ejecutor ports.Executor) *consola {
 			Persistencia: almacen,
 		}),
 	}
+}
+
+// configurarLog elige el formato y el nivel de los logs de la consola.
+func configurarLog() {
+	nivel := slog.LevelInfo
+
+	switch strings.ToLower(os.Getenv(envLogLevel)) {
+	case "debug":
+		nivel = slog.LevelDebug
+	case "warn":
+		nivel = slog.LevelWarn
+	case "error":
+		nivel = slog.LevelError
+	}
+
+	opciones := &slog.HandlerOptions{Level: nivel}
+
+	var manejador slog.Handler
+	if strings.EqualFold(os.Getenv(envLog), "json") {
+		manejador = slog.NewJSONHandler(os.Stderr, opciones)
+	} else {
+		manejador = slog.NewTextHandler(os.Stderr, opciones)
+	}
+
+	slog.SetDefault(slog.New(manejador))
 }
 
 // direccion devuelve la dirección de escucha configurada.

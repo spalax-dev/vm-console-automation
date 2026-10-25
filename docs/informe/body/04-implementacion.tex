@@ -10,16 +10,15 @@ La capa HTTP está implementada: los dieciséis recursos de la
 \cref{tab:api-rest} tienen su manejador, la validación del servidor
 aplica las reglas descritas en la \cref{sec:contrato-rest} y cada
 petición se responde con el modelo JSON de la
-\cref{sec:vision-general}. El descubrimiento de sesión
-expone \texttt{GET /api/session}, y los módulos de paquetes, llaves SSH
-y \texttt{/etc/issue} ya ejecutan operaciones reales sobre la máquina.
-Los demás casos de uso, mientras no se conecten, responden
-\texttt{501} con un mensaje comprensible, de modo que la interfaz puede
-integrarse sin esperar a la ejecución real. La interfaz web ya consume
-el contrato completo desde las ocho vistas
-(\cref{sec:interfaz}).
-Las pruebas cubren el 98.4\,\% de los manejadores y el 100\,\% de los
-servicios.
+\cref{sec:vision-general}. El descubrimiento de sesión expone
+\texttt{GET /api/session}, y los módulos funcionales ---preparación del
+sistema (paquetes, llaves SSH, \texttt{/etc/issue} y hostname), usuarios,
+systemd y HAProxy--- ejecutan operaciones reales sobre la máquina. No quedan
+respuestas \texttt{501}: todas las rutas del contrato están conectadas.
+La interfaz web consume el contrato completo desde las nueve vistas
+(\cref{sec:interfaz}), incluidos el registro con diagnóstico y el
+historial. Las pruebas cubren el 93.4\,\% de los manejadores y el
+89.7\,\% de los servicios.
 
 % ------------------------------------------------------------
 % 4.1 Preparación del sistema
@@ -247,6 +246,21 @@ máquina vinculada, de modo que la consola la restaura al arrancar si no se
 indicó \texttt{VMCONS\_VM}. Las credenciales se cifran con AES-256-GCM y
 la justificación de la dependencia SQLite está en
 \texttt{docs/persistencia.md}.
+
+\subsection{Registro y Observabilidad}
+\label{sec:observabilidad}
+
+Cada petición a la API recibe un identificador \texttt{X-Request-ID} y se
+registra con el método, la ruta, el estado, la duración, el tamaño de la
+respuesta y la máquina activa. Los errores del cliente se anotan como
+advertencia y los del servidor como error; el formato se elige con
+\texttt{VMCONS\_LOG} (texto o JSON) y el nivel con
+\texttt{VMCONS\_LOG\_LEVEL}. Las respuestas de error conservan
+\texttt{mensaje}, \texttt{operacion}, \texttt{codigo}, \texttt{salida},
+\texttt{stderr}, \texttt{tecnico} y el identificador para correlacionar
+con el servidor. Los adaptadores de VirtualBox y SSH sustituyen la orden
+completa por una versión sin argumentos sensibles, de modo que las
+contraseñas no aparecen ni en los logs ni en el detalle técnico.
 
 \subsection{Interfaz Web}
 \label{sec:interfaz}

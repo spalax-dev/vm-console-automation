@@ -14,20 +14,21 @@ Documento de seguimiento del proyecto. Se actualiza conforme se avanza.
 | Área | Estado |
 | --- | --- |
 | Núcleo (`internal/core/domain` + `ports`) | [x] Completo — cobertura 100 % |
-| Adaptadores (`localproc`, `vbox`, `ssh`) | [x] Completo — cobertura 100 % / 89.2 % / 83.6 % |
+| Adaptadores (`localproc`, `vbox`, `ssh`) | [x] Completos — cobertura 100 % / 88.1 % / 87.8 % |
 | Calidad de código (`task fmt`, `task lint`, `task test`) | [x] 0 issues, todas las pruebas en verde |
-| `docs/arquitectura.md` | [x] Escrito |
-| Contrato OpenAPI (`docs/openapi.yaml`) | [x] 12 rutas, validado con Redocly |
-| Controladores HTTP de los módulos | [~] Registrados y validando; responden 501 hasta conectar servicios |
+| `docs/arquitectura.md` | [x] Escrito, con persistencia, observabilidad y herramientas |
+| Contrato OpenAPI (`docs/openapi.yaml`) | [x] 19 rutas, validado con Redocly, sin respuestas 501 |
+| Controladores HTTP de los módulos | [x] Todos los módulos conectados a los servicios |
 | Servicio de descubrimiento/selección de sesión | [x] Completo — cobertura 100 % |
 | Casos de uso (`internal/services`) | [x] Preparación, usuarios, systemd y HAProxy completos |
-| Endpoints HTTP (`internal/handlers`) | [~] `GET /api/session` hecho; módulos pendientes |
-| Ensamblaje (`main.go`: rutas + inyección de dependencias) | [~] Servidor, `web/` embebido y todas las rutas registradas; faltan los servicios de módulos |
-| Interfaz web (`web/modules`, `web/static/main.js`) | [ ] Placeholders |
-| Pruebas de `services` y `handlers` | [~] `services` 97.1 %; `handlers` 95.6 % |
+| Endpoints HTTP (`internal/handlers`) | [x] Todos los recursos implementados, con validación y errores comunes |
+| Ensamblaje (`main.go`: rutas + inyección de dependencias) | [x] Servidor, `web/` embebido, rutas, historial y observabilidad |
+| Interfaz web (`web/src`, Vite) | [x] Vistas por módulo, historial, registro y diagnóstico |
+| Observabilidad y logs | [x] `X-Request-ID`, logs estructurados y errores sanitizados |
+| Pruebas de `services` y `handlers` | [~] `services` 89.7 %; `handlers` 93.4 % (el resto de paquetes, en verde) |
 | Escenario: diagrama (numeral 5) | [x] Hecho en PlantUML (`docs/diagramas/`), en §3.1 del informe |
 | Pruebas manuales en video (numeral 4) | [ ] No iniciado |
-| Informe (`docs/informe`) | [~] §3 (diseño y escenario) redactado con los 2 diagramas; resto con TODOs |
+| Informe (`docs/informe`) | [~] §3 y §4 completos; §5, conclusiones y resumen pendientes |
 | Resumen / index terms | [ ] Pendiente de redactar al final |
 
 ---
@@ -168,14 +169,22 @@ de los módulos del numeral 3.
     por el middleware HTTP.
 - [ ] **Autenticación** de la consola con usuario y contraseña guardados
   en SQLite. El enunciado no la pide: opcional, después de los módulos.
-- [ ] **Coherencia con el informe:** si se adopta la persistencia,
-  actualizar la estructura y las decisiones de §3.2 y revisar la frase
-  «la consola no crea ni registra máquinas virtuales» de §3.1.1 (sigue
-  siendo cierta: no se crea ni se registra nada en el hipervisor).
+- [x] **Coherencia con el informe:** la estructura, las decisiones, la
+  tabla de capacidades y las rutas se actualizaron con persistencia,
+  registro, diagnóstico e historial. La frase «la consola no crea ni
+  registra máquinas virtuales» sigue siendo cierta: no se crea nada en
+  el hipervisor.
 
 ---
 
 ## Notas de seguimiento
+
+- **25 oct 2026** — Observabilidad y verificación: cada petición de la
+  API recibe `X-Request-ID` y se registra con método, ruta, estado,
+  duración, tamaño y VM; `VMCONS_LOG=json` y `VMCONS_LOG_LEVEL` controlan
+  el formato y el nivel. Los adaptadores sanitizan las órdenes para no
+  exponer contraseñas en logs ni en `tecnico`. Se añadió
+  `docs/verificacion.md` con la matriz capacidad → API → interfaz.
 
 - **25 oct 2026** — Diagnóstico de registro: `GET /api/session/diagnostico`
   informa estado, red, IP, versión/nivel de Guest Additions, usuario con

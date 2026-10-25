@@ -51,6 +51,21 @@ El conector `vbox` publica el nombre `guest-additions` y el conector `ssh` publi
 - Los tipos del dominio usan la stdlib mínima (`net/netip`, `io/fs`), que es multiplataforma.
 - Cada adaptador traduce su vocabulario al dominio: por ejemplo, `vbox` convierte el estado `poweroff` de VirtualBox en `domain.MachinePoweredOff`.
 
+## Registro y observabilidad
+
+Cada petición a `/api/` recibe un identificador `X-Request-ID` y se
+registra con método, ruta, estado, duración, tamaño y máquina activa. Los
+errores 4xx se anotan como advertencia y los 5xx como error. El formato se
+elige con `VMCONS_LOG` (`text` por omisión o `json`) y el nivel con
+`VMCONS_LOG_LEVEL` (`debug`, `info`, `warn`, `error`).
+
+Los adaptadores `vbox` y `ssh` sustituyen la orden completa por una versión
+sin argumentos sensibles cuando exponen un `domain.ExitError`, de modo que
+la contraseña de Guest Additions o el script de `sudo` no aparecen en los
+logs ni en el campo `tecnico` de la respuesta. La respuesta de error
+conserva `mensaje`, `operacion`, `codigo`, `salida`, `stderr`, `tecnico` y
+el `X-Request-ID` para correlacionar con el servidor.
+
 ## Documentación y calidad del código
 
 La documentación del código se escribe en los comentarios de paquete, tipos, funciones,

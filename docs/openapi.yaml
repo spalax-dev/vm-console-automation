@@ -62,10 +62,8 @@ info:
 
     ## Estado de implementación
 
-    `GET /api/session`, `/api/packages`, `/api/keys/root`, `/api/issue`,
-    Todas las rutas del contrato ya están conectadas con la máquina. La
-    única funcionalidad fuera de alcance es el historial, diferido según
-    `docs/TODO.md` §9.
+    Todas las rutas del contrato están conectadas con la máquina. El
+    historial se persiste en SQLite y se consulta con `GET /api/historial`.
 
     ## Historial
 
@@ -284,8 +282,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ListaPaquetes'
-        '501':
-          $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
         '500':
@@ -314,8 +310,6 @@ paths:
                 $ref: '#/components/schemas/ResultadoOperacion'
         '400':
           $ref: '#/components/responses/EntradaInvalida'
-        '501':
-          $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
         '500':
@@ -335,8 +329,6 @@ paths:
           $ref: '#/components/responses/EntradaInvalida'
         '404':
           $ref: '#/components/responses/NoEncontrado'
-        '501':
-          $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
         '500':
@@ -365,8 +357,6 @@ paths:
                 format: binary
         '404':
           $ref: '#/components/responses/NoEncontrado'
-        '501':
-          $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
         '500':
@@ -397,8 +387,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ResultadoOperacion'
-        '501':
-          $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
         '500':
@@ -416,8 +404,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConfiguracionIssue'
-        '501':
-          $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
         '500':
@@ -437,8 +423,6 @@ paths:
           $ref: '#/components/responses/OperacionCorrecta'
         '400':
           $ref: '#/components/responses/EntradaInvalida'
-        '501':
-          $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
         '500':
@@ -456,8 +440,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConfiguracionHostname'
-        '501':
-          $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
         '500':
@@ -477,8 +459,6 @@ paths:
           $ref: '#/components/responses/OperacionCorrecta'
         '400':
           $ref: '#/components/responses/EntradaInvalida'
-        '501':
-          $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
         '500':
@@ -496,8 +476,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ListaUsuarios'
-        '501':
-          $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
         '500':
@@ -536,8 +514,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ResultadoOperacion'
-        '501':
-          $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
         '500':
@@ -561,8 +537,6 @@ paths:
           $ref: '#/components/responses/EntradaInvalida'
         '404':
           $ref: '#/components/responses/NoEncontrado'
-        '501':
-          $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
         '500':
@@ -587,8 +561,6 @@ paths:
           $ref: '#/components/responses/EntradaInvalida'
         '404':
           $ref: '#/components/responses/NoEncontrado'
-        '501':
-          $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
         '500':
@@ -618,8 +590,6 @@ paths:
           $ref: '#/components/responses/EntradaInvalida'
         '404':
           $ref: '#/components/responses/NoEncontrado'
-        '501':
-          $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
         '500':
@@ -637,8 +607,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ListaUnidades'
-        '501':
-          $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
         '500':
@@ -662,8 +630,6 @@ paths:
           $ref: '#/components/responses/EntradaInvalida'
         '404':
           $ref: '#/components/responses/NoEncontrado'
-        '501':
-          $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
         '500':
@@ -685,8 +651,6 @@ paths:
           $ref: '#/components/responses/OperacionCorrecta'
         '400':
           $ref: '#/components/responses/EntradaInvalida'
-        '501':
-          $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
         '500':
@@ -719,8 +683,6 @@ paths:
           $ref: '#/components/responses/EntradaInvalida'
         '404':
           $ref: '#/components/responses/NoEncontrado'
-        '501':
-          $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
         '500':
@@ -747,8 +709,6 @@ paths:
           $ref: '#/components/responses/EntradaInvalida'
         '404':
           $ref: '#/components/responses/NoEncontrado'
-        '501':
-          $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
         '500':
@@ -844,8 +804,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ListaBackend'
-        '501':
-          $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
         '500':
@@ -874,8 +832,6 @@ paths:
                 $ref: '#/components/schemas/ResultadoOperacion'
         '400':
           $ref: '#/components/responses/EntradaInvalida'
-        '501':
-          $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
         '500':
@@ -895,8 +851,6 @@ paths:
           $ref: '#/components/responses/EntradaInvalida'
         '404':
           $ref: '#/components/responses/NoEncontrado'
-        '501':
-          $ref: '#/components/responses/NoImplementado'
         '503':
           $ref: '#/components/responses/SinSesion'
         '500':
@@ -1014,20 +968,6 @@ components:
               value:
                 ok: false
                 mensaje: El usuario «jperez» no existe.
-    NoImplementado:
-      description: |
-        La ruta existe y la entrada es válida, pero el caso de uso todavía
-        no está conectado con la máquina.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ResultadoOperacion'
-          examples:
-            pendiente:
-              value:
-                ok: false
-                mensaje: La operación «instalar el paquete nano» aún no está conectada con la máquina.
-                tecnico: 'endpoint disponible; falta conectar el caso de uso'
     SinSesion:
       description: No hay una sesión disponible (VM apagada o inaccesible).
       content:

@@ -183,7 +183,9 @@ en la \cref{tab:api-rest}, y el estado de implementación se describe en la
     Módulo & Operaciones \\
     \hline
     Sesión & Consultar el estado de la máquina, el conector activo y su
-    dirección IP. \\
+    dirección IP; vincular una máquina y encenderla. \\
+    Registro & Registrar una máquina con sus credenciales, diagnosticar
+    por qué falla el acceso y olvidar el registro. \\
     Paquetes & Listar los paquetes instalados, instalar uno nuevo y
     eliminar uno existente con APT. \\
     Llaves SSH & Generar el par de llaves de \texttt{root}, instalar la
@@ -268,6 +270,8 @@ la ruta y las operaciones se expresan con los métodos HTTP estándar
     Recurso & Ruta y métodos \\
     \hline
     Sesión & \texttt{/api/\allowbreak session} (GET, PUT) \\
+    Registro & \texttt{/api/\allowbreak session/\allowbreak register} (POST, DELETE) \\
+    Diagnóstico & \texttt{/api/\allowbreak session/\allowbreak diagnostico} (GET) \\
     Inventario & \texttt{/api/\allowbreak vms} (GET) \\
     Encendido & \texttt{/api/\allowbreak vms/\allowbreak\{vm\}/\allowbreak poweron} (POST) \\
     Paquetes & \texttt{/api/\allowbreak packages} (GET, POST) \\
@@ -283,6 +287,7 @@ la ruta y las operaciones se expresan con los métodos HTTP estándar
     Reinicio & \texttt{/api/\allowbreak units/\allowbreak\{unit\}/\allowbreak restarts} (POST) \\
     Servidores & \texttt{/api/\allowbreak haproxy/\allowbreak backend/\allowbreak servers} (GET, POST) \\
     Servidor & \texttt{/api/\allowbreak haproxy/\allowbreak backend/\allowbreak servers/\allowbreak\{server\}} (DELETE) \\
+    Historial & \texttt{/api/\allowbreak historial} (GET) \\
     \hline
   \end{tabularx}
 \end{table}

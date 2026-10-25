@@ -103,7 +103,7 @@ func TestConHistorialRegistraMutaciones(t *testing.T) {
 		func() string { return maquinaDebian },
 	)
 
-	post := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/packages", http.NoBody)
+	post := httptest.NewRequestWithContext(t.Context(), http.MethodPost, rutaPaquetes, http.NoBody)
 	postRec := httptest.NewRecorder()
 	handler.ServeHTTP(postRec, post)
 
@@ -115,7 +115,7 @@ func TestConHistorialRegistraMutaciones(t *testing.T) {
 		t.Errorf("operación = %+v, want ok en debian-1", servicio.registradas[0])
 	}
 
-	get := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/packages", http.NoBody)
+	get := httptest.NewRequestWithContext(t.Context(), http.MethodGet, rutaPaquetes, http.NoBody)
 	getRec := httptest.NewRecorder()
 	handler.ServeHTTP(getRec, get)
 

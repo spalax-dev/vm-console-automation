@@ -247,6 +247,13 @@ export function abrirRegistro({ maquina, alRegistrar }) {
         errorEl.appendChild(detalle);
       }
 
+      if (fallo.solicitud) {
+        const solicitud = document.createElement('div');
+        solicitud.className = 'mt-1 text-[10px] font-mono text-vm-fgSecondary';
+        solicitud.textContent = `Solicitud: ${fallo.solicitud}`;
+        errorEl.appendChild(solicitud);
+      }
+
       bloquear(false);
     }
   });

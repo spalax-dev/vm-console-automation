@@ -11,6 +11,7 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
 ## Index
 
 - [func ConHistorial\(siguiente http.Handler, historial ServicioHistorial, vm func\(\) string\) http.Handler](<#ConHistorial>)
+- [func ConObservabilidad\(siguiente http.Handler, vm func\(\) string, logger \*slog.Logger\) http.Handler](<#ConObservabilidad>)
 - [type Acceso](<#Acceso>)
   - [func NuevoAcceso\(servicio ServicioAcceso\) \*Acceso](<#NuevoAcceso>)
   - [func \(h \*Acceso\) ServeHTTP\(w http.ResponseWriter, r \*http.Request\)](<#Acceso.ServeHTTP>)
@@ -75,6 +76,15 @@ func ConHistorial(siguiente http.Handler, historial ServicioHistorial, vm func()
 ```
 
 ConHistorial envuelve el mux para registrar las operaciones mutantes.
+
+<a name="ConObservabilidad"></a>
+## func ConObservabilidad
+
+```go
+func ConObservabilidad(siguiente http.Handler, vm func() string, logger *slog.Logger) http.Handler
+```
+
+ConObservabilidad registra cada petición de la API con un identificador de solicitud, duración, estado y máquina activa.
 
 <a name="Acceso"></a>
 ## type Acceso

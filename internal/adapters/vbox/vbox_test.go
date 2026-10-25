@@ -6,6 +6,7 @@ package vbox
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"consola-vm/internal/core/domain"
@@ -439,4 +440,32 @@ func contieneValor(valores []string, buscado string) bool {
 	}
 
 	return false
+}
+
+// TestGuestSessionSanitizaElError comprueba que la contraseña no aparece
+// en el error devuelto.
+func TestGuestSessionSanitizaElError(t *testing.T) {
+	t.Parallel()
+
+	fake := runningFake()
+	fake.errs["guestcontrol"] = &domain.ExitError{
+		Code:    1,
+		Command: "VBoxManage guestcontrol debian13 run --password secreto",
+	}
+
+	client := New(fake, WithGuestCredentials(credRoot, "secreto"))
+
+	session, err := client.Connect(context.Background(), domain.Target{ID: vmID})
+	if err != nil {
+		t.Fatalf(msgConnectFail, err)
+	}
+
+	_, err = session.Run(context.Background(), &domain.Command{Path: binAptGet})
+	if err == nil {
+		t.Fatal("Run() error = nil, want el error de Guest Additions")
+	}
+
+	if strings.Contains(err.Error(), "secreto") {
+		t.Errorf("Run() error = %q, expone la contraseña", err.Error())
+	}
 }

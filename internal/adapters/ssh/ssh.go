@@ -9,6 +9,7 @@ package ssh
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -169,7 +170,8 @@ func (s *Session) Run(ctx context.Context, cmd *domain.Command) (domain.Result, 
 
 	result, err := s.connector.exe.Execute(ctx, programa, args...)
 	if err != nil {
-		return result, fmt.Errorf("ssh: ejecutar %q: %w", cmd.Path, err)
+		return result, fmt.Errorf("ssh: ejecutar %q: %w", cmd.Path,
+			errorSanitizado(err, "ssh "+s.destination()))
 	}
 
 	return result, nil
@@ -183,7 +185,8 @@ func (s *Session) Put(ctx context.Context, localPath, remotePath string) error {
 	args = append(args, localPath, s.destination()+":"+remotePath)
 
 	if _, err := s.connector.exe.Execute(ctx, programa, args...); err != nil {
-		return fmt.Errorf("ssh: transferir %q: %w", localPath, err)
+		return fmt.Errorf("ssh: transferir %q: %w", localPath,
+			errorSanitizado(err, "scp "+s.destination()))
 	}
 
 	chmod := &domain.Command{
@@ -210,6 +213,17 @@ func (s *Session) Close() error {
 	}
 
 	return nil
+}
+
+// errorSanitizado reemplaza la orden completa por una versión sin
+// argumentos sensibles (contraseña, script remoto o rutas temporales).
+func errorSanitizado(err error, comando string) error {
+	var exitErr *domain.ExitError
+	if errors.As(err, &exitErr) {
+		return &domain.ExitError{Code: exitErr.Code, Command: comando}
+	}
+
+	return err
 }
 
 // destination devuelve el destino remoto «usuario@dirección».

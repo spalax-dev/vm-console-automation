@@ -51,7 +51,10 @@ describe('utilidades de presentación', () => {
       ok: false,
       mensaje: 'el campo "nombre" no es válido',
       operacion: 'POST /api/packages',
+      codigo: undefined,
+      stderr: '',
       tecnico: 'nombre',
+      solicitud: '',
     });
   });
 
