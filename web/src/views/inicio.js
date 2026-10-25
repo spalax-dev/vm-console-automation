@@ -98,6 +98,12 @@ async function cargarSesion(el) {
   }
 
   boton.disabled = true;
+  cuerpo.innerHTML = `
+    <div class="text-vm-fgSecondary">Consultando la sesión con la máquina…</div>
+    <div class="h-1 w-full bg-vm-bg border border-vm-border overflow-hidden mt-1">
+      <div class="barra-indeterminada h-full bg-vm-accent"></div>
+    </div>
+  `;
 
   try {
     const sesion = await api.sesion.obtener();

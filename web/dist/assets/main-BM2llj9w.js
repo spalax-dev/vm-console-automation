@@ -22,6 +22,21 @@ lucide.createIcons({icons});\``);if(r===void 0)throw Error("`createIcons()` only
           <span class="label">Contraseña</span>
           <input name="password" type="password" class="input" autocomplete="current-password" required>
         </label>
+        <div id="registro-progreso" class="hidden flex-col gap-1.5 pt-1" aria-live="polite">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="flex items-center gap-1.5">
+              <i data-lucide="loader-2" class="w-3.5 h-3.5 text-vm-accent animate-spin"></i>
+              <span id="registro-paso">Guardando credenciales…</span>
+            </span>
+            <span id="registro-porcentaje" class="font-mono text-vm-fgSecondary">0 %</span>
+          </div>
+          <div class="h-1.5 w-full bg-vm-bg border border-vm-border overflow-hidden">
+            <div id="registro-barra" class="h-full bg-vm-accent transition-all duration-300" style="width: 0%"></div>
+          </div>
+          <div id="registro-ayuda" class="text-[10px] text-vm-fgSecondary">
+            La consola está conectando con la máquina y preparando SSH. Esto puede tardar unos segundos.
+          </div>
+        </div>
         <div id="registro-error" class="text-[11px] text-vm-accent min-h-[14px]"></div>
         <footer class="flex justify-end gap-2 pt-1">
           <button id="registro-cancelar" type="button" class="btn">Cancelar</button>
@@ -29,7 +44,7 @@ lucide.createIcons({icons});\``);if(r===void 0)throw Error("`createIcons()` only
         </footer>
       </form>
     </section>
-  `,k(n);let r=()=>n.remove(),i=n.querySelector(`#registro-form`),a=n.querySelector(`#registro-error`),o=i.querySelector(`button[type=submit]`);n.querySelector(`#registro-cerrar`).addEventListener(`click`,r),n.querySelector(`#registro-cancelar`).addEventListener(`click`,r),n.addEventListener(`click`,e=>{e.target===n&&r()}),n.addEventListener(`keydown`,e=>{e.key===`Escape`&&r()}),i.addEventListener(`submit`,async e=>{e.preventDefault(),a.textContent=``,o.disabled=!0;let n=new FormData(i);try{await F.sesion.registrar(String(n.get(`usuario`)||``),String(n.get(`password`)||``)),r(),t&&t()}catch(e){if(a.textContent=z(e),e.tecnico){let t=document.createElement(`pre`);t.className=`mt-1 p-1.5 bg-vm-bg border border-vm-border text-[10px] font-mono whitespace-pre-wrap max-h-[120px] overflow-auto`,t.textContent=e.tecnico,a.appendChild(t)}o.disabled=!1}}),document.body.appendChild(n),i.querySelector(`input[name=usuario]`).focus()}var Te=200;function Ee({alVincular:e}={}){let t=document.createElement(`div`);t.className=`flex items-center gap-1.5`,t.innerHTML=`
+  `,k(n);let r=()=>n.remove(),i=n.querySelector(`#registro-form`),a=n.querySelector(`#registro-error`),o=i.querySelector(`button[type=submit]`),s=n.querySelector(`#registro-progreso`),c=n.querySelector(`#registro-barra`),l=n.querySelector(`#registro-porcentaje`),u=n.querySelector(`#registro-paso`),d=n.querySelector(`#registro-ayuda`),f=n.querySelector(`#registro-cerrar`),p=n.querySelector(`#registro-cancelar`),m=!1,h=0,g=()=>{m||r()},_=e=>{m=e;for(let t of i.querySelectorAll(`input, button`))t.disabled=e;f.disabled=e,p.disabled=e,o.innerHTML=e?`Registrando…`:`<i data-lucide="key-round"></i> Registrar`,e||k(o)},v=()=>{s.classList.remove(`hidden`),s.classList.add(`flex`);let e=6,t=()=>{c.style.width=`${e}%`,l.textContent=`${e} %`,e>=82?u.textContent=`Verificando el acceso SSH…`:e>=54?u.textContent=`Preparando SSH y la llave de root…`:e>=26&&(u.textContent=`Conectando con Guest Additions…`)};t(),h=setInterval(()=>{e=Math.min(e+5,88),t()},600)},y=(e,t)=>{clearInterval(h),c.style.width=e?`100%`:c.style.width,l.textContent=e?`100 %`:l.textContent,c.className=`h-full transition-all duration-300 ${e?`bg-vm-success`:`bg-vm-accent`}`,u.textContent=t,d.textContent=e?`La máquina quedó registrada.`:`Revisa el detalle técnico e inténtalo de nuevo.`};f.addEventListener(`click`,g),p.addEventListener(`click`,g),n.addEventListener(`click`,e=>{e.target===n&&g()}),n.addEventListener(`keydown`,e=>{e.key===`Escape`&&g()}),i.addEventListener(`submit`,async e=>{e.preventDefault(),a.textContent=``,_(!0),v();let n=new FormData(i);try{await F.sesion.registrar(String(n.get(`usuario`)||``),String(n.get(`password`)||``)),y(!0,`Máquina registrada.`),setTimeout(()=>{r(),t&&t()},650)}catch(e){if(y(!1,`No fue posible registrar la máquina.`),a.textContent=z(e),e.tecnico){let t=document.createElement(`pre`);t.className=`mt-1 p-1.5 bg-vm-bg border border-vm-border text-[10px] font-mono whitespace-pre-wrap max-h-[120px] overflow-auto`,t.textContent=e.tecnico,a.appendChild(t)}_(!1)}}),document.body.appendChild(n),i.querySelector(`input[name=usuario]`).focus()}var Te=200;function Ee({alVincular:e}={}){let t=document.createElement(`div`);t.className=`flex items-center gap-1.5`,t.innerHTML=`
     <div class="relative">
       <button id="vm-boton" type="button" class="btn h-vm-btn pr-1.5 max-w-[260px]"
         aria-haspopup="listbox" aria-expanded="false" aria-controls="vm-panel" title="Elegir la máquina virtual (Guest Additions y red puente/host-only)">
@@ -158,7 +173,12 @@ lucide.createIcons({icons});\``);if(r===void 0)throw Error("`createIcons()` only
       </section>
     </div>
     <div id="result-slot"></div>
-  `,k(e),e.querySelector(`#sesion-refresh`).addEventListener(`click`,()=>K(e)),K(e),e}async function G(e){try{let{maquinas:t}=await F.maquinas.listar(),n=t.find(e=>e.activa);if(!n){await K(e);return}U({maquina:n,alRegistrar:()=>K(e)})}catch{await K(e)}}async function K(e){let t=e.querySelector(`#sesion-cuerpo`),n=e.querySelector(`#sesion-refresh`);if(t){n.disabled=!0;try{let n=await F.sesion.obtener(),r=L(n.estado),i=new Date().toLocaleTimeString(`es-CO`,{hour12:!1});t.innerHTML=`
+  `,k(e),e.querySelector(`#sesion-refresh`).addEventListener(`click`,()=>K(e)),K(e),e}async function G(e){try{let{maquinas:t}=await F.maquinas.listar(),n=t.find(e=>e.activa);if(!n){await K(e);return}U({maquina:n,alRegistrar:()=>K(e)})}catch{await K(e)}}async function K(e){let t=e.querySelector(`#sesion-cuerpo`),n=e.querySelector(`#sesion-refresh`);if(t){n.disabled=!0,t.innerHTML=`
+    <div class="text-vm-fgSecondary">Consultando la sesión con la máquina…</div>
+    <div class="h-1 w-full bg-vm-bg border border-vm-border overflow-hidden mt-1">
+      <div class="barra-indeterminada h-full bg-vm-accent"></div>
+    </div>
+  `;try{let n=await F.sesion.obtener(),r=L(n.estado),i=new Date().toLocaleTimeString(`es-CO`,{hour12:!1});t.innerHTML=`
       <div class="flex justify-between items-center">
         <span class="text-vm-fgSecondary">Máquina</span>
         <span class="font-mono">${I(n.vm)||`sin vincular`}</span>

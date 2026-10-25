@@ -37,6 +37,21 @@ export function abrirRegistro({ maquina, alRegistrar }) {
           <span class="label">Contraseña</span>
           <input name="password" type="password" class="input" autocomplete="current-password" required>
         </label>
+        <div id="registro-progreso" class="hidden flex-col gap-1.5 pt-1" aria-live="polite">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="flex items-center gap-1.5">
+              <i data-lucide="loader-2" class="w-3.5 h-3.5 text-vm-accent animate-spin"></i>
+              <span id="registro-paso">Guardando credenciales…</span>
+            </span>
+            <span id="registro-porcentaje" class="font-mono text-vm-fgSecondary">0 %</span>
+          </div>
+          <div class="h-1.5 w-full bg-vm-bg border border-vm-border overflow-hidden">
+            <div id="registro-barra" class="h-full bg-vm-accent transition-all duration-300" style="width: 0%"></div>
+          </div>
+          <div id="registro-ayuda" class="text-[10px] text-vm-fgSecondary">
+            La consola está conectando con la máquina y preparando SSH. Esto puede tardar unos segundos.
+          </div>
+        </div>
         <div id="registro-error" class="text-[11px] text-vm-accent min-h-[14px]"></div>
         <footer class="flex justify-end gap-2 pt-1">
           <button id="registro-cancelar" type="button" class="btn">Cancelar</button>
@@ -48,13 +63,92 @@ export function abrirRegistro({ maquina, alRegistrar }) {
 
   renderIcons(overlay);
 
-  const cerrar = () => overlay.remove();
+  const cerrarForzado = () => overlay.remove();
+
   const form = overlay.querySelector('#registro-form');
   const errorEl = overlay.querySelector('#registro-error');
   const boton = form.querySelector('button[type=submit]');
+  const progreso = overlay.querySelector('#registro-progreso');
+  const barra = overlay.querySelector('#registro-barra');
+  const porcentajeEl = overlay.querySelector('#registro-porcentaje');
+  const pasoEl = overlay.querySelector('#registro-paso');
+  const ayudaEl = overlay.querySelector('#registro-ayuda');
+  const cerrarBoton = overlay.querySelector('#registro-cerrar');
+  const cancelarBoton = overlay.querySelector('#registro-cancelar');
 
-  overlay.querySelector('#registro-cerrar').addEventListener('click', cerrar);
-  overlay.querySelector('#registro-cancelar').addEventListener('click', cerrar);
+  /** Indica que hay una petición en curso y el modal no debe cerrarse. */
+  let ocupado = false;
+
+  /** Temporizador que anima la barra mientras el servidor trabaja. */
+  let temporizador = 0;
+
+  const cerrar = () => {
+    if (!ocupado) {
+      cerrarForzado();
+    }
+  };
+
+  /**
+   * Bloquea o libera el formulario durante la petición.
+   *
+   * @param {boolean} bloqueado Estado deseado.
+   */
+  const bloquear = (bloqueado) => {
+    ocupado = bloqueado;
+
+    for (const control of form.querySelectorAll('input, button')) {
+      control.disabled = bloqueado;
+    }
+
+    cerrarBoton.disabled = bloqueado;
+    cancelarBoton.disabled = bloqueado;
+    boton.innerHTML = bloqueado ? 'Registrando…' : '<i data-lucide="key-round"></i> Registrar';
+
+    if (!bloqueado) {
+      renderIcons(boton);
+    }
+  };
+
+  /** Muestra el progreso y arranca la animación. */
+  const iniciarProgreso = () => {
+    progreso.classList.remove('hidden');
+    progreso.classList.add('flex');
+
+    let porcentaje = 6;
+
+    const pintar = () => {
+      barra.style.width = `${porcentaje}%`;
+      porcentajeEl.textContent = `${porcentaje} %`;
+
+      if (porcentaje >= 82) {
+        pasoEl.textContent = 'Verificando el acceso SSH…';
+      } else if (porcentaje >= 54) {
+        pasoEl.textContent = 'Preparando SSH y la llave de root…';
+      } else if (porcentaje >= 26) {
+        pasoEl.textContent = 'Conectando con Guest Additions…';
+      }
+    };
+
+    pintar();
+
+    temporizador = setInterval(() => {
+      porcentaje = Math.min(porcentaje + 5, 88);
+      pintar();
+    }, 600);
+  };
+
+  /** Detiene la animación y fija el resultado final. */
+  const terminarProgreso = (exito, texto) => {
+    clearInterval(temporizador);
+    barra.style.width = exito ? '100%' : barra.style.width;
+    porcentajeEl.textContent = exito ? '100 %' : porcentajeEl.textContent;
+    barra.className = `h-full transition-all duration-300 ${exito ? 'bg-vm-success' : 'bg-vm-accent'}`;
+    pasoEl.textContent = texto;
+    ayudaEl.textContent = exito ? 'La máquina quedó registrada.' : 'Revisa el detalle técnico e inténtalo de nuevo.';
+  };
+
+  cerrarBoton.addEventListener('click', cerrar);
+  cancelarBoton.addEventListener('click', cerrar);
   overlay.addEventListener('click', (evento) => {
     if (evento.target === overlay) {
       cerrar();
@@ -69,18 +163,24 @@ export function abrirRegistro({ maquina, alRegistrar }) {
   form.addEventListener('submit', async (evento) => {
     evento.preventDefault();
     errorEl.textContent = '';
-    boton.disabled = true;
+    bloquear(true);
+    iniciarProgreso();
 
     const datos = new FormData(form);
 
     try {
       await api.sesion.registrar(String(datos.get('usuario') || ''), String(datos.get('password') || ''));
-      cerrar();
+      terminarProgreso(true, 'Máquina registrada.');
 
-      if (alRegistrar) {
-        alRegistrar();
-      }
+      setTimeout(() => {
+        cerrarForzado();
+
+        if (alRegistrar) {
+          alRegistrar();
+        }
+      }, 650);
     } catch (fallo) {
+      terminarProgreso(false, 'No fue posible registrar la máquina.');
       errorEl.textContent = mensajeDeError(fallo);
 
       if (fallo.tecnico) {
@@ -90,7 +190,7 @@ export function abrirRegistro({ maquina, alRegistrar }) {
         errorEl.appendChild(detalle);
       }
 
-      boton.disabled = false;
+      bloquear(false);
     }
   });
 
