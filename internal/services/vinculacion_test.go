@@ -6,6 +6,7 @@ package services
 import (
 	"context"
 	"errors"
+	"net/netip"
 	"testing"
 
 	"consola-vm/internal/core/domain"
@@ -40,6 +41,28 @@ func (s *stubSeleccion) Objetivo() domain.Target { return domain.Target{ID: s.id
 
 // Establecer vincula una máquina por nombre o UUID.
 func (s *stubSeleccion) Establecer(id string) { s.id = id }
+
+// stubGuestAdditions simula la comprobación de Guest Additions.
+type stubGuestAdditions struct {
+	accesibles map[string]bool
+	consultas  int
+}
+
+// Address devuelve una IP solo si la máquina publica Guest Additions.
+func (s *stubGuestAdditions) Address(_ context.Context, target domain.Target) (netip.Addr, error) {
+	s.consultas++
+
+	if s.accesibles[target.ID] {
+		return netip.MustParseAddr(ipPrueba), nil
+	}
+
+	return netip.Addr{}, errors.New("sin guest additions")
+}
+
+// State devuelve el estado en ejecución.
+func (s *stubGuestAdditions) State(context.Context, domain.Target) (domain.MachineState, error) {
+	return domain.StateRunning, nil
+}
 
 // inventarioDePrueba arma dos máquinas, una en ejecución.
 func inventarioDePrueba() *stubInventory {
@@ -280,5 +303,53 @@ func TestVinculacionPropagaElFalloDelEncendido(t *testing.T) {
 
 	if _, err := vinculacion.Encender(context.Background(), nombreUbuntu); !errors.Is(err, causa) {
 		t.Fatalf(msgEncender, err, causa)
+	}
+}
+
+// TestVinculacionOcultaSinGuestAdditions comprueba que una máquina en
+// ejecución sin Guest Additions no se lista y que la apagada sí.
+func TestVinculacionOcultaSinGuestAdditions(t *testing.T) {
+	t.Parallel()
+
+	maquina := &stubGuestAdditions{accesibles: map[string]bool{}}
+	vinculacion := NuevoVinculacion(&ConfigVinculacion{
+		Inventario: inventarioDePrueba(),
+		Seleccion:  &stubSeleccion{},
+		Maquina:    maquina,
+	})
+
+	visibles, err := vinculacion.Listar(context.Background(), "")
+	if err != nil {
+		t.Fatalf(msgListarOK, err)
+	}
+
+	if len(visibles) != 1 || visibles[0].Nombre != nombreUbuntu {
+		t.Errorf("visibles = %+v, want solo la máquina apagada", visibles)
+	}
+
+	if maquina.consultas != 1 {
+		t.Errorf("Address() se llamó %d veces, want 1 (solo la encendida)", maquina.consultas)
+	}
+}
+
+// TestVinculacionListaConGuestAdditions comprueba que la máquina
+// encendida con Guest Additions sí aparece.
+func TestVinculacionListaConGuestAdditions(t *testing.T) {
+	t.Parallel()
+
+	maquina := &stubGuestAdditions{accesibles: map[string]bool{nombreDebian: true}}
+	vinculacion := NuevoVinculacion(&ConfigVinculacion{
+		Inventario: inventarioDePrueba(),
+		Seleccion:  &stubSeleccion{},
+		Maquina:    maquina,
+	})
+
+	visibles, err := vinculacion.Listar(context.Background(), "")
+	if err != nil {
+		t.Fatalf(msgListarOK, err)
+	}
+
+	if len(visibles) != 2 {
+		t.Errorf("visibles = %+v, want las dos máquinas", visibles)
 	}
 }

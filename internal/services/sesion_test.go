@@ -38,6 +38,7 @@ const (
 	msgObtenerSinSesion = "Obtener() error = %v, want ErrSesionNoDisponible"
 	estadoInactivo      = "inactive"
 	duenoPrueba         = "catalogo"
+	ipPrueba            = "192.168.1.50"
 	ipServidorPrueba    = "192.168.1.61"
 	ipServidorNuevo     = "192.168.1.62"
 	msgEliminarOK       = "Eliminar() error = %v, want nil"
@@ -185,7 +186,7 @@ func nuevoDescubridor(m *stubMachine, conectores ...ports.Connector) *Descubrido
 func TestDescubridorSeleccionaSSH(t *testing.T) {
 	t.Parallel()
 
-	ip := netip.MustParseAddr("192.168.1.50")
+	ip := netip.MustParseAddr(ipPrueba)
 	m := &stubMachine{addr: ip, state: domain.StateRunning}
 	sshConn := &stubConnector{name: conectorSSH}
 	gaConn := &stubConnector{name: conectorGuest}

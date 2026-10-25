@@ -113,6 +113,10 @@ func TestLlavesGenerarInstalaClave(t *testing.T) {
 		t.Errorf("orden de sshd = %q", orden)
 	}
 
+	if !strings.Contains(orden, "openssh-server") || !strings.Contains(orden, "enable --now ssh") {
+		t.Errorf("orden = %q, want instalar y arrancar SSH", orden)
+	}
+
 	if !sesion.closed {
 		t.Error(msgSesionAbierta)
 	}

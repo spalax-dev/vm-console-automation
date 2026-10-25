@@ -57,6 +57,14 @@ el núcleo conozca los adaptadores:
 El orden de preferencia lo fija `main.go` al inyectar la lista, no el servicio: así se
 puede probar con conectores falsos y cambiar la política sin tocar el caso de uso.
 
+El **inventario del selector** aplica el mismo criterio de forma silenciosa: las
+máquinas encendidas solo aparecen si publican Guest Additions (el canal con el
+que la consola instala SSH); las apagadas se listan para poder encenderlas. La
+interfaz avisa de que solo se muestran las máquinas administrables. Si una
+máquina no tiene Guest Additions ni un adaptador puente, no hay forma de
+descubrir su dirección ni de ejecutar la primera orden, por lo que se omite en
+lugar de ofrecer una operación que fallaría.
+
 La instalación de SSH cuando aún no hay llave es responsabilidad del módulo 3.1.2
 (`GET/POST /api/keys/root`); el descubridor solo informa qué conector está disponible.
 Mientras no exista la llave, la interfaz muestra `guest-additions` y ofrece el módulo de
@@ -102,12 +110,15 @@ El servicio `Llaves` (`internal/services/llaves.go`) ejecuta esta secuencia:
 2. Abre una sesión **antes** de generar la llave: como todavía no hay llave,
    el descubrimiento elige `guest-additions`.
 3. Genera el par con `ssh-keygen -t ed25519 -N "" -f <ruta> -C vmcons-root`.
-4. Instala la llave pública en `/root/.ssh/authorized_keys` con permisos
+4. Si `/usr/sbin/sshd` no existe, instala `openssh-server` con APT y
+   `DEBIAN_FRONTEND=noninteractive`; el canal de Guest Additions permite
+   hacerlo antes de que SSH exista.
+5. Instala la llave pública en `/root/.ssh/authorized_keys` con permisos
    `700` para el directorio y `600` para el archivo.
-5. Escribe `/etc/ssh/sshd_config.d/99-vmcons.conf` con
+6. Escribe `/etc/ssh/sshd_config.d/99-vmcons.conf` con
    `PasswordAuthentication no` y `PermitRootLogin prohibit-password`, y
-   recarga el servicio con `systemctl reload ssh`.
-6. Cierra la sesión. A partir de este momento el conector `ssh` queda
+   habilita y arranca el servicio con `systemctl enable --now ssh`.
+7. Cierra la sesión. A partir de este momento el conector `ssh` queda
    disponible y pasa a ser el preferido.
 
 La ruta de la llave se configura con `VMCONS_SSH_KEY`; si no se define, se usa

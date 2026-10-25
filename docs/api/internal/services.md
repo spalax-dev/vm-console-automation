@@ -246,6 +246,9 @@ type ConfigVinculacion struct {
     Seleccion Selector
     // Energia enciende las máquinas del hipervisor.
     Energia ports.Power
+    // Maquina comprueba si una máquina en ejecución publica Guest
+    // Additions y, por tanto, puede administrarse.
+    Maquina ports.Machine
 }
 ```
 

@@ -143,12 +143,14 @@ func leerClavePublica(ruta string) (string, error) {
 func guionInstalacion(clave string) *domain.Command {
 	configuracion := "PasswordAuthentication no\nPermitRootLogin prohibit-password\n"
 
-	guion := "install -d -m 700 /root/.ssh && " +
+	guion := "if [ ! -x /usr/sbin/sshd ]; then " +
+		"DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-server; fi && " +
+		"install -d -m 700 /root/.ssh && " +
 		"printf '%s\\n' " + domain.Quote(clave) + " >> /root/.ssh/authorized_keys && " +
 		"chmod 600 /root/.ssh/authorized_keys && " +
 		"install -d -m 755 /etc/ssh/sshd_config.d && " +
 		"printf '%s' " + domain.Quote(configuracion) + " > /etc/ssh/sshd_config.d/99-vmcons.conf && " +
-		"systemctl reload ssh"
+		"systemctl enable --now ssh"
 
 	return &domain.Command{Path: binSh, Args: []string{"-c", guion}}
 }

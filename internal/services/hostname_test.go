@@ -38,7 +38,7 @@ func TestHostnameObtener(t *testing.T) {
 		t.Errorf("Nombre = %q, want debian13", config.Nombre)
 	}
 
-	if config.IP != "192.168.1.50" {
+	if config.IP != ipPrueba {
 		t.Errorf("IP = %q, want 192.168.1.50", config.IP)
 	}
 

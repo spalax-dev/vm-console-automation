@@ -137,6 +137,11 @@ módulos ---preparación del sistema, gestión de usuarios, servicios con
 systemd y balanceo de carga---, y cada módulo presenta un formulario con
 los campos y las casillas de verificación que la operación requiere.
 
+El selector de máquina solo muestra las máquinas administrables: las que
+están encendidas y publican Guest Additions, más las apagadas para poder
+encenderlas. Así se evita ofrecer operaciones que fallarían por falta de
+un canal de comunicación o de una dirección alcanzable.
+
 Toda operación sigue el ciclo de la \cref{fig:flujo-proceso}: validación
 en el cliente para dar respuesta inmediata, validación en el servidor
 sobre los parámetros crudos (que es la que realmente decide), selección

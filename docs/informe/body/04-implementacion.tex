@@ -59,13 +59,14 @@ como todavía no hay llave, el descubrimiento elige Guest Additions, que
 es el único canal disponible.
 
 La generación se delega en \texttt{ssh-keygen -t ed25519 -N ""} sobre el
-anfitrión. Con la llave pública ya disponible, una sola orden POSIX crea
-\texttt{/root/.ssh} con permisos \texttt{700}, agrega la clave a
-\texttt{authorized\_keys} con \texttt{600}, escribe
+anfitrión. Si la máquina no tiene \texttt{openssh-server}, la misma orden
+lo instala con APT ---el canal de Guest Additions sigue disponible--- y
+después crea \texttt{/root/.ssh} con permisos \texttt{700}, agrega la
+clave a \texttt{authorized\_keys} con \texttt{600}, escribe
 \texttt{/etc/ssh/sshd\_config.d/99-vmcons.conf} con
 \texttt{PasswordAuthentication no} y
-\texttt{PermitRootLogin prohibit-password}, y recarga el servicio con
-\texttt{systemctl reload ssh}. Al cerrar la sesión, el conector
+\texttt{PermitRootLogin prohibit-password}, y habilita y arranca el
+servicio con \texttt{systemctl enable --now ssh}. Al cerrar la sesión, el conector
 \texttt{ssh} queda instalado y pasa a ser el preferido para las
 siguientes operaciones.
 

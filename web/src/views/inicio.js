@@ -34,6 +34,9 @@ export function renderInicio() {
           <div class="text-vm-fgSecondary">Consultando la sesión…</div>
         </div>
       </section>
+      <p class="text-[11px] text-vm-fgSecondary px-1">
+        Solo se muestran las máquinas con Guest Additions (o apagadas, para poder encenderlas).
+      </p>
       <section class="card">
         <header class="px-3 py-1.5 border-b border-vm-border bg-[#f7f7f7]"><div class="flex items-center gap-1.5"><i data-lucide="layout-grid" class="w-4 h-4"></i><span class="text-[12px] font-medium">Módulos</span></div></header>
         <div class="p-3 grid grid-cols-2 gap-2">

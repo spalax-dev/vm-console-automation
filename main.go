@@ -210,6 +210,7 @@ func nuevaConsola(ejecutor ports.Executor) *consola {
 			Inventario: maquina,
 			Seleccion:  sesiones,
 			Energia:    maquina,
+			Maquina:    maquina,
 		}),
 	}
 }

@@ -57,6 +57,9 @@ type ConfigVinculacion struct {
 	Seleccion Selector
 	// Energia enciende las máquinas del hipervisor.
 	Energia ports.Power
+	// Maquina comprueba si una máquina en ejecución publica Guest
+	// Additions y, por tanto, puede administrarse.
+	Maquina ports.Machine
 }
 
 // Vinculacion busca máquinas en el inventario y cambia la que administra
@@ -65,6 +68,7 @@ type Vinculacion struct {
 	inventario ports.Inventory
 	seleccion  Selector
 	energia    ports.Power
+	maquina    ports.Machine
 }
 
 // NuevoVinculacion construye el servicio con las dependencias dadas.
@@ -73,6 +77,7 @@ func NuevoVinculacion(config *ConfigVinculacion) *Vinculacion {
 		inventario: config.Inventario,
 		seleccion:  config.Seleccion,
 		energia:    config.Energia,
+		maquina:    config.Maquina,
 	}
 }
 
@@ -94,6 +99,10 @@ func (v *Vinculacion) Listar(ctx context.Context, filtro string) ([]MaquinaVirtu
 			continue
 		}
 
+		if !v.administrable(ctx, maquina) {
+			continue
+		}
+
 		visibles = append(visibles, MaquinaVirtual{
 			Nombre: maquina.Name,
 			UUID:   maquina.UUID,
@@ -103,6 +112,19 @@ func (v *Vinculacion) Listar(ctx context.Context, filtro string) ([]MaquinaVirtu
 	}
 
 	return visibles, nil
+}
+
+// administrable informa si la máquina puede administrarse: las apagadas
+// se listan para poder encenderlas y las encendidas deben publicar Guest
+// Additions, único canal para instalar SSH.
+func (v *Vinculacion) administrable(ctx context.Context, maquina domain.VM) bool {
+	if maquina.State != domain.StateRunning || v.maquina == nil {
+		return true
+	}
+
+	_, err := v.maquina.Address(ctx, domain.Target{ID: maquina.Name})
+
+	return err == nil
 }
 
 // Vincular establece la máquina que administra la consola. Acepta el
