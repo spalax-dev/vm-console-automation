@@ -45,14 +45,15 @@ const (
 	msgResultadoTecnico = "resultado = %+v, want código y stderr"
 	msgOrdenDos         = "la sesión ejecutó %d órdenes, want 2"
 	// #nosec G101 -- usuario de prueba, no una credencial real.
-	usuarioRoot        = "root"
-	passwordPrueba     = "secreto"
-	vmPrueba           = "vm1"
-	archivoClave       = "credenciales.key"
-	moduloSystemd      = "systemd"
-	msgAlmacenOK       = "NuevoAlmacen() error = %v"
-	msgGuardarOK       = "Guardar() error = %v, want nil"
-	msgPrepararArchivo = "preparar el archivo: %v"
+	usuarioRoot           = "root"
+	passwordPrueba        = "secreto"
+	vmPrueba              = "vm1"
+	archivoClave          = "credenciales.key"
+	moduloSystemd         = "systemd"
+	msgAlmacenOK          = "NuevoAlmacen() error = %v"
+	msgDescubrirSinSesion = "Descubrir() error = %v, want ErrSesionNoDisponible"
+	msgGuardarOK          = "Guardar() error = %v, want nil"
+	msgPrepararArchivo    = "preparar el archivo: %v"
 	// #nosec G101 -- nombre de archivo de prueba, no una credencial.
 	archivoCredenciales = "credenciales.json"
 	msgIP               = "IP = %s, want %s"
@@ -271,7 +272,7 @@ func TestDescubridorFallaSiMaquinaApagada(t *testing.T) {
 
 	_, err := nuevoDescubridor(m, &stubConnector{name: conectorSSH}).Descubrir(context.Background())
 	if !errors.Is(err, ErrSesionNoDisponible) {
-		t.Fatalf("Descubrir() error = %v, want ErrSesionNoDisponible", err)
+		t.Fatalf(msgDescubrirSinSesion, err)
 	}
 }
 
@@ -286,7 +287,7 @@ func TestDescubridorFallaSinConectores(t *testing.T) {
 
 	_, err := nuevoDescubridor(m, sshConn, gaConn).Descubrir(context.Background())
 	if !errors.Is(err, ErrSesionNoDisponible) {
-		t.Fatalf("Descubrir() error = %v, want ErrSesionNoDisponible", err)
+		t.Fatalf(msgDescubrirSinSesion, err)
 	}
 }
 
@@ -337,8 +338,8 @@ func TestDescubridorErrorAlDescubrirDireccion(t *testing.T) {
 	m := &stubMachine{state: domain.StateRunning, addrErr: errors.New("sin Guest Additions")}
 
 	_, err := nuevoDescubridor(m, &stubConnector{name: conectorSSH}).Descubrir(context.Background())
-	if err == nil {
-		t.Fatal("Descubrir() error = nil, want el error al descubrir la dirección")
+	if !errors.Is(err, ErrSesionNoDisponible) {
+		t.Fatalf(msgDescubrirSinSesion, err)
 	}
 }
 

@@ -346,7 +346,7 @@ func (s *Session) Run(ctx context.Context, cmd *domain.Command) (domain.Result, 
 		args = append(args, "--cwd", cmd.Dir)
 	}
 
-	args = append(args, "--exe", cmd.Path, "--", cmd.Path)
+	args = append(args, "--exe", cmd.Path, "--")
 	args = append(args, cmd.Args...)
 
 	result, err := s.client.exe.Execute(ctx, s.client.bin, args...)

@@ -214,7 +214,7 @@ func TestGuestSessionRunBuildsGuestControlCommand(t *testing.T) {
 		defaultBinary, subGuestControl, vmID, "run",
 		flagUsername, credRoot, flagPassword, credPass,
 		"--exe", binAptGet,
-		"--", binAptGet, subInstall, "-y", "nginx",
+		"--", subInstall, "-y", "nginx",
 	}
 
 	got := fake.lastCall()
@@ -336,7 +336,7 @@ func TestGuestSessionRunPassesEnvironment(t *testing.T) {
 		flagUsername, credRoot, flagPassword, credPass,
 		"--putenv", "DEBIAN_FRONTEND=noninteractive",
 		"--exe", binAptGet,
-		"--", binAptGet, subInstall, "-y", "nano",
+		"--", subInstall, "-y", "nano",
 	}
 
 	got := fake.lastCall()

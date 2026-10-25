@@ -179,6 +179,17 @@ de los módulos del numeral 3.
 
 ## Notas de seguimiento
 
+- **25 oct 2026** — Corregido `guestcontrol run`: el adaptador pasaba la
+  ruta del ejecutable dos veces (`--exe /usr/bin/id -- /usr/bin/id -u`),
+  por lo que `id` interpretaba la ruta como nombre de usuario. Ahora los
+  argumentos van solo después de `--`. Esto explica los fallos de
+  Guest Additions con credenciales correctas.
+- **25 oct 2026** — Arranque de VM: mientras Guest Additions no publica
+  la IP, `GET /api/session` responde `503` (no `500`) y el selector
+  reintenta cada 2 s hasta 90 s, mostrando «esperando a que arranque»,
+  «esperando Guest Additions/SSH» y el resultado final. Ya no hace falta
+  recargar la página.
+
 - **25 oct 2026** — Corregido el refresco al cambiar de máquina. La caché
   no debía servir datos de la máquina anterior por dos motivos: una
   lectura que ya estaba en vuelo podía guardarse *después* de la

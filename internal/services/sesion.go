@@ -142,7 +142,7 @@ func (d *Descubridor) resolver(ctx context.Context) (ports.Connector, domain.Tar
 
 	objetivo, err = d.conDireccion(ctx, objetivo)
 	if err != nil {
-		return nil, domain.Target{}, estado, err
+		return nil, domain.Target{}, estado, fmt.Errorf("%w: %w", ErrSesionNoDisponible, err)
 	}
 
 	conector := d.primerConectorDisponible(ctx, objetivo)

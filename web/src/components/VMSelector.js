@@ -249,6 +249,46 @@ export function VMSelector({ alVincular } = {}) {
     }
   });
 
+  /**
+   * Espera a que la máquina arranque y la sesión esté disponible.
+   *
+   * @param {string} nombre Nombre de la máquina.
+   * @returns {Promise<object|null>} Sesión disponible o null si expira.
+   */
+  const esperarArranque = async (nombre) => {
+    const inicio = Date.now();
+    const limite = 90_000;
+
+    while (Date.now() - inicio < limite) {
+      await new Promise((resolver) => window.setTimeout(resolver, 2000));
+
+      try {
+        const sesion = await api.sesion.obtener();
+
+        if (sesion.estado === 'running') {
+          return sesion;
+        }
+      } catch {
+        // Guest Additions o SSH todavía no responden.
+      }
+
+      try {
+        await cargar('');
+      } catch {
+        // El inventario se reintenta en el siguiente ciclo.
+      }
+
+      const transcurrido = Math.floor((Date.now() - inicio) / 1000);
+      if (transcurrido >= 30) {
+        progresoTexto.textContent = 'Esperando Guest Additions o SSH…';
+      } else if (transcurrido >= 8) {
+        progresoTexto.textContent = 'Esperando a que arranque el sistema…';
+      }
+    }
+
+    return null;
+  };
+
   encender.addEventListener('click', async () => {
     if (!activa) {
       return;
@@ -265,14 +305,29 @@ export function VMSelector({ alVincular } = {}) {
       const maquina = await api.maquinas.encender(activa.nombre);
 
       marcarActiva({ ...maquina, activa: true });
-      progresoTexto.textContent = `${maquina.nombre} encendida. Consultando la sesión…`;
-      pie.textContent = `${maquina.nombre} está en ejecución`;
+      progresoTexto.textContent = `${maquina.nombre} encendida. Esperando la sesión…`;
+      pie.textContent = `${maquina.nombre} está en ejecución; esperando Guest Additions o SSH…`;
 
-      if (alVincular) {
-        await Promise.resolve(alVincular(maquina));
+      const sesion = await esperarArranque(maquina.nombre);
+
+      if (sesion) {
+        progresoTexto.textContent = `${maquina.nombre} en ejecución y sesión disponible.`;
+        pie.textContent = `${maquina.nombre} está en ejecución`;
+
+        if (alVincular) {
+          await Promise.resolve(alVincular(maquina));
+        }
+
+        await cargar('');
+        await new Promise((resolver) => window.setTimeout(resolver, 800));
+      } else {
+        progresoTexto.textContent = `${maquina.nombre} está encendida, pero Guest Additions/SSH aún no responde.`;
+        pie.textContent = 'La máquina está encendida; actualiza en unos segundos.';
+        pie.className = 'px-2 py-1 border-t border-vm-border text-[10px] text-vm-fgSecondary';
+        panel.classList.remove('hidden');
+        boton.setAttribute('aria-expanded', 'true');
+        encender.disabled = false;
       }
-
-      await cargar('');
     } catch (error) {
       pie.textContent = mensajeDeError(error);
       pie.className = 'px-2 py-1 border-t border-vm-border text-[10px] text-vm-accent';
