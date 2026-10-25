@@ -229,15 +229,22 @@ func nuevaConsola(ejecutor ports.Executor) *consola {
 		vbox.WithGuestCredentials(usuarioInvitado(), os.Getenv(envGuestPass)),
 	)
 
-	if os.Getenv(envVM) == "" {
+	conectorSSH := ssh.New(ejecutor, ssh.WithKey(rutaLlave()))
+
+	objetivo := domain.Target{ID: os.Getenv(envVM)}
+	if objetivo.ID == "" {
+		objetivo.ID = almacen.Activa()
+	}
+
+	if objetivo.ID != "" {
+		slog.Info("máquina vinculada", "vm", objetivo.ID)
+	} else {
 		slog.Warn("la consola arranca sin máquina vinculada; elígela en el selector", "variable", envVM)
 	}
 
-	conectorSSH := ssh.New(ejecutor, ssh.WithKey(rutaLlave()))
-
 	sesiones := services.NuevoDescubridor(&services.ConfigDescubridor{
 		Maquina:  maquina,
-		Objetivo: domain.Target{ID: os.Getenv(envVM)},
+		Objetivo: objetivo,
 		Conectores: []ports.Connector{
 			conectorSSH,
 			maquina,
@@ -257,11 +264,12 @@ func nuevaConsola(ejecutor ports.Executor) *consola {
 		}),
 		registro: almacen,
 		vinculacion: services.NuevoVinculacion(&services.ConfigVinculacion{
-			Inventario: maquina,
-			Seleccion:  sesiones,
-			Energia:    maquina,
-			Maquina:    maquina,
-			Registro:   almacen,
+			Inventario:   maquina,
+			Seleccion:    sesiones,
+			Energia:      maquina,
+			Maquina:      maquina,
+			Registro:     almacen,
+			Persistencia: almacen,
 		}),
 	}
 }

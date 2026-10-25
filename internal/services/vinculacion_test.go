@@ -424,3 +424,40 @@ func TestVinculacionMarcaRegistradas(t *testing.T) {
 		t.Error("ubuntu-lab aparece registrada sin estarlo")
 	}
 }
+
+// stubPersistencia registra las máquinas vinculadas.
+type stubPersistencia struct {
+	activa    string
+	guardadas []string
+}
+
+// Activa devuelve la máquina guardada.
+func (s *stubPersistencia) Activa() string { return s.activa }
+
+// GuardarActiva acumula el nombre vinculado.
+func (s *stubPersistencia) GuardarActiva(vm string) error {
+	s.guardadas = append(s.guardadas, vm)
+
+	return nil
+}
+
+// TestVinculacionGuardaLaMaquinaActiva comprueba que vincular persiste
+// la elección.
+func TestVinculacionGuardaLaMaquinaActiva(t *testing.T) {
+	t.Parallel()
+
+	persistencia := &stubPersistencia{}
+	vinculacion := NuevoVinculacion(&ConfigVinculacion{
+		Inventario:   inventarioDePrueba(),
+		Seleccion:    &stubSeleccion{},
+		Persistencia: persistencia,
+	})
+
+	if _, err := vinculacion.Vincular(context.Background(), nombreDebian); err != nil {
+		t.Fatalf("Vincular() error = %v", err)
+	}
+
+	if len(persistencia.guardadas) != 1 || persistencia.guardadas[0] != nombreDebian {
+		t.Errorf("guardadas = %v, want [%s]", persistencia.guardadas, nombreDebian)
+	}
+}

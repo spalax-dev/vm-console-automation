@@ -56,6 +56,16 @@ CREATE TABLE operaciones (
 );
 ```
 
+La tabla `configuracion` guarda ajustes simples; por ahora, la última
+máquina vinculada:
+
+```sql
+CREATE TABLE configuracion (
+    clave TEXT PRIMARY KEY,
+    valor TEXT NOT NULL
+);
+```
+
 ## Cifrado
 
 1. Al primer arranque se generan 32 bytes aleatorios en

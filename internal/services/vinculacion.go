@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"consola-vm/internal/core/domain"
@@ -69,26 +70,36 @@ type ConfigVinculacion struct {
 	Maquina ports.Machine
 	// Registro consulta el estado de registro de las máquinas.
 	Registro Registro
+	// Persistencia guarda la máquina vinculada entre arranques.
+	Persistencia PersistenciaActiva
+}
+
+// PersistenciaActiva guarda y recupera la máquina vinculada.
+type PersistenciaActiva interface {
+	Activa() string
+	GuardarActiva(vm string) error
 }
 
 // Vinculacion busca máquinas en el inventario y cambia la que administra
 // la consola.
 type Vinculacion struct {
-	inventario ports.Inventory
-	seleccion  Selector
-	energia    ports.Power
-	maquina    ports.Machine
-	registro   Registro
+	inventario   ports.Inventory
+	seleccion    Selector
+	energia      ports.Power
+	maquina      ports.Machine
+	registro     Registro
+	persistencia PersistenciaActiva
 }
 
 // NuevoVinculacion construye el servicio con las dependencias dadas.
 func NuevoVinculacion(config *ConfigVinculacion) *Vinculacion {
 	return &Vinculacion{
-		inventario: config.Inventario,
-		seleccion:  config.Seleccion,
-		energia:    config.Energia,
-		maquina:    config.Maquina,
-		registro:   config.Registro,
+		inventario:   config.Inventario,
+		seleccion:    config.Seleccion,
+		energia:      config.Energia,
+		maquina:      config.Maquina,
+		registro:     config.Registro,
+		persistencia: config.Persistencia,
 	}
 }
 
@@ -176,6 +187,7 @@ func (v *Vinculacion) Vincular(ctx context.Context, identificador string) (Maqui
 		}
 
 		v.seleccion.Establecer(maquina.Name)
+		v.guardarActiva(maquina.Name)
 
 		return MaquinaVirtual{
 			Nombre:     maquina.Name,
@@ -213,6 +225,18 @@ func (v *Vinculacion) Encender(ctx context.Context, identificador string) (Maqui
 		Activa:     v.seleccion.Objetivo().ID == maquina.Name || v.seleccion.Objetivo().ID == maquina.UUID,
 		Registrada: v.estaRegistrada(maquina.Name),
 	}, nil
+}
+
+// guardarActiva persiste la máquina vinculada sin romper la operación si
+// el almacenamiento falla.
+func (v *Vinculacion) guardarActiva(nombre string) {
+	if v.persistencia == nil {
+		return
+	}
+
+	if err := v.persistencia.GuardarActiva(nombre); err != nil {
+		slog.Warn("guardar la máquina vinculada", claveErrorLog, err)
+	}
 }
 
 // estaRegistrada informa si la máquina ya fue registrada.

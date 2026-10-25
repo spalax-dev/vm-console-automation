@@ -63,6 +63,16 @@ CREATE TABLE IF NOT EXISTS operaciones (
 CREATE INDEX IF NOT EXISTS operaciones_fecha ON operaciones (fecha_hora);
 CREATE INDEX IF NOT EXISTS operaciones_vm ON operaciones (vm);`
 
+// esquemaConfiguracion crea la tabla de ajustes de la consola.
+const esquemaConfiguracion = `
+CREATE TABLE IF NOT EXISTS configuracion (
+	clave TEXT PRIMARY KEY,
+	valor TEXT NOT NULL
+);`
+
+// claveMaquinaActiva es la clave de la máquina vinculada.
+const claveMaquinaActiva = "vm_activa"
+
 // Almacen guarda las credenciales por máquina en SQLite y cifra la
 // contraseña con una clave local.
 type Almacen struct {
@@ -95,6 +105,10 @@ func NuevoAlmacen(rutaBD, rutaClave string) (*Almacen, error) {
 
 	if _, err := db.ExecContext(context.Background(), esquemaOperaciones); err != nil {
 		return nil, fmt.Errorf("crear el esquema del historial: %w", err)
+	}
+
+	if _, err := db.ExecContext(context.Background(), esquemaConfiguracion); err != nil {
+		return nil, fmt.Errorf("crear el esquema de configuración: %w", err)
 	}
 
 	// #nosec G302 -- es la base de datos, no un ejecutable.
@@ -202,6 +216,34 @@ func (a *Almacen) Guardar(vm string, credenciales Credenciales) error {
 func (a *Almacen) Borrar(vm string) error {
 	if _, err := a.db.ExecContext(context.Background(), `DELETE FROM credenciales WHERE vm = ?`, vm); err != nil {
 		return fmt.Errorf("borrar las credenciales: %w", err)
+	}
+
+	return nil
+}
+
+// Activa devuelve la máquina vinculada que se guardó al cerrar.
+func (a *Almacen) Activa() string {
+	var valor string
+
+	err := a.db.QueryRowContext(context.Background(),
+		`SELECT valor FROM configuracion WHERE clave = ?`, claveMaquinaActiva,
+	).Scan(&valor)
+	if err != nil {
+		return ""
+	}
+
+	return valor
+}
+
+// GuardarActiva persiste la máquina vinculada para el próximo arranque.
+func (a *Almacen) GuardarActiva(vm string) error {
+	_, err := a.db.ExecContext(context.Background(), `
+		INSERT INTO configuracion (clave, valor) VALUES (?, ?)
+		ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor`,
+		claveMaquinaActiva, vm,
+	)
+	if err != nil {
+		return fmt.Errorf("guardar la máquina vinculada: %w", err)
 	}
 
 	return nil

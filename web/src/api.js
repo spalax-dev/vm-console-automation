@@ -173,6 +173,15 @@ export const api = {
     olvidar: () => pedir('DELETE', '/session/register'),
   },
 
+  /** Historial de operaciones (`GET /api/historial`). */
+  historial: {
+    /**
+     * @param {object} filtros Filtros de la consulta.
+     * @returns {Promise<{operaciones: Array<object>}>}
+     */
+    listar: (filtros) => pedir('GET', '/historial', { consulta: filtros }),
+  },
+
   /** Inventario de máquinas del hipervisor (`GET /api/vms`). */
   maquinas: {
     /**

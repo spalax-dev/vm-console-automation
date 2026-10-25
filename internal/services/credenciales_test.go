@@ -21,7 +21,7 @@ func nuevaBaseDePrueba(t *testing.T) (almacen *Almacen, rutaBD, rutaClave string
 
 	almacen, err := NuevoAlmacen(rutaBD, rutaClave)
 	if err != nil {
-		t.Fatalf("NuevoAlmacen() error = %v", err)
+		t.Fatalf(msgAlmacenOK, err)
 	}
 
 	return almacen, rutaBD, rutaClave
@@ -41,7 +41,7 @@ func TestAlmacenGuardaYCarga(t *testing.T) {
 
 	otro, err := NuevoAlmacen(rutaBD, filepath.Join(filepath.Dir(rutaBD), archivoClave))
 	if err != nil {
-		t.Fatalf("NuevoAlmacen() error = %v", err)
+		t.Fatalf(msgAlmacenOK, err)
 	}
 
 	credenciales, ok := otro.Obtener(nombreDebian)
@@ -137,5 +137,25 @@ func TestAlmacenClaveCorrupta(t *testing.T) {
 	_, err := NuevoAlmacen(filepath.Join(directorio, "vmcons.db"), rutaClave)
 	if err == nil {
 		t.Fatal("NuevoAlmacen() error = nil, want el error de clave inválida")
+	}
+}
+
+// TestAlmacenGuardaLaMaquinaActiva comprueba la persistencia del vínculo.
+func TestAlmacenGuardaLaMaquinaActiva(t *testing.T) {
+	t.Parallel()
+
+	almacen, rutaBD, rutaClave := nuevaBaseDePrueba(t)
+
+	if err := almacen.GuardarActiva(nombreDebian); err != nil {
+		t.Fatalf("GuardarActiva() error = %v", err)
+	}
+
+	otro, err := NuevoAlmacen(rutaBD, rutaClave)
+	if err != nil {
+		t.Fatalf(msgAlmacenOK, err)
+	}
+
+	if activa := otro.Activa(); activa != nombreDebian {
+		t.Errorf("Activa() = %q, want %q", activa, nombreDebian)
 	}
 }

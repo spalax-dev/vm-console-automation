@@ -156,8 +156,8 @@ de los módulos del numeral 3.
 - [x] **Selector global de VM** en la barra superior (diseño §10.3): la lista
   se descubre en tiempo de ejecución con `VBoxManage list vms`
   (`GET /api/vms?q=`) y la máquina se vincula con `PUT /api/session`.
-- [ ] **Persistir la vinculación** en SQLite para no volver a `VMCONS_VM` al
-  reiniciar la consola.
+- [x] **Persistir la vinculación** en SQLite (`configuracion.vm_activa`);
+  al arrancar sin `VMCONS_VM` se restaura la última máquina vinculada.
 - [x] **Pestaña Historial** (diseño §10.4): tabla de operaciones con
   filtros por búsqueda de texto, fecha, hora, VM y módulo →
   `GET /api/historial`, con exportación CSV en la interfaz.
@@ -176,6 +176,10 @@ de los módulos del numeral 3.
 ---
 
 ## Notas de seguimiento
+
+- **25 oct 2026** — Vinculación persistente: la tabla `configuracion`
+  guarda `vm_activa` al vincular una máquina y, si `VMCONS_VM` no está
+  definida, la consola restaura esa máquina al arrancar.
 
 - **25 oct 2026** — Caché de lecturas: paquete `internal/httpcache` que
   guarda las respuestas `200` de `GET /api/…` con vigencia por recurso

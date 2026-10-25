@@ -126,11 +126,11 @@ paths:
       summary: Vincular la consola con una máquina virtual
       description: |
         Establece la máquina que administra la consola a partir del
-        inventario del hipervisor. La vinculación es inmediata y se
-        conserva mientras el proceso esté en ejecución; al reiniciar se
-        vuelve al valor de `VMCONS_VM`. No exige que la máquina esté
-        encendida: vincular una máquina apagada es válido y solo impide
-        abrir sesión con ella hasta que se encienda.
+        inventario del hipervisor. La elección se guarda en SQLite
+        (`configuracion.vm_activa`) y se restaura al arrancar si no se
+        definió `VMCONS_VM`. No exige que la máquina esté encendida:
+        vincular una máquina apagada es válido y solo impide abrir sesión
+        con ella hasta que se encienda.
       operationId: vincularMaquina
       requestBody:
         required: true

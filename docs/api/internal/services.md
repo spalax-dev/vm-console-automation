@@ -19,8 +19,10 @@ Package services implementa los casos de uso de la consola: descubre el conector
   - [func \(a \*Acceso\) Registrar\(ctx context.Context, usuario, password string\) \(Resultado, error\)](<#Acceso.Registrar>)
 - [type Almacen](<#Almacen>)
   - [func NuevoAlmacen\(rutaBD, rutaClave string\) \(\*Almacen, error\)](<#NuevoAlmacen>)
+  - [func \(a \*Almacen\) Activa\(\) string](<#Almacen.Activa>)
   - [func \(a \*Almacen\) Borrar\(vm string\) error](<#Almacen.Borrar>)
   - [func \(a \*Almacen\) Guardar\(vm string, credenciales Credenciales\) error](<#Almacen.Guardar>)
+  - [func \(a \*Almacen\) GuardarActiva\(vm string\) error](<#Almacen.GuardarActiva>)
   - [func \(a \*Almacen\) Guest\(vm string\) \(usuario, password string, ok bool\)](<#Almacen.Guest>)
   - [func \(a \*Almacen\) Obtener\(vm string\) \(Credenciales, bool\)](<#Almacen.Obtener>)
   - [func \(a \*Almacen\) Registrada\(vm string\) bool](<#Almacen.Registrada>)
@@ -71,6 +73,7 @@ Package services implementa los casos de uso de la consola: descubre el conector
   - [func \(p \*Paquetes\) Eliminar\(ctx context.Context, nombre string\) \(Resultado, error\)](<#Paquetes.Eliminar>)
   - [func \(p \*Paquetes\) Instalar\(ctx context.Context, nombre string\) \(Resultado, error\)](<#Paquetes.Instalar>)
   - [func \(p \*Paquetes\) Listar\(ctx context.Context\) \(\[\]Paquete, error\)](<#Paquetes.Listar>)
+- [type PersistenciaActiva](<#PersistenciaActiva>)
 - [type Registro](<#Registro>)
 - [type Resultado](<#Resultado>)
 - [type Selector](<#Selector>)
@@ -263,6 +266,15 @@ func NuevoAlmacen(rutaBD, rutaClave string) (*Almacen, error)
 
 NuevoAlmacen abre la base SQLite, crea el esquema y carga o genera la clave de cifrado.
 
+<a name="Almacen.Activa"></a>
+### func \(\*Almacen\) Activa
+
+```go
+func (a *Almacen) Activa() string
+```
+
+Activa devuelve la máquina vinculada que se guardó al cerrar.
+
 <a name="Almacen.Borrar"></a>
 ### func \(\*Almacen\) Borrar
 
@@ -280,6 +292,15 @@ func (a *Almacen) Guardar(vm string, credenciales Credenciales) error
 ```
 
 Guardar registra o actualiza las credenciales de una máquina.
+
+<a name="Almacen.GuardarActiva"></a>
+### func \(\*Almacen\) GuardarActiva
+
+```go
+func (a *Almacen) GuardarActiva(vm string) error
+```
+
+GuardarActiva persiste la máquina vinculada para el próximo arranque.
 
 <a name="Almacen.Guest"></a>
 ### func \(\*Almacen\) Guest
@@ -415,6 +436,8 @@ type ConfigVinculacion struct {
     Maquina ports.Machine
     // Registro consulta el estado de registro de las máquinas.
     Registro Registro
+    // Persistencia guarda la máquina vinculada entre arranques.
+    Persistencia PersistenciaActiva
 }
 ```
 
@@ -893,6 +916,18 @@ func (p *Paquetes) Listar(ctx context.Context) ([]Paquete, error)
 ```
 
 Listar devuelve los paquetes instalados en la máquina.
+
+<a name="PersistenciaActiva"></a>
+## type PersistenciaActiva
+
+PersistenciaActiva guarda y recupera la máquina vinculada.
+
+```go
+type PersistenciaActiva interface {
+    Activa() string
+    GuardarActiva(vm string) error
+}
+```
 
 <a name="Registro"></a>
 ## type Registro
