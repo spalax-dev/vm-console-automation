@@ -13,5 +13,8 @@ const (
 	binUsermod = "/usr/sbin/usermod"
 	binUserdel = "/usr/sbin/userdel"
 	// #nosec G101 -- es la ruta del programa passwd, no una credencial.
-	binPasswd = "/usr/bin/passwd"
+	binPasswd    = "/usr/bin/passwd"
+	binSystemctl = "/usr/bin/systemctl"
+	binChmod     = "/bin/chmod"
+	binChown     = "/bin/chown"
 )

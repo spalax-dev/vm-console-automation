@@ -15,26 +15,30 @@ import (
 
 // Nombres de los conectores y mensajes repetidos en las pruebas.
 const (
-	conectorSSH      = "ssh"
-	conectorGuest    = "guest-additions"
-	msgDescubrirOK   = "Descubrir() error = %v, want nil"
-	msgSesionAbierta = "la sesión no se cerró"
-	msgCodigoCero    = "Codigo = %d, want 0"
-	msgEscribirOK    = "Escribir() error = %v, want nil"
-	msgOrdenUnica    = "la sesión ejecutó %d órdenes, want 1"
-	msgStderrSesion  = "Stderr = %q, want el stderr de la sesión"
-	nombreHostPrueba = "nodo-01"
-	ipHostPrueba     = "192.168.1.60"
-	salidaHostname   = "debian13\n"
-	comandoCat       = "cat"
-	msgAbrirUna      = "Abrir() se llamó %d veces, want 1"
-	msgListarOK      = "Listar() error = %v, want nil"
-	msgEscribirPub   = "escribir la llave pública: %v"
-	nombreJorge      = "jorge"
-	archivoJorge     = "jorge_ed25519"
-	msgCrearDir      = "crear el directorio: %v"
-	lineaJorge       = "jorge:x:1000:1000::/home/jorge:/bin/bash\n"
-	msgIP            = "IP = %s, want %s"
+	conectorSSH         = "ssh"
+	conectorGuest       = "guest-additions"
+	msgDescubrirOK      = "Descubrir() error = %v, want nil"
+	msgSesionAbierta    = "la sesión no se cerró"
+	msgCodigoCero       = "Codigo = %d, want 0"
+	msgEscribirOK       = "Escribir() error = %v, want nil"
+	msgOrdenUnica       = "la sesión ejecutó %d órdenes, want 1"
+	msgStderrSesion     = "Stderr = %q, want el stderr de la sesión"
+	nombreHostPrueba    = "nodo-01"
+	ipHostPrueba        = "192.168.1.60"
+	salidaHostname      = "debian13\n"
+	comandoCat          = "cat"
+	msgAbrirUna         = "Abrir() se llamó %d veces, want 1"
+	msgListarOK         = "Listar() error = %v, want nil"
+	msgEscribirPub      = "escribir la llave pública: %v"
+	nombreJorge         = "jorge"
+	archivoJorge        = "jorge_ed25519"
+	msgCrearDir         = "crear el directorio: %v"
+	lineaJorge          = "jorge:x:1000:1000::/home/jorge:/bin/bash\n"
+	msgListarSinSesion  = "Listar() error = %v, want ErrSesionNoDisponible"
+	msgObtenerSinSesion = "Obtener() error = %v, want ErrSesionNoDisponible"
+	estadoInactivo      = "inactive"
+	duenoPrueba         = "catalogo"
+	msgIP               = "IP = %s, want %s"
 )
 
 // stubMachine es una implementación falsa de ports.Machine que devuelve
@@ -69,6 +73,8 @@ type stubSession struct {
 	err      error
 	errs     []error
 	commands []*domain.Command
+	puts     [][2]string
+	putErr   error
 }
 
 // Run registra la orden y devuelve el siguiente resultado de la cola o
@@ -93,9 +99,11 @@ func (s *stubSession) Run(_ context.Context, cmd *domain.Command) (domain.Result
 	return resultado, s.err
 }
 
-// Put no transfiere nada y siempre termina bien.
-func (s *stubSession) Put(context.Context, string, string) error {
-	return nil
+// Put registra la transferencia y siempre termina bien.
+func (s *stubSession) Put(_ context.Context, origen, destino string) error {
+	s.puts = append(s.puts, [2]string{origen, destino})
+
+	return s.putErr
 }
 
 // Close marca la sesión como cerrada y devuelve el error configurado.

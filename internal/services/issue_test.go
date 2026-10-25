@@ -214,6 +214,6 @@ func TestIssueObtenerSinSesion(t *testing.T) {
 	issue := nuevoIssueDePrueba(nil, ErrSesionNoDisponible)
 
 	if _, err := issue.Obtener(context.Background()); !errors.Is(err, ErrSesionNoDisponible) {
-		t.Fatalf("Obtener() error = %v, want ErrSesionNoDisponible", err)
+		t.Fatalf(msgObtenerSinSesion, err)
 	}
 }

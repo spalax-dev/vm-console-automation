@@ -150,7 +150,7 @@ func TestUsuariosCrearConLlaves(t *testing.T) {
 	}
 
 	if resultado.Codigo != 0 {
-		t.Errorf("Codigo = %d, want 0", resultado.Codigo)
+		t.Errorf(msgCodigoCero, resultado.Codigo)
 	}
 }
 
@@ -313,7 +313,7 @@ func TestUsuariosListarSinSesion(t *testing.T) {
 	usuarios, _, _ := nuevoUsuariosDePrueba(t, &stubExecutor{}, nil, ErrSesionNoDisponible)
 
 	if _, err := usuarios.Listar(context.Background()); !errors.Is(err, ErrSesionNoDisponible) {
-		t.Fatalf("Listar() error = %v, want ErrSesionNoDisponible", err)
+		t.Fatalf(msgListarSinSesion, err)
 	}
 }
 

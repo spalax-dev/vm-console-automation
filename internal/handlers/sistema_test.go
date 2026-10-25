@@ -41,6 +41,14 @@ const (
 	hostDebian            = "debian13"
 	rutaUsuarios          = "/api/users"
 	llavePrivadaPrueba    = "privada"
+	casoInexistente       = "inexistente"
+	estadoActivoPrueba    = "active"
+	propietarioCatalogo   = "catalogo"
+	rutaUnidad            = "/api/units/x"
+	rutaReinicios         = "/api/units/x/restarts"
+	casoErrorLectura      = "error de lectura"
+	casoUnidadInvalida    = "unidad inválida"
+	cuerpoActivar         = `{"activo":true}`
 	textoBienvenido       = "Bienvenido"
 )
 
@@ -737,6 +745,36 @@ func TestLlaveRootErrorDeDescarga(t *testing.T) {
 
 	rec := ejecutarCaso(t, handler, rutaLlaveRoot, casoPeticion{
 		nombre: "error de descarga", metodo: http.MethodGet,
+	})
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+	}
+}
+
+// TestIssueErrorDeLectura cubre el fallo al consultar /etc/issue.
+func TestIssueErrorDeLectura(t *testing.T) {
+	t.Parallel()
+
+	servicio := &stubIssue{err: errLectura}
+
+	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, &stubLlaves{}, servicio, &stubHostname{}).Issue, rutaIssue, casoPeticion{
+		nombre: casoErrorLectura, metodo: http.MethodGet,
+	})
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+	}
+}
+
+// TestHostnameErrorDeLectura cubre el fallo al consultar el nombre.
+func TestHostnameErrorDeLectura(t *testing.T) {
+	t.Parallel()
+
+	servicio := &stubHostname{err: errLectura}
+
+	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, &stubLlaves{}, &stubIssue{}, servicio).Hostname, rutaHostname, casoPeticion{
+		nombre: casoErrorLectura, metodo: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusInternalServerError {

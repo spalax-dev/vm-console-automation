@@ -17,6 +17,7 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
   - [func \(h \*Haproxy\) Servidores\(w http.ResponseWriter, r \*http.Request\)](<#Haproxy.Servidores>)
 - [type Maquinas](<#Maquinas>)
   - [func NuevoMaquinas\(servicio ServicioMaquinas\) \*Maquinas](<#NuevoMaquinas>)
+  - [func \(h \*Maquinas\) Encender\(w http.ResponseWriter, r \*http.Request\)](<#Maquinas.Encender>)
   - [func \(h \*Maquinas\) ServeHTTP\(w http.ResponseWriter, r \*http.Request\)](<#Maquinas.ServeHTTP>)
 - [type OpcionSesion](<#OpcionSesion>)
   - [func ConVinculador\(vinculador VinculadorSesion\) OpcionSesion](<#ConVinculador>)
@@ -25,6 +26,7 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
 - [type ServicioLlaves](<#ServicioLlaves>)
 - [type ServicioMaquinas](<#ServicioMaquinas>)
 - [type ServicioPaquetes](<#ServicioPaquetes>)
+- [type ServicioSystemd](<#ServicioSystemd>)
 - [type ServicioUsuarios](<#ServicioUsuarios>)
 - [type Sesion](<#Sesion>)
   - [func NuevoSesion\(descubridor DescubridorSesion, opciones ...OpcionSesion\) \*Sesion](<#NuevoSesion>)
@@ -37,7 +39,7 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
   - [func \(h \*Sistema\) Paquete\(w http.ResponseWriter, r \*http.Request\)](<#Sistema.Paquete>)
   - [func \(h \*Sistema\) Paquetes\(w http.ResponseWriter, r \*http.Request\)](<#Sistema.Paquetes>)
 - [type Systemd](<#Systemd>)
-  - [func NuevoSystemd\(\) \*Systemd](<#NuevoSystemd>)
+  - [func NuevoSystemd\(servicio ServicioSystemd\) \*Systemd](<#NuevoSystemd>)
   - [func \(h \*Systemd\) Reinicios\(w http.ResponseWriter, r \*http.Request\)](<#Systemd.Reinicios>)
   - [func \(h \*Systemd\) Unidad\(w http.ResponseWriter, r \*http.Request\)](<#Systemd.Unidad>)
   - [func \(h \*Systemd\) Unidades\(w http.ResponseWriter, r \*http.Request\)](<#Systemd.Unidades>)
@@ -115,6 +117,15 @@ func NuevoMaquinas(servicio ServicioMaquinas) *Maquinas
 ```
 
 NuevoMaquinas construye el handler del inventario.
+
+<a name="Maquinas.Encender"></a>
+### func \(\*Maquinas\) Encender
+
+```go
+func (h *Maquinas) Encender(w http.ResponseWriter, r *http.Request)
+```
+
+Encender atiende POST /api/vms/\{vm\}/poweron: arranca la máquina sin interfaz gráfica y devuelve su estado actualizado.
 
 <a name="Maquinas.ServeHTTP"></a>
 ### func \(\*Maquinas\) ServeHTTP
@@ -197,6 +208,8 @@ type ServicioMaquinas interface {
     Listar(ctx context.Context, filtro string) ([]services.MaquinaVirtual, error)
     // Vincular establece la máquina que administra la consola.
     Vincular(ctx context.Context, identificador string) (services.MaquinaVirtual, error)
+    // Encender arranca la máquina indicada.
+    Encender(ctx context.Context, identificador string) (services.MaquinaVirtual, error)
 }
 ```
 
@@ -213,6 +226,26 @@ type ServicioPaquetes interface {
     Instalar(ctx context.Context, nombre string) (services.Resultado, error)
     // Eliminar elimina el paquete indicado.
     Eliminar(ctx context.Context, nombre string) (services.Resultado, error)
+}
+```
+
+<a name="ServicioSystemd"></a>
+## type ServicioSystemd
+
+ServicioSystemd ejecuta las operaciones sobre las unidades de systemd.
+
+```go
+type ServicioSystemd interface {
+    // Listar devuelve las unidades con su estado.
+    Listar(ctx context.Context) ([]services.EstadoUnidad, error)
+    // Obtener devuelve el estado de una unidad.
+    Obtener(ctx context.Context, unidad string) (services.EstadoUnidad, error)
+    // Desplegar transfiere los archivos de la unidad.
+    Desplegar(ctx context.Context, unidad string, archivos []services.ArchivoDespliegue, usuario, grupo string) (services.Resultado, error)
+    // CambiarEstado activa, desactiva, habilita o deshabilita la unidad.
+    CambiarEstado(ctx context.Context, unidad string, activo, habilitado *bool) (services.Resultado, error)
+    // Reiniciar reinicia la unidad.
+    Reiniciar(ctx context.Context, unidad string) (services.Resultado, error)
 }
 ```
 
@@ -336,14 +369,16 @@ Paquetes atiende GET y POST /api/packages: lista los paquetes instalados o insta
 Systemd agrupa los recursos de gestión de unidades con systemd \(numeral 3.3\).
 
 ```go
-type Systemd struct{}
+type Systemd struct {
+    // contains filtered or unexported fields
+}
 ```
 
 <a name="NuevoSystemd"></a>
 ### func NuevoSystemd
 
 ```go
-func NuevoSystemd() *Systemd
+func NuevoSystemd(servicio ServicioSystemd) *Systemd
 ```
 
 NuevoSystemd construye el handler de gestión de unidades systemd.

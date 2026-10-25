@@ -20,11 +20,11 @@ Documento de seguimiento del proyecto. Se actualiza conforme se avanza.
 | Contrato OpenAPI (`docs/openapi.yaml`) | [x] 12 rutas, validado con Redocly |
 | Controladores HTTP de los módulos | [~] Registrados y validando; responden 501 hasta conectar servicios |
 | Servicio de descubrimiento/selección de sesión | [x] Completo — cobertura 100 % |
-| Casos de uso (`internal/services`) | [~] Preparación del sistema y usuarios completos; systemd y HAProxy pendientes |
+| Casos de uso (`internal/services`) | [~] Preparación, usuarios y systemd completos; HAProxy pendiente |
 | Endpoints HTTP (`internal/handlers`) | [~] `GET /api/session` hecho; módulos pendientes |
 | Ensamblaje (`main.go`: rutas + inyección de dependencias) | [~] Servidor, `web/` embebido y todas las rutas registradas; faltan los servicios de módulos |
 | Interfaz web (`web/modules`, `web/static/main.js`) | [ ] Placeholders |
-| Pruebas de `services` y `handlers` | [~] `services` 98.0 %; `handlers` 96.4 % |
+| Pruebas de `services` y `handlers` | [~] `services` 97.9 %; `handlers` 95.8 % |
 | Escenario: diagrama (numeral 5) | [x] Hecho en PlantUML (`docs/diagramas/`), en §3.1 del informe |
 | Pruebas manuales en video (numeral 4) | [ ] No iniciado |
 | Informe (`docs/informe`) | [~] §3 (diseño y escenario) redactado con los 2 diagramas; resto con TODOs |
@@ -80,8 +80,8 @@ Orden de trabajo obligatorio: **docs → tests → implementación**.
 
 | # | Requisito | Docs | Tests | Código | UI | Video |
 | --- | --- | --- | --- | --- | --- | --- |
-| 3.3 | Transferir archivos de la aplicación del catálogo de libros a la VM y gestionar permisos | [x] | [x] | [~] | [ ] | [ ] |
-| 3.3 | Botones `start`, `stop`, `restart`, `status`, `enable`, `disable` sobre las unidades administradas | [x] | [x] | [~] | [ ] | [ ] |
+| 3.3 | Transferir archivos de la aplicación del catálogo de libros a la VM y gestionar permisos | [x] | [x] | [x] | [ ] | [ ] |
+| 3.3 | Botones `start`, `stop`, `restart`, `status`, `enable`, `disable` sobre las unidades administradas | [x] | [x] | [x] | [ ] | [ ] |
 | 3.3 | Prueba complementaria con el script de la precondición e) | [x] | [x] | [~] | [ ] | [ ] |
 
 ### 4.4 Balanceo de carga con HAProxy
@@ -176,6 +176,16 @@ de los módulos del numeral 3.
 ---
 
 ## Notas de seguimiento
+
+- **25 oct 2026** — Unidades de systemd (3.3): el servicio `Systemd`
+  combina `list-units` y `list-unit-files` para el listado, usa
+  `systemctl show` para el estado (`LoadState`, `ActiveState`,
+  `UnitFileState`, `SubState`) y despliega con `Session.Put` + `chmod` +
+  `chown` + `daemon-reload`. `PATCH` ejecuta `start`/`stop` o
+  `enable`/`disable`, y el reinicio es `POST .../restarts`.
+  `GET`, `PUT` y `PATCH` responden `200`; `POST .../restarts`, `202`;
+  unidad inexistente, `404`. Cobertura: `services` 97.9 %,
+  `handlers` 95.8 %.
 
 - **25 oct 2026** — Encendido de la máquina virtual: nuevo puerto
   `Power`, implementado con `VBoxManage startvm --type headless`.

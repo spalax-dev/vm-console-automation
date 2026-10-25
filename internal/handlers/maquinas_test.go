@@ -16,6 +16,9 @@ import (
 	"consola-vm/internal/services"
 )
 
+// estadoRunning es el estado de encendido usado en las pruebas.
+const estadoRunning = "running"
+
 // Valores repetidos en las pruebas del inventario.
 const (
 	rutaMaquinas  = "/api/vms"
@@ -299,8 +302,8 @@ func TestMaquinasEnciendeRespondeLaMaquina(t *testing.T) {
 		t.Fatalf(msgJSONInvalido, err)
 	}
 
-	if body["estado"] != "running" {
-		t.Errorf("estado = %v, want %q", body["estado"], "running")
+	if body["estado"] != estadoRunning {
+		t.Errorf("estado = %v, want %q", body["estado"], estadoRunning)
 	}
 }
 

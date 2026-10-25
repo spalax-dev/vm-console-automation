@@ -109,7 +109,7 @@ func nuevoMux() http.Handler {
 		Ejecutor:   ejecutor,
 		Directorio: filepath.Join(filepath.Dir(rutaLlave()), "users"),
 	}))
-	systemd := handlers.NuevoSystemd()
+	systemd := handlers.NuevoSystemd(services.NuevoSystemd(sesiones))
 	haproxy := handlers.NuevoHaproxy()
 
 	mux.Handle("/api/session", handlers.NuevoSesion(sesiones, handlers.ConVinculador(consola.vinculacion)))

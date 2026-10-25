@@ -154,12 +154,30 @@ Después elimina del anfitrión el par de llaves generado. La respuesta es
 % ------------------------------------------------------------
 \subsection{Gestión de Demonios con systemd}
 \label{sec:systemd}
-% TODO: configuración de una aplicación como servicio de systemd
-% (por ejemplo, la aplicación web del catálogo de libros): transferencia
-% de los archivos requeridos a la máquina virtual y gestión de
-% permisos; botones start, stop, restart, status, enable y disable;
-% prueba complementaria con el script que agrega fecha y hora a un
-% archivo.
+
+El recurso \texttt{/api/units} administra los servicios de la máquina.
+El listado combina \texttt{systemctl list-units} (estado en ejecución)
+con \texttt{systemctl list-unit-files} (habilitación), de modo que una
+sola respuesta incluye las unidades activas e inactivas con sus marcas
+\texttt{activo} y \texttt{habilitado}. La consulta de una unidad usa
+\texttt{systemctl show} con \texttt{LoadState}, \texttt{ActiveState},
+\texttt{UnitFileState} y \texttt{SubState}; si la unidad no existe, el
+servicio responde \texttt{404}.
+
+El despliegue se hace con \texttt{PUT /api/units/\{unit\}}: por cada
+archivo se transfiere el binario o la configuración desde el anfitrión,
+se aplica el modo solicitado con \texttt{chmod}, se ajusta el
+propietario con \texttt{chown} cuando se indica y, al final, se recarga
+systemd con \texttt{daemon-reload}. Así se puede publicar la aplicación
+del catálogo de libros y su unidad \texttt{.service} en una sola
+operación.
+
+Los controles se expresan como estado del recurso: \texttt{PATCH} con
+\texttt{activo} ejecuta \texttt{start} o \texttt{stop}; con
+\texttt{habilitado} ejecuta \texttt{enable} o \texttt{disable}. El
+reinicio, que no es idempotente, es el subrecurso
+\texttt{POST /api/units/\{unit\}/restarts} y responde \texttt{202}
+con el resultado de \texttt{systemctl restart}.
 
 % ------------------------------------------------------------
 % 4.4 Balanceo de carga con HAProxy

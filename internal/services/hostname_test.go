@@ -90,7 +90,7 @@ func TestHostnameObtenerSinSesion(t *testing.T) {
 	hostname := nuevoHostnameDePrueba(nil, ErrSesionNoDisponible)
 
 	if _, err := hostname.Obtener(context.Background()); !errors.Is(err, ErrSesionNoDisponible) {
-		t.Fatalf("Obtener() error = %v, want ErrSesionNoDisponible", err)
+		t.Fatalf(msgObtenerSinSesion, err)
 	}
 }
 

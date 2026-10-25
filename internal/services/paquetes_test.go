@@ -221,7 +221,7 @@ func TestPaquetesListarSinSesion(t *testing.T) {
 	paquetes, _ := nuevoPaquetesDePrueba(nil, ErrSesionNoDisponible)
 
 	if _, err := paquetes.Listar(context.Background()); !errors.Is(err, ErrSesionNoDisponible) {
-		t.Fatalf("Listar() error = %v, want ErrSesionNoDisponible", err)
+		t.Fatalf(msgListarSinSesion, err)
 	}
 }
 

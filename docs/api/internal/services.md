@@ -12,6 +12,7 @@ Package services implementa los casos de uso de la consola: descubre el conector
 
 - [Variables](<#variables>)
 - [type AbridorSesion](<#AbridorSesion>)
+- [type ArchivoDespliegue](<#ArchivoDespliegue>)
 - [type ConfigDescubridor](<#ConfigDescubridor>)
 - [type ConfigLlaves](<#ConfigLlaves>)
 - [type ConfigUsuarios](<#ConfigUsuarios>)
@@ -24,6 +25,7 @@ Package services implementa los casos de uso de la consola: descubre el conector
   - [func \(d \*Descubridor\) Descubrir\(ctx context.Context\) \(InfoSesion, error\)](<#Descubridor.Descubrir>)
   - [func \(d \*Descubridor\) Establecer\(nombre string\)](<#Descubridor.Establecer>)
   - [func \(d \*Descubridor\) Objetivo\(\) domain.Target](<#Descubridor.Objetivo>)
+- [type EstadoUnidad](<#EstadoUnidad>)
 - [type Hostname](<#Hostname>)
   - [func NuevoHostname\(sesiones AbridorSesion\) \*Hostname](<#NuevoHostname>)
   - [func \(h \*Hostname\) Escribir\(ctx context.Context, config ConfiguracionHostname\) \(Resultado, error\)](<#Hostname.Escribir>)
@@ -46,6 +48,13 @@ Package services implementa los casos de uso de la consola: descubre el conector
   - [func \(p \*Paquetes\) Listar\(ctx context.Context\) \(\[\]Paquete, error\)](<#Paquetes.Listar>)
 - [type Resultado](<#Resultado>)
 - [type Selector](<#Selector>)
+- [type Systemd](<#Systemd>)
+  - [func NuevoSystemd\(sesiones AbridorSesion\) \*Systemd](<#NuevoSystemd>)
+  - [func \(s \*Systemd\) CambiarEstado\(ctx context.Context, unidad string, activo, habilitado \*bool\) \(Resultado, error\)](<#Systemd.CambiarEstado>)
+  - [func \(s \*Systemd\) Desplegar\(ctx context.Context, unidad string, archivos \[\]ArchivoDespliegue, usuario, grupo string\) \(Resultado, error\)](<#Systemd.Desplegar>)
+  - [func \(s \*Systemd\) Listar\(ctx context.Context\) \(\[\]EstadoUnidad, error\)](<#Systemd.Listar>)
+  - [func \(s \*Systemd\) Obtener\(ctx context.Context, unidad string\) \(EstadoUnidad, error\)](<#Systemd.Obtener>)
+  - [func \(s \*Systemd\) Reiniciar\(ctx context.Context, unidad string\) \(Resultado, error\)](<#Systemd.Reiniciar>)
 - [type Usuario](<#Usuario>)
 - [type Usuarios](<#Usuarios>)
   - [func NuevoUsuarios\(config ConfigUsuarios\) \*Usuarios](<#NuevoUsuarios>)
@@ -57,6 +66,7 @@ Package services implementa los casos de uso de la consola: descubre el conector
 - [type Vinculacion](<#Vinculacion>)
   - [func NuevoVinculacion\(config \*ConfigVinculacion\) \*Vinculacion](<#NuevoVinculacion>)
   - [func \(v \*Vinculacion\) Activa\(\) string](<#Vinculacion.Activa>)
+  - [func \(v \*Vinculacion\) Encender\(ctx context.Context, identificador string\) \(MaquinaVirtual, error\)](<#Vinculacion.Encender>)
   - [func \(v \*Vinculacion\) Listar\(ctx context.Context, filtro string\) \(\[\]MaquinaVirtual, error\)](<#Vinculacion.Listar>)
   - [func \(v \*Vinculacion\) Vincular\(ctx context.Context, identificador string\) \(MaquinaVirtual, error\)](<#Vinculacion.Vincular>)
 
@@ -81,6 +91,12 @@ var ErrLlaveNoEncontrada = errors.New("la llave SSH de root no existe")
 var ErrLlaveUsuarioNoEncontrada = errors.New("la llave del usuario no existe")
 ```
 
+<a name="ErrMaquinaEncendida"></a>ErrMaquinaEncendida indica que se pidió encender una máquina que ya está en ejecución.
+
+```go
+var ErrMaquinaEncendida = errors.New("la máquina virtual ya está encendida")
+```
+
 <a name="ErrMaquinaNoEncontrada"></a>ErrMaquinaNoEncontrada indica que el identificador recibido no corresponde a ninguna máquina del inventario del hipervisor.
 
 ```go
@@ -97,6 +113,12 @@ var ErrSesionNoDisponible = errors.New("no hay una sesión disponible con la má
 
 ```go
 var ErrSinMaquina = errors.New("no hay una máquina vinculada")
+```
+
+<a name="ErrUnidadNoEncontrada"></a>ErrUnidadNoEncontrada indica que la unidad no existe en la máquina.
+
+```go
+var ErrUnidadNoEncontrada = errors.New("la unidad no existe")
 ```
 
 <a name="ErrUsuarioExistente"></a>ErrUsuarioExistente indica que la cuenta ya está en la máquina.
@@ -120,6 +142,22 @@ AbridorSesion obtiene una sesión con la máquina administrada.
 type AbridorSesion interface {
     // Abrir devuelve una sesión lista para ejecutar órdenes.
     Abrir(ctx context.Context) (ports.Session, error)
+}
+```
+
+<a name="ArchivoDespliegue"></a>
+## type ArchivoDespliegue
+
+ArchivoDespliegue describe un archivo que se transfiere a la máquina.
+
+```go
+type ArchivoDespliegue struct {
+    // Origen es la ruta del archivo en el anfitrión.
+    Origen string
+    // Destino es la ruta absoluta en la máquina.
+    Destino string
+    // Modo son los permisos en octal.
+    Modo string
 }
 ```
 
@@ -182,6 +220,8 @@ type ConfigVinculacion struct {
     Inventario ports.Inventory
     // Seleccion es la máquina con la que trabaja la consola.
     Seleccion Selector
+    // Energia enciende las máquinas del hipervisor.
+    Energia ports.Power
 }
 ```
 
@@ -278,6 +318,26 @@ func (d *Descubridor) Objetivo() domain.Target
 ```
 
 Objetivo devuelve la máquina con la que trabaja la consola.
+
+<a name="EstadoUnidad"></a>
+## type EstadoUnidad
+
+EstadoUnidad describe una unidad de systemd.
+
+```go
+type EstadoUnidad struct {
+    // Unidad es el nombre de la unidad, con extensión .service.
+    Unidad string
+    // Activo indica si está en ejecución.
+    Activo bool
+    // Habilitado indica si arranca con el sistema.
+    Habilitado bool
+    // Estado es active, inactive, failed o unknown.
+    Estado string
+    // Detalle es el subestado informado por systemd.
+    Detalle string
+}
+```
 
 <a name="Hostname"></a>
 ## type Hostname
@@ -525,6 +585,71 @@ type Selector interface {
 }
 ```
 
+<a name="Systemd"></a>
+## type Systemd
+
+Systemd implementa el caso de uso de gestión de unidades.
+
+```go
+type Systemd struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="NuevoSystemd"></a>
+### func NuevoSystemd
+
+```go
+func NuevoSystemd(sesiones AbridorSesion) *Systemd
+```
+
+NuevoSystemd construye el servicio con el abridor de sesiones dado.
+
+<a name="Systemd.CambiarEstado"></a>
+### func \(\*Systemd\) CambiarEstado
+
+```go
+func (s *Systemd) CambiarEstado(ctx context.Context, unidad string, activo, habilitado *bool) (Resultado, error)
+```
+
+CambiarEstado activa o desactiva la unidad, o su arranque con el sistema.
+
+<a name="Systemd.Desplegar"></a>
+### func \(\*Systemd\) Desplegar
+
+```go
+func (s *Systemd) Desplegar(ctx context.Context, unidad string, archivos []ArchivoDespliegue, usuario, grupo string) (Resultado, error)
+```
+
+Desplegar transfiere los archivos de una unidad, ajusta permisos y recarga systemd.
+
+<a name="Systemd.Listar"></a>
+### func \(\*Systemd\) Listar
+
+```go
+func (s *Systemd) Listar(ctx context.Context) ([]EstadoUnidad, error)
+```
+
+Listar devuelve las unidades de servicio con su estado.
+
+<a name="Systemd.Obtener"></a>
+### func \(\*Systemd\) Obtener
+
+```go
+func (s *Systemd) Obtener(ctx context.Context, unidad string) (EstadoUnidad, error)
+```
+
+Obtener devuelve el estado de una unidad.
+
+<a name="Systemd.Reiniciar"></a>
+### func \(\*Systemd\) Reiniciar
+
+```go
+func (s *Systemd) Reiniciar(ctx context.Context, unidad string) (Resultado, error)
+```
+
+Reiniciar reinicia una unidad.
+
 <a name="Usuario"></a>
 ## type Usuario
 
@@ -638,6 +763,15 @@ func (v *Vinculacion) Activa() string
 ```
 
 Activa devuelve el nombre de la máquina vinculada, o una cadena vacía si la consola todavía no está vinculada con ninguna.
+
+<a name="Vinculacion.Encender"></a>
+### func \(\*Vinculacion\) Encender
+
+```go
+func (v *Vinculacion) Encender(ctx context.Context, identificador string) (MaquinaVirtual, error)
+```
+
+Encender arranca una máquina del inventario. Rechaza con ErrMaquinaEncendida la que ya está en ejecución, para no informar un éxito que no ocurrió, y devuelve la máquina ya en estado «running».
 
 <a name="Vinculacion.Listar"></a>
 ### func \(\*Vinculacion\) Listar

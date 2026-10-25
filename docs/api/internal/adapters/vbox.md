@@ -17,6 +17,7 @@ Package vbox adapta Oracle VM VirtualBox a los puertos Machine y Connector de la
   - [func \(c \*Client\) List\(ctx context.Context\) \(\[\]domain.VM, error\)](<#Client.List>)
   - [func \(c \*Client\) Name\(\) string](<#Client.Name>)
   - [func \(c \*Client\) Probe\(ctx context.Context, target domain.Target\) error](<#Client.Probe>)
+  - [func \(c \*Client\) Start\(ctx context.Context, target domain.Target\) error](<#Client.Start>)
   - [func \(c \*Client\) State\(ctx context.Context, target domain.Target\) \(domain.MachineState, error\)](<#Client.State>)
 - [type Option](<#Option>)
   - [func WithBinary\(bin string\) Option](<#WithBinary>)
@@ -91,6 +92,15 @@ func (c *Client) Probe(ctx context.Context, target domain.Target) error
 ```
 
 Probe implements ports.Connector: la máquina debe estar en ejecución para que Guest Additions pueda atenderla.
+
+<a name="Client.Start"></a>
+### func \(\*Client\) Start
+
+```go
+func (c *Client) Start(ctx context.Context, target domain.Target) error
+```
+
+Start implements ports.Power: arranca la máquina en modo sin interfaz gráfica, que es el que corresponde a una consola de administración.
 
 <a name="Client.State"></a>
 ### func \(\*Client\) State

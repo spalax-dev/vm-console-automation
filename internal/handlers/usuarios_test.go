@@ -188,7 +188,7 @@ func TestUsuarioNoEncontrado(t *testing.T) {
 	servicio := &stubUsuarios{err: services.ErrUsuarioNoEncontrado}
 
 	rec := ejecutarCasoConPath(t, NuevoUsuarios(servicio).Usuario, rutaUsuarioJorge, campoName, usuarioJorge, casoPeticion{
-		nombre: "inexistente", metodo: http.MethodGet,
+		nombre: casoInexistente, metodo: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusNotFound {
@@ -271,7 +271,7 @@ func TestUsuarioLlaveError(t *testing.T) {
 	servicio := &stubUsuarios{descargaErr: errLectura}
 
 	rec := ejecutarCasoConPath(t, NuevoUsuarios(servicio).Llave, rutaUsuarioJorge+"/key", campoName, usuarioJorge, casoPeticion{
-		nombre: "error de lectura", metodo: http.MethodGet,
+		nombre: casoErrorLectura, metodo: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
@@ -332,7 +332,7 @@ func TestUsuarioEliminarNoEncontrado(t *testing.T) {
 	servicio := &stubUsuarios{err: services.ErrUsuarioNoEncontrado}
 
 	rec := ejecutarCasoConPath(t, NuevoUsuarios(servicio).Usuario, rutaUsuarioJorge, campoName, usuarioJorge, casoPeticion{
-		nombre: "inexistente", metodo: http.MethodDelete,
+		nombre: casoInexistente, metodo: http.MethodDelete,
 	})
 
 	if rec.Code != http.StatusNotFound {

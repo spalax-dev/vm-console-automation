@@ -59,7 +59,7 @@ func TestVinculacionListaMarcaLaActiva(t *testing.T) {
 
 	maquinas, err := vinculacion.Listar(context.Background(), "")
 	if err != nil {
-		t.Fatalf("Listar() error = %v, want nil", err)
+		t.Fatalf(msgListarOK, err)
 	}
 
 	if len(maquinas) != 2 {
@@ -96,7 +96,7 @@ func TestVinculacionFiltraPorNombreYUUID(t *testing.T) {
 
 			maquinas, err := vinculacion.Listar(context.Background(), filtro)
 			if err != nil {
-				t.Fatalf("Listar() error = %v, want nil", err)
+				t.Fatalf(msgListarOK, err)
 			}
 
 			if len(maquinas) != 1 {

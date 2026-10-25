@@ -78,7 +78,7 @@ func TestValidarUnidad(t *testing.T) {
 		}
 	}
 
-	invalidos := []string{"", "catalogo", "../etc/passwd.service", "catalogo.timer"}
+	invalidos := []string{"", propietarioCatalogo, "../etc/passwd.service", "catalogo.timer"}
 	for _, valor := range invalidos {
 		if err := validarUnidad(valor); err == nil {
 			t.Errorf("validarUnidad(%q) error = nil, want un error", valor)

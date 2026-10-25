@@ -14,6 +14,7 @@ Package ports declara las interfaces \(puertos\) que el núcleo de la consola ne
 - [type Executor](<#Executor>)
 - [type Inventory](<#Inventory>)
 - [type Machine](<#Machine>)
+- [type Power](<#Power>)
 - [type Session](<#Session>)
 
 
@@ -67,6 +68,18 @@ type Machine interface {
     Address(ctx context.Context, target domain.Target) (netip.Addr, error)
     // State informa el estado de encendido de la máquina.
     State(ctx context.Context, target domain.Target) (domain.MachineState, error)
+}
+```
+
+<a name="Power"></a>
+## type Power
+
+Power enciende las máquinas del hipervisor.
+
+```go
+type Power interface {
+    // Start arranca la máquina indicada sin interfaz gráfica.
+    Start(ctx context.Context, target domain.Target) error
 }
 ```
 
