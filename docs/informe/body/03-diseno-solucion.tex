@@ -148,7 +148,9 @@ respuesta conserva la orden ejecutada, el código de salida y la salida de
 error estándar para que el usuario pueda diagnosticar el problema. Las
 respuestas son documentos JSON con un campo \texttt{ok}, un
 \texttt{mensaje} comprensible y, cuando falla, los campos
-\texttt{operacion} y \texttt{tecnico} con el detalle técnico.
+\texttt{operacion}, \texttt{codigo}, \texttt{salida}, \texttt{stderr},
+\texttt{tecnico} y \texttt{campo} con el detalle técnico y el campo de
+validación rechazado.
 
 \subsubsection{Estructura del Proyecto}
 \label{sec:estructura-proyecto}
@@ -175,9 +177,12 @@ OpenSSH:
   \item \texttt{internal/services}: los casos de uso de cada módulo;
   dependen solo de los puertos del núcleo.
   \item \texttt{internal/handlers}: enrutan las peticiones HTTP y
-  validan las entradas; no contienen lógica de negocio.
-  \item \texttt{web}: los módulos HTML y los archivos estáticos de la
-  interfaz.
+  validan las entradas; no contienen lógica de negocio. Cada recurso de
+  la API tiene su manejador.
+  \item \texttt{web}: la interfaz de usuario construida con Vite y
+  Tailwind CSS, que consume la API mediante \texttt{fetch}.
+  \item \texttt{docs/openapi.yaml}: el contrato OpenAPI de la API, que
+  sirve de referencia al frontend y a las pruebas de los manejadores.
 \end{itemize}
 
 Los adaptadores traducen su vocabulario al dominio: por ejemplo,
@@ -186,6 +191,64 @@ Los adaptadores traducen su vocabulario al dominio: por ejemplo,
 saber qué tecnología se está utilizando. La regla de dependencia es
 simple: el núcleo no importa adaptadores, los adaptadores importan el
 núcleo y la composición ocurre únicamente en \texttt{main.go}.
+
+\subsubsection{Contrato REST de la API}
+\label{sec:contrato-rest}
+
+La comunicación entre la interfaz y la consola sigue un estilo REST: la
+API expone recursos con nombre en inglés, los identificadores viajan en
+la ruta y las operaciones se expresan con los métodos HTTP estándar
+(\texttt{GET}, \texttt{POST}, \texttt{PUT}, \texttt{PATCH} y
+\texttt{DELETE}) en lugar de acciones dentro del cuerpo. La
+\cref{tab:api-rest} resume los recursos.
+
+\begin{table}[!t]
+  \centering
+  \caption{Recursos y rutas de la API REST.}
+  \label{tab:api-rest}
+  \footnotesize
+  \begin{tabularx}{\columnwidth}{@{}l >{\raggedright\arraybackslash}X@{}}
+    \hline
+    Recurso & Ruta y métodos \\
+    \hline
+    Sesión & \texttt{/api/\allowbreak session} (GET) \\
+    Paquetes & \texttt{/api/\allowbreak packages} (GET, POST) \\
+    Paquete & \texttt{/api/\allowbreak packages/\allowbreak\{name\}} (DELETE) \\
+    Llave de root & \texttt{/api/\allowbreak keys/\allowbreak root} (GET, POST) \\
+    \texttt{/etc/issue} & \texttt{/api/\allowbreak issue} (GET, PUT) \\
+    Hostname & \texttt{/api/\allowbreak hostname} (GET, PUT) \\
+    Usuarios & \texttt{/api/\allowbreak users} (GET, POST) \\
+    Usuario & \texttt{/api/\allowbreak users/\allowbreak\{name\}} (GET, DELETE) \\
+    Llave de usuario & \texttt{/api/\allowbreak users/\allowbreak\{name\}/\allowbreak key} (GET) \\
+    Unidades & \texttt{/api/\allowbreak units} (GET) \\
+    Unidad & \texttt{/api/\allowbreak units/\allowbreak\{unit\}} (GET, PUT, PATCH) \\
+    Reinicio & \texttt{/api/\allowbreak units/\allowbreak\{unit\}/\allowbreak restarts} (POST) \\
+    Servidores & \texttt{/api/\allowbreak haproxy/\allowbreak backend/\allowbreak servers} (GET, POST) \\
+    Servidor & \texttt{/api/\allowbreak haproxy/\allowbreak backend/\allowbreak servers/\allowbreak\{server\}} (DELETE) \\
+    \hline
+  \end{tabularx}
+\end{table}
+
+El contrato completo, con esquemas, ejemplos y códigos de respuesta, se
+mantiene en \texttt{docs/openapi.yaml} (OpenAPI~3.1) y se valida con
+Redocly; es la fuente de verdad para el frontend y para las pruebas de
+los manejadores. Los códigos de estado distinguen la creación
+(\texttt{201} con \texttt{Location}), el reemplazo y la modificación
+(\texttt{200}), el borrado (\texttt{204}), la entrada inválida
+(\texttt{400}), el recurso inexistente (\texttt{404}), la operación aún
+no conectada (\texttt{501}) y la ausencia de sesión con la máquina
+(\texttt{503}).
+
+Las acciones de systemd se modelan como estado del recurso: activar o
+detener una unidad es un \texttt{PATCH} con \texttt{activo}, habilitar
+o deshabilitar su arranque es un \texttt{PATCH} con
+\texttt{habilitado}, y el reinicio se expone como el subrecurso
+\texttt{restarts} porque no es idempotente. El servidor del back-end de
+HAProxy se identifica como \texttt{direccion:puerto}. Los cuerpos JSON
+conservan los nombres de campo que usa la interfaz
+(\texttt{nombre}, \texttt{archivos}, \texttt{activo},
+\texttt{habilitado}), de modo que el formulario y el contrato no
+dupliquen vocabulario.
 
 \subsubsection{Decisiones Tomadas Durante el Desarrollo}
 \label{sec:decisiones}

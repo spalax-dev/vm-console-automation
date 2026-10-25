@@ -6,6 +6,17 @@
 \section{Implementación}
 \label{sec:implementacion}
 
+La capa HTTP está implementada: los catorce recursos de la
+\cref{tab:api-rest} tienen su manejador, la validación del servidor
+aplica las reglas descritas en la \cref{sec:contrato-rest} y cada
+petición se responde con el modelo JSON de la
+\cref{sec:vision-general}. Mientras los casos de uso de cada módulo no
+se conecten con la máquina virtual, las operaciones válidas responden
+\texttt{501} con un mensaje comprensible, de modo que la interfaz puede
+integrarse sin esperar a la ejecución real. El descubrimiento de sesión
+ya está conectado y expone \texttt{GET /api/session}. Las pruebas de los
+manejadores cubren el 97.2\,\% de las sentencias.
+
 % ------------------------------------------------------------
 % 4.1 Preparación del sistema
 % ------------------------------------------------------------

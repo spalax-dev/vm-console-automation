@@ -125,12 +125,12 @@ Estructura modular lista: `main.tex` (resumen, index terms, introducción, bibli
 
 - [x] `body/02-marco-teorico.tex` — completar secciones con TODO: Debian, APT, systemd, HAProxy.
 - [x] `body/03-diseno-solucion.tex` — diagrama + descripción del escenario; visión general, estructura del proyecto y decisiones tomadas.
-- [ ] `body/04-implementacion.tex` — redactar 4.1 (apt, SSH root, `/etc/issue`, hostname), 4.2 (usuarios), 4.3 (systemd), 4.4 (HAProxy).
+- [~] `body/04-implementacion.tex` — capa HTTP y contrato REST documentados; los módulos 4.1 a 4.4 siguen pendientes de conectar los casos de uso.
 - [ ] `body/05-pruebas.tex` — diseño de las pruebas y resultados con evidencias (videos).
 - [ ] `body/06-conclusiones.tex` — problemas y soluciones, herramientas de IA utilizadas, conclusiones del trabajo.
 - [ ] **Resumen (abstract) y index terms** — redactar al final, 150–250 palabras.
 - [x] Revisar referencias bibliográficas en `ref.bib` y citas \parencite.
-- [ ] Verificar compilación limpia con `latexmk` (LuaLaTeX): sin citas ni referencias indefinidas.
+- [x] Verificar compilación limpia con `latexmk` (LuaLaTeX): sin citas ni referencias indefinidas (24 oct 2026).
 - [ ] Detallar problemas encontrados durante el desarrollo y cómo se solucionaron.
 - [ ] Detallar las herramientas de IA empleadas y **para qué** se usaron.
 
@@ -174,6 +174,13 @@ de los módulos del numeral 3.
 ---
 
 ## Notas de seguimiento
+
+- **24 oct 2026** — Informe actualizado con la API REST: nueva
+  subsección «Contrato REST de la API» en §3.2 con la tabla de recursos y
+  los códigos de estado, y párrafo de estado en §4 (manejadores,
+  validación y `501` mientras se conectan los servicios). La tabla usa
+  `tabularx` y se eliminó el único *overfull*; el PDF compila en 6
+  páginas sin referencias indefinidas.
 
 - **24 oct 2026** — API replanteada como REST: recursos en inglés
   (`/api/packages`, `/api/keys/root`, `/api/users`, `/api/units`,
