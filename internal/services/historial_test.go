@@ -112,7 +112,7 @@ func TestModuloDeRuta(t *testing.T) {
 		"/api/users/jorge/key":                 "usuarios",
 		"/api/units/catalogo.service/restarts": moduloSystemd,
 		"/api/haproxy/backend/servers":         "haproxy",
-		"/api/session":                         "sesion",
+		rutaSesion:                             "sesion",
 		"/api/vms/ubuntu-lab/poweron":          "maquinas",
 	}
 

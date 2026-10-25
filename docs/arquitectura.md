@@ -7,7 +7,7 @@ Este documento define cómo funciona la comunicación entre la consola y la máq
 1. La consola se ejecuta en el equipo anfitrión (Windows o GNU/Linux).
 2. Para obtener la dirección IP de la máquina virtual se usa Guest Additions mediante `VBoxManage guestproperty get <vm> /VirtualBox/GuestInfo/Net/0/V4/IP`.
 3. Con la IP descubierta se establece la primera conexión a la máquina virtual y se instala/configura el acceso por SSH con llaves.
-4. A partir de ese momento, todas las operaciones sobre la máquina se realizan exclusivamente por SSH.
+4. A partir de ese momento, todas las operaciones sobre la máquina se realizan exclusivamente por SSH. Si una máquina registrada pierde el acceso SSH, la consola no vuelve a Guest Additions: responde `503` para no ocultar el fallo.
 
 ## Estructura del código
 
@@ -55,8 +55,10 @@ El conector `vbox` publica el nombre `guest-additions` y el conector `ssh` publi
 
 Cada petición a `/api/` recibe un identificador `X-Request-ID` y se
 registra con un formato compacto: hora, nivel coloreado, método, ruta,
-estado, duración, máquina y solicitud. Los errores 4xx y el `503` se
-anotan como advertencia; los 5xx internos, como error. El formato se
+descripción legible de la operación, estado, duración, máquina y
+solicitud. En los errores 4xx y en el `503` se añade el motivo
+comprensible devuelto al cliente. Los 4xx y el `503` se anotan como
+advertencia; los 5xx internos, como error. El formato se
 elige con `VMCONS_LOG` (`text` por omisión o `json`) y el nivel con
 `VMCONS_LOG_LEVEL` (`debug`, `info`, `warn`, `error`).
 

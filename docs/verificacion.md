@@ -31,7 +31,7 @@ task openapi
 
 - `task check`: formato, lint, pruebas Go, documentación generada.
 - `task openapi`: valida el contrato; no queda ninguna respuesta `501`.
-- `pnpm test` en `web/`: 61 pruebas del cliente y las vistas.
+- `pnpm test` en `web/`: 66 pruebas del cliente y las vistas.
 
 ## Diferencias conocidas
 

@@ -23,11 +23,17 @@ func TestHandlerFormateaAPI(t *testing.T) {
 		"ruta", "/api/session",
 		"estado", 503,
 		"duracion_ms", 128,
+		"descripcion", "Consultar el estado de la sesión",
+		"motivo", "No hay una sesión disponible",
 		"vm", "base",
 	)
 
 	linea := salida.String()
-	for _, esperado := range []string{"API", "GET /api/session", "503", "128ms", "vm=base", "req=abc123"} {
+	for _, esperado := range []string{
+		"API", "GET /api/session", "503", "128ms",
+		"Consultar el estado de la sesión", `motivo="No hay una sesión disponible"`,
+		"vm=base", "req=abc123",
+	} {
 		if !strings.Contains(linea, esperado) {
 			t.Errorf("log = %q, want %q", linea, esperado)
 		}

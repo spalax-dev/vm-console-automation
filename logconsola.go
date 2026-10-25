@@ -125,6 +125,16 @@ func (h *handlerConsola) escribirAPI(linea *strings.Builder, atributos map[strin
 	linea.WriteString(atributos["duracion_ms"])
 	linea.WriteString("ms")
 
+	if descripcion := atributos["descripcion"]; descripcion != "" {
+		linea.WriteString("  ")
+		linea.WriteString(descripcion)
+	}
+
+	if motivo := atributos["motivo"]; motivo != "" {
+		linea.WriteString("  motivo=")
+		linea.WriteString(strconv.Quote(motivo))
+	}
+
 	if vm := atributos["vm"]; vm != "" {
 		linea.WriteString("  vm=")
 		linea.WriteString(vm)

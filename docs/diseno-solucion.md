@@ -50,6 +50,8 @@ el núcleo conozca los adaptadores:
 2. Si el `domain.Target` no trae dirección, la descubre con `ports.Machine.Address`.
 3. Recorre los conectores **en orden de preferencia** (`ssh` primero,
    `guest-additions` después) y se queda con el primero cuyo `Probe` termine sin error.
+   Si la máquina ya está registrada, solo prueba SSH: Guest Additions queda
+   reservado para la preparación inicial y no se usa como respaldo.
 4. Si ninguno supera el sondeo, termina con `ErrSesionNoDisponible`.
 5. Devuelve `InfoSesion{Conector, IP, Estado}`. No deja sesiones abiertas: cada
    operación abre la suya a partir del conector elegido.
@@ -118,8 +120,11 @@ El servicio `Llaves` (`internal/services/llaves.go`) ejecuta esta secuencia:
 5. Instala la llave pública en `/root/.ssh/authorized_keys` con permisos
    `700` para el directorio y `600` para el archivo.
 6. Escribe `/etc/ssh/sshd_config.d/99-vmcons.conf` con
-   `PasswordAuthentication no` y `PermitRootLogin prohibit-password`, y
-   habilita y arranca el servicio con `systemctl enable --now ssh`.
+   `PasswordAuthentication no` y `PermitRootLogin prohibit-password`,
+   habilita y arranca el servicio con `systemctl enable --now ssh` y
+   recarga la configuración con `systemctl reload ssh` (con `restart` como
+   respaldo) y verifica con `sshd -T` que la autenticación por contraseña
+   quedó deshabilitada.
 7. Cierra la sesión. A partir de este momento el conector `ssh` queda
    disponible y pasa a ser el preferido.
 
@@ -264,8 +269,9 @@ El registro se expone en `POST /api/session/register` y sigue esta secuencia:
 4. instala `openssh-server` si falta, la llave pública en
    `/root/.ssh/authorized_keys`, el archivo
    `/etc/ssh/sshd_config.d/99-vmcons.conf` con
-   `PasswordAuthentication no` y `PermitRootLogin prohibit-password`, y
-   ejecuta `systemctl enable --now ssh`;
+   `PasswordAuthentication no` y `PermitRootLogin prohibit-password`,
+   ejecuta `systemctl enable --now ssh` y recarga la configuración con
+   `systemctl reload ssh` (con `restart` como respaldo);
 5. comprueba la conexión SSH real con la llave;
 6. marca la máquina como registrada y responde `201`.
 
@@ -419,7 +425,8 @@ Diagrama: `docs/diagramas/flujo-procesos.puml`.
    - fallo de conexión o tiempo de espera agotado → error de transporte.
 7. **Notificación** — la respuesta indica si terminó correctamente, un mensaje comprensible
    y, cuando falla, la información técnica (orden ejecutada, código de salida, `stderr`)
-   para diagnóstico. La operación completa queda registrada en el log del servidor.
+   para diagnóstico. La operación queda registrada en el log del servidor con
+   su descripción y, si falla, con el motivo comprensible.
 8. **Cierre** — la sesión se cierra o devuelve al pool; la interfaz conserva el formulario
    con los datos ingresos.
 

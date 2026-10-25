@@ -184,7 +184,7 @@ func ModuloDe(ruta string) string {
 		return "paquetes"
 	case strings.HasPrefix(ruta, "/api/keys"):
 		return "llaves"
-	case strings.HasPrefix(ruta, "/api/issue"):
+	case strings.HasPrefix(ruta, rutaIssue):
 		return "issue"
 	case strings.HasPrefix(ruta, "/api/hostname"):
 		return "hostname"

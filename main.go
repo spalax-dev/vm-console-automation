@@ -260,16 +260,7 @@ func nuevaConsola(ejecutor ports.Executor) *consola {
 
 	conectorSSH := ssh.New(ejecutor, ssh.WithKey(rutaLlave()))
 
-	objetivo := domain.Target{ID: os.Getenv(envVM)}
-	if objetivo.ID == "" {
-		objetivo.ID = almacen.Activa()
-	}
-
-	if objetivo.ID != "" {
-		slog.Info("máquina vinculada", "vm", objetivo.ID)
-	} else {
-		slog.Warn("la consola arranca sin máquina vinculada; elígela en el selector", "variable", envVM)
-	}
+	objetivo := objetivoInicial(almacen)
 
 	sesiones := services.NuevoDescubridor(&services.ConfigDescubridor{
 		Maquina:  maquina,
@@ -278,6 +269,7 @@ func nuevaConsola(ejecutor ports.Executor) *consola {
 			conectorSSH,
 			maquina,
 		},
+		Registro: almacen,
 	})
 
 	return &consola{
@@ -308,6 +300,22 @@ func nuevaConsola(ejecutor ports.Executor) *consola {
 			Persistencia: almacen,
 		}),
 	}
+}
+
+// objetivoInicial recupera la máquina vinculada o la variable de entorno.
+func objetivoInicial(almacen *services.Almacen) domain.Target {
+	objetivo := domain.Target{ID: os.Getenv(envVM)}
+	if objetivo.ID == "" {
+		objetivo.ID = almacen.Activa()
+	}
+
+	if objetivo.ID != "" {
+		slog.Info("máquina vinculada", "vm", objetivo.ID)
+	} else {
+		slog.Warn("la consola arranca sin máquina vinculada; elígela en el selector", "variable", envVM)
+	}
+
+	return objetivo
 }
 
 // configurarLog elige el formato y el nivel de los logs de la consola.

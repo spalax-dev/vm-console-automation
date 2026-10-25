@@ -66,7 +66,7 @@ Orden de trabajo obligatorio: **docs → tests → implementación**.
 | # | Requisito | Docs | Tests | Código | UI | Video |
 | --- | --- | --- | --- | --- | --- | --- |
 | 3.1.1 | Instalación y eliminación de aplicaciones (`apt install` / `apt remove`) con formulario y notificación de resultado | [x] | [x] | [x] | [ ] | [ ] |
-| 3.1.2 | Llave SSH para `root`: generar par, instalar en `authorized_keys`, deshabilitar acceso por login/contraseña, **descarga de la llave privada** y mensaje de recomendación de uso | [x] | [x] | [x] | [ ] | [ ] |
+| 3.1.2 | Llave SSH para `root`: generar par, instalar en `authorized_keys`, deshabilitar acceso por login/contraseña, **descarga de la llave privada** y mensaje de recomendación de uso | [x] | [x] | [x] | [x] | [ ] |
 | 3.1.3 | Personalizar `/etc/issue` con nombre de host, fecha, hora, dirección IP y mensaje personalizado | [x] | [x] | [x] | [ ] | [ ] |
 | 3.1.4 | Asignar nombre de host y actualizar `/etc/hosts` | [x] | [x] | [x] | [ ] | [ ] |
 
@@ -74,7 +74,7 @@ Orden de trabajo obligatorio: **docs → tests → implementación**.
 
 | # | Requisito | Docs | Tests | Código | UI | Video |
 | --- | --- | --- | --- | --- | --- | --- |
-| 3.2.1 | Crear usuario con casilla *sudo*; casilla para generar par de llaves, instalar la pública y **descargar la privada**; deshabilitar login/contraseña al habilitar SSH | [x] | [x] | [x] | [ ] | [ ] |
+| 3.2.1 | Crear usuario con casilla *sudo*; casilla para generar par de llaves, instalar la pública y **descargar la privada**; deshabilitar login/contraseña al habilitar SSH | [x] | [x] | [x] | [x] | [ ] |
 | 3.2.2 | Eliminar usuario con casilla para eliminar también todos sus archivos | [x] | [x] | [x] | [ ] | [ ] |
 
 ### 4.3 Gestión de demonios con systemd
@@ -241,8 +241,9 @@ de los módulos del numeral 3.
   vínculo, aunque el registro de credenciales quede pendiente.
 
 - **25 oct 2026** — Observabilidad y verificación: cada petición de la
-  API recibe `X-Request-ID` y se registra con método, ruta, estado,
-  duración, tamaño y VM; `VMCONS_LOG=json` y `VMCONS_LOG_LEVEL` controlan
+  API recibe `X-Request-ID` y se registra con método, ruta, descripción,
+  estado, duración, tamaño, VM y, en los errores, el motivo;
+  `VMCONS_LOG=json` y `VMCONS_LOG_LEVEL` controlan
   el formato y el nivel. Los adaptadores sanitizan las órdenes para no
   exponer contraseñas en logs ni en `tecnico`. Se añadió
   `docs/verificacion.md` con la matriz capacidad → API → interfaz.
@@ -321,8 +322,9 @@ de los módulos del numeral 3.
   SSH y red puente u host-only) y las apagadas, para poder encenderlas. La web muestra el aviso y
   el `footer` del selector indica que solo aparecen máquinas con Guest
   Additions. Al generar la llave de root, si `openssh-server` no está
-  instalado se instala con APT desde la sesión de Guest Additions y se
-  arranca con `systemctl enable --now ssh`.
+  instalado se instala con APT desde la sesión de Guest Additions, se
+  arranca con `systemctl enable --now ssh` y se recarga sshd para aplicar
+  `PasswordAuthentication no` de inmediato.
 
 - **25 oct 2026** — Instalación y arranque: `VMCONS_WEB` permite servir
   la interfaz desde un directorio en lugar de la copia embebida; se

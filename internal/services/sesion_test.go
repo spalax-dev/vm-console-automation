@@ -263,6 +263,32 @@ func TestDescubridorUsaGuestAdditionsSinSSH(t *testing.T) {
 	}
 }
 
+// TestDescubridorRegistradaNoUsaGuestAdditions comprueba que una
+// máquina registrada no vuelve al canal de Guest Additions si SSH falla.
+func TestDescubridorRegistradaNoUsaGuestAdditions(t *testing.T) {
+	t.Parallel()
+
+	m := &stubMachine{addr: netip.MustParseAddr("192.168.1.56"), state: domain.StateRunning}
+	sshConn := &stubConnector{name: conectorSSH, probe: errors.New("ssh no responde")}
+	gaConn := &stubConnector{name: conectorGuest}
+
+	desc := NuevoDescubridor(&ConfigDescubridor{
+		Maquina:    m,
+		Objetivo:   domain.Target{ID: vmPrueba},
+		Conectores: []ports.Connector{sshConn, gaConn},
+		Registro:   &stubRegistro{registradas: map[string]bool{vmPrueba: true}},
+	})
+
+	_, err := desc.Descubrir(context.Background())
+	if !errors.Is(err, ErrSesionNoDisponible) {
+		t.Fatalf(msgDescubrirSinSesion, err)
+	}
+
+	if gaConn.probed != 0 {
+		t.Errorf("Guest Additions se sondeó %d veces, want 0", gaConn.probed)
+	}
+}
+
 // TestDescubridorFallaSiMaquinaApagada comprueba que no se elige ningún
 // conector cuando la máquina no está en ejecución.
 func TestDescubridorFallaSiMaquinaApagada(t *testing.T) {

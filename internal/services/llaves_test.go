@@ -117,6 +117,14 @@ func TestLlavesGenerarInstalaClave(t *testing.T) {
 		t.Errorf("orden = %q, want instalar y arrancar SSH", orden)
 	}
 
+	if !strings.Contains(orden, "systemctl reload ssh") || !strings.Contains(orden, "systemctl restart ssh") {
+		t.Errorf("orden = %q, want recargar la configuración de SSH", orden)
+	}
+
+	if !strings.Contains(orden, "sshd -T") || !strings.Contains(orden, "passwordauthentication no") {
+		t.Errorf("orden = %q, want verificar la configuración efectiva de SSH", orden)
+	}
+
 	if !sesion.closed {
 		t.Error(msgSesionAbierta)
 	}

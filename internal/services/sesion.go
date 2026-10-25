@@ -43,6 +43,9 @@ type ConfigDescubridor struct {
 	Objetivo domain.Target
 	// Conectores son los conectores candidatos, en orden de preferencia.
 	Conectores []ports.Connector
+	// Registro informa si una máquina ya fue preparada para SSH. Una
+	// máquina registrada no vuelve a usar Guest Additions.
+	Registro Registro
 }
 
 // Descubridor elige, en tiempo de ejecución, el conector con el que la
@@ -50,6 +53,7 @@ type ConfigDescubridor struct {
 type Descubridor struct {
 	maquina    ports.Machine
 	conectores []ports.Connector
+	registro   Registro
 
 	// mu protege objetivo: los manejadores HTTP consultan la sesión y
 	// vinculan una máquina distinta en paralelo.
@@ -63,6 +67,7 @@ func NuevoDescubridor(config *ConfigDescubridor) *Descubridor {
 		maquina:    config.Maquina,
 		objetivo:   config.Objetivo,
 		conectores: config.Conectores,
+		registro:   config.Registro,
 	}
 }
 
@@ -173,9 +178,17 @@ func (d *Descubridor) conDireccion(ctx context.Context, objetivo domain.Target) 
 }
 
 // primerConectorDisponible devuelve el primer conector cuyo sondeo
-// termina sin error, o nil si ninguno puede atender la máquina.
+// termina sin error, o nil si ninguno puede atender la máquina. En una
+// máquina ya registrada no se recurre al conector de respaldo: después
+// de instalar SSH, la comunicación debe ser exclusivamente por SSH.
 func (d *Descubridor) primerConectorDisponible(ctx context.Context, objetivo domain.Target) ports.Connector {
-	for _, conector := range d.conectores {
+	registrada := d.registro != nil && d.registro.Registrada(objetivo.ID)
+
+	for indice, conector := range d.conectores {
+		if indice > 0 && registrada {
+			break
+		}
+
 		if err := conector.Probe(ctx, objetivo); err == nil {
 			return conector
 		}

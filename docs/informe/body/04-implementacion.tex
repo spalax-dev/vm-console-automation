@@ -17,7 +17,7 @@ systemd y HAProxy--- ejecutan operaciones reales sobre la máquina. No quedan
 respuestas \texttt{501}: todas las rutas del contrato están conectadas.
 La interfaz web consume el contrato completo desde las nueve vistas
 (\cref{sec:interfaz}), incluidos el registro con diagnóstico y el
-historial. Las pruebas cubren el 91.6\,\% de los manejadores y el
+historial. Las pruebas cubren el 92.4\,\% de los manejadores y el
 89.0\,\% de los servicios.
 
 % ------------------------------------------------------------
@@ -64,10 +64,15 @@ después crea \texttt{/root/.ssh} con permisos \texttt{700}, agrega la
 clave a \texttt{authorized\_keys} con \texttt{600}, escribe
 \texttt{/etc/ssh/sshd\_config.d/99-vmcons.conf} con
 \texttt{PasswordAuthentication no} y
-\texttt{PermitRootLogin prohibit-password}, y habilita y arranca el
-servicio con \texttt{systemctl enable --now ssh}. Al cerrar la sesión, el conector
+\texttt{PermitRootLogin prohibit-password}, habilita y arranca el
+servicio con \texttt{systemctl enable --now ssh} y recarga su
+configuración con \texttt{systemctl reload ssh} (con \texttt{restart} como
+respaldo) y verifica con \texttt{sshd -T} que la autenticación por
+contraseña quedó deshabilitada. Al cerrar la sesión, el conector
 \texttt{ssh} queda instalado y pasa a ser el preferido para las
-siguientes operaciones.
+siguientes operaciones. Además, una máquina ya registrada no vuelve a
+usar Guest Additions si SSH falla: la consola responde \texttt{503} en
+lugar de ocultar el problema.
 
 La llave privada se entrega con \texttt{GET /api/keys/root} como archivo
 adjunto (\texttt{Content-Disposition: attachment}) y nunca se escribe en
@@ -260,9 +265,10 @@ la justificación de la dependencia SQLite está en
 \label{sec:observabilidad}
 
 Cada petición a la API recibe un identificador \texttt{X-Request-ID} y se
-registra con el método, la ruta, el estado, la duración, el tamaño de la
-respuesta y la máquina activa. Los errores del cliente se anotan como
-advertencia y los del servidor como error; el formato se elige con
+registra con el método, la ruta, una descripción legible de la operación,
+el estado, la duración, el tamaño de la respuesta y la máquina activa. En
+los errores se añade el motivo comprensible devuelto al cliente. Los
+errores del cliente se anotan como advertencia y los del servidor como error; el formato se elige con
 \texttt{VMCONS\_LOG} (texto o JSON) y el nivel con
 \texttt{VMCONS\_LOG\_LEVEL}. Las respuestas de error conservan
 \texttt{mensaje}, \texttt{operacion}, \texttt{codigo}, \texttt{salida},

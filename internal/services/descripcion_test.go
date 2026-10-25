@@ -28,6 +28,66 @@ func TestDescribirOperacion(t *testing.T) {
 		esperado string
 	}{
 		{
+			nombre:   "consultar sesión",
+			metodo:   http.MethodGet,
+			ruta:     rutaSesion,
+			esperado: "Consultar el estado de la sesión",
+		},
+		{
+			nombre:   "diagnosticar sesión",
+			metodo:   http.MethodGet,
+			ruta:     "/api/session/diagnostico",
+			esperado: "Diagnosticar el registro de la máquina",
+		},
+		{
+			nombre:   "listar máquinas",
+			metodo:   http.MethodGet,
+			ruta:     "/api/vms",
+			esperado: "Listar las máquinas virtuales",
+		},
+		{
+			nombre:   "listar paquetes",
+			metodo:   http.MethodGet,
+			ruta:     rutaPaquetes,
+			esperado: "Listar los paquetes instalados",
+		},
+		{
+			nombre:   "consultar paquete",
+			metodo:   http.MethodGet,
+			ruta:     rutaPaquetes + "/nano",
+			esperado: "Consultar el paquete «nano»",
+		},
+		{
+			nombre:   "listar usuarios",
+			metodo:   http.MethodGet,
+			ruta:     rutaUsuarios,
+			esperado: "Listar los usuarios",
+		},
+		{
+			nombre:   "descargar llave de usuario",
+			metodo:   http.MethodGet,
+			ruta:     rutaUsuarios + "/jorge/key",
+			esperado: "Descargar la llave privada de «jorge»",
+		},
+		{
+			nombre:   "listar unidades",
+			metodo:   http.MethodGet,
+			ruta:     rutaUnidades,
+			esperado: "Listar las unidades de systemd",
+		},
+		{
+			nombre:   "listar servidores",
+			metodo:   http.MethodGet,
+			ruta:     rutaBackend,
+			esperado: "Listar los servidores del back-end",
+		},
+		{
+			nombre:   "consultar historial",
+			metodo:   http.MethodGet,
+			ruta:     "/api/historial",
+			esperado: "Consultar el historial de operaciones",
+		},
+		{
 			nombre:   "instalar paquete",
 			metodo:   http.MethodPost,
 			ruta:     rutaPaquetes,
@@ -55,7 +115,7 @@ func TestDescribirOperacion(t *testing.T) {
 		{
 			nombre:   "personalizar issue",
 			metodo:   http.MethodPut,
-			ruta:     "/api/issue",
+			ruta:     rutaIssue,
 			esperado: "Personalizar /etc/issue",
 		},
 		{
@@ -191,7 +251,7 @@ func TestDescribirOperacion(t *testing.T) {
 		{
 			nombre:   "vincular máquina",
 			metodo:   http.MethodPut,
-			ruta:     "/api/session",
+			ruta:     rutaSesion,
 			datos:    map[string]any{claveVM: nombreDebian},
 			esperado: "Vincular la máquina «debian-1»",
 		},

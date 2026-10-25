@@ -168,7 +168,11 @@ export function renderUsuarios() {
         const archivo = await api.usuarios.descargarLlave(nombre);
         guardarArchivo(archivo, `id_ed25519_${nombre}`);
 
-        return { mensaje: `Se descargó la llave privada de «${nombre}».` };
+        return {
+          mensaje: `Se descargó la llave privada de «${nombre}».`,
+          operacion: `GET /api/users/${nombre}/key`,
+          salida: `Archivo descargado: id_ed25519_${nombre}`,
+        };
       },
       operacion: `GET /api/users/${nombre}/key`,
       informar: showResult,

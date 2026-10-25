@@ -4,14 +4,18 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
 	"time"
+
+	"consola-vm/internal/services"
 )
 
 // msgAPI es el mensaje común de las peticiones registradas.
@@ -21,17 +25,25 @@ const msgAPI = "api"
 // respuesta para correlacionar un error del frontend con el servidor.
 const cabeceraSolicitud = "X-Request-ID"
 
-// escritorEstado conserva el código y el tamaño de la respuesta.
+// maxCuerpoLog acota el cuerpo de error que se usa para explicar el
+// motivo en el log.
+const maxCuerpoLog = 512
+
+// escritorEstado conserva el código, el tamaño y el cuerpo de error de
+// la respuesta.
 type escritorEstado struct {
 	http.ResponseWriter
-	estado int
-	bytes  int
+	estado   int
+	bytes    int
+	capturar bool
+	captura  bytes.Buffer
 }
 
 // WriteHeader registra el primer estado escrito.
 func (w *escritorEstado) WriteHeader(codigo int) {
 	if w.estado == 0 {
 		w.estado = codigo
+		w.capturar = codigo >= http.StatusBadRequest
 	}
 
 	w.ResponseWriter.WriteHeader(codigo)
@@ -41,6 +53,15 @@ func (w *escritorEstado) WriteHeader(codigo int) {
 func (w *escritorEstado) Write(datos []byte) (int, error) {
 	if w.estado == 0 {
 		w.estado = http.StatusOK
+	}
+
+	if w.capturar && w.captura.Len() < maxCuerpoLog {
+		restante := maxCuerpoLog - w.captura.Len()
+		if len(datos) > restante {
+			datos = datos[:restante]
+		}
+
+		_, _ = w.captura.Write(datos)
 	}
 
 	escritos, err := w.ResponseWriter.Write(datos)
@@ -74,6 +95,9 @@ func ConObservabilidad(siguiente http.Handler, vm func() string, logger *slog.Lo
 
 		w.Header().Set(cabeceraSolicitud, solicitud)
 
+		datos := leerCuerpo(r)
+		completarDatos(r, datos)
+
 		inicio := time.Now()
 		registro := &escritorEstado{ResponseWriter: w}
 
@@ -96,6 +120,11 @@ func ConObservabilidad(siguiente http.Handler, vm func() string, logger *slog.Lo
 			"estado", estado,
 			"duracion_ms", time.Since(inicio).Milliseconds(),
 			"bytes", registro.bytes,
+			"descripcion", services.DescribirOperacion(r.Method, ruta, r.URL.Path, datos),
+		}
+
+		if motivo := motivoDe(estado, registro.captura.Bytes()); motivo != "" {
+			atributos = append(atributos, "motivo", motivo)
 		}
 
 		if nombre := nombreVM(vm); nombre != "" {
@@ -104,6 +133,34 @@ func ConObservabilidad(siguiente http.Handler, vm func() string, logger *slog.Lo
 
 		logger.Log(context.Background(), nivelDeEstado(estado), msgAPI, atributos...)
 	})
+}
+
+// motivoDe extrae el mensaje comprensible del cuerpo de error, sin
+// incluir el detalle técnico.
+func motivoDe(estado int, cuerpo []byte) string {
+	if estado < http.StatusBadRequest || len(cuerpo) == 0 {
+		return ""
+	}
+
+	var respuesta struct {
+		Mensaje string `json:"mensaje"`
+	}
+
+	if err := json.Unmarshal(cuerpo, &respuesta); err != nil {
+		return ""
+	}
+
+	return recortar(strings.TrimSpace(respuesta.Mensaje), 200)
+}
+
+// recortar limita un texto sin partir un carácter UTF-8.
+func recortar(texto string, maximo int) string {
+	caracteres := []rune(texto)
+	if len(caracteres) <= maximo {
+		return texto
+	}
+
+	return string(caracteres[:maximo]) + "…"
 }
 
 // nivelDeEstado clasifica el estado HTTP: 503 es una indisponibilidad

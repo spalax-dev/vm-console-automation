@@ -93,7 +93,11 @@ export function renderLlaves() {
         const archivo = await api.llaves.descargarRoot();
         guardarArchivo(archivo, NOMBRE_ARCHIVO);
 
-        return { mensaje: `Se descargó la llave privada como «${NOMBRE_ARCHIVO}».` };
+        return {
+          mensaje: `Se descargó la llave privada como «${NOMBRE_ARCHIVO}».`,
+          operacion: 'GET /api/keys/root',
+          salida: `Archivo descargado: ${NOMBRE_ARCHIVO}`,
+        };
       },
       operacion: 'GET /api/keys/root',
       informar: showResult,

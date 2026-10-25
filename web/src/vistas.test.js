@@ -277,6 +277,18 @@ describe('vistas conectadas', () => {
     });
   });
 
+  it('avisa sobre el resguardo de la llave privada de un usuario', async () => {
+    prepararRanura();
+    simularFetch({ usuarios: [] });
+
+    const vista = renderUsuarios();
+    document.body.appendChild(vista);
+
+    await vi.waitFor(() => {
+      expect(vista.textContent).toContain('Guarda la llave privada en un lugar seguro');
+    });
+  });
+
   it('muestra el resumen legible de cada operación del historial', async () => {
     prepararRanura();
     simularFetch({

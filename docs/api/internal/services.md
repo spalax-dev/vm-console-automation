@@ -407,6 +407,9 @@ type ConfigDescubridor struct {
     Objetivo domain.Target
     // Conectores son los conectores candidatos, en orden de preferencia.
     Conectores []ports.Connector
+    // Registro informa si una máquina ya fue preparada para SSH. Una
+    // máquina registrada no vuelve a usar Guest Additions.
+    Registro Registro
 }
 ```
 

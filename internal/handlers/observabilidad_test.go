@@ -44,6 +44,43 @@ func TestConObservabilidadRegistra(t *testing.T) {
 	}
 }
 
+// TestConObservabilidadDescribeYExplicaError comprueba que el log
+// incluye el resumen de la lectura y el motivo del 503.
+func TestConObservabilidadDescribeYExplicaError(t *testing.T) {
+	t.Parallel()
+
+	var registro bytes.Buffer
+
+	logger := slog.New(slog.NewTextHandler(&registro, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	handler := ConObservabilidad(
+		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusServiceUnavailable)
+
+			if _, err := w.Write([]byte(`{"mensaje":"No hay una sesión disponible con la máquina."}`)); err != nil {
+				t.Errorf("escribir el cuerpo de error: %v", err)
+			}
+		}),
+		nil,
+		logger,
+	)
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/session", http.NoBody)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	salida := registro.String()
+	for _, esperado := range []string{
+		"estado=503",
+		"Consultar el estado de la sesión",
+		"motivo=",
+		"No hay una sesión disponible",
+	} {
+		if !strings.Contains(salida, esperado) {
+			t.Errorf("log = %q, want %q", salida, esperado)
+		}
+	}
+}
+
 // TestConObservabilidadOmitaEstaticos comprueba que solo registra /api.
 func TestConObservabilidadOmitaEstaticos(t *testing.T) {
 	t.Parallel()

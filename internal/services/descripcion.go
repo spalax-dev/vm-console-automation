@@ -15,6 +15,7 @@ const (
 	claveNombre  = "nombre"
 	claveVM      = "vm"
 	rutaPaquetes = "/api/packages"
+	rutaIssue    = "/api/issue"
 	rutaUsuarios = "/api/users"
 	rutaUnidades = "/api/units"
 	rutaBackend  = "/api/haproxy/backend/servers"
@@ -30,12 +31,10 @@ func DescribirOperacion(metodo, patron, ruta string, datos map[string]any) strin
 	switch {
 	case strings.HasPrefix(ruta, rutaPaquetes):
 		return describirPaquete(metodo, partes, datos)
-	case strings.HasPrefix(ruta, "/api/keys/root"):
-		return describirLlave(metodo)
-	case strings.HasPrefix(ruta, "/api/issue"):
-		return describirIssue(metodo)
-	case strings.HasPrefix(ruta, "/api/hostname"):
-		return describirHostname(metodo, datos)
+	case strings.HasPrefix(ruta, "/api/keys/root"),
+		strings.HasPrefix(ruta, rutaIssue),
+		strings.HasPrefix(ruta, "/api/hostname"):
+		return describirSistema(metodo, ruta, datos)
 	case strings.HasPrefix(ruta, rutaUsuarios):
 		return describirUsuario(metodo, partes, datos)
 	case strings.HasPrefix(ruta, rutaUnidades):
@@ -43,9 +42,15 @@ func DescribirOperacion(metodo, patron, ruta string, datos map[string]any) strin
 	case strings.HasPrefix(ruta, rutaBackend):
 		return describirHaproxy(metodo, partes, datos)
 	case strings.HasPrefix(ruta, rutaSesion):
-		return describirSesion(metodo, datos)
+		return describirSesion(metodo, ruta, datos)
 	case strings.HasPrefix(ruta, rutaVMs):
 		return describirMaquina(metodo, partes)
+	case strings.HasPrefix(ruta, "/api/historial"):
+		if metodo == http.MethodGet {
+			return "Consultar el historial de operaciones"
+		}
+
+		return sinDescripcion(metodo, patron, ruta)
 	default:
 		return sinDescripcion(metodo, patron, ruta)
 	}
@@ -62,8 +67,26 @@ func describirPaquete(metodo string, partes []string, datos map[string]any) stri
 		return "Instalar un paquete"
 	case http.MethodDelete:
 		return fmt.Sprintf("Eliminar el paquete «%s»", ultimo(partes))
+	case http.MethodGet:
+		if len(partes) >= 3 {
+			return fmt.Sprintf("Consultar el paquete «%s»", elemento(partes))
+		}
+
+		return "Listar los paquetes instalados"
 	default:
 		return "Gestionar paquetes"
+	}
+}
+
+// describirSistema agrupa las lecturas y escrituras de preparación.
+func describirSistema(metodo, ruta string, datos map[string]any) string {
+	switch {
+	case strings.HasPrefix(ruta, "/api/keys/root"):
+		return describirLlave(metodo)
+	case strings.HasPrefix(ruta, rutaIssue):
+		return describirIssue(metodo)
+	default:
+		return describirHostname(metodo, datos)
 	}
 }
 
@@ -73,7 +96,7 @@ func describirLlave(metodo string) string {
 		return "Generar la llave SSH de root"
 	}
 
-	return "Consultar la llave SSH de root"
+	return "Descargar la llave privada de root"
 }
 
 // describirIssue resume la personalización de /etc/issue.
@@ -115,6 +138,16 @@ func describirUsuario(metodo string, partes []string, datos map[string]any) stri
 		}
 
 		return fmt.Sprintf("Eliminar el usuario «%s»", usuario)
+	case http.MethodGet:
+		if len(partes) >= 4 && ultimo(partes) == "key" {
+			return fmt.Sprintf("Descargar la llave privada de «%s»", usuario)
+		}
+
+		if len(partes) >= 3 {
+			return fmt.Sprintf("Consultar el usuario «%s»", usuario)
+		}
+
+		return "Listar los usuarios"
 	default:
 		return fmt.Sprintf("Gestionar el usuario «%s»", usuario)
 	}
@@ -131,6 +164,12 @@ func describirUnidad(metodo string, partes []string, datos map[string]any) strin
 		return describirEstadoUnidad(unidad, datos)
 	case http.MethodPost:
 		return fmt.Sprintf("Reiniciar la unidad «%s»", unidad)
+	case http.MethodGet:
+		if len(partes) >= 3 {
+			return fmt.Sprintf("Consultar la unidad «%s»", unidad)
+		}
+
+		return "Listar las unidades de systemd"
 	default:
 		return fmt.Sprintf("Consultar la unidad «%s»", unidad)
 	}
@@ -147,13 +186,15 @@ func describirHaproxy(metodo string, partes []string, datos map[string]any) stri
 		return "Agregar un servidor al back-end"
 	case http.MethodDelete:
 		return fmt.Sprintf("Eliminar el servidor «%s» del back-end", ultimo(partes))
+	case http.MethodGet:
+		return "Listar los servidores del back-end"
 	default:
 		return "Consultar el back-end"
 	}
 }
 
 // describirSesion resume el registro y la vinculación de máquinas.
-func describirSesion(metodo string, datos map[string]any) string {
+func describirSesion(metodo, ruta string, datos map[string]any) string {
 	switch metodo {
 	case http.MethodPost:
 		maquina := texto(datos, claveVM)
@@ -174,6 +215,12 @@ func describirSesion(metodo string, datos map[string]any) string {
 		}
 
 		return "Vincular una máquina"
+	case http.MethodGet:
+		if strings.Contains(ruta, "/diagnostico") {
+			return "Diagnosticar el registro de la máquina"
+		}
+
+		return "Consultar el estado de la sesión"
 	default:
 		return "Consultar la sesión"
 	}
@@ -185,7 +232,7 @@ func describirMaquina(metodo string, partes []string) string {
 		return fmt.Sprintf("Encender la máquina «%s»", elemento(partes))
 	}
 
-	return "Consultar las máquinas"
+	return "Listar las máquinas virtuales"
 }
 
 // describirEstadoUnidad distingue activar, detener, habilitar y

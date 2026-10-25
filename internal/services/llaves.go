@@ -165,5 +165,7 @@ func scriptInstalacion(clave string) string {
 		"chmod 600 /root/.ssh/authorized_keys && " +
 		"install -d -m 755 /etc/ssh/sshd_config.d && " +
 		"printf '%s' " + domain.Quote(configuracion) + " > /etc/ssh/sshd_config.d/99-vmcons.conf && " +
-		"systemctl enable --now ssh"
+		"systemctl enable --now ssh && " +
+		"(systemctl reload ssh 2>/dev/null || systemctl restart ssh) && " +
+		"/usr/sbin/sshd -T | grep -qx 'passwordauthentication no'"
 }
