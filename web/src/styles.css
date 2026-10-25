@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    border-radius: 0;
+  }
+  button, input, select, textarea {
+    border-radius: 3px;
+  }
+  .card {
+    @apply bg-vm-surface border border-vm-border rounded-vm-md;
+  }
+  .btn {
+    @apply h-vm-btn px-2 text-[12px] font-medium border border-vm-border bg-vm-surface text-vm-fg inline-flex items-center gap-1.5 transition-colors duration-100;
+  }
+  .btn:hover {
+    @apply border-vm-borderHover;
+  }
+  .btn-primary {
+    @apply bg-vm-accent text-white border-vm-accent;
+  }
+  .btn-primary:hover {
+    @apply opacity-90 border-vm-accent;
+  }
+  .btn-danger-outline {
+    @apply border-vm-accent text-vm-accent;
+  }
+  .input {
+    @apply h-vm-input px-2 text-[12px] border border-vm-border bg-vm-surface text-vm-fg focus:outline-none focus:border-vm-borderHover;
+  }
+  .label {
+    @apply text-vm-fgSecondary text-[11px];
+  }
+  .tab {
+    @apply h-vm-tabs px-3 inline-flex items-center gap-1.5 text-vm-fgSecondary border-b-2 border-transparent transition-all duration-100;
+  }
+  .tab:hover {
+    @apply text-vm-fg;
+  }
+  .tab.active {
+    @apply text-vm-fg border-vm-accent;
+  }
+}
+
+@layer utilities {
+  .fade-slide {
+    animation: fadeSlide 150ms ease-out;
+  }
+  @keyframes fadeSlide {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .spin {
+    animation: spin 800ms linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+}
