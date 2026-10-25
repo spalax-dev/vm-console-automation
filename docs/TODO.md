@@ -177,6 +177,16 @@ de los módulos del numeral 3.
 
 ## Notas de seguimiento
 
+- **25 oct 2026** — La SPA se sirve desde el binario: `main.go` embebe
+  `web/dist` y lo publica en la raíz (`/assets/` para los archivos con
+  huella y `/` para `index.html`), mientras la interfaz anterior sigue
+  accesible en `/modules/`. `web/dist` pasó a versionarse para que
+  `//go:embed` compile en un clon limpio y la tarea `build` depende de
+  `web-build`. Las tipografías (IBM Plex Sans y JetBrains Mono, subset
+  latino) se empaquetan con `@fontsource`, de modo que la consola no
+  depende de una CDN. Verificado con el binario compilado: `/`,
+  `/assets/*.js`, `/assets/*.woff2` y `/modules/` responden 200.
+
 - **25 oct 2026** — Nombre de host y `/etc/hosts` (3.1.4): el servicio
   `Hostname` lee `/etc/hostname`, la primera IPv4 de `hostname -I` y la
   presencia del nombre en `/etc/hosts`. Al escribir ejecuta

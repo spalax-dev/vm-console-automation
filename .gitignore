@@ -50,11 +50,12 @@ id_rsa*
 *.key
 
 # ---------------------------------------------------------------
-# Dependencias y artefactos del frontend (web/)
+# Dependencias del frontend (web/)
 # ---------------------------------------------------------------
 node_modules/
-web/dist/
 web/.vite/
+# web/dist se versiona: main.go lo embebe con //go:embed y el binario
+# debe compilar en un clon limpio. Se regenera con «task web-build».
 
 # ---------------------------------------------------------------
 # Dependencias de Go (si se usa vendor opcionalmente)

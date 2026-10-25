@@ -30,11 +30,12 @@ import (
 	"consola-vm/internal/services"
 )
 
-// contenidoWeb contiene la interfaz: módulos HTML y archivos estáticos.
-// Se enumeran las carpetas necesarias para no embeber node_modules ni
-// artefactos de desarrollo del frontend.
+// contenidoWeb contiene la interfaz: la aplicación compilada con Vite y
+// la interfaz anterior, que se conserva mientras se retira. Se enumeran
+// las carpetas necesarias para no embeber node_modules ni artefactos de
+// desarrollo del frontend.
 //
-//go:embed all:web/modules all:web/static web/index.html
+//go:embed all:web/dist all:web/modules all:web/static web/index.html
 var contenidoWeb embed.FS
 
 // Variables de entorno que configuran la conexión con la máquina.
@@ -133,9 +134,19 @@ func nuevoMux() http.Handler {
 		panic(fmt.Errorf("preparar los archivos web: %w", err))
 	}
 
+	// La aplicación compilada con Vite se sirve en la raíz; el enrutado
+	// por fragmento de URL no necesita reescrituras en el servidor.
+	dist, err := fs.Sub(contenidoWeb, "web/dist")
+	if err != nil {
+		panic(fmt.Errorf("preparar la aplicación web: %w", err))
+	}
+
+	// La interfaz anterior se conserva accesible mientras se retira.
 	mux.Handle("/modules/", http.FileServerFS(sub))
 	mux.Handle("/static/", http.FileServerFS(sub))
-	mux.Handle("/", http.RedirectHandler("/modules/index.html", http.StatusSeeOther))
+
+	mux.Handle("/assets/", http.FileServerFS(dist))
+	mux.Handle("/", http.FileServerFS(dist))
 
 	return mux
 }

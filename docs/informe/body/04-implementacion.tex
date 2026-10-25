@@ -210,6 +210,15 @@ tabla nunca queda desactualizada respecto de la máquina.
 \texttt{web/src/validacion.js} para dar respuesta inmediata; la
 validación del servidor sigue siendo la que decide.
 
+\emph{Empaquetado.} Vite compila la interfaz en \texttt{web/dist}, que se
+versiona y se embebe en el binario con \texttt{//go:embed}: la consola
+sirve la aplicación en la raíz y los recursos con huella en
+\texttt{/assets/}, en el mismo origen que la API. Las tipografías y los
+iconos viajan dentro del binario, de modo que la interfaz se ve igual en
+un equipo sin salida a Internet. La tarea \texttt{build} del
+\texttt{Taskfile} recompila el cliente antes de enlazar el binario de Go,
+para que el ejecutable nunca quede con una versión anterior de la vista.
+
 \emph{Pruebas.} El cliente se verifica con Vitest: cuarenta y dos casos sobre
 la construcción de las peticiones, la traducción de errores, las reglas
 de validación, las utilidades de presentación y el montaje de las vistas

@@ -71,7 +71,8 @@ tasks:
       - task: web-test
 
   build:
-    desc: Compilar el binario final (vmcons)
+    desc: Compilar el binario final (vmcons) con la interfaz embebida
+    deps: [web-build]
     cmd: go build -o {{.BIN}} .
 
   # ---------------------------------------------------------------

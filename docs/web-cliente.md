@@ -25,10 +25,16 @@ web/
 └── modules/, static/     interfaz anterior, se retira al cerrar la migración
 ```
 
-`main.go` embebe `web/dist`, `web/modules`, `web/static` y `web/index.html`.
-Mientras convivan las dos interfaces, la raíz sigue redirigiendo a
-`/modules/index.html`; el cambio a `web/dist/index.html` se hace cuando la SPA
-cubra los ocho módulos.
+`main.go` embebe `web/dist` y sirve la aplicación compilada en la raíz del
+mismo origen que la API: `/assets/` para los archivos con hash y `/` para
+`index.html`. La interfaz anterior queda accesible en `/modules/` mientras se
+retira. Como `web/dist` se versiona, el binario compila en un clon limpio sin
+ejecutar antes el empaquetado del frontend; `task build` lo regenera de todos
+modos.
+
+Las tipografías (IBM Plex Sans y JetBrains Mono, subset latino) y los iconos
+viajan dentro del binario: la consola no depende de una red externa ni de una
+CDN para verse igual.
 
 ---
 
@@ -128,10 +134,8 @@ el archivo de configuración. El nombre que muestra el selector de VM se toma de
 
 - **Lista de VM**: el selector de la barra superior necesita un recurso
   `GET /api/vms` que aún no existe en el contrato. Hasta entonces muestra la
-  VM configurada por `VMCONS_VM` y el estado real de `GET /api/session`.
+  VM configurada por `VITE_VM_NOMBRE` y el estado real de `GET /api/session`.
 - **Historial**: fuera de alcance (`docs/TODO.md` §9).
-- **Retiro de `web/modules` y `web/static`**: cuando la SPA cubra los ocho
-  módulos y `main.go` sirva `web/dist/index.html` en la raíz. Como `web/dist`
-  está en `.gitignore`, el `//go:embed` de esa carpeta exige compilar el
-  frontend (`cd web && pnpm build`) antes de `go build`; por eso el cableado se
-  hace en la tarea `build` de `Taskfile.yml` y no todavía en `main.go`.
+- **Retiro de `web/modules` y `web/static`**: la SPA ya se sirve en la raíz;
+  falta borrar la interfaz anterior, sus archivos estáticos y las entradas
+  `web/index.html` del `//go:embed` cuando nadie dependa de `/modules/`.
