@@ -35,6 +35,15 @@ export function VMSelector({ alVincular } = {}) {
             autocomplete="off" spellcheck="false" aria-label="Buscar máquina virtual">
         </div>
         <ul id="vm-lista" role="listbox" aria-label="Máquinas virtuales" class="max-h-[280px] overflow-auto"></ul>
+        <div id="vm-progreso" class="hidden flex-col gap-1 px-2 py-1.5 border-t border-vm-border" aria-live="polite">
+          <div class="flex items-center justify-between text-[10px] text-vm-fgSecondary">
+            <span id="vm-progreso-texto">Encendiendo la máquina…</span>
+            <i data-lucide="loader-2" class="w-3 h-3 text-vm-accent animate-spin"></i>
+          </div>
+          <div class="h-1 w-full bg-vm-bg border border-vm-border overflow-hidden">
+            <div class="barra-indeterminada h-full bg-vm-accent"></div>
+          </div>
+        </div>
         <footer id="vm-pie" class="px-2 py-1 border-t border-vm-border text-[10px] text-vm-fgSecondary"></footer>
       </div>
     </div>
@@ -53,6 +62,8 @@ export function VMSelector({ alVincular } = {}) {
   const lista = el.querySelector('#vm-lista');
   const pie = el.querySelector('#vm-pie');
   const encender = el.querySelector('#vm-encender');
+  const progreso = el.querySelector('#vm-progreso');
+  const progresoTexto = el.querySelector('#vm-progreso-texto');
 
   /** Máquinas recibidas en la última consulta. */
   let maquinas = [];
@@ -242,25 +253,33 @@ export function VMSelector({ alVincular } = {}) {
     }
 
     encender.disabled = true;
-    pie.textContent = `Encendiendo ${activa.nombre}…`;
+    progreso.classList.remove('hidden');
+    progreso.classList.add('flex');
+    progresoTexto.textContent = `Encendiendo ${activa.nombre}…`;
+    pie.textContent = 'La máquina está arrancando…';
+    pie.className = 'px-2 py-1 border-t border-vm-border text-[10px] text-vm-fgSecondary';
 
     try {
       const maquina = await api.maquinas.encender(activa.nombre);
 
       marcarActiva({ ...maquina, activa: true });
+      progresoTexto.textContent = `${maquina.nombre} encendida. Consultando la sesión…`;
       pie.textContent = `${maquina.nombre} está en ejecución`;
 
       if (alVincular) {
-        alVincular(maquina);
+        await Promise.resolve(alVincular(maquina));
       }
 
-      cargar('');
+      await cargar('');
     } catch (error) {
       pie.textContent = mensajeDeError(error);
       pie.className = 'px-2 py-1 border-t border-vm-border text-[10px] text-vm-accent';
       panel.classList.remove('hidden');
       boton.setAttribute('aria-expanded', 'true');
       encender.disabled = false;
+    } finally {
+      progreso.classList.add('hidden');
+      progreso.classList.remove('flex');
     }
   });
 
