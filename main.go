@@ -113,7 +113,10 @@ func nuevoMux() http.Handler {
 	haproxy := handlers.NuevoHaproxy()
 
 	mux.Handle("/api/session", handlers.NuevoSesion(sesiones, handlers.ConVinculador(consola.vinculacion)))
-	mux.Handle("/api/vms", handlers.NuevoMaquinas(consola.vinculacion))
+	maquinas := handlers.NuevoMaquinas(consola.vinculacion)
+
+	mux.Handle("/api/vms", maquinas)
+	mux.HandleFunc("/api/vms/{vm}/poweron", maquinas.Encender)
 
 	mux.HandleFunc("/api/packages", sistema.Paquetes)
 	mux.HandleFunc("/api/packages/{name}", sistema.Paquete)
@@ -191,6 +194,7 @@ func nuevaConsola(ejecutor ports.Executor) *consola {
 		vinculacion: services.NuevoVinculacion(&services.ConfigVinculacion{
 			Inventario: maquina,
 			Seleccion:  sesiones,
+			Energia:    maquina,
 		}),
 	}
 }

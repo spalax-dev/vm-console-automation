@@ -140,6 +140,66 @@ describe('selector de máquina virtual', () => {
   });
 });
 
+describe('encendido de la máquina', () => {
+  it('ofrece encender cuando la máquina vinculada está apagada', async () => {
+    let encendida = false;
+
+    vi.stubGlobal('fetch', async (url, opciones) => {
+      const porEncender = (opciones ?? {}).method === 'POST';
+
+      if (porEncender) {
+        encendida = true;
+      }
+
+      const estado = encendida ? 'running' : 'poweroff';
+      const cuerpo = porEncender
+        ? { nombre: 'debian-1', uuid: 'uuid-1', estado, activa: true }
+        : { maquinas: [{ nombre: 'debian-1', uuid: 'uuid-1', estado, activa: true }] };
+
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' },
+        json: async () => cuerpo,
+        text: async () => JSON.stringify(cuerpo),
+        blob: async () => new Blob(['x']),
+      };
+    });
+
+    const selector = VMSelector();
+    document.body.appendChild(selector);
+
+    await vi.waitFor(() => {
+      expect(selector.querySelector('#vm-nombre').textContent).toBe('debian-1');
+    });
+
+    const boton = selector.querySelector('#vm-encender');
+
+    expect(boton.classList.contains('hidden')).toBe(false);
+
+    boton.click();
+
+    await vi.waitFor(() => {
+      expect(boton.classList.contains('hidden')).toBe(true);
+    });
+  });
+
+  it('oculta el encendido si la máquina ya está en ejecución', async () => {
+    simularFetch({
+      maquinas: [{ nombre: 'debian-1', uuid: 'uuid-1', estado: 'running', activa: true }],
+    });
+
+    const selector = VMSelector();
+    document.body.appendChild(selector);
+
+    await vi.waitFor(() => {
+      expect(selector.querySelector('#vm-nombre').textContent).toBe('debian-1');
+    });
+
+    expect(selector.querySelector('#vm-encender').classList.contains('hidden')).toBe(true);
+  });
+});
+
 describe('vistas conectadas', () => {
   it('pinta los paquetes que devuelve la API', async () => {
     prepararRanura();

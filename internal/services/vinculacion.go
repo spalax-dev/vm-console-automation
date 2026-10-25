@@ -17,6 +17,16 @@ import (
 // corresponde a ninguna máquina del inventario del hipervisor.
 var ErrMaquinaNoEncontrada = errors.New("la máquina virtual no está en el inventario")
 
+// ErrMaquinaEncendida indica que se pidió encender una máquina que ya
+// está en ejecución.
+var ErrMaquinaEncendida = errors.New("la máquina virtual ya está encendida")
+
+// Mensajes de error reutilizados por las operaciones del inventario.
+const (
+	msgListarInventario = "listar las máquinas virtuales: %w"
+	msgIdentificador    = "%w: %q"
+)
+
 // MaquinaVirtual es una máquina del inventario tal como la publica la
 // consola: el nombre, el UUID, su estado y si es la vinculada.
 type MaquinaVirtual struct {
@@ -45,6 +55,8 @@ type ConfigVinculacion struct {
 	Inventario ports.Inventory
 	// Seleccion es la máquina con la que trabaja la consola.
 	Seleccion Selector
+	// Energia enciende las máquinas del hipervisor.
+	Energia ports.Power
 }
 
 // Vinculacion busca máquinas en el inventario y cambia la que administra
@@ -52,11 +64,16 @@ type ConfigVinculacion struct {
 type Vinculacion struct {
 	inventario ports.Inventory
 	seleccion  Selector
+	energia    ports.Power
 }
 
 // NuevoVinculacion construye el servicio con las dependencias dadas.
 func NuevoVinculacion(config *ConfigVinculacion) *Vinculacion {
-	return &Vinculacion{inventario: config.Inventario, seleccion: config.Seleccion}
+	return &Vinculacion{
+		inventario: config.Inventario,
+		seleccion:  config.Seleccion,
+		energia:    config.Energia,
+	}
 }
 
 // Listar devuelve las máquinas del inventario marcando la vinculada. Si
@@ -65,7 +82,7 @@ func NuevoVinculacion(config *ConfigVinculacion) *Vinculacion {
 func (v *Vinculacion) Listar(ctx context.Context, filtro string) ([]MaquinaVirtual, error) {
 	maquinas, err := v.inventario.List(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("listar las máquinas virtuales: %w", err)
+		return nil, fmt.Errorf(msgListarInventario, err)
 	}
 
 	objetivo := v.seleccion.Objetivo()
@@ -95,7 +112,7 @@ func (v *Vinculacion) Listar(ctx context.Context, filtro string) ([]MaquinaVirtu
 func (v *Vinculacion) Vincular(ctx context.Context, identificador string) (MaquinaVirtual, error) {
 	maquinas, err := v.inventario.List(ctx)
 	if err != nil {
-		return MaquinaVirtual{}, fmt.Errorf("listar las máquinas virtuales: %w", err)
+		return MaquinaVirtual{}, fmt.Errorf(msgListarInventario, err)
 	}
 
 	buscado := strings.TrimSpace(identificador)
@@ -115,7 +132,51 @@ func (v *Vinculacion) Vincular(ctx context.Context, identificador string) (Maqui
 		}, nil
 	}
 
-	return MaquinaVirtual{}, fmt.Errorf("%w: %q", ErrMaquinaNoEncontrada, buscado)
+	return MaquinaVirtual{}, fmt.Errorf(msgIdentificador, ErrMaquinaNoEncontrada, buscado)
+}
+
+// Encender arranca una máquina del inventario. Rechaza con
+// ErrMaquinaEncendida la que ya está en ejecución, para no informar un
+// éxito que no ocurrió, y devuelve la máquina ya en estado «running».
+func (v *Vinculacion) Encender(ctx context.Context, identificador string) (MaquinaVirtual, error) {
+	maquina, err := v.buscar(ctx, identificador)
+	if err != nil {
+		return MaquinaVirtual{}, err
+	}
+
+	if maquina.State == domain.StateRunning {
+		return MaquinaVirtual{}, fmt.Errorf(msgIdentificador, ErrMaquinaEncendida, maquina.Name)
+	}
+
+	if err := v.energia.Start(ctx, domain.Target{ID: maquina.Name}); err != nil {
+		return MaquinaVirtual{}, fmt.Errorf("encender la máquina %q: %w", maquina.Name, err)
+	}
+
+	return MaquinaVirtual{
+		Nombre: maquina.Name,
+		UUID:   maquina.UUID,
+		Estado: domain.StateRunning,
+		Activa: v.seleccion.Objetivo().ID == maquina.Name || v.seleccion.Objetivo().ID == maquina.UUID,
+	}, nil
+}
+
+// buscar devuelve la máquina del inventario que corresponde al
+// identificador, por nombre o por UUID.
+func (v *Vinculacion) buscar(ctx context.Context, identificador string) (domain.VM, error) {
+	maquinas, err := v.inventario.List(ctx)
+	if err != nil {
+		return domain.VM{}, fmt.Errorf(msgListarInventario, err)
+	}
+
+	buscado := strings.TrimSpace(identificador)
+
+	for _, maquina := range maquinas {
+		if strings.EqualFold(maquina.Name, buscado) || strings.EqualFold(maquina.UUID, buscado) {
+			return maquina, nil
+		}
+	}
+
+	return domain.VM{}, fmt.Errorf(msgIdentificador, ErrMaquinaNoEncontrada, buscado)
 }
 
 // Activa devuelve el nombre de la máquina vinculada, o una cadena vacía

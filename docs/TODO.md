@@ -177,6 +177,14 @@ de los módulos del numeral 3.
 
 ## Notas de seguimiento
 
+- **25 oct 2026** — Encendido de la máquina virtual: nuevo puerto
+  `Power`, implementado con `VBoxManage startvm --type headless`.
+  `POST /api/vms/{vm}/poweron` arranca la máquina y devuelve su estado
+  ya en `running`; responde `409` si ya estaba encendida y `404` si no
+  está en el inventario. La interfaz muestra el botón de encendido en el
+  selector solo cuando la máquina vinculada está apagada. Apagar queda
+  fuera de alcance a propósito: la consola no interrumpe servicios.
+
 - **25 oct 2026** — Vinculación de la máquina virtual: nuevo puerto
   `Inventory`, implementado por el adaptador de VirtualBox con
   `VBoxManage list vms` y `list runningvms`; `GET /api/vms?q=` busca por

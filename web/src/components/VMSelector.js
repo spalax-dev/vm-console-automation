@@ -18,23 +18,28 @@ const ESPERA_BUSQUEDA = 200;
  */
 export function VMSelector({ alVincular } = {}) {
   const el = document.createElement('div');
-  el.className = 'relative';
+  el.className = 'flex items-center gap-1.5';
   el.innerHTML = `
-    <button id="vm-boton" type="button" class="btn h-vm-btn pr-1.5 max-w-[260px]"
-      aria-haspopup="listbox" aria-expanded="false" aria-controls="vm-panel" title="Elegir la máquina virtual">
-      <span id="vm-punto" class="w-1.5 h-1.5 rounded-full bg-vm-muted shrink-0"></span>
-      <span id="vm-nombre" class="truncate">Buscando máquinas…</span>
-      <i data-lucide="chevron-down" class="w-3.5 h-3.5 shrink-0"></i>
-    </button>
-    <div id="vm-panel" class="hidden absolute left-0 top-full mt-1 w-[330px] z-30 bg-vm-surface border border-vm-border shadow-none">
-      <div class="flex items-center gap-1.5 px-2 h-vm-input border-b border-vm-border">
-        <i data-lucide="search" class="w-4 h-4 text-vm-fgSecondary"></i>
-        <input id="vm-busqueda" class="flex-1 bg-transparent outline-none text-[12px]" placeholder="Buscar por nombre o UUID…"
-          autocomplete="off" spellcheck="false" aria-label="Buscar máquina virtual">
+    <div class="relative">
+      <button id="vm-boton" type="button" class="btn h-vm-btn pr-1.5 max-w-[260px]"
+        aria-haspopup="listbox" aria-expanded="false" aria-controls="vm-panel" title="Elegir la máquina virtual">
+        <span id="vm-punto" class="w-1.5 h-1.5 rounded-full bg-vm-muted shrink-0"></span>
+        <span id="vm-nombre" class="truncate">Buscando máquinas…</span>
+        <i data-lucide="chevron-down" class="w-3.5 h-3.5 shrink-0"></i>
+      </button>
+      <div id="vm-panel" class="hidden absolute left-0 top-full mt-1 w-[330px] z-30 bg-vm-surface border border-vm-border shadow-none">
+        <div class="flex items-center gap-1.5 px-2 h-vm-input border-b border-vm-border">
+          <i data-lucide="search" class="w-4 h-4 text-vm-fgSecondary"></i>
+          <input id="vm-busqueda" class="flex-1 bg-transparent outline-none text-[12px]" placeholder="Buscar por nombre o UUID…"
+            autocomplete="off" spellcheck="false" aria-label="Buscar máquina virtual">
+        </div>
+        <ul id="vm-lista" role="listbox" aria-label="Máquinas virtuales" class="max-h-[280px] overflow-auto"></ul>
+        <footer id="vm-pie" class="px-2 py-1 border-t border-vm-border text-[10px] text-vm-fgSecondary"></footer>
       </div>
-      <ul id="vm-lista" role="listbox" aria-label="Máquinas virtuales" class="max-h-[280px] overflow-auto"></ul>
-      <footer id="vm-pie" class="px-2 py-1 border-t border-vm-border text-[10px] text-vm-fgSecondary"></footer>
     </div>
+    <button id="vm-encender" type="button" class="btn h-vm-btn px-1.5 hidden" title="Encender la máquina virtual">
+      <i data-lucide="power" class="w-4 h-4"></i>
+    </button>
   `;
 
   renderIcons(el);
@@ -46,6 +51,7 @@ export function VMSelector({ alVincular } = {}) {
   const busqueda = el.querySelector('#vm-busqueda');
   const lista = el.querySelector('#vm-lista');
   const pie = el.querySelector('#vm-pie');
+  const encender = el.querySelector('#vm-encender');
 
   /** Máquinas recibidas en la última consulta. */
   let maquinas = [];
@@ -70,6 +76,7 @@ export function VMSelector({ alVincular } = {}) {
     if (!maquina) {
       nombre.textContent = 'Elegir máquina';
       punto.className = 'w-1.5 h-1.5 rounded-full bg-vm-muted shrink-0';
+      encender.classList.add('hidden');
 
       return;
     }
@@ -79,6 +86,11 @@ export function VMSelector({ alVincular } = {}) {
     nombre.textContent = maquina.nombre;
     punto.className = `w-1.5 h-1.5 rounded-full ${presentacion.punto} shrink-0`;
     boton.title = `Máquina activa: ${maquina.nombre} (${presentacion.texto})`;
+
+    // Solo se ofrece encender cuando la máquina vinculada no está en
+    // ejecución: apagarla desde la consola queda fuera de su alcance.
+    encender.classList.toggle('hidden', maquina.estado === 'running');
+    encender.disabled = false;
   };
 
   /**
@@ -204,6 +216,34 @@ export function VMSelector({ alVincular } = {}) {
       abrir();
     } else {
       cerrar();
+    }
+  });
+
+  encender.addEventListener('click', async () => {
+    if (!activa) {
+      return;
+    }
+
+    encender.disabled = true;
+    pie.textContent = `Encendiendo ${activa.nombre}…`;
+
+    try {
+      const maquina = await api.maquinas.encender(activa.nombre);
+
+      marcarActiva({ ...maquina, activa: true });
+      pie.textContent = `${maquina.nombre} está en ejecución`;
+
+      if (alVincular) {
+        alVincular(maquina);
+      }
+
+      cargar('');
+    } catch (error) {
+      pie.textContent = mensajeDeError(error);
+      pie.className = 'px-2 py-1 border-t border-vm-border text-[10px] text-vm-accent';
+      panel.classList.remove('hidden');
+      boton.setAttribute('aria-expanded', 'true');
+      encender.disabled = false;
     }
   });
 

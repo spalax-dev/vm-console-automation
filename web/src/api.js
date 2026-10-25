@@ -170,6 +170,13 @@ export const api = {
      */
     listar: (filtro) =>
       pedir('GET', '/vms', { consulta: { q: filtro && filtro.trim() ? filtro.trim() : undefined } }),
+    /**
+     * Enciende la máquina en modo sin interfaz gráfica.
+     *
+     * @param {string} nombre Nombre o UUID de la máquina.
+     * @returns {Promise<object>} Máquina ya en ejecución.
+     */
+    encender: (nombre) => pedir('POST', `/vms/${encodeURIComponent(nombre)}/poweron`),
   },
 
   /** Paquetes APT (numeral 3.1.1). */

@@ -6,7 +6,7 @@
 \section{Implementación}
 \label{sec:implementacion}
 
-La capa HTTP está implementada: los quince recursos de la
+La capa HTTP está implementada: los dieciséis recursos de la
 \cref{tab:api-rest} tienen su manejador, la validación del servidor
 aplica las reglas descritas en la \cref{sec:contrato-rest} y cada
 petición se responde con el modelo JSON de la
@@ -204,6 +204,16 @@ operador puede preparar la consola antes de encender el laboratorio. La
 vinculación se guarda en el mismo objeto que resuelve la sesión, con un
 cerrojo de lectura y escritura porque los manejadores la consultan y la
 modifican en paralelo.
+
+Cuando la máquina vinculada está apagada, el selector ofrece encenderla.
+La operación ejecuta \texttt{VBoxManage startvm} en modo sin interfaz
+gráfica ---el que corresponde a una consola de administración--- y es
+síncrona, así que la respuesta ya trae el estado \texttt{running} y la
+barra actualiza la dirección y el conector. Encender una máquina que ya
+corre responde \texttt{409} en lugar de simular un éxito. La consola no
+apaga máquinas: un apagado desde la interfaz podría interrumpir los
+servicios que el usuario está administrando, de modo que esa operación
+queda en el hipervisor.
 
 \emph{Sistema de diseño.} La apariencia adopta la ergonomía de una
 herramienta de escritorio en lugar de la de un sitio web: lienzo gris,

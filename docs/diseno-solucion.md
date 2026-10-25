@@ -200,6 +200,37 @@ borra del anfitrión las llaves generadas. El listado toma las cuentas de
 `getent passwd`, la pertenencia a `sudo` de `getent group sudo` y la
 existencia de la llave en el anfitrión.
 
+### 2.7 Unidades de systemd
+
+El recurso `/api/units` administra los servicios de la máquina:
+
+| Operación | Acción | Respuesta |
+| --- | --- | --- |
+| `GET /api/units` | lista las unidades de servicio y su estado | `200` con `{unidades: [...]}` |
+| `GET /api/units/{unit}` | consulta una unidad | `200`; `404` si no existe |
+| `PUT /api/units/{unit}` | transfiere la unidad y sus archivos | `200` con el resultado |
+| `PATCH /api/units/{unit}` | cambia `activo` o `habilitado` | `200` con el estado resultante |
+| `POST /api/units/{unit}/restarts` | reinicia la unidad | `202` con el resultado |
+
+El servicio `Systemd` (`internal/services/systemd.go`) usa `systemctl` de forma
+no interactiva:
+
+- **Listado:** combina `systemctl list-units --type=service --all` (estado en
+  ejecución) con `systemctl list-unit-files --type=service` (habilitación).
+- **Consulta:** `systemctl show` con `LoadState`, `ActiveState`,
+  `UnitFileState` y `SubState`; si `LoadState` es `not-found`, responde `404`.
+- **Despliegue:** transfiere cada archivo con `Session.Put`, aplica el modo
+  solicitado con `chmod`, ajusta propietario con `chown` si se indica y
+  termina con `systemctl daemon-reload`.
+- **Estado:** `PATCH` con `activo` ejecuta `start`/`stop`; con `habilitado`
+  ejecuta `enable`/`disable`; el reinicio es el subrecurso `restarts`
+  (`systemctl restart`).
+
+El listado devuelve `activo`, `habilitado`, `estado` (`active`, `inactive`,
+`failed`, `unknown`) y un `detalle` con el subestado (`running`, `dead`,
+`exited`, etc.) para diagnóstico. Los archivos y el propietario se validan en
+el *handler* antes de llegar a la máquina.
+
 ### 2.7 Vinculación de la máquina virtual
 
 Hasta ahora la máquina administrada se fijaba al arrancar con `VMCONS_VM`.
@@ -210,6 +241,7 @@ caliente, sin reiniciar la consola:
 | --- | --- | --- |
 | `GET /api/vms?q=` | enumera las máquinas del hipervisor y marca la vinculada | `200` con `{maquinas: [...]}` |
 | `PUT /api/session` | vincula la consola con `{"vm": "nombre-o-uuid"}` | `200` con la máquina vinculada; `404` si no existe |
+| `POST /api/vms/{vm}/poweron` | enciende la máquina en modo sin interfaz | `200` con la máquina en `running`; `409` si ya está encendida |
 
 El inventario se obtiene con `VBoxManage list vms` (nombre y UUID) y
 `VBoxManage list runningvms` (solo los nombres en ejecución). Una máquina
@@ -218,6 +250,15 @@ aproximación deliberada, porque consultar el estado exacto de cada máquina
 con `showvminfo` costaría una ejecución por máquina en cada búsqueda. La
 pantalla de sesión sigue usando `showvminfo` para la máquina vinculada,
 que es la única cuyo estado exacto se necesita.
+
+El encendido invoca `VBoxManage startvm <nombre> --type headless`, que es
+el modo que corresponde a una consola de administración: la máquina arranca
+sin ventana en el anfitrión. La orden es síncrona, así que la respuesta ya
+incluye el estado `running`; encender una máquina que ya corre responde
+`409` en lugar de tratarse como un éxito silencioso. La consola no apaga
+máquinas: un apagado desde la interfaz podría interrumpir servicios que el
+usuario está administrando, de modo que esa operación se deja al
+hipervisor.
 
 La vinculación se guarda en memoria, en el mismo objeto que resuelve la
 sesión, protegida con un cerrojo de lectura y escritura porque los

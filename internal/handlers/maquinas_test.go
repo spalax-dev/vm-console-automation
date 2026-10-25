@@ -24,9 +24,11 @@ const (
 
 // stubMaquinas implementa ServicioMaquinas para las pruebas.
 type stubMaquinas struct {
-	maquinas []services.MaquinaVirtual
-	filtro   string
-	err      error
+	maquinas    []services.MaquinaVirtual
+	filtro      string
+	err         error
+	encendida   string
+	errEncender error
 }
 
 // Listar devuelve el inventario preprogramado y registra el filtro.
@@ -34,6 +36,17 @@ func (s *stubMaquinas) Listar(_ context.Context, filtro string) ([]services.Maqu
 	s.filtro = filtro
 
 	return s.maquinas, s.err
+}
+
+// Encender registra la máquina y devuelve el error preprogramado.
+func (s *stubMaquinas) Encender(_ context.Context, identificador string) (services.MaquinaVirtual, error) {
+	s.encendida = identificador
+
+	if s.errEncender != nil {
+		return services.MaquinaVirtual{}, s.errEncender
+	}
+
+	return services.MaquinaVirtual{Nombre: identificador, Estado: domain.StateRunning, Activa: true}, nil
 }
 
 // Vincular devuelve la primera máquina o el error preprogramado.
@@ -258,3 +271,89 @@ func (s *stubVinculacion) Vincular(_ context.Context, id string) (services.Maqui
 
 // Activa devuelve la máquina vinculada.
 func (s *stubVinculacion) Activa() string { return s.activa }
+
+// TestMaquinasEnciendeRespondeLaMaquina comprueba POST
+// /api/vms/{vm}/poweron.
+func TestMaquinasEnciendeRespondeLaMaquina(t *testing.T) {
+	t.Parallel()
+
+	servicio := &stubMaquinas{}
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, rutaMaquinas+"/debian-1/poweron", http.NoBody)
+	req.SetPathValue("vm", "debian-1")
+
+	rec := httptest.NewRecorder()
+
+	NuevoMaquinas(servicio).Encender(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+	}
+
+	if servicio.encendida != maquinaDebian {
+		t.Errorf("encendida = %q, want %q", servicio.encendida, maquinaDebian)
+	}
+
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf(msgJSONInvalido, err)
+	}
+
+	if body["estado"] != "running" {
+		t.Errorf("estado = %v, want %q", body["estado"], "running")
+	}
+}
+
+// TestMaquinasEnciendeUnaMaquinaYaEncendidaResponde409 comprueba el
+// conflicto de estado.
+func TestMaquinasEnciendeUnaMaquinaYaEncendidaResponde409(t *testing.T) {
+	t.Parallel()
+
+	servicio := &stubMaquinas{errEncender: services.ErrMaquinaEncendida}
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, rutaMaquinas+"/debian-1/poweron", http.NoBody)
+	req.SetPathValue("vm", maquinaDebian)
+
+	rec := httptest.NewRecorder()
+
+	NuevoMaquinas(servicio).Encender(rec, req)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf(msgCodigo, rec.Code, http.StatusConflict)
+	}
+}
+
+// TestMaquinasEnciendeUnaMaquinaDesconocidaResponde404 comprueba el
+// recurso inexistente.
+func TestMaquinasEnciendeUnaMaquinaDesconocidaResponde404(t *testing.T) {
+	t.Parallel()
+
+	servicio := &stubMaquinas{errEncender: services.ErrMaquinaNoEncontrada}
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, rutaMaquinas+"/fantasma/poweron", http.NoBody)
+	req.SetPathValue("vm", "fantasma")
+
+	rec := httptest.NewRecorder()
+
+	NuevoMaquinas(servicio).Encender(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf(msgCodigo, rec.Code, http.StatusNotFound)
+	}
+}
+
+// TestMaquinasEnciendeRechazaMetodosNoPOST comprueba el verbo.
+func TestMaquinasEnciendeRechazaMetodosNoPOST(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, rutaMaquinas+"/debian-1/poweron", http.NoBody)
+	req.SetPathValue("vm", maquinaDebian)
+
+	rec := httptest.NewRecorder()
+
+	NuevoMaquinas(&stubMaquinas{}).Encender(rec, req)
+
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf(msgCodigo, rec.Code, http.StatusMethodNotAllowed)
+	}
+}

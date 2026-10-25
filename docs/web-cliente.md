@@ -76,7 +76,7 @@ servidor todavía no está implementado.
 
 | Vista | Operaciones |
 | --- | --- |
-| Inicio / barra superior | `GET /api/session`, `PUT /api/session`, `GET /api/vms?q=` |
+| Inicio / barra superior | `GET /api/session`, `PUT /api/session`, `GET /api/vms?q=`, `POST /api/vms/{vm}/poweron` |
 | Paquetes | `GET /api/packages`, `POST /api/packages`, `DELETE /api/packages/{name}` |
 | Llaves SSH | `POST /api/keys/root`, `GET /api/keys/root` |
 | `/etc/issue` | `GET /api/issue`, `PUT /api/issue` |

@@ -187,3 +187,98 @@ func TestVinculacionActivaDevuelveElObjetivo(t *testing.T) {
 		t.Errorf("Activa() = %q, want %q", activa, nombreDebian)
 	}
 }
+
+// msgEncender es el formato de los fallos de Encender.
+const msgEncender = "Encender() error = %v, want %v"
+
+// stubPower registra la máquina que se intentó encender.
+type stubPower struct {
+	encendidas []string
+	err        error
+}
+
+// Start implementa ports.Power.
+func (s *stubPower) Start(_ context.Context, target domain.Target) error {
+	s.encendidas = append(s.encendidas, target.ID)
+
+	return s.err
+}
+
+// TestVinculacionEnciendeLaMaquina comprueba el encendido de una
+// máquina apagada y que se devuelva ya en ejecución.
+func TestVinculacionEnciendeLaMaquina(t *testing.T) {
+	t.Parallel()
+
+	fuente := &stubPower{}
+	vinculacion := NuevoVinculacion(&ConfigVinculacion{
+		Inventario: inventarioDePrueba(),
+		Seleccion:  &stubSeleccion{},
+		Energia:    fuente,
+	})
+
+	maquina, err := vinculacion.Encender(context.Background(), nombreUbuntu)
+	if err != nil {
+		t.Fatalf("Encender() error = %v, want nil", err)
+	}
+
+	if len(fuente.encendidas) != 1 || fuente.encendidas[0] != nombreUbuntu {
+		t.Errorf("encendidas = %v, want [%q]", fuente.encendidas, nombreUbuntu)
+	}
+
+	if maquina.Estado != domain.StateRunning {
+		t.Errorf("Estado = %q, want %q", maquina.Estado, domain.StateRunning)
+	}
+}
+
+// TestVinculacionNoEnciendeUnaMaquinaEnMarcha evita un 200 engañoso.
+func TestVinculacionNoEnciendeUnaMaquinaEnMarcha(t *testing.T) {
+	t.Parallel()
+
+	fuente := &stubPower{}
+	vinculacion := NuevoVinculacion(&ConfigVinculacion{
+		Inventario: inventarioDePrueba(),
+		Seleccion:  &stubSeleccion{},
+		Energia:    fuente,
+	})
+
+	_, err := vinculacion.Encender(context.Background(), nombreDebian)
+
+	if !errors.Is(err, ErrMaquinaEncendida) {
+		t.Fatalf(msgEncender, err, ErrMaquinaEncendida)
+	}
+
+	if len(fuente.encendidas) != 0 {
+		t.Errorf("encendidas = %v, want ninguna", fuente.encendidas)
+	}
+}
+
+// TestVinculacionNoEnciendeUnaMaquinaDesconocida comprueba el 404.
+func TestVinculacionNoEnciendeUnaMaquinaDesconocida(t *testing.T) {
+	t.Parallel()
+
+	vinculacion := NuevoVinculacion(&ConfigVinculacion{
+		Inventario: inventarioDePrueba(),
+		Seleccion:  &stubSeleccion{},
+		Energia:    &stubPower{},
+	})
+
+	if _, err := vinculacion.Encender(context.Background(), "fantasma"); !errors.Is(err, ErrMaquinaNoEncontrada) {
+		t.Fatalf(msgEncender, err, ErrMaquinaNoEncontrada)
+	}
+}
+
+// TestVinculacionPropagaElFalloDelEncendido conserva la causa.
+func TestVinculacionPropagaElFalloDelEncendido(t *testing.T) {
+	t.Parallel()
+
+	causa := errors.New("VirtualBox rechazó el arranque")
+	vinculacion := NuevoVinculacion(&ConfigVinculacion{
+		Inventario: inventarioDePrueba(),
+		Seleccion:  &stubSeleccion{},
+		Energia:    &stubPower{err: causa},
+	})
+
+	if _, err := vinculacion.Encender(context.Background(), nombreUbuntu); !errors.Is(err, causa) {
+		t.Fatalf(msgEncender, err, causa)
+	}
+}

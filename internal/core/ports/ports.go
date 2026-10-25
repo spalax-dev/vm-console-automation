@@ -35,6 +35,12 @@ type Inventory interface {
 	List(ctx context.Context) ([]domain.VM, error)
 }
 
+// Power enciende las máquinas del hipervisor.
+type Power interface {
+	// Start arranca la máquina indicada sin interfaz gráfica.
+	Start(ctx context.Context, target domain.Target) error
+}
+
 // Connector establece sesiones con la máquina administrada. Cada
 // adaptador publica un nombre propio para que los servicios puedan
 // distinguirlos.

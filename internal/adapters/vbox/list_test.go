@@ -20,6 +20,7 @@ const (
 	salidaEnMarcha = `"debian-1" {8f3a1c2e-1111-4a4a-9a9a-000000000001}
 `
 	msgListSinError = "List() error = %v, want nil"
+	nombreDebian    = "debian-1"
 )
 
 // fakeListExecutor responde a `list vms` y `list runningvms` con salidas
@@ -133,5 +134,35 @@ func TestListPropagaElFalloDeLasMaquinasEnMarcha(t *testing.T) {
 
 	if _, err := New(exe).List(context.Background()); err == nil {
 		t.Fatal("List() error = nil, want error")
+	}
+}
+
+// TestStartInvocaStartvmSinInterfaz comprueba la orden de encendido.
+func TestStartInvocaStartvmSinInterfaz(t *testing.T) {
+	t.Parallel()
+
+	exe := &fakeListExecutor{}
+
+	if err := New(exe).Start(context.Background(), domain.Target{ID: nombreDebian}); err != nil {
+		t.Fatalf("Start() error = %v, want nil", err)
+	}
+
+	if len(exe.calls) != 1 {
+		t.Fatalf("llamadas = %d, want 1", len(exe.calls))
+	}
+
+	if exe.calls[0] != "startvm debian-1 --type headless" {
+		t.Errorf("orden = %q, want %q", exe.calls[0], "startvm debian-1 --type headless")
+	}
+}
+
+// TestStartPropagaElFalloDelHipervisor conserva la causa del error.
+func TestStartPropagaElFalloDelHipervisor(t *testing.T) {
+	t.Parallel()
+
+	exe := &fakeListExecutor{vmsErr: errors.New("la máquina no existe")}
+
+	if err := New(exe).Start(context.Background(), domain.Target{ID: nombreDebian}); err == nil {
+		t.Fatal("Start() error = nil, want error")
 	}
 }

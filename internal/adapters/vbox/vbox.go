@@ -108,6 +108,16 @@ func (c *Client) List(ctx context.Context) ([]domain.VM, error) {
 	return maquinas, nil
 }
 
+// Start implements ports.Power: arranca la máquina en modo sin interfaz
+// gráfica, que es el que corresponde a una consola de administración.
+func (c *Client) Start(ctx context.Context, target domain.Target) error {
+	if _, err := c.exe.Execute(ctx, c.bin, "startvm", target.ID, "--type", "headless"); err != nil {
+		return fmt.Errorf("encender la máquina %q: %w", target.ID, err)
+	}
+
+	return nil
+}
+
 // listPattern reconoce una línea de «VBoxManage list vms» o «list
 // runningvms»: el nombre entre comillas y el UUID entre llaves.
 var listPattern = regexp.MustCompile(`^"([^"]*)" \{([^}]*)\}$`)

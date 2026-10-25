@@ -55,9 +55,9 @@ info:
     ## Estado de implementación
 
     `GET /api/session`, `/api/packages`, `/api/keys/root`, `/api/issue`,
-    `/api/hostname` y `/api/users` ya están conectados con la máquina. El
-    resto de rutas existe y valida sus entradas, pero responde `501`
-    hasta conectar sus casos de uso.
+    `/api/hostname`, `/api/users` y `/api/units` ya están conectados con
+    la máquina. El resto de rutas existe y valida sus entradas, pero
+    responde `501` hasta conectar sus casos de uso.
 
     ## Fuera de alcance
 
@@ -138,6 +138,38 @@ paths:
           $ref: '#/components/responses/EntradaInvalida'
         '404':
           $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
+  /api/vms/{vm}/poweron:
+    post:
+      tags: [session]
+      summary: Encender una máquina virtual
+      description: |
+        Arranca la máquina en modo sin interfaz gráfica (`startvm
+        --type headless`), que es el que corresponde a una consola de
+        administración. La operación espera a que VirtualBox confirme el
+        arranque; al terminar, la máquina queda en estado `running`.
+        No apaga ninguna máquina: el apagado se hace desde el
+        hipervisor para no interrumpir servicios en ejecución.
+      operationId: encenderMaquina
+      parameters:
+        - $ref: '#/components/parameters/VM'
+      responses:
+        '200':
+          description: Máquina encendida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaquinaVirtual'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: La máquina ya está en ejecución.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoOperacion'
         '500':
           $ref: '#/components/responses/ErrorInterno'
 
@@ -723,6 +755,13 @@ paths:
 
 components:
   parameters:
+    VM:
+      name: vm
+      in: path
+      required: true
+      description: Nombre o UUID de la máquina virtual.
+      schema:
+        type: string
     PackageName:
       name: name
       in: path

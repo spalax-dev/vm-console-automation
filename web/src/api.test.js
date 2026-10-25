@@ -67,6 +67,18 @@ describe('cliente de la API', () => {
     expect(llamada().opciones.body).toBe(JSON.stringify({ vm: 'debian-1' }));
   });
 
+  it('enciende una máquina con POST y el nombre en la ruta', async () => {
+    const { llamada } = simularFetch({
+      cuerpo: { nombre: 'debian-1', uuid: 'uuid-1', estado: 'running', activa: true },
+    });
+
+    const maquina = await api.maquinas.encender('debian-1');
+
+    expect(maquina.estado).toBe('running');
+    expect(llamada().url).toBe('/api/vms/debian-1/poweron');
+    expect(llamada().opciones.method).toBe('POST');
+  });
+
   it('consulta la sesión con GET /api/session', async () => {
     const { llamada } = simularFetch({
       cuerpo: { conector: 'ssh', ip: '192.168.1.50', estado: 'running' },

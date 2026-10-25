@@ -5,8 +5,10 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"consola-vm/internal/services"
 )
@@ -18,6 +20,8 @@ type ServicioMaquinas interface {
 	Listar(ctx context.Context, filtro string) ([]services.MaquinaVirtual, error)
 	// Vincular establece la máquina que administra la consola.
 	Vincular(ctx context.Context, identificador string) (services.MaquinaVirtual, error)
+	// Encender arranca la máquina indicada.
+	Encender(ctx context.Context, identificador string) (services.MaquinaVirtual, error)
 }
 
 // Maquinas expone GET /api/vms: el inventario que alimenta el selector
@@ -78,4 +82,46 @@ func (h *Maquinas) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	escribirJSON(w, http.StatusOK, cuerpo)
+}
+
+// Encender atiende POST /api/vms/{vm}/poweron: arranca la máquina sin
+// interfaz gráfica y devuelve su estado actualizado.
+func (h *Maquinas) Encender(w http.ResponseWriter, r *http.Request) {
+	if !exigirMetodo(w, r, http.MethodPost) {
+		return
+	}
+
+	identificador := r.PathValue("vm")
+
+	if strings.TrimSpace(identificador) == "" {
+		responderValidacion(w, campoInvalido("vm", "es obligatorio"))
+
+		return
+	}
+
+	maquina, err := h.servicio.Encender(r.Context(), identificador)
+	if err != nil {
+		switch {
+		case errors.Is(err, services.ErrMaquinaNoEncontrada):
+			escribirJSON(w, http.StatusNotFound, respuestaError{
+				Mensaje: "La máquina indicada no está registrada en el hipervisor.",
+				Tecnico: err.Error(),
+			})
+		case errors.Is(err, services.ErrMaquinaEncendida):
+			escribirJSON(w, http.StatusConflict, respuestaError{
+				Mensaje: "La máquina ya está en ejecución.",
+				Tecnico: err.Error(),
+			})
+		default:
+			slog.Error("encender la máquina virtual", claveError, err)
+			escribirJSON(w, http.StatusInternalServerError, respuestaError{
+				Mensaje: "No fue posible encender la máquina virtual.",
+				Tecnico: err.Error(),
+			})
+		}
+
+		return
+	}
+
+	escribirJSON(w, http.StatusOK, nuevaMaquinaRespuesta(maquina))
 }
