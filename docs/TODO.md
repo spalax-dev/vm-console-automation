@@ -125,7 +125,7 @@ Estructura modular lista: `main.tex` (resumen, index terms, introducción, bibli
 
 - [x] `body/02-marco-teorico.tex` — completar secciones con TODO: Debian, APT, systemd, HAProxy.
 - [x] `body/03-diseno-solucion.tex` — diagrama + descripción del escenario; visión general, estructura del proyecto y decisiones tomadas.
-- [~] `body/04-implementacion.tex` — capa HTTP, contrato REST, paquetes, llaves SSH y `/etc/issue` documentados; 4.1.4 a 4.4 siguen pendientes de conectar los casos de uso.
+- [~] `body/04-implementacion.tex` — capa HTTP, contrato REST, paquetes, llaves SSH, `/etc/issue` e interfaz web documentados; 4.1.4 a 4.4 siguen pendientes de conectar los casos de uso.
 - [ ] `body/05-pruebas.tex` — diseño de las pruebas y resultados con evidencias (videos).
 - [ ] `body/06-conclusiones.tex` — problemas y soluciones, herramientas de IA utilizadas, conclusiones del trabajo.
 - [ ] **Resumen (abstract) y index terms** — redactar al final, 150–250 palabras.

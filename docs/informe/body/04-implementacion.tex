@@ -15,8 +15,11 @@ expone \texttt{GET /api/session}, y los módulos de paquetes, llaves SSH
 y \texttt{/etc/issue} ya ejecutan operaciones reales sobre la máquina.
 Los demás casos de uso, mientras no se conecten, responden
 \texttt{501} con un mensaje comprensible, de modo que la interfaz puede
-integrarse sin esperar a la ejecución real. Las pruebas cubren el
-98.4\,\% de los manejadores y el 100\,\% de los servicios.
+integrarse sin esperar a la ejecución real. La interfaz web ya consume
+el contrato completo desde las ocho vistas
+(\cref{sec:interfaz}).
+Las pruebas cubren el 98.4\,\% de los manejadores y el 100\,\% de los
+servicios.
 
 % ------------------------------------------------------------
 % 4.1 Preparación del sistema
@@ -134,3 +137,69 @@ no se pierde un banner ajeno. La escritura usa una sola orden POSIX con
 % TODO: mecanismo para agregar y eliminar un servidor del back-end del
 % balanceador de carga; verificación del balanceo con back-end creadas
 % manualmente con VirtualBox (entorno de pruebas, fuera de la consola).
+
+% ------------------------------------------------------------
+% 4.5 Interfaz web
+% ------------------------------------------------------------
+\subsection{Interfaz Web}
+\label{sec:interfaz}
+
+La interfaz es una aplicación de una sola página construida con Vite,
+JavaScript sin \emph{framework} y Tailwind CSS. Se prescindió de una
+biblioteca de componentes porque la interfaz es un conjunto fijo de
+formularios y tablas: un enrutador por fragmento de URL y funciones que
+construyen el árbol del documento bastan para el alcance del enunciado y
+evitan incorporar un \emph{runtime} adicional.
+
+\emph{Armazón.} Una sola página con nueve pestañas ---los ocho módulos
+del enunciado y el historial---, una barra superior con el nombre de la
+máquina activa, su dirección y el estado de la sesión, y un panel
+lateral con el resultado de la última operación: mensaje, orden
+ejecutada, código de salida, salida estándar, salida de error y
+diagnóstico. Las pestañas no recargan el documento: cada vista consulta
+su recurso del \cref{sec:contrato-rest} al montarse. El historial se
+muestra deshabilitado porque su persistencia está diferida, tal como se
+registró en \texttt{docs/TODO.md}.
+
+\emph{Sistema de diseño.} La apariencia adopta la ergonomía de una
+herramienta de escritorio en lugar de la de un sitio web: lienzo gris,
+blanco reservado para las superficies operativas, bordes de un píxel,
+sin sombras ni degradados, controles de 26 píxeles y un rojo
+(\texttt{\#C0392B}) que marca la pestaña activa, el foco y las acciones
+destructivas. Los valores ---color, tipografía, radios y espaciado---
+quedaron en \texttt{docs/stitch/DESIGN.md} como tokens, de modo que la
+vista previa del diseño y la implementación comparten la misma paleta.
+Los iconos son Lucide de 16 píxeles con trazo de 1.5.
+
+\emph{Cliente de la API.} Un único módulo (\texttt{web/src/api.js})
+concentra las rutas, los cuerpos y los errores del contrato; ninguna
+vista invoca \texttt{fetch} directamente. Los fallos se normalizan en
+un tipo \texttt{ApiError} que conserva el código HTTP, el mensaje
+comprensible, el campo rechazado y el detalle técnico. Una respuesta
+\texttt{501} se presenta como módulo aún no conectado, no como error de
+red, lo que permitió integrar las ocho vistas mientras los casos de uso
+del servidor se completaban uno por uno. Las llaves privadas se
+descargan como \emph{Blob} y se entregan con el nombre de archivo
+sugerido, y las opciones de una operación viajan en la cadena de
+consulta, por ejemplo \texttt{?files=true}.
+
+\emph{Estados de las vistas.} Toda vista con datos remotos sigue el
+mismo ciclo: consulta al montarse, fila de espera, mensaje de lista
+vacía, mensaje de error con la causa y, por último, los datos. Las
+operaciones de escritura envían su resultado al panel lateral y, si
+terminan bien, vuelven a consultar el recurso afectado, de modo que la
+tabla nunca queda desactualizada respecto de la máquina.
+
+\emph{Validación en el cliente.} Las expresiones del contrato
+---nombre de paquete, nombre de usuario, nombre de host, unidad
+\texttt{.service}, IPv4, puerto y modo octal--- se replican en
+\texttt{web/src/validacion.js} para dar respuesta inmediata; la
+validación del servidor sigue siendo la que decide.
+
+\emph{Pruebas.} El cliente se verifica con Vitest: cuarenta casos sobre
+la construcción de las peticiones, la traducción de errores, las reglas
+de validación, las utilidades de presentación y el montaje de las vistas
+en un DOM simulado. El empaquetado importa solo los iconos utilizados,
+con lo que el JavaScript entregado al navegador es de 64\,kB en lugar de
+los 528\,kB que resultaban de importar el catálogo completo.
+
