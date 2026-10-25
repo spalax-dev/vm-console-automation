@@ -186,6 +186,13 @@ de los módulos del numeral 3.
   para que sobreviva al cambio de módulo y a la recarga, con un botón
   **Limpiar** que vacía el historial. Si el navegador bloquea el
   almacenamiento, se usa un respaldo en memoria.
+- **25 oct 2026** — Panel de resultado: la ficha más reciente se abre con
+  su detalle técnico y la vista queda siempre desplazada a ella, tanto al
+  añadir una operación como al montar el panel tras cambiar de módulo
+  (se reintenta en el cuadro siguiente porque al montarlo todavía no hay
+  medidas). Los mensajes genéricos («La operación terminó correctamente»)
+  se sustituyen por la orden ejecutada cuando el servidor no devuelve
+  texto, que era lo que ocurría en los borrados con `204`.
 
 - **25 oct 2026** — Dependencias de desarrollo: `gofumpt`,
   `golangci-lint` y `gomarkdoc` quedaron fijados en la directiva `tool`

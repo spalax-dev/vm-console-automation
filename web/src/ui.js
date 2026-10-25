@@ -161,7 +161,9 @@ export async function ejecutar({ accion, operacion, recargar, informar }) {
 
     informar({
       ok: true,
-      mensaje: (resultado && resultado.mensaje) || 'La operación terminó correctamente.',
+      // Si el servidor no explicó el resultado (por ejemplo, un 204 sin
+      // cuerpo), se usa la orden ejecutada para no dejar un mensaje vago.
+      mensaje: (resultado && resultado.mensaje) || '',
       operacion: (resultado && resultado.operacion) || operacion,
       codigo: (resultado && resultado.codigo) || 0,
       salida: (resultado && resultado.salida) || '',

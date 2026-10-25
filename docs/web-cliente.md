@@ -130,7 +130,9 @@ resultado, que muestra el mensaje, la orden ejecutada, el código de salida y
 
 El panel es un historial: cada operación añade una ficha al final y las
 anteriores se conservan, con desplazamiento propio para que la tarjeta no
-crezca con cada operación. El contenido vive en `localStorage`
+crezca con cada operación. La vista queda siempre fijada a la última ficha
+---lo último que hizo el usuario--- y esa ficha muestra su detalle técnico
+desplegado; las anteriores quedan plegadas. El contenido vive en `localStorage`
 (`vmcons:resultados`, hasta 50 fichas), así que no se pierde al cambiar de
 módulo ni al recargar la página; el botón **Limpiar** vacía el historial y el
 almacenamiento.

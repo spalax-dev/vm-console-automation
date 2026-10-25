@@ -97,6 +97,48 @@ describe('panel de resultado', () => {
     expect(leer()).toHaveLength(2);
   });
 
+  it('abre el detalle técnico solo en la última operación', () => {
+    agregar({ ...EJEMPLO, mensaje: 'Primera' });
+    agregar({ ...EJEMPLO, mensaje: 'Segunda' });
+
+    const panel = ResultPanel();
+    document.body.appendChild(panel);
+
+    const detalles = [...panel.querySelectorAll('details')];
+
+    expect(detalles).toHaveLength(2);
+    expect(detalles[0].hasAttribute('open')).toBe(false);
+    expect(detalles[1].hasAttribute('open')).toBe(true);
+  });
+
+  it('describe la orden cuando la operación no trae mensaje', () => {
+    const panel = ResultPanel();
+    document.body.appendChild(panel);
+
+    showResult({ ok: true, operacion: 'apt-get remove -y nano' });
+
+    const texto = panel.querySelector('#result-body').textContent;
+
+    expect(texto).toContain('apt-get remove -y nano');
+    expect(texto).not.toContain('Operación exitosa');
+    expect(leer()[0].mensaje).toContain('apt-get remove -y nano');
+  });
+
+  it('se desplaza siempre hasta la última operación', () => {
+    agregar({ ...EJEMPLO, mensaje: 'Primera' });
+
+    const panel = ResultPanel();
+    document.body.appendChild(panel);
+
+    const cuerpo = panel.querySelector('#result-body');
+
+    Object.defineProperty(cuerpo, 'scrollHeight', { value: 640, configurable: true });
+
+    showResult({ ...EJEMPLO, mensaje: 'Segunda' });
+
+    expect(cuerpo.scrollTop).toBe(640);
+  });
+
   it('limpia el historial con el botón', () => {
     agregar(EJEMPLO);
 

@@ -63,7 +63,7 @@ export function showResult({
 } = {}) {
   agregar({
     ok,
-    mensaje: mensaje || (ok ? 'Operación exitosa' : 'Error en la operación'),
+    mensaje: mensaje || describir(ok, operacion),
     operacion,
     codigo,
     salida,
@@ -112,9 +112,11 @@ function pintar(raiz = document) {
     return;
   }
 
-  cuerpo.innerHTML = historial.map(entrada).join('');
+  cuerpo.innerHTML = historial
+    .map((resultado, indice) => entrada(resultado, indice === historial.length - 1))
+    .join('');
   renderIcons(cuerpo);
-  cuerpo.scrollTop = cuerpo.scrollHeight;
+  alFinal(cuerpo);
 
   const ultimo = historial[historial.length - 1];
 
@@ -124,12 +126,32 @@ function pintar(raiz = document) {
 }
 
 /**
+ * Desplaza el historial hasta la última operación. Se hace dos veces: en
+ * el momento y tras el siguiente cuadro, porque al montar el panel el
+ * elemento todavía puede no estar en el documento y no tener medidas.
+ *
+ * @param {HTMLElement} cuerpo Contenedor del historial.
+ */
+function alFinal(cuerpo) {
+  const bajar = () => {
+    cuerpo.scrollTop = cuerpo.scrollHeight;
+  };
+
+  bajar();
+
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(bajar);
+  }
+}
+
+/**
  * Construye la ficha de un resultado del historial.
  *
  * @param {object} resultado Resultado guardado.
+ * @param {boolean} reciente Indica si es la última operación.
  * @returns {string} HTML de la ficha.
  */
-function entrada(resultado) {
+function entrada(resultado, reciente) {
   const correcto = resultado.ok !== false;
 
   return `
@@ -143,7 +165,7 @@ function entrada(resultado) {
           </div>
         </div>
       </div>
-      <details class="border-t border-vm-border" ${correcto ? '' : 'open'}>
+      <details class="border-t border-vm-border" ${reciente ? 'open' : ''}>
         <summary class="px-2 py-1 cursor-pointer text-[11px] text-vm-fgSecondary">Detalle técnico</summary>
         <div class="px-2 py-2 flex flex-col gap-1 text-[11px]">
           <div><span class="text-vm-fgSecondary">Orden ejecutada:</span> <span class="font-mono break-all">${escapar(resultado.operacion) || '-'}</span></div>
@@ -157,6 +179,19 @@ function entrada(resultado) {
       </details>
     </article>
   `;
+}
+
+/**
+ * Compone un mensaje concreto cuando la operación no trajo uno.
+ *
+ * @param {boolean} correcto Indica si la operación terminó bien.
+ * @param {string} operacion Orden ejecutada.
+ * @returns {string} Mensaje comprensible.
+ */
+function describir(correcto, operacion) {
+  const orden = operacion ? ` «${operacion}»` : '';
+
+  return correcto ? `Se completó la orden${orden}.` : `Falló la orden${orden}.`;
 }
 
 /**
