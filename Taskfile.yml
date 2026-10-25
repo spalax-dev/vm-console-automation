@@ -3,11 +3,14 @@
 # Herramientas requeridas (instalación recomendada):
 #   go install mvdan.cc/gofumpt@latest                              # formateador
 #   curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(go env GOPATH)/bin   # linter
+#   go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest   # documentación Markdown
 #
 # Uso:
-#   task run    # ejecutar el servidor web
-#   task test   # formatear el código y ejecutar las pruebas
-#   task build  # compilar el binario final (./vmcons)
+#   task run        # ejecutar el servidor web
+#   task test       # formatear el código y ejecutar las pruebas
+#   task build      # compilar el binario final (./vmcons)
+#   task doc        # regenerar docs/api/ desde los comentarios del código
+#   task check      # fmt + lint + test + doc-check (antes de cada commit)
 
 version: "3"
 
@@ -33,6 +36,27 @@ tasks:
   lint:
     desc: Verificar la calidad del código con golangci-lint
     cmd: golangci-lint run {{.PKGS}}
+
+  doc:
+    desc: Generar la documentación Markdown desde los comentarios del código
+    cmds:
+      - rm -rf docs/api
+      - gomarkdoc -o "docs/api/{{`{{.Dir}}`}}.md" ./internal/...
+      - gomarkdoc -o docs/api/main.md .
+
+  doc-check:
+    desc: Verificar que la documentación generada en docs/api/ esté actualizada
+    cmds:
+      - gomarkdoc --check -o "docs/api/{{`{{.Dir}}`}}.md" ./internal/...
+      - gomarkdoc --check -o docs/api/main.md .
+
+  check:
+    desc: Ciclo completo de calidad (fmt + lint + test + doc-check)
+    cmds:
+      - task: fmt
+      - task: lint
+      - task: test
+      - task: doc-check
 
   build:
     desc: Compilar el binario final (vmcons)

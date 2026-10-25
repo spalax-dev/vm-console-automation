@@ -17,12 +17,12 @@ Documento de seguimiento del proyecto. Se actualiza conforme se avanza.
 | Adaptadores (`localproc`, `vbox`, `ssh`) | [x] Completo — cobertura 100 % / 89.2 % / 83.6 % |
 | Calidad de código (`task fmt`, `task lint`, `task test`) | [x] 0 issues, todas las pruebas en verde |
 | `docs/arquitectura.md` | [x] Escrito |
-| Servicio de descubrimiento/selección de sesión | [ ] No iniciado |
-| Casos de uso (`internal/services`) | [ ] Stub (solo comentario de paquete) |
-| Endpoints HTTP (`internal/handlers`) | [ ] Stub (solo comentario de paquete) |
-| Ensamblaje (`main.go`: rutas + inyección de dependencias) | [ ] Stub (solo comentario de paquete) |
+| Servicio de descubrimiento/selección de sesión | [x] Completo — cobertura 100 % |
+| Casos de uso (`internal/services`) | [~] Descubrimiento de sesión hecho; módulos pendientes |
+| Endpoints HTTP (`internal/handlers`) | [~] `GET /api/sesion` hecho; módulos pendientes |
+| Ensamblaje (`main.go`: rutas + inyección de dependencias) | [~] Servidor, `web/` embebido y `/api/sesion`; faltan rutas de módulos |
 | Interfaz web (`web/modules`, `web/static/main.js`) | [ ] Placeholders |
-| Pruebas de `services` y `handlers` | [ ] Sin cobertura (ambos paquetes: *no test files*) |
+| Pruebas de `services` y `handlers` | [~] Sesión: `services` 100 % y `handlers` 94.7 % |
 | Escenario: diagrama (numeral 5) | [x] Hecho en PlantUML (`docs/diagramas/`), en §3.1 del informe |
 | Pruebas manuales en video (numeral 4) | [ ] No iniciado |
 | Informe (`docs/informe`) | [~] §3 (diseño y escenario) redactado con los 2 diagramas; resto con TODOs |
@@ -47,11 +47,11 @@ Verificar que el entorno de pruebas exista antes de ejecutar las pruebas registr
 
 Orden de trabajo obligatorio: **docs → tests → implementación**.
 
-- [ ] **Docs:** especificar en `docs/` el descubrimiento de sesión y el comportamiento de cada módulo.
-  - [ ] Servicio de descubrimiento/selección de sesión: intentar `ssh`; si aún no hay llave, usar `guest-additions` para instalar SSH (ver `docs/arquitectura.md`, «Próximos pasos»).
-- [ ] **Tests:** pruebas unitarias de `internal/services` con un `Session` falso y de `internal/handlers` con `httptest`.
-- [ ] **Implementación:** solo hasta que las pruebas escritas pasen.
-- [ ] **`main.go`:** rutas de cada módulo, inyección de adaptadores y servido de `web/`.
+- [x] **Docs:** descubrimiento de sesión especificado en `docs/diseno-solucion.md` §2.1 y herramientas en `docs/arquitectura.md`.
+  - [x] Servicio de descubrimiento/selección de sesión: sondea `ssh` y recurre a `guest-additions` cuando no hay llave.
+- [x] **Tests:** pruebas unitarias de `internal/services` con `Machine` y conectores falsos y de `internal/handlers` con `httptest`.
+- [x] **Implementación:** `internal/services/sesion.go` e `internal/handlers/sesion.go`.
+- [~] **`main.go`:** servidor, `web/` embebido, inyección de adaptadores y `/api/sesion`; faltan las rutas de los módulos.
 - [ ] **`task fmt` + `task lint` + `task test` en verde antes de cada commit.**
 
 ---
@@ -146,7 +146,53 @@ Estructura modular lista: `main.tex` (resumen, index terms, introducción, bibli
 
 ---
 
+## 9. Pendientes diferidos (interfaz, historial y persistencia)
+
+Decisiones tomadas en la fase de diseño que se implementan **después**
+de los módulos del numeral 3.
+
+- [ ] **Selector global de VM** en la barra superior (diseño §10.3): lista
+  descubierta en tiempo de ejecución con `VBoxManage list vms`; las
+  pestañas y los logs quedan siempre vinculados a la VM seleccionada.
+- [ ] **Pestaña Historial** (diseño §10.4): tabla de operaciones con
+  filtros por búsqueda de texto, fecha, hora, VM y módulo →
+  `GET /api/historial`.
+- [ ] **Persistencia en SQLite** en `data/vmcons.db`: tabla `operaciones`
+  (historial por VM) y tabla de usuarios de la consola.
+  - [ ] Justificar la dependencia en `docs/` antes de agregarla, p. ej.
+    `modernc.org/sqlite` (puro Go, sin CGO: no rompe el binario único
+    sin dependencias en tiempo de ejecución).
+- [ ] **Autenticación** de la consola con usuario y contraseña guardados
+  en SQLite. El enunciado no la pide: opcional, después de los módulos.
+- [ ] **Coherencia con el informe:** si se adopta la persistencia,
+  actualizar la estructura y las decisiones de §3.2 y revisar la frase
+  «la consola no crea ni registra máquinas virtuales» de §3.1.1 (sigue
+  siendo cierta: no se crea ni se registra nada en el hipervisor).
+
+---
+
 ## Notas de seguimiento
+
+- **24 oct 2026** — Descubrimiento de sesión implementado con el ciclo
+  docs → tests → implementación. `Descubridor` verifica el estado de la
+  VM, descubre la dirección si falta y sondea los conectores en orden
+  (`ssh`, `guest-additions`); expone `GET /api/sesion` con
+  `{conector, ip, estado}` y responde 503 con `ErrSesionNoDisponible`.
+  `main.go` arma el servidor, embebe `web/` y lee la configuración de
+  variables de entorno. Calidad: `services` 100 % y `handlers` 94.7 % de
+  cobertura, `golangci-lint` con 0 issues.
+- **24 oct 2026** — Herramientas de documentación y calidad: se agregó
+  `gomarkdoc` (`.gomarkdoc.yml`, `task doc` y `task doc-check`) para
+  generar `docs/api/` desde los comentarios del código, y `task check`
+  encadena `fmt` + `lint` + `test` + `doc-check` antes de cada commit.
+
+- **24 oct 2026** — Diseño de la interfaz (diseño §10): una sola página
+  con 9 pestañas (las 8 vistas por módulo + Historial), armazón Qt en
+  escala de grises con acento rojo, iconos Lucide y animaciones sutiles;
+  selector de VM en la barra superior con lista descubierta por
+  `VBoxManage list vms`. Historial con filtros por texto, fecha y hora y
+  persistencia en SQLite (operaciones + usuarios de la consola)
+  registrados como pendientes diferidos en §9.
 
 - **24 oct 2026** — Marco teórico (§2) redactado con criterio de profundidad: se desarrollan los puntos que el lector necesita entender (descubrimiento de la IP con Guest Additions antes de SSH, autenticación por llaves no interactiva, unidades y ciclo de vida de systemd, front-end/back-end de HAProxy) y se dejan breves los que son de dominio común; Debian se fusionó con APT en una única subsección y se retiraron las secciones de Go y de arquitectura de puertos y adaptadores por no ser lo esencial (el patrón se cita ahora en 3.2.2, donde se aplica). Revisión de fuentes: `ref.bib` con 9 entradas, todas citadas y citadas todas, sin la plantilla de ejemplo; las 8 URL devuelven 200; `plantuml -checkonly` OK en los 2 diagramas; informe de 6 páginas con 0 *overfull*, 0 referencias indefinidas y las dos figuras dentro de §3.
 - **24 oct 2026** — Escenario (numeral 5) y §3 del informe: diagramas PlantUML (`docs/diagramas/escenario.puml` y `flujo-procesos.puml`, tarea `task diagramas`), redacción completa de 3.1 y 3.2, y verificación de que las dos figuras caen dentro de la sección III (figuras en las páginas 3 y 4; §III ocupa las páginas 2 a 5). Legibilidad: ~7 pt impreso.

@@ -1,0 +1,8 @@
+# Configuración de gomarkdoc: documentación Markdown generada a partir
+# de los comentarios de documentación del código Go.
+#
+# La salida se genera con `task doc` en docs/api/ y se verifica con
+# `task doc-check`. No se edita a mano.
+
+format: github
+include-unexported: true

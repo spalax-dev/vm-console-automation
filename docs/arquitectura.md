@@ -51,6 +51,35 @@ El conector `vbox` publica el nombre `guest-additions` y el conector `ssh` publi
 - Los tipos del dominio usan la stdlib mínima (`net/netip`, `io/fs`), que es multiplataforma.
 - Cada adaptador traduce su vocabulario al dominio: por ejemplo, `vbox` convierte el estado `poweroff` de VirtualBox en `domain.MachinePoweredOff`.
 
+## Documentación y calidad del código
+
+La documentación del código se escribe en los comentarios de paquete, tipos, funciones,
+métodos y variables exportadas; cada comentario inicia con el nombre del elemento que
+describe. Sobre esos comentarios se genera documentación Markdown con **gomarkdoc**:
+
+```bash
+task doc     # regenera docs/api/ a partir de los comentarios del código
+```
+
+| Herramienta | Papel | Tarea |
+| --- | --- | --- |
+| `gofumpt` | Formateador estricto (superset de `gofmt`) | `task fmt` |
+| `golangci-lint` | Linter estricto con ~40 linters y reglas de estilo | `task lint` |
+| `gomarkdoc` | Genera Markdown desde los comentarios de documentación | `task doc` |
+
+La configuración vive en `.golangci.yml` (linters, límites de complejidad y longitud) y
+`.gomarkdoc.yml` (formato y carpeta de salida). `task check` encadena formateo, lint,
+pruebas y verificación de que la documentación generada está actualizada; es el comando
+que debe pasar antes de cada commit.
+
+Instalación de las herramientas:
+
+```bash
+go install mvdan.cc/gofumpt@latest
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest
+```
+
 ## Multiplataforma (Windows y GNU/Linux)
 
 - En GNU/Linux el binario de VirtualBox se llama `VBoxManage`; en Windows `VBoxManage.exe`. `exec.LookPath` resuelve cualquiera de los dos, por lo que el adaptador usa el nombre `VBoxManage` sin extensión.

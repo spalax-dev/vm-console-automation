@@ -40,6 +40,28 @@ según el estado real de la VM.
 a partir de la instalación de SSH, **exclusivamente por SSH con llaves de autenticación**.
 El conector activo se expone en `GET /api/sesion` para que la interfaz lo muestre.
 
+### 2.1 Algoritmo de selección
+
+El servicio `Descubridor` (`internal/services/sesion.go`) resuelve el conector sin que
+el núcleo conozca los adaptadores:
+
+1. Consulta el estado con `ports.Machine.State`. Si la máquina no está en ejecución,
+   termina con `ErrSesionNoDisponible` (HTTP 503).
+2. Si el `domain.Target` no trae dirección, la descubre con `ports.Machine.Address`.
+3. Recorre los conectores **en orden de preferencia** (`ssh` primero,
+   `guest-additions` después) y se queda con el primero cuyo `Probe` termine sin error.
+4. Si ninguno supera el sondeo, termina con `ErrSesionNoDisponible`.
+5. Devuelve `InfoSesion{Conector, IP, Estado}`. No deja sesiones abiertas: cada
+   operación abre la suya a partir del conector elegido.
+
+El orden de preferencia lo fija `main.go` al inyectar la lista, no el servicio: así se
+puede probar con conectores falsos y cambiar la política sin tocar el caso de uso.
+
+La instalación de SSH cuando aún no hay llave es responsabilidad del módulo 3.1.2
+(`POST /api/sistema/ssh-root`); el descubridor solo informa qué conector está disponible.
+Mientras no exista la llave, la interfaz muestra `guest-additions` y ofrece el módulo de
+llaves.
+
 ---
 
 ## 3. Flujo de proceso de una operación
@@ -236,3 +258,72 @@ Criterios de estilo acordados para ambos diagramas:
   «gestión de VM»: indica que la consola maneja las máquinas. Los
   mecanismos concretos (Guest Additions y SSH con llaves) se explican
   en §3.1.2 del informe.
+
+---
+
+## 10. Interfaz de usuario (diseño en Stitch)
+
+Proyecto Stitch: **`vmcons — consola de automatización`**. Una sola
+página con pestañas por módulo; el prototipo se genera antes de escribir
+`web/`.
+
+### 10.1 Armazón común
+
+- **Barra superior:** `vmcons` + **selector de la VM activa** (§10.3) +
+  IP, conector actual (Guest Additions / SSH) y estado `● Conectado`
+  con botón `⟳`.
+- **Fila de pestañas** con icono y etiqueta: Inicio · Paquetes · Llaves
+  SSH · `/etc/issue` · Hostname · Usuarios · systemd · HAProxy ·
+  Historial. La activa lleva subrayado rojo.
+- **Contenido a dos columnas:** formulario a la izquierda y, a la
+  derecha, el panel de resultado: banda `✔/✖` con mensaje comprensible
+  y bloque «detalle técnico» plegable con la orden ejecutada, el código
+  de salida y `stderr`.
+- **Estilo tipo Qt en escala de grises con acento rojo:** fondo
+  `#F0F0F0`, superficies `#FFFFFF`, texto `#1F1F1F`, bordes de 1 px
+  `#B0B0B0` con radio de 3–4 px, acento `#C0392B`. Botones compactos
+  (≈26 px de alto) sin sombras ni degradados.
+- **Iconos:** Lucide, línea de 16 px y trazo 1.5 en pestañas y
+  botones; color solo en el punto de estado.
+- **Animaciones sutiles permitidas:** subrayado de pestaña 120 ms,
+  entrada de la banda de resultado (*fade* + 4 px) 150 ms, spinner
+  durante la ejecución, borde rojo en `hover` 100 ms y `fade` en la
+  vista previa de `/etc/issue`.
+
+### 10.2 Pantallas
+
+| # | Pestaña | Endpoint principal | Contenido |
+| --- | --- | --- | --- |
+| 01 | Inicio | `GET /api/sesion` | tarjeta de sesión (estado, conector, IP, última consulta) y cuadrícula de atajos a los módulos |
+| 02 | Paquetes | `POST /api/sistema/paquetes` | radios *instalar/eliminar* y campo de paquete con validación en línea |
+| 03 | Llaves SSH | `POST /api/sistema/ssh-root` | estado del par, generar, descargar y aviso de uso seguro de la llave |
+| 04 | `/etc/issue` | `GET/POST /api/sistema/issue` | mensaje, casillas host/fecha/hora/IP y vista previa en vivo |
+| 05 | Hostname | `POST /api/sistema/hostname` | nombre (RFC 1123) + IP y casilla de `/etc/hosts` |
+| 06 | Usuarios | `POST/DELETE /api/usuarios` | crear (sudo, llaves), eliminar (con archivos) y descarga de llaves |
+| 07 | systemd | `/api/systemd/…` | despliegue de la unidad + 6 botones de control + insignia de estado |
+| 08 | HAProxy | `/api/haproxy/backend` | tabla del back-end, formulario de alta y eliminación con confirmación |
+| 09 | Historial | `GET /api/historial` (diferido) | tabla de operaciones con filtros (§10.4) |
+
+**Estados comunes:** VM apagada o inaccesible (503) como estado vacío en
+la tarjeta de sesión; «ejecutando…» con botones bloqueados y spinner;
+diálogo de confirmación plano para las acciones destructivas; error de
+validación en línea bajo el campo.
+
+### 10.3 Contexto de VM
+
+- El selector de la barra superior marca **sobre qué VM se trabaja**:
+  todas las pestañas operan sobre esa VM y el panel de resultado repite
+  su nombre, para evitar operaciones sobre la máquina equivocada.
+- La lista **se descubre en tiempo de ejecución** con
+  `VBoxManage list vms`: la consola no crea ni registra máquinas
+  virtuales (coherente con §8 y con §3.1.1 del informe), solo administra
+  las que ya existen en el hipervisor.
+- Cada operación registrada en el historial lleva el nombre de la VM a
+  la que se le aplicó.
+
+### 10.4 Historial (diferido: `docs/TODO.md` §9)
+
+Tabla con `fecha y hora` · `VM` · `módulo` · `operación` · `resultado` ·
+`usuario`, con filtros combinables: **búsqueda de texto, rango de
+fechas, rango horario, VM y módulo**. Sus datos se guardan en SQLite,
+junto con los usuarios de la consola.
