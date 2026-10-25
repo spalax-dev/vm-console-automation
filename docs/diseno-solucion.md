@@ -691,10 +691,13 @@ validación en línea bajo el campo.
 
 ### 10.4 Historial
 
-Tabla con `fecha y hora` · `VM` · `módulo` · `operación` · `resultado`,
-con filtros combinables: **búsqueda de texto, rango de fechas, rango
-horario, VM y módulo**. La consola registra automáticamente las
-operaciones mutantes (`POST`, `PUT`, `PATCH`, `DELETE`) desde la capa
-HTTP y las guarda en la tabla `operaciones` de SQLite; `GET
-/api/historial` las consulta con esos filtros y la interfaz exporta el
-resultado a CSV.
+Tabla con `fecha y hora` · `VM` · `módulo` · `descripción` ·
+`operación` · `resultado`, con filtros combinables: **búsqueda de texto,
+rango de fechas, rango horario, VM y módulo**. La consola registra
+automáticamente las operaciones mutantes (`POST`, `PUT`, `PATCH`,
+`DELETE`) desde la capa HTTP y las guarda en la tabla `operaciones` de
+SQLite. La descripción es un resumen legible construido a partir del
+método, la ruta y los campos descriptivos del cuerpo (por ejemplo,
+«Instalar el paquete nano»); nunca guarda contraseñas ni el cuerpo
+completo. `GET /api/historial` las consulta con esos filtros y la
+interfaz exporta el resultado a CSV.

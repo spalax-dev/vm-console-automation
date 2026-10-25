@@ -8,6 +8,12 @@ import (
 	"testing"
 )
 
+// msgListarError es el formato de error de Listar.
+const msgListarError = "Listar() error = %v"
+
+// moduloPaquetes es el nombre del módulo de paquetes.
+const moduloPaquetes = "paquetes"
+
 // nuevoHistorialDePrueba arma el historial sobre una base temporal.
 func nuevoHistorialDePrueba(t *testing.T) *Historial {
 	t.Helper()
@@ -22,9 +28,9 @@ func registrarEjemplos(t *testing.T, historial *Historial) {
 	t.Helper()
 
 	operaciones := []Operacion{
-		{FechaHora: "2026-10-25T10:00:00Z", VM: nombreDebian, Modulo: "paquetes", Operacion: "POST /api/packages", Resultado: "ok"},
-		{FechaHora: "2026-10-25T12:30:00Z", VM: nombreDebian, Modulo: "usuarios", Operacion: "POST /api/users", Resultado: "ok"},
-		{FechaHora: "2026-10-26T09:15:00Z", VM: "ubuntu-lab", Modulo: moduloSystemd, Operacion: "POST /api/units/{unit}/restarts", Resultado: "error", Detalle: "HTTP 500"},
+		{FechaHora: "2026-10-25T10:00:00Z", VM: nombreDebian, Modulo: moduloPaquetes, Operacion: "POST /api/packages", Descripcion: descripcionNano, Resultado: "ok"},
+		{FechaHora: "2026-10-25T12:30:00Z", VM: nombreDebian, Modulo: "usuarios", Operacion: "POST /api/users", Descripcion: "Crear el usuario «jorge»", Resultado: "ok"},
+		{FechaHora: "2026-10-26T09:15:00Z", VM: "ubuntu-lab", Modulo: moduloSystemd, Operacion: "POST /api/units/{unit}/restarts", Descripcion: "Reiniciar la unidad «catalogo.service»", Resultado: "error", Detalle: "HTTP 500"},
 	}
 
 	for i := range operaciones {
@@ -43,7 +49,7 @@ func TestHistorialListarOrdenaYCunta(t *testing.T) {
 
 	operaciones, err := historial.Listar(context.Background(), &FiltroHistorial{})
 	if err != nil {
-		t.Fatalf("Listar() error = %v", err)
+		t.Fatalf(msgListarError, err)
 	}
 
 	if len(operaciones) != 3 {
@@ -52,6 +58,10 @@ func TestHistorialListarOrdenaYCunta(t *testing.T) {
 
 	if operaciones[0].VM != "ubuntu-lab" {
 		t.Errorf("primera operación = %+v, want la más reciente", operaciones[0])
+	}
+
+	if operaciones[0].Descripcion != "Reiniciar la unidad «catalogo.service»" {
+		t.Errorf("Descripcion = %q, want el resumen guardado", operaciones[0].Descripcion)
 	}
 }
 
@@ -65,6 +75,7 @@ func TestHistorialFiltros(t *testing.T) {
 		esperados int
 	}{
 		{"texto", FiltroHistorial{Texto: "users"}, 1},
+		{"descripción", FiltroHistorial{Texto: "nano"}, 1},
 		{"vm", FiltroHistorial{VM: nombreDebian}, 2},
 		{"módulo", FiltroHistorial{Modulo: moduloSystemd}, 1},
 		{"fecha", FiltroHistorial{Desde: "2026-10-26", Hasta: "2026-10-26"}, 1},
@@ -81,7 +92,7 @@ func TestHistorialFiltros(t *testing.T) {
 
 			operaciones, err := historial.Listar(context.Background(), &caso.filtro)
 			if err != nil {
-				t.Fatalf("Listar() error = %v", err)
+				t.Fatalf(msgListarError, err)
 			}
 
 			if len(operaciones) != caso.esperados {
@@ -96,12 +107,13 @@ func TestModuloDeRuta(t *testing.T) {
 	t.Parallel()
 
 	casos := map[string]string{
-		"/api/packages/nano":                   "paquetes",
+		"/api/packages/nano":                   moduloPaquetes,
 		"/api/keys/root":                       "llaves",
 		"/api/users/jorge/key":                 "usuarios",
 		"/api/units/catalogo.service/restarts": moduloSystemd,
 		"/api/haproxy/backend/servers":         "haproxy",
-		"/api/session":                         "",
+		"/api/session":                         "sesion",
+		"/api/vms/ubuntu-lab/poweron":          "maquinas",
 	}
 
 	for ruta, esperado := range casos {

@@ -11,6 +11,7 @@ Package services implementa los casos de uso de la consola: descubre el conector
 ## Index
 
 - [Variables](<#variables>)
+- [func DescribirOperacion\(metodo, patron, ruta string, datos map\[string\]any\) string](<#DescribirOperacion>)
 - [func ModuloDe\(ruta string\) string](<#ModuloDe>)
 - [type AbridorSesion](<#AbridorSesion>)
 - [type Acceso](<#Acceso>)
@@ -197,6 +198,15 @@ var ErrUsuarioExistente = errors.New("el usuario ya existe")
 ```go
 var ErrUsuarioNoEncontrado = errors.New("el usuario no existe")
 ```
+
+<a name="DescribirOperacion"></a>
+## func DescribirOperacion
+
+```go
+func DescribirOperacion(metodo, patron, ruta string, datos map[string]any) string
+```
+
+DescribirOperacion construye un resumen legible de una operación para el historial. Nunca incluye contraseñas ni cuerpos completos.
 
 <a name="ModuloDe"></a>
 ## func ModuloDe
@@ -936,6 +946,8 @@ type Operacion struct {
     Modulo string
     // Operacion es el método y la ruta ejecutados.
     Operacion string
+    // Descripcion es el resumen legible de la operación.
+    Descripcion string
     // Resultado es «ok» o «error».
     Resultado string
     // Detalle conserva información técnica breve.

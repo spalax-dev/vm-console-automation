@@ -51,6 +51,7 @@ CREATE TABLE operaciones (
     vm           TEXT NOT NULL,
     modulo       TEXT NOT NULL,
     operacion    TEXT NOT NULL,
+    descripcion  TEXT NOT NULL DEFAULT '',  -- resumen legible
     resultado    TEXT NOT NULL,
     detalle      TEXT NOT NULL DEFAULT ''
 );

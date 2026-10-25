@@ -743,7 +743,7 @@ paths:
           description: Módulo de la consola.
           schema:
             type: string
-            enum: [paquetes, llaves, issue, hostname, usuarios, systemd, haproxy]
+            enum: [paquetes, llaves, issue, hostname, usuarios, systemd, haproxy, sesion, maquinas]
         - name: desde
           in: query
           required: false
@@ -1053,7 +1053,7 @@ components:
 
     OperacionHistorial:
       type: object
-      required: [id, fecha_hora, vm, modulo, operacion, resultado]
+      required: [id, fecha_hora, vm, modulo, operacion, descripcion, resultado]
       properties:
         id:
           type: integer
@@ -1067,10 +1067,13 @@ components:
           description: Máquina sobre la que se actuó.
         modulo:
           type: string
-          enum: [paquetes, llaves, issue, hostname, usuarios, systemd, haproxy]
+          enum: [paquetes, llaves, issue, hostname, usuarios, systemd, haproxy, sesion, maquinas]
         operacion:
           type: string
           description: Método y ruta ejecutados.
+        descripcion:
+          type: string
+          description: Resumen legible de la operación realizada.
         resultado:
           type: string
           enum: [ok, error]

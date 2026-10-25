@@ -8,6 +8,7 @@ import { VMSelector } from './components/VMSelector.js';
 import { renderPaquetes } from './views/paquetes.js';
 import { renderUsuarios } from './views/usuarios.js';
 import { renderHaproxy } from './views/haproxy.js';
+import { renderHistorial } from './views/historial.js';
 
 /**
  * Sustituye `fetch` por un doble que responde con el cuerpo dado.
@@ -274,5 +275,32 @@ describe('vistas conectadas', () => {
     await vi.waitFor(() => {
       expect(vista.querySelector('#backend-filas').textContent).toContain('no tiene servidores');
     });
+  });
+
+  it('muestra el resumen legible de cada operación del historial', async () => {
+    prepararRanura();
+    simularFetch({
+      operaciones: [{
+        id: 1,
+        fecha_hora: '2026-10-25T10:00:00Z',
+        vm: 'debian-1',
+        modulo: 'paquetes',
+        operacion: 'POST /api/packages',
+        descripcion: 'Instalar el paquete «nano»',
+        resultado: 'ok',
+        detalle: 'HTTP 201',
+      }],
+    });
+
+    const vista = renderHistorial();
+    document.body.appendChild(vista);
+
+    await vi.waitFor(() => {
+      expect(vista.querySelector('#historial-filas').textContent).toContain('Instalar el paquete «nano»');
+    });
+
+    const celdas = vista.querySelectorAll('#historial-filas tr td');
+    expect(celdas).toHaveLength(6);
+    expect(celdas[4].textContent).toBe('POST /api/packages');
   });
 });

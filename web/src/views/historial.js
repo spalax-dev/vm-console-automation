@@ -3,7 +3,7 @@ import { api } from '../api.js';
 import { escapar, mensajeDeError } from '../ui.js';
 
 /** Módulos que se pueden filtrar en el historial. */
-const MODULOS = ['paquetes', 'llaves', 'issue', 'hostname', 'usuarios', 'systemd', 'haproxy'];
+const MODULOS = ['paquetes', 'llaves', 'issue', 'hostname', 'usuarios', 'systemd', 'haproxy', 'sesion', 'maquinas'];
 
 /**
  * Construye la vista del historial de operaciones.
@@ -47,12 +47,13 @@ export function renderHistorial() {
               <th class="text-left px-3 py-1 font-medium text-vm-fgSecondary">FECHA Y HORA</th>
               <th class="text-left px-3 py-1 font-medium text-vm-fgSecondary">VM</th>
               <th class="text-left px-3 py-1 font-medium text-vm-fgSecondary">MÓDULO</th>
+              <th class="text-left px-3 py-1 font-medium text-vm-fgSecondary">DESCRIPCIÓN</th>
               <th class="text-left px-3 py-1 font-medium text-vm-fgSecondary">OPERACIÓN</th>
               <th class="text-left px-3 py-1 font-medium text-vm-fgSecondary">RESULTADO</th>
             </tr>
           </thead>
           <tbody id="historial-filas">
-            <tr><td colspan="5" class="px-3 py-6 text-center text-vm-fgSecondary">Consultando…</td></tr>
+            <tr><td colspan="6" class="px-3 py-6 text-center text-vm-fgSecondary">Consultando…</td></tr>
           </tbody>
         </table>
       </div>
@@ -97,7 +98,7 @@ export function renderHistorial() {
   const pintar = () => {
     if (operaciones.length === 0) {
       filas.innerHTML = `
-        <tr><td colspan="5" class="px-3 py-6 text-center text-vm-fgSecondary">
+        <tr><td colspan="6" class="px-3 py-6 text-center text-vm-fgSecondary">
           No hay operaciones que coincidan con los filtros.
         </td></tr>
       `;
@@ -112,6 +113,7 @@ export function renderHistorial() {
           <td class="px-3 py-1 font-mono text-[11px] whitespace-nowrap">${escapar(fecha(operacion.fecha_hora))}</td>
           <td class="px-3 py-1 font-mono text-[11px]">${escapar(operacion.vm || '—')}</td>
           <td class="px-3 py-1">${escapar(operacion.modulo)}</td>
+          <td class="px-3 py-1">${escapar(operacion.descripcion || operacion.operacion)}</td>
           <td class="px-3 py-1 font-mono text-[11px]">${escapar(operacion.operacion)}</td>
           <td class="px-3 py-1">
             <span class="px-1.5 py-0.5 border text-[10px] rounded-sm ${operacion.resultado === 'ok' ? 'border-vm-success text-vm-success' : 'border-vm-accent text-vm-accent'}">
@@ -139,7 +141,7 @@ export function renderHistorial() {
     } catch (error) {
       operaciones = [];
       filas.innerHTML = `
-        <tr><td colspan="5" class="px-3 py-6 text-center text-vm-accent">${escapar(mensajeDeError(error))}</td></tr>
+        <tr><td colspan="6" class="px-3 py-6 text-center text-vm-accent">${escapar(mensajeDeError(error))}</td></tr>
       `;
       estado.textContent = 'No fue posible consultar el historial';
       estado.className = 'text-vm-accent';
@@ -159,12 +161,13 @@ export function renderHistorial() {
   });
 
   exportar.addEventListener('click', () => {
-    const encabezado = 'fecha_hora,vm,modulo,operacion,resultado,detalle\n';
+    const encabezado = 'fecha_hora,vm,modulo,descripcion,operacion,resultado,detalle\n';
     const contenido = operaciones
       .map((operacion) => [
         operacion.fecha_hora,
         operacion.vm,
         operacion.modulo,
+        operacion.descripcion,
         operacion.operacion,
         operacion.resultado,
         operacion.detalle,

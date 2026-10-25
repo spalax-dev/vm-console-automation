@@ -179,7 +179,7 @@ func ejecutarCaso(t *testing.T, handler http.HandlerFunc, ruta string, caso caso
 	t.Helper()
 
 	req := httptest.NewRequestWithContext(context.Background(), caso.metodo, ruta, strings.NewReader(caso.cuerpo))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(cabeceraContentType, tipoJSONPrueba)
 
 	rec := httptest.NewRecorder()
 	handler(rec, req)
@@ -194,7 +194,7 @@ func ejecutarCasoConPath(
 	t.Helper()
 
 	req := httptest.NewRequestWithContext(context.Background(), caso.metodo, ruta, strings.NewReader(caso.cuerpo))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(cabeceraContentType, tipoJSONPrueba)
 	req.SetPathValue(clave, valor)
 
 	rec := httptest.NewRecorder()

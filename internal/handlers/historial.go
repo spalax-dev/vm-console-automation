@@ -4,11 +4,15 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"consola-vm/internal/services"
@@ -32,13 +36,14 @@ func NuevoHistorial(servicio ServicioHistorial) *Historial {
 
 // operacionRespuesta es una fila del historial en JSON.
 type operacionRespuesta struct {
-	ID        int64  `json:"id"`
-	FechaHora string `json:"fecha_hora"`
-	VM        string `json:"vm"`
-	Modulo    string `json:"modulo"`
-	Operacion string `json:"operacion"`
-	Resultado string `json:"resultado"`
-	Detalle   string `json:"detalle,omitempty"`
+	ID          int64  `json:"id"`
+	FechaHora   string `json:"fecha_hora"`
+	VM          string `json:"vm"`
+	Modulo      string `json:"modulo"`
+	Operacion   string `json:"operacion"`
+	Descripcion string `json:"descripcion"`
+	Resultado   string `json:"resultado"`
+	Detalle     string `json:"detalle,omitempty"`
 }
 
 // listaHistorial es el cuerpo de GET /api/historial.
@@ -142,6 +147,101 @@ func validarHoras(filtro *services.FiltroHistorial) error {
 	return nil
 }
 
+// leerCuerpo lee el JSON de la petición para describir la operación y
+// lo restaura para que el handler lo vuelva a leer. Nunca guarda el
+// cuerpo completo: solo se usan campos descriptivos.
+func leerCuerpo(r *http.Request) map[string]any {
+	datos := map[string]any{}
+
+	if r.Body == nil || !strings.HasPrefix(r.Header.Get(cabeceraContentType), "application/json") {
+		return datos
+	}
+
+	cuerpo, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	r.Body = io.NopCloser(bytes.NewReader(cuerpo))
+
+	if err != nil {
+		return datos
+	}
+
+	if err := json.Unmarshal(cuerpo, &datos); err != nil || datos == nil {
+		datos = map[string]any{}
+	}
+
+	return datos
+}
+
+// estadoDe devuelve el estado escrito o 200 si el handler no lo fijó.
+func estadoDe(registro *registroWriter) int {
+	if registro.estado == 0 {
+		return http.StatusOK
+	}
+
+	return registro.estado
+}
+
+// resultadoDe traduce el código HTTP a «ok» o «error».
+func resultadoDe(estado int) string {
+	if estado >= http.StatusBadRequest {
+		return "error"
+	}
+
+	return "ok"
+}
+
+// nombreActivo consulta la máquina vinculada sin romper si no hay una.
+func nombreActivo(vm func() string) string {
+	if vm == nil {
+		return ""
+	}
+
+	return vm()
+}
+
+// maquinaDe elige la máquina afectada: la del cuerpo para las
+// operaciones de sesión, la de la ruta para el encendido y, si no, la
+// máquina activa.
+func maquinaDe(r *http.Request, datos map[string]any, activa string) string {
+	if strings.HasPrefix(r.URL.Path, "/api/session") {
+		if maquina, ok := datos["vm"].(string); ok && maquina != "" {
+			return maquina
+		}
+	}
+
+	if strings.HasPrefix(r.URL.Path, "/api/vms/") {
+		partes := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+		if len(partes) >= 3 {
+			return partes[2]
+		}
+	}
+
+	return activa
+}
+
+// completarDatos agrega la opción de borrado de archivos a la
+// descripción.
+func completarDatos(r *http.Request, datos map[string]any) {
+	if r.URL.Query().Get("files") == "true" {
+		datos["archivos"] = true
+	}
+}
+
+// resumenDe arma la operación técnica y la descripción legible.
+func resumenDe(r *http.Request, datos map[string]any, nombreVM string) (operacion, descripcion string) {
+	operacion = r.Method + " " + r.Pattern
+	if r.Pattern == "" {
+		operacion = r.Method + " " + r.URL.Path
+	}
+
+	if _, existe := datos["vm"]; !existe && nombreVM != "" {
+		datos["vm"] = nombreVM
+	}
+
+	descripcion = services.DescribirOperacion(r.Method, r.Pattern, r.URL.Path, datos)
+
+	return operacion, descripcion
+}
+
 // registroWriter conserva el código de estado que escribe el handler.
 type registroWriter struct {
 	http.ResponseWriter
@@ -181,35 +281,23 @@ func ConHistorial(siguiente http.Handler, historial ServicioHistorial, vm func()
 			return
 		}
 
+		datos := leerCuerpo(r)
+		completarDatos(r, datos)
+
 		registro := &registroWriter{ResponseWriter: w}
 		siguiente.ServeHTTP(registro, r)
 
-		estado := registro.estado
-		if estado == 0 {
-			estado = http.StatusOK
-		}
-
-		resultado := "ok"
-		if estado >= http.StatusBadRequest {
-			resultado = "error"
-		}
-
-		operacion := r.Method + " " + r.Pattern
-		if r.Pattern == "" {
-			operacion = r.Method + " " + r.URL.Path
-		}
-
-		nombreVM := ""
-		if vm != nil {
-			nombreVM = vm()
-		}
+		estado := estadoDe(registro)
+		nombreVM := maquinaDe(r, datos, nombreActivo(vm))
+		operacion, descripcion := resumenDe(r, datos, nombreVM)
 
 		if err := historial.Registrar(context.Background(), &services.Operacion{
-			VM:        nombreVM,
-			Modulo:    modulo,
-			Operacion: operacion,
-			Resultado: resultado,
-			Detalle:   "HTTP " + strconv.Itoa(estado),
+			VM:          nombreVM,
+			Modulo:      modulo,
+			Operacion:   operacion,
+			Descripcion: descripcion,
+			Resultado:   resultadoDe(estado),
+			Detalle:     "HTTP " + strconv.Itoa(estado),
 		}); err != nil {
 			slog.Error("registrar la operación", claveError, err)
 		}

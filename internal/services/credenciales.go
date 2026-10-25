@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS operaciones (
 	vm TEXT NOT NULL,
 	modulo TEXT NOT NULL,
 	operacion TEXT NOT NULL,
+	descripcion TEXT NOT NULL DEFAULT '',
 	resultado TEXT NOT NULL,
 	detalle TEXT NOT NULL DEFAULT ''
 );
@@ -107,6 +108,10 @@ func NuevoAlmacen(rutaBD, rutaClave string) (*Almacen, error) {
 		return nil, fmt.Errorf("crear el esquema del historial: %w", err)
 	}
 
+	if err := asegurarDescripcionOperaciones(db); err != nil {
+		return nil, err
+	}
+
 	if _, err := db.ExecContext(context.Background(), esquemaConfiguracion); err != nil {
 		return nil, fmt.Errorf("crear el esquema de configuración: %w", err)
 	}
@@ -117,6 +122,67 @@ func NuevoAlmacen(rutaBD, rutaClave string) (*Almacen, error) {
 	}
 
 	return &Almacen{db: db, clave: clave}, nil
+}
+
+// asegurarDescripcionOperaciones agrega la columna descripcion a bases
+// creadas con una versión anterior.
+func asegurarDescripcionOperaciones(db *sql.DB) error {
+	existe, err := existeColumna(db, "operaciones", "descripcion")
+	if err != nil {
+		return err
+	}
+
+	if existe {
+		return nil
+	}
+
+	if _, err := db.ExecContext(context.Background(),
+		`ALTER TABLE operaciones ADD COLUMN descripcion TEXT NOT NULL DEFAULT ''`); err != nil {
+		return fmt.Errorf("agregar la descripción al historial: %w", err)
+	}
+
+	return nil
+}
+
+// existeColumna comprueba si una tabla SQLite tiene una columna. Cierra
+// las filas antes de volver para liberar la única conexión de la base.
+func existeColumna(db *sql.DB, tabla, columna string) (bool, error) {
+	// #nosec G201 -- la tabla y la columna las fija el código, no el usuario.
+	filas, err := db.QueryContext(context.Background(), `PRAGMA table_info(`+tabla+`)`)
+	if err != nil {
+		return false, fmt.Errorf("leer el esquema de %s: %w", tabla, err)
+	}
+
+	defer func() {
+		if err := filas.Close(); err != nil {
+			slog.Warn("cerrar el esquema de la tabla", "tabla", tabla, claveErrorLog, err)
+		}
+	}()
+
+	for filas.Next() {
+		var (
+			cid        int
+			nombre     string
+			tipo       string
+			noNulo     int
+			porDefecto sql.NullString
+			clave      int
+		)
+
+		if err := filas.Scan(&cid, &nombre, &tipo, &noNulo, &porDefecto, &clave); err != nil {
+			return false, fmt.Errorf("leer una columna de %s: %w", tabla, err)
+		}
+
+		if nombre == columna {
+			return true, nil
+		}
+	}
+
+	if err := filas.Err(); err != nil {
+		return false, fmt.Errorf("recorrer el esquema de %s: %w", tabla, err)
+	}
+
+	return false, nil
 }
 
 // cargarClave lee la clave local de 32 bytes o la genera si no existe.

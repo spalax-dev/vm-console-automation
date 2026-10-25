@@ -24,6 +24,8 @@ type Operacion struct {
 	Modulo string
 	// Operacion es el método y la ruta ejecutados.
 	Operacion string
+	// Descripcion es el resumen legible de la operación.
+	Descripcion string
 	// Resultado es «ok» o «error».
 	Resultado string
 	// Detalle conserva información técnica breve.
@@ -62,10 +64,10 @@ func (h *Historial) Registrar(ctx context.Context, operacion *Operacion) error {
 	}
 
 	_, err := h.db.ExecContext(ctx, `
-		INSERT INTO operaciones (fecha_hora, vm, modulo, operacion, resultado, detalle)
-		VALUES (?, ?, ?, ?, ?, ?)`,
+		INSERT INTO operaciones (fecha_hora, vm, modulo, operacion, descripcion, resultado, detalle)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		operacion.FechaHora, operacion.VM, operacion.Modulo, operacion.Operacion,
-		operacion.Resultado, operacion.Detalle,
+		operacion.Descripcion, operacion.Resultado, operacion.Detalle,
 	)
 	if err != nil {
 		return fmt.Errorf("registrar la operación: %w", err)
@@ -101,7 +103,7 @@ func (h *Historial) Listar(ctx context.Context, filtro *FiltroHistorial) ([]Oper
 
 		if err := filas.Scan(
 			&operacion.ID, &operacion.FechaHora, &operacion.VM, &operacion.Modulo,
-			&operacion.Operacion, &operacion.Resultado, &operacion.Detalle,
+			&operacion.Operacion, &operacion.Descripcion, &operacion.Resultado, &operacion.Detalle,
 		); err != nil {
 			return nil, fmt.Errorf("leer una operación: %w", err)
 		}
@@ -118,13 +120,13 @@ func (h *Historial) Listar(ctx context.Context, filtro *FiltroHistorial) ([]Oper
 
 // consultaHistorial arma el SQL y los argumentos según los filtros.
 func consultaHistorial(filtro *FiltroHistorial) (consulta string, argumentos []any) {
-	consulta = `SELECT id, fecha_hora, vm, modulo, operacion, resultado, detalle FROM operaciones WHERE 1 = 1`
+	consulta = `SELECT id, fecha_hora, vm, modulo, operacion, descripcion, resultado, detalle FROM operaciones WHERE 1 = 1`
 	argumentos = []any{}
 
 	if filtro.Texto != "" {
-		consulta += ` AND (vm LIKE ? OR modulo LIKE ? OR operacion LIKE ? OR detalle LIKE ?)`
+		consulta += ` AND (vm LIKE ? OR modulo LIKE ? OR operacion LIKE ? OR descripcion LIKE ? OR detalle LIKE ?)`
 		like := "%" + filtro.Texto + "%"
-		argumentos = append(argumentos, like, like, like, like)
+		argumentos = append(argumentos, like, like, like, like, like)
 	}
 
 	if filtro.VM != "" {
@@ -192,6 +194,10 @@ func ModuloDe(ruta string) string {
 		return "systemd"
 	case strings.HasPrefix(ruta, "/api/haproxy"):
 		return "haproxy"
+	case strings.HasPrefix(ruta, "/api/session"):
+		return "sesion"
+	case strings.HasPrefix(ruta, "/api/vms"):
+		return "maquinas"
 	default:
 		return ""
 	}

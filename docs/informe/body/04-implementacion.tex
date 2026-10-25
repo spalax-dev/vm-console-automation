@@ -17,7 +17,7 @@ systemd y HAProxy--- ejecutan operaciones reales sobre la máquina. No quedan
 respuestas \texttt{501}: todas las rutas del contrato están conectadas.
 La interfaz web consume el contrato completo desde las nueve vistas
 (\cref{sec:interfaz}), incluidos el registro con diagnóstico y el
-historial. Las pruebas cubren el 91.4\,\% de los manejadores y el
+historial. Las pruebas cubren el 91.6\,\% de los manejadores y el
 89.0\,\% de los servicios.
 
 % ------------------------------------------------------------
@@ -232,7 +232,8 @@ realiza con las back-end del entorno de pruebas.
 La consola registra automáticamente las operaciones que modifican la
 máquina. Un middleware envuelve el enrutador y, para cada
 \texttt{POST}, \texttt{PUT}, \texttt{PATCH} o \texttt{DELETE} de los
-módulos y de la sesión, guarda en la tabla \texttt{operaciones} de SQLite la máquina
+módulos, la sesión y las máquinas, guarda en la tabla \texttt{operaciones}
+de SQLite la máquina
 activa, el módulo, el método y la ruta, una descripción legible, el
 resultado (\texttt{ok} o \texttt{error}) y el código HTTP. La
 descripción se construye a partir del método, la ruta y los campos

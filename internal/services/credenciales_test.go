@@ -11,12 +11,15 @@ import (
 	"testing"
 )
 
+// archivoBDPrueba es el nombre de la base temporal.
+const archivoBDPrueba = "vmcons.db"
+
 // nuevaBaseDePrueba crea la base y la clave en un directorio temporal.
 func nuevaBaseDePrueba(t *testing.T) (almacen *Almacen, rutaBD, rutaClave string) {
 	t.Helper()
 
 	directorio := t.TempDir()
-	rutaBD = filepath.Join(directorio, "vmcons.db")
+	rutaBD = filepath.Join(directorio, archivoBDPrueba)
 	rutaClave = filepath.Join(directorio, archivoClave)
 
 	almacen, err := NuevoAlmacen(rutaBD, rutaClave)
@@ -134,9 +137,83 @@ func TestAlmacenClaveCorrupta(t *testing.T) {
 		t.Fatalf("preparar la clave: %v", err)
 	}
 
-	_, err := NuevoAlmacen(filepath.Join(directorio, "vmcons.db"), rutaClave)
+	_, err := NuevoAlmacen(filepath.Join(directorio, archivoBDPrueba), rutaClave)
 	if err == nil {
 		t.Fatal("NuevoAlmacen() error = nil, want el error de clave inválida")
+	}
+}
+
+// TestAlmacenMigraElHistorial comprueba que una base anterior recibe la
+// columna descripcion y conserva sus operaciones.
+func TestAlmacenMigraElHistorial(t *testing.T) {
+	t.Parallel()
+
+	directorio := t.TempDir()
+	rutaBD := filepath.Join(directorio, archivoBDPrueba)
+	rutaClave := filepath.Join(directorio, archivoClave)
+
+	db, err := sql.Open("sqlite", rutaBD)
+	if err != nil {
+		t.Fatalf("sql.Open() error = %v", err)
+	}
+
+	if _, err := db.ExecContext(t.Context(), `CREATE TABLE operaciones (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		fecha_hora TEXT NOT NULL,
+		vm TEXT NOT NULL,
+		modulo TEXT NOT NULL,
+		operacion TEXT NOT NULL,
+		resultado TEXT NOT NULL,
+		detalle TEXT NOT NULL DEFAULT ''
+	)`); err != nil {
+		t.Fatalf("crear la tabla anterior: %v", err)
+	}
+
+	if _, err := db.ExecContext(t.Context(), `INSERT INTO operaciones
+		(fecha_hora, vm, modulo, operacion, resultado, detalle)
+		VALUES ('2026-10-25T10:00:00Z', 'debian-1', 'paquetes',
+		'POST /api/packages', 'ok', 'HTTP 201')`); err != nil {
+		t.Fatalf("insertar la operación anterior: %v", err)
+	}
+
+	if err := db.Close(); err != nil {
+		t.Fatalf("cerrar la base anterior: %v", err)
+	}
+
+	almacen, err := NuevoAlmacen(rutaBD, rutaClave)
+	if err != nil {
+		t.Fatalf(msgAlmacenOK, err)
+	}
+
+	historial := NuevoHistorial(almacen)
+
+	operaciones, err := historial.Listar(context.Background(), &FiltroHistorial{})
+	if err != nil {
+		t.Fatalf(msgListarError, err)
+	}
+
+	if len(operaciones) != 1 {
+		t.Fatalf("Listar() devolvió %d, want 1", len(operaciones))
+	}
+
+	if operaciones[0].Descripcion != "" {
+		t.Errorf("Descripcion de la fila anterior = %q, want vacía", operaciones[0].Descripcion)
+	}
+
+	if err := historial.Registrar(context.Background(), &Operacion{
+		VM: nombreDebian, Modulo: moduloPaquetes, Operacion: "POST /api/packages",
+		Descripcion: descripcionNano, Resultado: "ok",
+	}); err != nil {
+		t.Fatalf("Registrar() error = %v", err)
+	}
+
+	operaciones, err = historial.Listar(context.Background(), &FiltroHistorial{})
+	if err != nil {
+		t.Fatalf(msgListarError, err)
+	}
+
+	if len(operaciones) != 2 || operaciones[0].Descripcion != descripcionNano {
+		t.Errorf("operaciones = %+v, want la descripción nueva", operaciones)
 	}
 }
 
