@@ -15,6 +15,7 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
   - [func NuevoHaproxy\(\) \*Haproxy](<#NuevoHaproxy>)
   - [func \(h \*Haproxy\) Servidor\(w http.ResponseWriter, r \*http.Request\)](<#Haproxy.Servidor>)
   - [func \(h \*Haproxy\) Servidores\(w http.ResponseWriter, r \*http.Request\)](<#Haproxy.Servidores>)
+- [type ServicioHostname](<#ServicioHostname>)
 - [type ServicioIssue](<#ServicioIssue>)
 - [type ServicioLlaves](<#ServicioLlaves>)
 - [type ServicioPaquetes](<#ServicioPaquetes>)
@@ -22,7 +23,7 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
   - [func NuevoSesion\(descubridor DescubridorSesion\) \*Sesion](<#NuevoSesion>)
   - [func \(h \*Sesion\) ServeHTTP\(w http.ResponseWriter, r \*http.Request\)](<#Sesion.ServeHTTP>)
 - [type Sistema](<#Sistema>)
-  - [func NuevoSistema\(paquetes ServicioPaquetes, llaves ServicioLlaves, issue ServicioIssue\) \*Sistema](<#NuevoSistema>)
+  - [func NuevoSistema\(paquetes ServicioPaquetes, llaves ServicioLlaves, issue ServicioIssue, hostname ServicioHostname\) \*Sistema](<#NuevoSistema>)
   - [func \(h \*Sistema\) Hostname\(w http.ResponseWriter, r \*http.Request\)](<#Sistema.Hostname>)
   - [func \(h \*Sistema\) Issue\(w http.ResponseWriter, r \*http.Request\)](<#Sistema.Issue>)
   - [func \(h \*Sistema\) LlaveRoot\(w http.ResponseWriter, r \*http.Request\)](<#Sistema.LlaveRoot>)
@@ -86,6 +87,20 @@ func (h *Haproxy) Servidores(w http.ResponseWriter, r *http.Request)
 ```
 
 Servidores atiende GET y POST /api/haproxy/backend/servers: lista o agrega servidores al back\-end.
+
+<a name="ServicioHostname"></a>
+## type ServicioHostname
+
+ServicioHostname lee y cambia el nombre de host y /etc/hosts.
+
+```go
+type ServicioHostname interface {
+    // Obtener devuelve el nombre, la IP y el estado de /etc/hosts.
+    Obtener(ctx context.Context) (services.ConfiguracionHostname, error)
+    // Escribir aplica el nombre y, si se pide, actualiza /etc/hosts.
+    Escribir(ctx context.Context, config services.ConfiguracionHostname) (services.Resultado, error)
+}
+```
 
 <a name="ServicioIssue"></a>
 ## type ServicioIssue
@@ -176,7 +191,7 @@ type Sistema struct {
 ### func NuevoSistema
 
 ```go
-func NuevoSistema(paquetes ServicioPaquetes, llaves ServicioLlaves, issue ServicioIssue) *Sistema
+func NuevoSistema(paquetes ServicioPaquetes, llaves ServicioLlaves, issue ServicioIssue, hostname ServicioHostname) *Sistema
 ```
 
 NuevoSistema construye el handler de preparación del sistema con los servicios dados.

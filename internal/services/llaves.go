@@ -129,5 +129,5 @@ func guionInstalacion(clave string) *domain.Command {
 		"printf '%s' " + domain.Quote(configuracion) + " > /etc/ssh/sshd_config.d/99-vmcons.conf && " +
 		"systemctl reload ssh"
 
-	return &domain.Command{Path: "/bin/sh", Args: []string{"-c", guion}}
+	return &domain.Command{Path: binSh, Args: []string{"-c", guion}}
 }

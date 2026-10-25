@@ -14,11 +14,16 @@ Package services implementa los casos de uso de la consola: descubre el conector
 - [type AbridorSesion](<#AbridorSesion>)
 - [type ConfigDescubridor](<#ConfigDescubridor>)
 - [type ConfigLlaves](<#ConfigLlaves>)
+- [type ConfiguracionHostname](<#ConfiguracionHostname>)
 - [type ConfiguracionIssue](<#ConfiguracionIssue>)
 - [type Descubridor](<#Descubridor>)
   - [func NuevoDescubridor\(config \*ConfigDescubridor\) \*Descubridor](<#NuevoDescubridor>)
   - [func \(d \*Descubridor\) Abrir\(ctx context.Context\) \(ports.Session, error\)](<#Descubridor.Abrir>)
   - [func \(d \*Descubridor\) Descubrir\(ctx context.Context\) \(InfoSesion, error\)](<#Descubridor.Descubrir>)
+- [type Hostname](<#Hostname>)
+  - [func NuevoHostname\(sesiones AbridorSesion\) \*Hostname](<#NuevoHostname>)
+  - [func \(h \*Hostname\) Escribir\(ctx context.Context, config ConfiguracionHostname\) \(Resultado, error\)](<#Hostname.Escribir>)
+  - [func \(h \*Hostname\) Obtener\(ctx context.Context\) \(ConfiguracionHostname, error\)](<#Hostname.Obtener>)
 - [type InfoSesion](<#InfoSesion>)
 - [type Issue](<#Issue>)
   - [func NuevoIssue\(sesiones AbridorSesion\) \*Issue](<#NuevoIssue>)
@@ -101,6 +106,22 @@ type ConfigLlaves struct {
 }
 ```
 
+<a name="ConfiguracionHostname"></a>
+## type ConfiguracionHostname
+
+ConfiguracionHostname describe el nombre de la máquina y su entrada en /etc/hosts.
+
+```go
+type ConfiguracionHostname struct {
+    // Nombre es el nombre de host actual o deseado.
+    Nombre string
+    // IP es la dirección IPv4 asociada.
+    IP  string
+    // ActualizarHosts indica si el nombre está registrado en /etc/hosts.
+    ActualizarHosts bool
+}
+```
+
 <a name="ConfiguracionIssue"></a>
 ## type ConfiguracionIssue
 
@@ -160,6 +181,44 @@ func (d *Descubridor) Descubrir(ctx context.Context) (InfoSesion, error)
 ```
 
 Descubrir resuelve el conector disponible para la máquina. Verifica primero que la máquina esté en ejecución, descubre su dirección si falta y sondea los conectores en orden de preferencia. Devuelve ErrSesionNoDisponible cuando la máquina no puede atenderse o ningún conector supera el sondeo.
+
+<a name="Hostname"></a>
+## type Hostname
+
+Hostname implementa el caso de uso del nombre de host y /etc/hosts.
+
+```go
+type Hostname struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="NuevoHostname"></a>
+### func NuevoHostname
+
+```go
+func NuevoHostname(sesiones AbridorSesion) *Hostname
+```
+
+NuevoHostname construye el servicio de nombre de host con el abridor de sesiones dado.
+
+<a name="Hostname.Escribir"></a>
+### func \(\*Hostname\) Escribir
+
+```go
+func (h *Hostname) Escribir(ctx context.Context, config ConfiguracionHostname) (Resultado, error)
+```
+
+Escribir cambia el nombre de host y, si se pide, actualiza /etc/hosts.
+
+<a name="Hostname.Obtener"></a>
+### func \(\*Hostname\) Obtener
+
+```go
+func (h *Hostname) Obtener(ctx context.Context) (ConfiguracionHostname, error)
+```
+
+Obtener lee el nombre, la primera IPv4 y la presencia del nombre en /etc/hosts.
 
 <a name="InfoSesion"></a>
 ## type InfoSesion

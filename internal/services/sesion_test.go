@@ -20,6 +20,13 @@ const (
 	msgDescubrirOK   = "Descubrir() error = %v, want nil"
 	msgSesionAbierta = "la sesión no se cerró"
 	msgCodigoCero    = "Codigo = %d, want 0"
+	msgEscribirOK    = "Escribir() error = %v, want nil"
+	msgOrdenUnica    = "la sesión ejecutó %d órdenes, want 1"
+	msgStderrSesion  = "Stderr = %q, want el stderr de la sesión"
+	nombreHostPrueba = "nodo-01"
+	ipHostPrueba     = "192.168.1.60"
+	salidaHostname   = "debian13\n"
+	comandoCat       = "cat"
 	msgIP            = "IP = %s, want %s"
 )
 
@@ -51,15 +58,32 @@ type stubSession struct {
 	closed   bool
 	closeErr error
 	result   domain.Result
+	results  []domain.Result
 	err      error
+	errs     []error
 	commands []*domain.Command
 }
 
-// Run registra la orden y devuelve el resultado preprogramado.
+// Run registra la orden y devuelve el siguiente resultado de la cola o
+// el resultado único preprogramado.
 func (s *stubSession) Run(_ context.Context, cmd *domain.Command) (domain.Result, error) {
 	s.commands = append(s.commands, cmd)
 
-	return s.result, s.err
+	resultado := s.result
+
+	if len(s.results) > 0 {
+		resultado = s.results[0]
+		s.results = s.results[1:]
+	}
+
+	if len(s.errs) > 0 {
+		err := s.errs[0]
+		s.errs = s.errs[1:]
+
+		return resultado, err
+	}
+
+	return resultado, s.err
 }
 
 // Put no transfiere nada y siempre termina bien.

@@ -45,18 +45,32 @@ type ServicioIssue interface {
 	Escribir(ctx context.Context, config services.ConfiguracionIssue) (services.Resultado, error)
 }
 
+// ServicioHostname lee y cambia el nombre de host y /etc/hosts.
+type ServicioHostname interface {
+	// Obtener devuelve el nombre, la IP y el estado de /etc/hosts.
+	Obtener(ctx context.Context) (services.ConfiguracionHostname, error)
+	// Escribir aplica el nombre y, si se pide, actualiza /etc/hosts.
+	Escribir(ctx context.Context, config services.ConfiguracionHostname) (services.Resultado, error)
+}
+
 // Sistema agrupa los recursos de preparación del sistema (numeral 3.1
 // del enunciado).
 type Sistema struct {
 	paquetes ServicioPaquetes
 	llaves   ServicioLlaves
 	issue    ServicioIssue
+	hostname ServicioHostname
 }
 
 // NuevoSistema construye el handler de preparación del sistema con los
 // servicios dados.
-func NuevoSistema(paquetes ServicioPaquetes, llaves ServicioLlaves, issue ServicioIssue) *Sistema {
-	return &Sistema{paquetes: paquetes, llaves: llaves, issue: issue}
+func NuevoSistema(
+	paquetes ServicioPaquetes,
+	llaves ServicioLlaves,
+	issue ServicioIssue,
+	hostname ServicioHostname,
+) *Sistema {
+	return &Sistema{paquetes: paquetes, llaves: llaves, issue: issue, hostname: hostname}
 }
 
 // paqueteRespuesta es un paquete en la respuesta JSON.
@@ -321,6 +335,13 @@ func (h *Sistema) obtenerIssue(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// configuracionHostname es el cuerpo de GET /api/hostname.
+type configuracionHostname struct {
+	Nombre          string `json:"nombre"`
+	IP              string `json:"ip"`
+	ActualizarHosts bool   `json:"actualizar_hosts"`
+}
+
 // Hostname atiende GET y PUT /api/hostname: consulta o reemplaza el
 // nombre de host y su entrada en /etc/hosts.
 func (h *Sistema) Hostname(w http.ResponseWriter, r *http.Request) {
@@ -329,7 +350,7 @@ func (h *Sistema) Hostname(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodGet {
-		noImplementado(w, "consultar el nombre de host")
+		h.obtenerHostname(w, r)
 
 		return
 	}
@@ -353,5 +374,32 @@ func (h *Sistema) Hostname(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	noImplementado(w, "asignar el nombre de host")
+	resultado, err := h.hostname.Escribir(r.Context(), services.ConfiguracionHostname{
+		Nombre:          solicitud.Nombre,
+		IP:              solicitud.IP,
+		ActualizarHosts: solicitud.ActualizarHosts,
+	})
+	if err != nil {
+		responderErrorOperacion(w, resultado, err)
+
+		return
+	}
+
+	escribirResultado(w, http.StatusOK, resultado)
+}
+
+// obtenerHostname responde el nombre, la IP y el estado de /etc/hosts.
+func (h *Sistema) obtenerHostname(w http.ResponseWriter, r *http.Request) {
+	config, err := h.hostname.Obtener(r.Context())
+	if err != nil {
+		responderErrorOperacion(w, services.Resultado{}, err)
+
+		return
+	}
+
+	escribirJSON(w, http.StatusOK, configuracionHostname{
+		Nombre:          config.Nombre,
+		IP:              config.IP,
+		ActualizarHosts: config.ActualizarHosts,
+	})
 }

@@ -52,7 +52,7 @@ func TestValidarUsuario(t *testing.T) {
 func TestValidarHostname(t *testing.T) {
 	t.Parallel()
 
-	validos := []string{"debian13", "nodo-web-01", "a"}
+	validos := []string{hostDebian, "nodo-web-01", "a"}
 	for _, valor := range validos {
 		if err := validarHostname(valor); err != nil {
 			t.Errorf("validarHostname(%q) error = %v, want nil", valor, err)

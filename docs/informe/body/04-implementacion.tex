@@ -96,8 +96,22 @@ no se pierde un banner ajeno. La escritura usa una sola orden POSIX con
 
 \subsubsection{Asignación del Nombre de Host y Actualización del Archivo de Hosts}
 \label{sec:hostname}
-% TODO: establecimiento del nombre de host y actualización del
-% contenido de /etc/hosts.
+
+El recurso \texttt{/api/hostname} consulta y reemplaza el nombre de la
+máquina y su entrada en \texttt{/etc/hosts}. Al leer, el servicio toma
+el nombre de \texttt{/etc/hostname}, la primera IPv4 que devuelve
+\texttt{hostname -I} y comprueba si el nombre aparece como destino en
+\texttt{/etc/hosts}; si no hay una IPv4 disponible, responde con un
+error comprensible en lugar de inventar una dirección.
+
+Al escribir, el servidor valida el nombre como RFC 1123 y la IP con
+\texttt{netip.Addr} antes de ejecutar nada. Después ejecuta
+\texttt{hostnamectl set-hostname} y, si la casilla está marcada,
+reescribe \texttt{/etc/hosts}: elimina las líneas que mapean el nombre,
+conserva el resto de entradas (incluido \texttt{localhost}) y agrega
+«ip nombre» al final. El cambio y la actualización del archivo se
+ejecutan en una sola orden POSIX, de modo que un fallo intermedio no
+deja el sistema a medio configurar.
 
 % ------------------------------------------------------------
 % 4.2 Gestión de usuarios
@@ -196,7 +210,7 @@ tabla nunca queda desactualizada respecto de la máquina.
 \texttt{web/src/validacion.js} para dar respuesta inmediata; la
 validación del servidor sigue siendo la que decide.
 
-\emph{Pruebas.} El cliente se verifica con Vitest: cuarenta casos sobre
+\emph{Pruebas.} El cliente se verifica con Vitest: cuarenta y dos casos sobre
 la construcción de las peticiones, la traducción de errores, las reglas
 de validación, las utilidades de presentación y el montaje de las vistas
 en un DOM simulado. El empaquetado importa solo los iconos utilizados,

@@ -57,7 +57,7 @@ func (i *Issue) Obtener(ctx context.Context) (ConfiguracionIssue, error) {
 	defer cerrarSesion(sesion)
 
 	resultado, err := sesion.Run(ctx, &domain.Command{
-		Path: "/bin/cat",
+		Path: binCat,
 		Args: []string{"/etc/issue"},
 	})
 	if err != nil {
@@ -77,7 +77,7 @@ func (i *Issue) Escribir(ctx context.Context, config ConfiguracionIssue) (Result
 	defer cerrarSesion(sesion)
 
 	cmd := &domain.Command{
-		Path: "/bin/sh",
+		Path: binSh,
 		Args: []string{
 			"-c",
 			"printf '%s' " + domain.Quote(construirIssue(config)) +

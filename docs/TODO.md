@@ -20,11 +20,11 @@ Documento de seguimiento del proyecto. Se actualiza conforme se avanza.
 | Contrato OpenAPI (`docs/openapi.yaml`) | [x] 12 rutas, validado con Redocly |
 | Controladores HTTP de los módulos | [~] Registrados y validando; responden 501 hasta conectar servicios |
 | Servicio de descubrimiento/selección de sesión | [x] Completo — cobertura 100 % |
-| Casos de uso (`internal/services`) | [~] Descubrimiento, paquetes APT, llaves SSH y `/etc/issue` hechos; módulos restantes pendientes |
+| Casos de uso (`internal/services`) | [~] Preparación del sistema completa; usuarios, systemd y HAProxy pendientes |
 | Endpoints HTTP (`internal/handlers`) | [~] `GET /api/session` hecho; módulos pendientes |
 | Ensamblaje (`main.go`: rutas + inyección de dependencias) | [~] Servidor, `web/` embebido y todas las rutas registradas; faltan los servicios de módulos |
 | Interfaz web (`web/modules`, `web/static/main.js`) | [ ] Placeholders |
-| Pruebas de `services` y `handlers` | [~] `services` 100 %; `handlers` 98.4 % |
+| Pruebas de `services` y `handlers` | [~] `services` 100 %; `handlers` 97.8 % |
 | Escenario: diagrama (numeral 5) | [x] Hecho en PlantUML (`docs/diagramas/`), en §3.1 del informe |
 | Pruebas manuales en video (numeral 4) | [ ] No iniciado |
 | Informe (`docs/informe`) | [~] §3 (diseño y escenario) redactado con los 2 diagramas; resto con TODOs |
@@ -67,7 +67,7 @@ Orden de trabajo obligatorio: **docs → tests → implementación**.
 | 3.1.1 | Instalación y eliminación de aplicaciones (`apt install` / `apt remove`) con formulario y notificación de resultado | [x] | [x] | [x] | [ ] | [ ] |
 | 3.1.2 | Llave SSH para `root`: generar par, instalar en `authorized_keys`, deshabilitar acceso por login/contraseña, **descarga de la llave privada** y mensaje de recomendación de uso | [x] | [x] | [x] | [ ] | [ ] |
 | 3.1.3 | Personalizar `/etc/issue` con nombre de host, fecha, hora, dirección IP y mensaje personalizado | [x] | [x] | [x] | [ ] | [ ] |
-| 3.1.4 | Asignar nombre de host y actualizar `/etc/hosts` | [x] | [x] | [~] | [ ] | [ ] |
+| 3.1.4 | Asignar nombre de host y actualizar `/etc/hosts` | [x] | [x] | [x] | [ ] | [ ] |
 
 ### 4.2 Gestión de usuarios
 
@@ -177,6 +177,15 @@ de los módulos del numeral 3.
 
 ## Notas de seguimiento
 
+- **25 oct 2026** — Nombre de host y `/etc/hosts` (3.1.4): el servicio
+  `Hostname` lee `/etc/hostname`, la primera IPv4 de `hostname -I` y la
+  presencia del nombre en `/etc/hosts`. Al escribir ejecuta
+  `hostnamectl set-hostname` y, si `actualizar_hosts` es verdadero,
+  reescribe `/etc/hosts` sin las líneas que mapean el nombre y con
+  `ip nombre` al final. `GET` y `PUT /api/hostname` responden `200`;
+  nombre RFC 1123 e IPv4 se validan antes de ejecutar. Cobertura:
+  `services` 100 %, `handlers` 97.8 %.
+
 - **24 oct 2026** — Entrada del sistema (3.1.3): el servicio `Issue`
   escribe `/etc/issue` con una línea por elemento y las secuencias de
   agetty (`\n`, `\d`, `\t`, `\4`) precedidas por etiquetas legibles;
@@ -195,7 +204,7 @@ de los módulos del numeral 3.
   de ejecución. Las ocho vistas consultan su recurso al montarse y
   muestran carga, vacío y error; las operaciones de escritura alimentan
   el panel de resultado. Se documentó en `docs/web-cliente.md`.
-  Pruebas del cliente con Vitest: 40 casos (\texttt{api},
+  Pruebas del cliente con Vitest: 42 casos (\texttt{api},
   \texttt{validacion}, \texttt{ui} y montaje de vistas en DOM).
   Presupuesto: 64 kB de JavaScript (antes 528 kB) al importar solo los
   iconos utilizados.

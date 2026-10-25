@@ -37,6 +37,8 @@ const (
 	rutaLlaveRoot         = "/api/keys/root"
 	msgCodigoCuerpo       = "código = %d, want %d (cuerpo %s)"
 	rutaIssue             = "/api/issue"
+	rutaHostname          = "/api/hostname"
+	hostDebian            = "debian13"
 	textoBienvenido       = "Bienvenido"
 )
 
@@ -114,10 +116,33 @@ func (s *stubIssue) Escribir(_ context.Context, config services.ConfiguracionIss
 	return s.resultado, s.err
 }
 
+// stubHostname es un servicio de hostname falso con resultados
+// preprogramados.
+type stubHostname struct {
+	config     services.ConfiguracionHostname
+	resultado  services.Resultado
+	err        error
+	escrito    services.ConfiguracionHostname
+	escrituras int
+}
+
+// Obtener devuelve la configuración preprogramada.
+func (s *stubHostname) Obtener(context.Context) (services.ConfiguracionHostname, error) {
+	return s.config, s.err
+}
+
+// Escribir registra la configuración y devuelve el resultado.
+func (s *stubHostname) Escribir(_ context.Context, config services.ConfiguracionHostname) (services.Resultado, error) {
+	s.escrito = config
+	s.escrituras++
+
+	return s.resultado, s.err
+}
+
 // nuevoSistemaPrueba arma el handler de sistema con los servicios
 // falsos.
 func nuevoSistemaPrueba() *Sistema {
-	return NuevoSistema(&stubPaquetes{}, &stubLlaves{}, &stubIssue{})
+	return NuevoSistema(&stubPaquetes{}, &stubLlaves{}, &stubIssue{}, &stubHostname{})
 }
 
 // casoPeticion describe una petición de prueba contra un handler.
@@ -196,7 +221,7 @@ func TestPaquetesListar(t *testing.T) {
 	t.Parallel()
 
 	servicio := &stubPaquetes{lista: []services.Paquete{{Nombre: nombreNano, Version: "7.2-1"}}}
-	rec := ejecutarCaso(t, NuevoSistema(servicio, &stubLlaves{}, &stubIssue{}).Paquetes, rutaPaquetes, casoPeticion{
+	rec := ejecutarCaso(t, NuevoSistema(servicio, &stubLlaves{}, &stubIssue{}, &stubHostname{}).Paquetes, rutaPaquetes, casoPeticion{
 		nombre: casoListar, metodo: http.MethodGet,
 	})
 
@@ -226,7 +251,7 @@ func TestPaquetesInstalar(t *testing.T) {
 		Operacion: operacionInstalarNano,
 	}}
 
-	rec := ejecutarCaso(t, NuevoSistema(servicio, &stubLlaves{}, &stubIssue{}).Paquetes, rutaPaquetes, casoPeticion{
+	rec := ejecutarCaso(t, NuevoSistema(servicio, &stubLlaves{}, &stubIssue{}, &stubHostname{}).Paquetes, rutaPaquetes, casoPeticion{
 		nombre: casoValido, metodo: http.MethodPost, cuerpo: `{"nombre":"nano"}`,
 	})
 
@@ -283,7 +308,7 @@ func TestPaquetesErrorDeOrden(t *testing.T) {
 		err: &domain.ExitError{Code: 100, Command: operacionInstalarNano},
 	}
 
-	rec := ejecutarCaso(t, NuevoSistema(servicio, &stubLlaves{}, &stubIssue{}).Paquetes, rutaPaquetes, casoPeticion{
+	rec := ejecutarCaso(t, NuevoSistema(servicio, &stubLlaves{}, &stubIssue{}, &stubHostname{}).Paquetes, rutaPaquetes, casoPeticion{
 		nombre: "fallo de APT", metodo: http.MethodPost, cuerpo: `{"nombre":"nano"}`,
 	})
 
@@ -311,7 +336,7 @@ func TestPaquetesSinSesion(t *testing.T) {
 
 	servicio := &stubPaquetes{err: services.ErrSesionNoDisponible}
 
-	rec := ejecutarCaso(t, NuevoSistema(servicio, &stubLlaves{}, &stubIssue{}).Paquetes, rutaPaquetes, casoPeticion{
+	rec := ejecutarCaso(t, NuevoSistema(servicio, &stubLlaves{}, &stubIssue{}, &stubHostname{}).Paquetes, rutaPaquetes, casoPeticion{
 		nombre: "sin sesión", metodo: http.MethodGet,
 	})
 
@@ -346,7 +371,7 @@ func TestPaqueteEliminar(t *testing.T) {
 	t.Parallel()
 
 	servicio := &stubPaquetes{}
-	handler := NuevoSistema(servicio, &stubLlaves{}, &stubIssue{}).Paquete
+	handler := NuevoSistema(servicio, &stubLlaves{}, &stubIssue{}, &stubHostname{}).Paquete
 
 	rec := ejecutarCasoConPath(t, handler, rutaPaqueteNano, campoName, nombreNano, casoPeticion{
 		nombre: casoEliminar, metodo: http.MethodDelete,
@@ -373,7 +398,7 @@ func TestLlaveRootGenerar(t *testing.T) {
 		Mensaje: "Llave SSH de root generada e instalada.",
 	}}
 
-	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, servicio, &stubIssue{}).LlaveRoot, rutaLlaveRoot, casoPeticion{
+	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, servicio, &stubIssue{}, &stubHostname{}).LlaveRoot, rutaLlaveRoot, casoPeticion{
 		nombre: "generar", metodo: http.MethodPost,
 	})
 
@@ -397,7 +422,7 @@ func TestLlaveRootGenerarExistente(t *testing.T) {
 
 	servicio := &stubLlaves{err: services.ErrLlaveExistente}
 
-	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, servicio, &stubIssue{}).LlaveRoot, rutaLlaveRoot, casoPeticion{
+	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, servicio, &stubIssue{}, &stubHostname{}).LlaveRoot, rutaLlaveRoot, casoPeticion{
 		nombre: "llave existente", metodo: http.MethodPost,
 	})
 
@@ -412,7 +437,7 @@ func TestLlaveRootDescargar(t *testing.T) {
 
 	servicio := &stubLlaves{nombre: "id_ed25519", contenido: []byte("privada")}
 
-	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, servicio, &stubIssue{}).LlaveRoot, rutaLlaveRoot, casoPeticion{
+	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, servicio, &stubIssue{}, &stubHostname{}).LlaveRoot, rutaLlaveRoot, casoPeticion{
 		nombre: "descargar", metodo: http.MethodGet,
 	})
 
@@ -435,7 +460,7 @@ func TestLlaveRootSinLlave(t *testing.T) {
 
 	servicio := &stubLlaves{descargaErr: services.ErrLlaveNoEncontrada}
 
-	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, servicio, &stubIssue{}).LlaveRoot, rutaLlaveRoot, casoPeticion{
+	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, servicio, &stubIssue{}, &stubHostname{}).LlaveRoot, rutaLlaveRoot, casoPeticion{
 		nombre: "sin llave", metodo: http.MethodGet,
 	})
 
@@ -468,7 +493,7 @@ func TestIssueObtener(t *testing.T) {
 		Contenido:  "Bienvenido\nHostname: \\n\nIP: \\4\n",
 	}}
 
-	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, &stubLlaves{}, servicio).Issue, rutaIssue, casoPeticion{
+	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, &stubLlaves{}, servicio, &stubHostname{}).Issue, rutaIssue, casoPeticion{
 		nombre: "consultar", metodo: http.MethodGet,
 	})
 
@@ -496,7 +521,7 @@ func TestIssueEscribir(t *testing.T) {
 
 	servicio := &stubIssue{resultado: services.Resultado{Mensaje: "Entrada del sistema actualizada."}}
 
-	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, &stubLlaves{}, servicio).Issue, rutaIssue, casoPeticion{
+	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, &stubLlaves{}, servicio, &stubHostname{}).Issue, rutaIssue, casoPeticion{
 		nombre: casoValido,
 		metodo: http.MethodPut,
 		cuerpo: `{"mensaje":"Bienvenido","nombre_host":true,"fecha":true,"hora":true,"ip":true}`,
@@ -561,7 +586,7 @@ func TestIssueErrorDeOrden(t *testing.T) {
 		err:       &domain.ExitError{Code: 1, Command: "sh"},
 	}
 
-	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, &stubLlaves{}, servicio).Issue, rutaIssue, casoPeticion{
+	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, &stubLlaves{}, servicio, &stubHostname{}).Issue, rutaIssue, casoPeticion{
 		nombre: "fallo de escritura", metodo: http.MethodPut, cuerpo: `{"mensaje":"hola"}`,
 	})
 
@@ -570,14 +595,73 @@ func TestIssueErrorDeOrden(t *testing.T) {
 	}
 }
 
-// TestHostname cubre la lectura y el reemplazo del nombre de host.
-func TestHostname(t *testing.T) {
+// TestHostnameObtener cubre la lectura del nombre de host.
+func TestHostnameObtener(t *testing.T) {
+	t.Parallel()
+
+	servicio := &stubHostname{config: services.ConfiguracionHostname{
+		Nombre:          hostDebian,
+		IP:              "192.168.1.50",
+		ActualizarHosts: true,
+	}}
+
+	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, &stubLlaves{}, &stubIssue{}, servicio).Hostname, rutaHostname, casoPeticion{
+		nombre: "consultar", metodo: http.MethodGet,
+	})
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+	}
+
+	var cuerpo map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &cuerpo); err != nil {
+		t.Fatalf(msgJSONInvalido, err)
+	}
+
+	if cuerpo["nombre"] != hostDebian {
+		t.Errorf("nombre = %v, want debian13", cuerpo["nombre"])
+	}
+
+	if cuerpo["ip"] != "192.168.1.50" {
+		t.Errorf("ip = %v, want 192.168.1.50", cuerpo["ip"])
+	}
+
+	if cuerpo["actualizar_hosts"] != true {
+		t.Errorf("actualizar_hosts = %v, want true", cuerpo["actualizar_hosts"])
+	}
+}
+
+// TestHostnameEscribir cubre el reemplazo del nombre de host.
+func TestHostnameEscribir(t *testing.T) {
+	t.Parallel()
+
+	servicio := &stubHostname{resultado: services.Resultado{Mensaje: "Nombre de host actualizado."}}
+
+	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, &stubLlaves{}, &stubIssue{}, servicio).Hostname, rutaHostname, casoPeticion{
+		nombre: casoValido,
+		metodo: http.MethodPut,
+		cuerpo: `{"nombre":"nodo-01","ip":"192.168.1.60","actualizar_hosts":true}`,
+	})
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+	}
+
+	if servicio.escrituras != 1 {
+		t.Errorf("Escribir() se llamó %d veces, want 1", servicio.escrituras)
+	}
+
+	if servicio.escrito.Nombre != "nodo-01" || !servicio.escrito.ActualizarHosts {
+		t.Errorf("configuración = %+v, want nodo-01 con hosts", servicio.escrito)
+	}
+}
+
+// TestHostnameValidacion cubre el nombre RFC 1123 y la dirección IP.
+func TestHostnameValidacion(t *testing.T) {
 	t.Parallel()
 
 	handler := nuevoSistemaPrueba().Hostname
 	casos := []casoPeticion{
-		{nombre: casoConsultar, metodo: http.MethodGet, codigo: http.StatusNotImplemented},
-		{nombre: casoValido, metodo: http.MethodPut, cuerpo: `{"nombre":"nodo-web-01","ip":"192.168.1.60"}`, codigo: http.StatusNotImplemented},
 		{nombre: "nombre con espacio", metodo: http.MethodPut, cuerpo: `{"nombre":"mi equipo","ip":"192.168.1.60"}`, codigo: http.StatusBadRequest, campo: campoNombre},
 		{nombre: "IP inválida", metodo: http.MethodPut, cuerpo: `{"nombre":"nodo-web-01","ip":"999.1.1.1"}`, codigo: http.StatusBadRequest, campo: campoIP},
 		{nombre: casoCuerpoInvalido, metodo: http.MethodPut, cuerpo: `{`, codigo: http.StatusBadRequest},
@@ -585,8 +669,26 @@ func TestHostname(t *testing.T) {
 	}
 
 	for _, caso := range casos {
-		rec := ejecutarCaso(t, handler, "/api/hostname", caso)
+		rec := ejecutarCaso(t, handler, rutaHostname, caso)
 		comprobarCaso(t, rec, caso)
+	}
+}
+
+// TestHostnameErrorDeOrden cubre el fallo al cambiar el nombre.
+func TestHostnameErrorDeOrden(t *testing.T) {
+	t.Parallel()
+
+	servicio := &stubHostname{
+		resultado: services.Resultado{Codigo: 127, Stderr: "hostnamectl: not found"},
+		err:       &domain.ExitError{Code: 127, Command: "hostnamectl"},
+	}
+
+	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, &stubLlaves{}, &stubIssue{}, servicio).Hostname, rutaHostname, casoPeticion{
+		nombre: "fallo de hostnamectl", metodo: http.MethodPut, cuerpo: `{"nombre":"nodo-01","ip":"192.168.1.60"}`,
+	})
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
 	}
 }
 
@@ -595,7 +697,7 @@ func TestPaqueteErrorDeOrden(t *testing.T) {
 	t.Parallel()
 
 	servicio := &stubPaquetes{err: &domain.ExitError{Code: 100, Command: "apt-get remove"}}
-	handler := NuevoSistema(servicio, &stubLlaves{}, &stubIssue{}).Paquete
+	handler := NuevoSistema(servicio, &stubLlaves{}, &stubIssue{}, &stubHostname{}).Paquete
 
 	rec := ejecutarCasoConPath(t, handler, "/api/packages/nano", campoName, nombreNano, casoPeticion{
 		nombre: "fallo de APT", metodo: http.MethodDelete,
@@ -612,7 +714,7 @@ func TestLlaveRootErrorGenerico(t *testing.T) {
 	t.Parallel()
 
 	servicio := &stubLlaves{err: errors.New("fallo inesperado")}
-	handler := NuevoSistema(&stubPaquetes{}, servicio, &stubIssue{}).LlaveRoot
+	handler := NuevoSistema(&stubPaquetes{}, servicio, &stubIssue{}, &stubHostname{}).LlaveRoot
 
 	rec := ejecutarCaso(t, handler, rutaLlaveRoot, casoPeticion{
 		nombre: "error genérico", metodo: http.MethodPost,
@@ -629,7 +731,7 @@ func TestLlaveRootErrorDeDescarga(t *testing.T) {
 	t.Parallel()
 
 	servicio := &stubLlaves{descargaErr: errors.New("fallo de lectura")}
-	handler := NuevoSistema(&stubPaquetes{}, servicio, &stubIssue{}).LlaveRoot
+	handler := NuevoSistema(&stubPaquetes{}, servicio, &stubIssue{}, &stubHostname{}).LlaveRoot
 
 	rec := ejecutarCaso(t, handler, rutaLlaveRoot, casoPeticion{
 		nombre: "error de descarga", metodo: http.MethodGet,

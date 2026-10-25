@@ -100,8 +100,9 @@ func nuevoMux() http.Handler {
 	})
 
 	issue := services.NuevoIssue(sesiones)
+	hostname := services.NuevoHostname(sesiones)
 
-	sistema := handlers.NuevoSistema(services.NuevoPaquetes(sesiones), llaves, issue)
+	sistema := handlers.NuevoSistema(services.NuevoPaquetes(sesiones), llaves, issue, hostname)
 	usuarios := handlers.NuevoUsuarios()
 	systemd := handlers.NuevoSystemd()
 	haproxy := handlers.NuevoHaproxy()

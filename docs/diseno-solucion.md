@@ -147,6 +147,29 @@ La escritura se hace con `printf` en una sola orden POSIX y deja permisos
 `644`. El mensaje se valida en el servidor: máximo 512 caracteres, sin NUL y
 sin saltos de línea, para que no rompa el formato de una línea por elemento.
 
+### 2.5 Nombre de host y `/etc/hosts`
+
+El recurso `/api/hostname` administra el nombre de la máquina y su entrada en
+`/etc/hosts`:
+
+| Operación | Acción | Respuesta |
+| --- | --- | --- |
+| `GET /api/hostname` | lee `/etc/hostname`, la IP y `/etc/hosts` | `200` con `{nombre, ip, actualizar_hosts}` |
+| `PUT /api/hostname` | cambia el nombre y actualiza `/etc/hosts` | `200` con el resultado de la orden |
+
+El servicio `Hostname` (`internal/services/hostname.go`) obtiene el nombre de
+`/etc/hostname`, la primera dirección IPv4 de `hostname -I` y comprueba si el
+nombre ya aparece como destino en `/etc/hosts`. Al escribir:
+
+1. ejecuta `hostnamectl set-hostname <nombre>`;
+2. si `actualizar_hosts` es verdadero, lee `/etc/hosts`, elimina las líneas
+   que mapean el nombre y agrega `<ip> <nombre>`;
+3. escribe el archivo resultante con una sola orden `printf`.
+
+El nombre se valida como RFC 1123 y la IP con `netip.Addr` antes de ejecutar
+nada. Si `hostname -I` no devuelve una IPv4, la lectura termina con un error
+comprensible en lugar de inventar una dirección.
+
 ---
 
 ## 3. Flujo de proceso de una operación

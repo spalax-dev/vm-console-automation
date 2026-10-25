@@ -100,7 +100,7 @@ func TestLlavesGenerarInstalaClave(t *testing.T) {
 	}
 
 	if len(sesion.commands) != 1 {
-		t.Fatalf("la sesión ejecutó %d órdenes, want 1", len(sesion.commands))
+		t.Fatalf(msgOrdenUnica, len(sesion.commands))
 	}
 
 	orden := sesion.commands[0].ShellLine()
@@ -221,7 +221,7 @@ func TestLlavesGenerarErrorDeInstalacion(t *testing.T) {
 	}
 
 	if resultado.Stderr != "Permission denied" {
-		t.Errorf("Stderr = %q, want el stderr de la sesión", resultado.Stderr)
+		t.Errorf(msgStderrSesion, resultado.Stderr)
 	}
 }
 

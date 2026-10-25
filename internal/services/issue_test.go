@@ -41,11 +41,11 @@ func TestIssueEscribirGeneraContenido(t *testing.T) {
 		IP:         true,
 	})
 	if err != nil {
-		t.Fatalf("Escribir() error = %v, want nil", err)
+		t.Fatalf(msgEscribirOK, err)
 	}
 
 	if len(sesion.commands) != 1 {
-		t.Fatalf("la sesión ejecutó %d órdenes, want 1", len(sesion.commands))
+		t.Fatalf(msgOrdenUnica, len(sesion.commands))
 	}
 
 	orden := sesion.commands[0].ShellLine()
@@ -142,7 +142,7 @@ func TestIssueEscribirSinSesion(t *testing.T) {
 func TestIssueObtenerErrorDeLectura(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{err: &domain.ExitError{Code: 1, Command: "cat"}}
+	sesion := &stubSession{err: &domain.ExitError{Code: 1, Command: comandoCat}}
 	issue := nuevoIssueDePrueba(sesion, nil)
 
 	if _, err := issue.Obtener(context.Background()); err == nil {
@@ -171,7 +171,7 @@ func TestIssueEscribirErrorDeOrden(t *testing.T) {
 	}
 
 	if resultado.Stderr != "Read-only file system" {
-		t.Errorf("Stderr = %q, want el stderr de la sesión", resultado.Stderr)
+		t.Errorf(msgStderrSesion, resultado.Stderr)
 	}
 }
 
@@ -183,7 +183,7 @@ func TestIssueHora(t *testing.T) {
 	issue := nuevoIssueDePrueba(sesion, nil)
 
 	if _, err := issue.Escribir(context.Background(), ConfiguracionIssue{Hora: true}); err != nil {
-		t.Fatalf("Escribir() error = %v, want nil", err)
+		t.Fatalf(msgEscribirOK, err)
 	}
 
 	if orden := sesion.commands[0].ShellLine(); !strings.Contains(orden, "Hora: \\t") {
