@@ -9,159 +9,159 @@ import (
 	"testing"
 )
 
-// msgListarError es el formato de error de Listar.
-const msgListarError = "Listar() error = %v"
+// msgListError es el formato de error de List.
+const msgListError = "Listar() error = %v"
 
-// moduloPaquetes es el nombre del módulo de paquetes.
-const moduloPaquetes = "paquetes"
+// modulePackages es el nombre del módulo de paquetes.
+const modulePackages = "paquetes"
 
-// nuevoHistorialDePrueba arma el historial sobre una base temporal.
-func nuevoHistorialDePrueba(t *testing.T) *Historial {
+// newHistoryOfTests arma el historial sobre una base temporal.
+func newHistoryOfTests(t *testing.T) *History {
 	t.Helper()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
+	store, _, _ := newTestDB(t)
 
-	return NuevoHistorial(almacen)
+	return NewHistory(store)
 }
 
-// registrarEjemplos inserta tres operaciones con fechas conocidas.
-func registrarEjemplos(t *testing.T, historial *Historial) {
+// registerEjemplos inserta tres operaciones con fechas conocidas.
+func registerEjemplos(t *testing.T, history *History) {
 	t.Helper()
 
-	operaciones := []Operacion{
-		{FechaHora: "2026-10-25T10:00:00Z", VM: nombreDebian, Modulo: moduloPaquetes, Operacion: "POST /api/packages", Descripcion: descripcionNano, Resultado: "ok"},
-		{FechaHora: "2026-10-25T12:30:00Z", VM: nombreDebian, Modulo: "usuarios", Operacion: "POST /api/users", Descripcion: "Crear el usuario «jorge»", Resultado: "ok"},
-		{FechaHora: "2026-10-26T09:15:00Z", VM: "ubuntu-lab", Modulo: moduloSystemd, Operacion: "POST /api/units/{unit}/restarts", Descripcion: "Reiniciar la unidad «catalogo.service»", Resultado: "error", Detalle: "HTTP 500"},
+	operations := []Operation{
+		{DateHour: "2026-10-25T10:00:00Z", VM: testMachineName, Module: modulePackages, Operation: "POST /api/packages", Description: descriptionNano, Outcome: "ok"},
+		{DateHour: "2026-10-25T12:30:00Z", VM: testMachineName, Module: "usuarios", Operation: "POST /api/users", Description: "Crear el usuario «jorge»", Outcome: "ok"},
+		{DateHour: "2026-10-26T09:15:00Z", VM: "ubuntu-lab", Module: moduleSystemd, Operation: "POST /api/units/{unit}/restarts", Description: "Reiniciar la unidad «catalogo.service»", Outcome: "error", Detail: "HTTP 500"},
 	}
 
-	for i := range operaciones {
-		if err := historial.Registrar(context.Background(), &operaciones[i]); err != nil {
+	for i := range operations {
+		if err := history.Register(context.Background(), &operations[i]); err != nil {
 			t.Fatalf("Registrar() error = %v", err)
 		}
 	}
 }
 
-// TestHistorialListarOrdenaYCunta comprueba el orden descendente.
-func TestHistorialListarOrdenaYCunta(t *testing.T) {
+// TestHistoryListOrdenaYCunta comprueba el orden descendente.
+func TestHistoryListOrdenaYCunta(t *testing.T) {
 	t.Parallel()
 
-	historial := nuevoHistorialDePrueba(t)
-	registrarEjemplos(t, historial)
+	history := newHistoryOfTests(t)
+	registerEjemplos(t, history)
 
-	operaciones, err := historial.Listar(context.Background(), &FiltroHistorial{})
+	operations, err := history.List(context.Background(), &HistoryFilter{})
 	if err != nil {
-		t.Fatalf(msgListarError, err)
+		t.Fatalf(msgListError, err)
 	}
 
-	if len(operaciones) != 3 {
-		t.Fatalf("Listar() devolvió %d, want 3", len(operaciones))
+	if len(operations) != 3 {
+		t.Fatalf("Listar() devolvió %d, want 3", len(operations))
 	}
 
-	if operaciones[0].VM != "ubuntu-lab" {
-		t.Errorf("primera operación = %+v, want la más reciente", operaciones[0])
+	if operations[0].VM != "ubuntu-lab" {
+		t.Errorf("primera operación = %+v, want la más reciente", operations[0])
 	}
 
-	if operaciones[0].Descripcion != "Reiniciar la unidad «catalogo.service»" {
-		t.Errorf("Descripcion = %q, want el resumen guardado", operaciones[0].Descripcion)
+	if operations[0].Description != "Reiniciar la unidad «catalogo.service»" {
+		t.Errorf("Descripcion = %q, want el resumen guardado", operations[0].Description)
 	}
 }
 
-// TestHistorialFiltros comprueba texto, VM, módulo, fecha, hora y límite.
-func TestHistorialFiltros(t *testing.T) {
+// TestHistoryFilters comprueba texto, VM, módulo, fecha, hora y límite.
+func TestHistoryFilters(t *testing.T) {
 	t.Parallel()
 
-	casos := []struct {
-		nombre    string
-		filtro    FiltroHistorial
-		esperados int
+	testCases := []struct {
+		name     string
+		filter   HistoryFilter
+		expected int
 	}{
-		{"texto", FiltroHistorial{Texto: "users"}, 1},
-		{"descripción", FiltroHistorial{Texto: "nano"}, 1},
-		{"vm", FiltroHistorial{VM: nombreDebian}, 2},
-		{"módulo", FiltroHistorial{Modulo: moduloSystemd}, 1},
-		{"fecha", FiltroHistorial{Desde: "2026-10-26", Hasta: "2026-10-26"}, 1},
-		{"hora", FiltroHistorial{HoraDesde: "12:00", HoraHasta: "13:00"}, 1},
-		{"límite", FiltroHistorial{Limite: 1}, 1},
+		{"texto", HistoryFilter{Text: "users"}, 1},
+		{"descripción", HistoryFilter{Text: "nano"}, 1},
+		{"vm", HistoryFilter{VM: testMachineName}, 2},
+		{"módulo", HistoryFilter{Module: moduleSystemd}, 1},
+		{"fecha", HistoryFilter{From: "2026-10-26", To: "2026-10-26"}, 1},
+		{"hora", HistoryFilter{HourFrom: "12:00", HourTo: "13:00"}, 1},
+		{"límite", HistoryFilter{Limit: 1}, 1},
 	}
 
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			historial := nuevoHistorialDePrueba(t)
-			registrarEjemplos(t, historial)
+			history := newHistoryOfTests(t)
+			registerEjemplos(t, history)
 
-			operaciones, err := historial.Listar(context.Background(), &caso.filtro)
+			operations, err := history.List(context.Background(), &testCase.filter)
 			if err != nil {
-				t.Fatalf(msgListarError, err)
+				t.Fatalf(msgListError, err)
 			}
 
-			if len(operaciones) != caso.esperados {
-				t.Errorf("Listar(%+v) devolvió %d, want %d", caso.filtro, len(operaciones), caso.esperados)
+			if len(operations) != testCase.expected {
+				t.Errorf("Listar(%+v) devolvió %d, want %d", testCase.filter, len(operations), testCase.expected)
 			}
 		})
 	}
 }
 
-// TestModuloDeRuta comprueba la traducción de rutas a módulos.
-func TestModuloDeRuta(t *testing.T) {
+// TestModuleOfPath comprueba la traducción de rutas a módulos.
+func TestModuleOfPath(t *testing.T) {
 	t.Parallel()
 
-	casos := map[string]string{
-		"/api/packages/nano":                   moduloPaquetes,
+	testCases := map[string]string{
+		"/api/packages/nano":                   modulePackages,
 		"/api/keys/root":                       "llaves",
 		"/api/users/jorge/key":                 "usuarios",
-		"/api/units/catalogo.service/restarts": moduloSystemd,
+		"/api/units/catalogo.service/restarts": moduleSystemd,
 		"/api/haproxy/backend/servers":         "haproxy",
-		rutaSesion:                             "sesion",
+		pathSession:                            "sesion",
 		"/api/vms/ubuntu-lab/poweron":          "maquinas",
 	}
 
-	for ruta, esperado := range casos {
-		if obtenido := ModuloDe(ruta); obtenido != esperado {
-			t.Errorf("ModuloDe(%q) = %q, want %q", ruta, obtenido, esperado)
+	for path, expected := range testCases {
+		if obtained := ModuleOf(path); obtained != expected {
+			t.Errorf("ModuloDe(%q) = %q, want %q", path, obtained, expected)
 		}
 	}
 }
 
-// TestHistorialListarLimite comprueba que el servicio acota el número de
+// TestHistoryListLimit comprueba que el servicio acota el número de
 // filas y usa el valor por omisión cuando el límite no es utilizable.
-func TestHistorialListarLimite(t *testing.T) {
+func TestHistoryListLimit(t *testing.T) {
 	t.Parallel()
 
-	historial := nuevoHistorialDePrueba(t)
+	history := newHistoryOfTests(t)
 
-	for i := 0; i < limiteHistorial+5; i++ {
-		if err := historial.Registrar(context.Background(), &Operacion{
+	for i := 0; i < limitHistory+5; i++ {
+		if err := history.Register(context.Background(), &Operation{
 			VM:        fmt.Sprintf("vm-%d", i),
-			Modulo:    moduloPaquetes,
-			Operacion: "POST /api/packages",
-			Resultado: "ok",
+			Module:    modulePackages,
+			Operation: "POST /api/packages",
+			Outcome:   "ok",
 		}); err != nil {
 			t.Fatalf("Registrar() error = %v, want nil", err)
 		}
 	}
 
-	casos := []struct {
-		nombre    string
-		limite    int
-		esperados int
+	testCases := []struct {
+		name     string
+		limit    int
+		expected int
 	}{
-		{"cero usa el valor por omisión", 0, limiteHistorial},
-		{"negativo usa el valor por omisión", -1, limiteHistorial},
-		{"excesivo usa el valor por omisión", 5000, limiteHistorial},
+		{"cero usa el valor por omisión", 0, limitHistory},
+		{"negativo usa el valor por omisión", -1, limitHistory},
+		{"excesivo usa el valor por omisión", 5000, limitHistory},
 		{"uno respeta el límite", 1, 1},
 	}
 
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
-			operaciones, err := historial.Listar(context.Background(), &FiltroHistorial{Limite: caso.limite})
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			operations, err := history.List(context.Background(), &HistoryFilter{Limit: testCase.limit})
 			if err != nil {
-				t.Fatalf(msgListarError, err)
+				t.Fatalf(msgListError, err)
 			}
 
-			if len(operaciones) != caso.esperados {
-				t.Errorf("Listar(Limite: %d) devolvió %d, want %d", caso.limite, len(operaciones), caso.esperados)
+			if len(operations) != testCase.expected {
+				t.Errorf("Listar(Limite: %d) devolvió %d, want %d", testCase.limit, len(operations), testCase.expected)
 			}
 		})
 	}

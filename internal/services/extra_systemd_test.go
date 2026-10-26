@@ -10,21 +10,21 @@ import (
 	"consola-vm/internal/core/domain"
 )
 
-// TestSystemdListarConMarcaDeActivo interpreta la línea con «●».
-func TestSystemdListarConMarcaDeActivo(t *testing.T) {
+// TestSystemdListWithMarksOfActive interpreta la línea con «●».
+func TestSystemdListWithMarksOfActive(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{results: []domain.Result{
+	session := &stubSession{results: []domain.Result{
 		{Stdout: "● nano.service loaded active running Editor nano\n"},
 		{Stdout: "nano.service enabled\n"},
 	}}
 
-	unidades, err := NuevoSystemd(&stubAbridor{sesion: sesion}).Listar(context.Background())
+	units, err := NewSystemd(&stubOpener{session: session}).List(context.Background())
 	if err != nil {
 		t.Fatalf("Listar() error = %v, want nil", err)
 	}
 
-	if len(unidades) != 1 || !unidades[0].Activo || !unidades[0].Habilitado {
-		t.Errorf("unidades = %+v, want nano.service activa y habilitada", unidades)
+	if len(units) != 1 || !units[0].Active || !units[0].Enabled {
+		t.Errorf("unidades = %+v, want nano.service activa y habilitada", units)
 	}
 }

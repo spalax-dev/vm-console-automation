@@ -8,17 +8,17 @@ import (
 	"testing"
 )
 
-// TestDescribirOperacionCubreLosValoresPorOmision recorre las ramas que
+// TestDescribeOperationCoversValuesByOmision recorre las ramas que
 // no tienen un resumen específico.
-func TestDescribirOperacionCubreLosValoresPorOmision(t *testing.T) {
+func TestDescribeOperationCoversValuesByOmision(t *testing.T) {
 	t.Parallel()
 
-	casos := []struct {
-		nombre  string
-		metodo  string
-		patron  string
-		ruta    string
-		datos   map[string]any
+	testCases := []struct {
+		name    string
+		method  string
+		pattern string
+		path    string
+		data    map[string]any
 		esperar string
 	}{
 		{"paquete sin verbo", http.MethodPut, "", "/api/packages", nil, "Gestionar paquetes"},
@@ -57,23 +57,23 @@ func TestDescribirOperacionCubreLosValoresPorOmision(t *testing.T) {
 		{"historial con otro verbo", http.MethodDelete, "", "/api/historial", nil, "DELETE /api/historial"},
 	}
 
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			resultado := DescribirOperacion(caso.metodo, caso.patron, caso.ruta, caso.datos)
-			if resultado != caso.esperar {
-				t.Errorf("DescribirOperacion() = %q, want %q", resultado, caso.esperar)
+			result := DescribeOperation(testCase.method, testCase.pattern, testCase.path, testCase.data)
+			if result != testCase.esperar {
+				t.Errorf("DescribirOperacion() = %q, want %q", result, testCase.esperar)
 			}
 		})
 	}
 }
 
-// TestUltimoSinPartes devuelve vacío para una ruta vacía.
-func TestUltimoSinPartes(t *testing.T) {
+// TestLastWithoutParts devuelve vacío para una ruta vacía.
+func TestLastWithoutParts(t *testing.T) {
 	t.Parallel()
 
-	if ultimo := ultimo(nil); ultimo != "" {
-		t.Errorf("ultimo(nil) = %q, want vacío", ultimo)
+	if last := last(nil); last != "" {
+		t.Errorf("ultimo(nil) = %q, want vacío", last)
 	}
 }

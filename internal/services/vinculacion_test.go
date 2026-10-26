@@ -14,40 +14,40 @@ import (
 
 // UUID de las máquinas de prueba.
 const (
-	uuidDebian   = "8f3a1c2e-1111-4a4a-9a9a-000000000001"
-	uuidUbuntu   = "8f3a1c2e-2222-4a4a-9a9a-000000000002"
-	nombreDebian = "debian-1"
-	nombreUbuntu = "ubuntu-lab"
+	uuidTest        = "8f3a1c2e-1111-4a4a-9a9a-000000000001"
+	uuidUbuntu      = "8f3a1c2e-2222-4a4a-9a9a-000000000002"
+	testMachineName = "vm-1"
+	nameUbuntu      = "ubuntu-lab"
 )
 
 // stubInventory devuelve un inventario preprogramado.
 type stubInventory struct {
-	maquinas []domain.VM
+	machines []domain.VM
 	err      error
 }
 
 // List implementa ports.Inventory.
 func (s *stubInventory) List(context.Context) ([]domain.VM, error) {
-	return s.maquinas, s.err
+	return s.machines, s.err
 }
 
-// stubSeleccion imita el objetivo actual de la consola.
-type stubSeleccion struct {
+// stubSelection imita el objetivo actual de la consola.
+type stubSelection struct {
 	id string
 }
 
-// Objetivo devuelve la máquina vinculada.
-func (s *stubSeleccion) Objetivo() domain.Target { return domain.Target{ID: s.id} }
+// CurrentTarget devuelve la máquina vinculada.
+func (s *stubSelection) CurrentTarget() domain.Target { return domain.Target{ID: s.id} }
 
-// Establecer vincula una máquina por nombre o UUID.
-func (s *stubSeleccion) Establecer(id string) { s.id = id }
+// Set vincula una máquina por nombre o UUID.
+func (s *stubSelection) Set(id string) { s.id = id }
 
 // stubGuestAdditions simula la comprobación de Guest Additions.
 type stubGuestAdditions struct {
 	accesibles map[string]bool
-	redes      map[string]domain.NetworkMode
+	networks   map[string]domain.NetworkMode
 	consultas  int
-	errRed     error
+	errNetwork error
 }
 
 // Address devuelve una IP solo si la máquina publica Guest Additions.
@@ -55,7 +55,7 @@ func (s *stubGuestAdditions) Address(_ context.Context, target domain.Target) (n
 	s.consultas++
 
 	if s.accesibles[target.ID] {
-		return netip.MustParseAddr(ipPrueba), nil
+		return netip.MustParseAddr(ipTests), nil
 	}
 
 	return netip.Addr{}, errors.New("sin guest additions")
@@ -74,166 +74,166 @@ func (s *stubGuestAdditions) GuestAdditions(context.Context, domain.Target) (dom
 // Network devuelve el modo de red preprogramado por máquina («bridged»
 // por omisión).
 func (s *stubGuestAdditions) Network(_ context.Context, target domain.Target) (domain.NetworkMode, error) {
-	if s.errRed != nil {
-		return domain.NetworkUnknown, s.errRed
+	if s.errNetwork != nil {
+		return domain.NetworkUnknown, s.errNetwork
 	}
 
-	if modo, ok := s.redes[target.ID]; ok {
-		return modo, nil
+	if mode, ok := s.networks[target.ID]; ok {
+		return mode, nil
 	}
 
 	return domain.NetworkBridged, nil
 }
 
-// inventarioDePrueba arma dos máquinas, una en ejecución.
-func inventarioDePrueba() *stubInventory {
-	return &stubInventory{maquinas: []domain.VM{
-		{Name: nombreDebian, UUID: uuidDebian, State: domain.StateRunning},
-		{Name: nombreUbuntu, UUID: uuidUbuntu, State: domain.StatePoweredOff},
+// inventoryOfTests arma dos máquinas, una en ejecución.
+func inventoryOfTests() *stubInventory {
+	return &stubInventory{machines: []domain.VM{
+		{Name: testMachineName, UUID: uuidTest, State: domain.StateRunning},
+		{Name: nameUbuntu, UUID: uuidUbuntu, State: domain.StatePoweredOff},
 	}}
 }
 
-// TestVinculacionListaMarcaLaActiva comprueba que el inventario señala
+// TestBindingListsMarksActive comprueba que el inventario señala
 // la máquina ya vinculada.
-func TestVinculacionListaMarcaLaActiva(t *testing.T) {
+func TestBindingListsMarksActive(t *testing.T) {
 	t.Parallel()
 
-	seleccion := &stubSeleccion{id: uuidDebian}
-	vinculacion := NuevoVinculacion(&ConfigVinculacion{Inventario: inventarioDePrueba(), Seleccion: seleccion})
+	selection := &stubSelection{id: uuidTest}
+	binding := NewBinding(&BindingConfig{Inventory: inventoryOfTests(), Selection: selection})
 
-	maquinas, err := vinculacion.Listar(context.Background(), "")
+	machines, err := binding.List(context.Background(), "")
 	if err != nil {
-		t.Fatalf(msgListarOK, err)
+		t.Fatalf(msgListOK, err)
 	}
 
-	if len(maquinas) != 2 {
-		t.Fatalf("len(maquinas) = %d, want 2", len(maquinas))
+	if len(machines) != 2 {
+		t.Fatalf("len(maquinas) = %d, want 2", len(machines))
 	}
 
-	if !maquinas[0].Activa {
+	if !machines[0].Active {
 		t.Error("maquinas[0].Activa = false, want true")
 	}
 
-	if maquinas[1].Activa {
+	if machines[1].Active {
 		t.Error("maquinas[1].Activa = true, want false")
 	}
 }
 
-// TestVinculacionFiltraPorNombreYUUID comprueba la búsqueda del selector.
-func TestVinculacionFiltraPorNombreYUUID(t *testing.T) {
+// TestBindingFiltraByNameYUUID comprueba la búsqueda del selector.
+func TestBindingFiltraByNameYUUID(t *testing.T) {
 	t.Parallel()
 
-	casos := map[string]string{
+	testCases := map[string]string{
 		"por nombre":       "ubuntu",
-		"por mayúsculas":   "DEBIAN",
+		"por mayúsculas":   "VM-1",
 		"por UUID parcial": "2222",
 	}
 
-	for nombre, filtro := range casos {
-		t.Run(nombre, func(t *testing.T) {
+	for name, filter := range testCases {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			vinculacion := NuevoVinculacion(&ConfigVinculacion{
-				Inventario: inventarioDePrueba(),
-				Seleccion:  &stubSeleccion{},
+			binding := NewBinding(&BindingConfig{
+				Inventory: inventoryOfTests(),
+				Selection: &stubSelection{},
 			})
 
-			maquinas, err := vinculacion.Listar(context.Background(), filtro)
+			machines, err := binding.List(context.Background(), filter)
 			if err != nil {
-				t.Fatalf(msgListarOK, err)
+				t.Fatalf(msgListOK, err)
 			}
 
-			if len(maquinas) != 1 {
-				t.Fatalf("len(maquinas) = %d, want 1", len(maquinas))
+			if len(machines) != 1 {
+				t.Fatalf("len(maquinas) = %d, want 1", len(machines))
 			}
 
-			if filtro == "2222" && maquinas[0].Nombre != nombreUbuntu {
-				t.Errorf("maquinas[0].Nombre = %q, want %q", maquinas[0].Nombre, nombreUbuntu)
+			if filter == "2222" && machines[0].Name != nameUbuntu {
+				t.Errorf("maquinas[0].Nombre = %q, want %q", machines[0].Name, nameUbuntu)
 			}
 		})
 	}
 }
 
-// TestVinculacionAceptaNombreYUUID comprueba las dos formas de
+// TestBindingAcceptsNameYUUID comprueba las dos formas de
 // identificar la máquina.
-func TestVinculacionAceptaNombreYUUID(t *testing.T) {
+func TestBindingAcceptsNameYUUID(t *testing.T) {
 	t.Parallel()
 
-	for _, identificador := range []string{nombreUbuntu, uuidUbuntu} {
-		seleccion := &stubSeleccion{}
-		vinculacion := NuevoVinculacion(&ConfigVinculacion{Inventario: inventarioDePrueba(), Seleccion: seleccion})
+	for _, identifier := range []string{nameUbuntu, uuidUbuntu} {
+		selection := &stubSelection{}
+		binding := NewBinding(&BindingConfig{Inventory: inventoryOfTests(), Selection: selection})
 
-		maquina, err := vinculacion.Vincular(context.Background(), identificador)
+		machine, err := binding.Bind(context.Background(), identifier)
 		if err != nil {
-			t.Fatalf("Vincular(%q) error = %v, want nil", identificador, err)
+			t.Fatalf("Vincular(%q) error = %v, want nil", identifier, err)
 		}
 
-		if seleccion.id != nombreUbuntu {
-			t.Errorf("objetivo = %q, want %q", seleccion.id, nombreUbuntu)
+		if selection.id != nameUbuntu {
+			t.Errorf("objetivo = %q, want %q", selection.id, nameUbuntu)
 		}
 
-		if !maquina.Activa {
-			t.Errorf("Vincular(%q).Activa = false, want true", identificador)
+		if !machine.Active {
+			t.Errorf("Vincular(%q).Activa = false, want true", identifier)
 		}
 
-		if maquina.Nombre != nombreUbuntu {
-			t.Errorf("Vincular(%q).Nombre = %q, want %q", identificador, maquina.Nombre, nombreUbuntu)
+		if machine.Name != nameUbuntu {
+			t.Errorf("Vincular(%q).Nombre = %q, want %q", identifier, machine.Name, nameUbuntu)
 		}
 	}
 }
 
-// TestVinculacionRechazaMaquinaDesconocida comprueba el error de
+// TestBindingRejectsMachineUnknown comprueba el error de
 // búsqueda sin coincidencias.
-func TestVinculacionRechazaMaquinaDesconocida(t *testing.T) {
+func TestBindingRejectsMachineUnknown(t *testing.T) {
 	t.Parallel()
 
-	seleccion := &stubSeleccion{}
-	vinculacion := NuevoVinculacion(&ConfigVinculacion{Inventario: inventarioDePrueba(), Seleccion: seleccion})
+	selection := &stubSelection{}
+	binding := NewBinding(&BindingConfig{Inventory: inventoryOfTests(), Selection: selection})
 
-	_, err := vinculacion.Vincular(context.Background(), "no-existe")
+	_, err := binding.Bind(context.Background(), "no-existe")
 
-	if !errors.Is(err, ErrMaquinaNoEncontrada) {
-		t.Fatalf("Vincular() error = %v, want %v", err, ErrMaquinaNoEncontrada)
+	if !errors.Is(err, ErrMachineNotFound) {
+		t.Fatalf("Vincular() error = %v, want %v", err, ErrMachineNotFound)
 	}
 
-	if seleccion.id != "" {
-		t.Errorf("objetivo = %q, want vacío", seleccion.id)
+	if selection.id != "" {
+		t.Errorf("objetivo = %q, want vacío", selection.id)
 	}
 }
 
-// TestVinculacionPropagaElFalloDelInventario conserva la causa del
+// TestBindingPropagatesFailureOfInventory conserva la causa del
 // error del hipervisor.
-func TestVinculacionPropagaElFalloDelInventario(t *testing.T) {
+func TestBindingPropagatesFailureOfInventory(t *testing.T) {
 	t.Parallel()
 
 	causa := errors.New("VBoxManage no está disponible")
-	vinculacion := NuevoVinculacion(&ConfigVinculacion{
-		Inventario: &stubInventory{err: causa},
-		Seleccion:  &stubSeleccion{},
+	binding := NewBinding(&BindingConfig{
+		Inventory: &stubInventory{err: causa},
+		Selection: &stubSelection{},
 	})
 
-	if _, err := vinculacion.Listar(context.Background(), ""); !errors.Is(err, causa) {
+	if _, err := binding.List(context.Background(), ""); !errors.Is(err, causa) {
 		t.Fatalf("Listar() error = %v, want %v", err, causa)
 	}
 }
 
-// TestVinculacionActivaDevuelveElObjetivo comprueba el nombre de la
+// TestBindingActiveReturnsTarget comprueba el nombre de la
 // máquina vinculada que se publica en la sesión.
-func TestVinculacionActivaDevuelveElObjetivo(t *testing.T) {
+func TestBindingActiveReturnsTarget(t *testing.T) {
 	t.Parallel()
 
-	vinculacion := NuevoVinculacion(&ConfigVinculacion{
-		Inventario: inventarioDePrueba(),
-		Seleccion:  &stubSeleccion{id: nombreDebian},
+	binding := NewBinding(&BindingConfig{
+		Inventory: inventoryOfTests(),
+		Selection: &stubSelection{id: testMachineName},
 	})
 
-	if activa := vinculacion.Activa(); activa != nombreDebian {
-		t.Errorf("Activa() = %q, want %q", activa, nombreDebian)
+	if active := binding.Active(); active != testMachineName {
+		t.Errorf("Activa() = %q, want %q", active, testMachineName)
 	}
 }
 
-// msgEncender es el formato de los fallos de Encender.
-const msgEncender = "Encender() error = %v, want %v"
+// msgPowerOn es el formato de los fallos de PowerOn.
+const msgPowerOn = "Encender() error = %v, want %v"
 
 // stubPower registra la máquina que se intentó encender.
 type stubPower struct {
@@ -248,47 +248,47 @@ func (s *stubPower) Start(_ context.Context, target domain.Target) error {
 	return s.err
 }
 
-// TestVinculacionEnciendeLaMaquina comprueba el encendido de una
+// TestBindingPowersOnMachine comprueba el encendido de una
 // máquina apagada y que se devuelva ya en ejecución.
-func TestVinculacionEnciendeLaMaquina(t *testing.T) {
+func TestBindingPowersOnMachine(t *testing.T) {
 	t.Parallel()
 
 	fuente := &stubPower{}
-	vinculacion := NuevoVinculacion(&ConfigVinculacion{
-		Inventario: inventarioDePrueba(),
-		Seleccion:  &stubSeleccion{},
-		Energia:    fuente,
+	binding := NewBinding(&BindingConfig{
+		Inventory: inventoryOfTests(),
+		Selection: &stubSelection{},
+		Power:     fuente,
 	})
 
-	maquina, err := vinculacion.Encender(context.Background(), nombreUbuntu)
+	machine, err := binding.PowerOn(context.Background(), nameUbuntu)
 	if err != nil {
 		t.Fatalf("Encender() error = %v, want nil", err)
 	}
 
-	if len(fuente.encendidas) != 1 || fuente.encendidas[0] != nombreUbuntu {
-		t.Errorf("encendidas = %v, want [%q]", fuente.encendidas, nombreUbuntu)
+	if len(fuente.encendidas) != 1 || fuente.encendidas[0] != nameUbuntu {
+		t.Errorf("encendidas = %v, want [%q]", fuente.encendidas, nameUbuntu)
 	}
 
-	if maquina.Estado != domain.StateRunning {
-		t.Errorf("Estado = %q, want %q", maquina.Estado, domain.StateRunning)
+	if machine.State != domain.StateRunning {
+		t.Errorf("Estado = %q, want %q", machine.State, domain.StateRunning)
 	}
 }
 
-// TestVinculacionNoEnciendeUnaMaquinaEnMarcha evita un 200 engañoso.
-func TestVinculacionNoEnciendeUnaMaquinaEnMarcha(t *testing.T) {
+// TestBindingNotPowersOnMachineInRunning evita un 200 engañoso.
+func TestBindingNotPowersOnMachineInRunning(t *testing.T) {
 	t.Parallel()
 
 	fuente := &stubPower{}
-	vinculacion := NuevoVinculacion(&ConfigVinculacion{
-		Inventario: inventarioDePrueba(),
-		Seleccion:  &stubSeleccion{},
-		Energia:    fuente,
+	binding := NewBinding(&BindingConfig{
+		Inventory: inventoryOfTests(),
+		Selection: &stubSelection{},
+		Power:     fuente,
 	})
 
-	_, err := vinculacion.Encender(context.Background(), nombreDebian)
+	_, err := binding.PowerOn(context.Background(), testMachineName)
 
-	if !errors.Is(err, ErrMaquinaEncendida) {
-		t.Fatalf(msgEncender, err, ErrMaquinaEncendida)
+	if !errors.Is(err, ErrMachineRunning) {
+		t.Fatalf(msgPowerOn, err, ErrMachineRunning)
 	}
 
 	if len(fuente.encendidas) != 0 {
@@ -296,78 +296,78 @@ func TestVinculacionNoEnciendeUnaMaquinaEnMarcha(t *testing.T) {
 	}
 }
 
-// TestVinculacionNoEnciendeUnaMaquinaDesconocida comprueba el 404.
-func TestVinculacionNoEnciendeUnaMaquinaDesconocida(t *testing.T) {
+// TestBindingNotPowersOnMachineUnknown comprueba el 404.
+func TestBindingNotPowersOnMachineUnknown(t *testing.T) {
 	t.Parallel()
 
-	vinculacion := NuevoVinculacion(&ConfigVinculacion{
-		Inventario: inventarioDePrueba(),
-		Seleccion:  &stubSeleccion{},
-		Energia:    &stubPower{},
+	binding := NewBinding(&BindingConfig{
+		Inventory: inventoryOfTests(),
+		Selection: &stubSelection{},
+		Power:     &stubPower{},
 	})
 
-	if _, err := vinculacion.Encender(context.Background(), "fantasma"); !errors.Is(err, ErrMaquinaNoEncontrada) {
-		t.Fatalf(msgEncender, err, ErrMaquinaNoEncontrada)
+	if _, err := binding.PowerOn(context.Background(), "fantasma"); !errors.Is(err, ErrMachineNotFound) {
+		t.Fatalf(msgPowerOn, err, ErrMachineNotFound)
 	}
 }
 
-// TestVinculacionPropagaElFalloDelEncendido conserva la causa.
-func TestVinculacionPropagaElFalloDelEncendido(t *testing.T) {
+// TestBindingPropagatesFailureOfPowerOn conserva la causa.
+func TestBindingPropagatesFailureOfPowerOn(t *testing.T) {
 	t.Parallel()
 
 	causa := errors.New("VirtualBox rechazó el arranque")
-	vinculacion := NuevoVinculacion(&ConfigVinculacion{
-		Inventario: inventarioDePrueba(),
-		Seleccion:  &stubSeleccion{},
-		Energia:    &stubPower{err: causa},
+	binding := NewBinding(&BindingConfig{
+		Inventory: inventoryOfTests(),
+		Selection: &stubSelection{},
+		Power:     &stubPower{err: causa},
 	})
 
-	if _, err := vinculacion.Encender(context.Background(), nombreUbuntu); !errors.Is(err, causa) {
-		t.Fatalf(msgEncender, err, causa)
+	if _, err := binding.PowerOn(context.Background(), nameUbuntu); !errors.Is(err, causa) {
+		t.Fatalf(msgPowerOn, err, causa)
 	}
 }
 
-// TestVinculacionOcultaSinGuestAdditions comprueba que una máquina en
+// TestBindingOcultaWithoutGuestAdditions comprueba que una máquina en
 // ejecución sin Guest Additions no se lista y que la apagada sí.
-func TestVinculacionOcultaSinGuestAdditions(t *testing.T) {
+func TestBindingOcultaWithoutGuestAdditions(t *testing.T) {
 	t.Parallel()
 
-	maquina := &stubGuestAdditions{accesibles: map[string]bool{}}
-	vinculacion := NuevoVinculacion(&ConfigVinculacion{
-		Inventario: inventarioDePrueba(),
-		Seleccion:  &stubSeleccion{},
-		Maquina:    maquina,
+	machine := &stubGuestAdditions{accesibles: map[string]bool{}}
+	binding := NewBinding(&BindingConfig{
+		Inventory: inventoryOfTests(),
+		Selection: &stubSelection{},
+		Machine:   machine,
 	})
 
-	visibles, err := vinculacion.Listar(context.Background(), "")
+	visibles, err := binding.List(context.Background(), "")
 	if err != nil {
-		t.Fatalf(msgListarOK, err)
+		t.Fatalf(msgListOK, err)
 	}
 
-	if len(visibles) != 1 || visibles[0].Nombre != nombreUbuntu {
+	if len(visibles) != 1 || visibles[0].Name != nameUbuntu {
 		t.Errorf("visibles = %+v, want solo la máquina apagada", visibles)
 	}
 
-	if maquina.consultas != 1 {
-		t.Errorf("Address() se llamó %d veces, want 1 (solo la encendida)", maquina.consultas)
+	if machine.consultas != 1 {
+		t.Errorf("Address() se llamó %d veces, want 1 (solo la encendida)", machine.consultas)
 	}
 }
 
-// TestVinculacionListaConGuestAdditions comprueba que la máquina
+// TestBindingListsWithGuestAdditions comprueba que la máquina
 // encendida con Guest Additions sí aparece.
-func TestVinculacionListaConGuestAdditions(t *testing.T) {
+func TestBindingListsWithGuestAdditions(t *testing.T) {
 	t.Parallel()
 
-	maquina := &stubGuestAdditions{accesibles: map[string]bool{nombreDebian: true}}
-	vinculacion := NuevoVinculacion(&ConfigVinculacion{
-		Inventario: inventarioDePrueba(),
-		Seleccion:  &stubSeleccion{},
-		Maquina:    maquina,
+	machine := &stubGuestAdditions{accesibles: map[string]bool{testMachineName: true}}
+	binding := NewBinding(&BindingConfig{
+		Inventory: inventoryOfTests(),
+		Selection: &stubSelection{},
+		Machine:   machine,
 	})
 
-	visibles, err := vinculacion.Listar(context.Background(), "")
+	visibles, err := binding.List(context.Background(), "")
 	if err != nil {
-		t.Fatalf(msgListarOK, err)
+		t.Fatalf(msgListOK, err)
 	}
 
 	if len(visibles) != 2 {
@@ -375,100 +375,100 @@ func TestVinculacionListaConGuestAdditions(t *testing.T) {
 	}
 }
 
-// TestVinculacionOcultaNAT comprueba que una máquina con Guest Additions
+// TestBindingOcultaNAT comprueba que una máquina con Guest Additions
 // pero en NAT no se lista, porque el anfitrión no alcanza su IP.
-func TestVinculacionOcultaNAT(t *testing.T) {
+func TestBindingOcultaNAT(t *testing.T) {
 	t.Parallel()
 
-	maquina := &stubGuestAdditions{
-		accesibles: map[string]bool{nombreDebian: true},
-		redes:      map[string]domain.NetworkMode{nombreDebian: domain.NetworkNAT},
+	machine := &stubGuestAdditions{
+		accesibles: map[string]bool{testMachineName: true},
+		networks:   map[string]domain.NetworkMode{testMachineName: domain.NetworkNAT},
 	}
-	vinculacion := NuevoVinculacion(&ConfigVinculacion{
-		Inventario: inventarioDePrueba(),
-		Seleccion:  &stubSeleccion{},
-		Maquina:    maquina,
+	binding := NewBinding(&BindingConfig{
+		Inventory: inventoryOfTests(),
+		Selection: &stubSelection{},
+		Machine:   machine,
 	})
 
-	visibles, err := vinculacion.Listar(context.Background(), "")
+	visibles, err := binding.List(context.Background(), "")
 	if err != nil {
-		t.Fatalf(msgListarOK, err)
+		t.Fatalf(msgListOK, err)
 	}
 
-	if len(visibles) != 1 || visibles[0].Nombre != nombreUbuntu {
+	if len(visibles) != 1 || visibles[0].Name != nameUbuntu {
 		t.Errorf("visibles = %+v, want solo la máquina apagada", visibles)
 	}
 }
 
-// stubRegistro informa qué máquinas están registradas.
-type stubRegistro struct {
+// stubRegistration informa qué máquinas están registradas.
+type stubRegistration struct {
 	registradas map[string]bool
 }
 
-// Registrada implementa la consulta de registro.
-func (s *stubRegistro) Registrada(vm string) bool {
+// IsRegistered implementa la consulta de registro.
+func (s *stubRegistration) IsRegistered(vm string) bool {
 	return s.registradas[vm]
 }
 
-// TestVinculacionMarcaRegistradas comprueba la marca de registro.
-func TestVinculacionMarcaRegistradas(t *testing.T) {
+// TestBindingMarksRegistradas comprueba la marca de registro.
+func TestBindingMarksRegistradas(t *testing.T) {
 	t.Parallel()
 
-	vinculacion := NuevoVinculacion(&ConfigVinculacion{
-		Inventario: inventarioDePrueba(),
-		Seleccion:  &stubSeleccion{},
-		Maquina:    &stubGuestAdditions{accesibles: map[string]bool{nombreDebian: true}},
-		Registro:   &stubRegistro{registradas: map[string]bool{nombreDebian: true}},
+	binding := NewBinding(&BindingConfig{
+		Inventory:    inventoryOfTests(),
+		Selection:    &stubSelection{},
+		Machine:      &stubGuestAdditions{accesibles: map[string]bool{testMachineName: true}},
+		Registration: &stubRegistration{registradas: map[string]bool{testMachineName: true}},
 	})
 
-	visibles, err := vinculacion.Listar(context.Background(), "")
+	visibles, err := binding.List(context.Background(), "")
 	if err != nil {
-		t.Fatalf(msgListarOK, err)
+		t.Fatalf(msgListOK, err)
 	}
 
-	if !visibles[0].Registrada {
-		t.Error("debian-1 no aparece registrada")
+	if !visibles[0].IsRegistered {
+		t.Error("vm-1 no aparece registrada")
 	}
 
-	if visibles[1].Registrada {
+	if visibles[1].IsRegistered {
 		t.Error("ubuntu-lab aparece registrada sin estarlo")
 	}
 }
 
-// stubPersistencia registra las máquinas vinculadas.
-type stubPersistencia struct {
-	activa    string
+// stubPersistence registra las máquinas vinculadas.
+type stubPersistence struct {
+	active    string
 	guardadas []string
 	err       error
 }
 
-// Activa devuelve la máquina guardada.
-func (s *stubPersistencia) Activa() string { return s.activa }
+// Active devuelve la máquina guardada.
+func (s *stubPersistence) Active() string { return s.active }
 
-// GuardarActiva acumula el nombre vinculado.
-func (s *stubPersistencia) GuardarActiva(vm string) error {
+// SaveActive acumula el nombre vinculado.
+func (s *stubPersistence) SaveActive(vm string) error {
 	s.guardadas = append(s.guardadas, vm)
 
 	return s.err
 }
 
-// TestVinculacionGuardaLaMaquinaActiva comprueba que vincular persiste
+// TestBindingSavesMachineActive comprueba que vincular persiste
 // la elección.
-func TestVinculacionGuardaLaMaquinaActiva(t *testing.T) {
+func TestBindingSavesMachineActive(t *testing.T) {
 	t.Parallel()
 
-	persistencia := &stubPersistencia{}
-	vinculacion := NuevoVinculacion(&ConfigVinculacion{
-		Inventario:   inventarioDePrueba(),
-		Seleccion:    &stubSeleccion{},
-		Persistencia: persistencia,
+	persistence := &stubPersistence{}
+	binding := NewBinding(&BindingConfig{
+		Inventory:   inventoryOfTests(),
+		Selection:   &stubSelection{},
+		Persistence: persistence,
 	})
 
-	if _, err := vinculacion.Vincular(context.Background(), nombreDebian); err != nil {
+	if _, err := binding.Bind(context.Background(), testMachineName); err != nil {
 		t.Fatalf("Vincular() error = %v", err)
 	}
 
-	if len(persistencia.guardadas) != 1 || persistencia.guardadas[0] != nombreDebian {
-		t.Errorf("guardadas = %v, want [%s]", persistencia.guardadas, nombreDebian)
+	if len(persistence.guardadas) != 1 || persistence.guardadas[0] != testMachineName {
+		t.Errorf("guardadas = %v, want [%s]", persistence.guardadas, testMachineName)
 	}
 }

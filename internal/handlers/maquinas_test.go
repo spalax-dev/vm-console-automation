@@ -16,347 +16,347 @@ import (
 	"consola-vm/internal/services"
 )
 
-// estadoRunning es el estado de encendido usado en las pruebas.
-const estadoRunning = "running"
+// stateRunning es el estado de encendido usado en las pruebas.
+const stateRunning = "running"
 
 // Valores repetidos en las pruebas del inventario.
 const (
-	rutaMaquinas  = "/api/vms"
-	maquinaDebian = "debian-1"
+	pathMachines = "/api/vms"
+	testMachine  = "vm-1"
 )
 
-// stubMaquinas implementa ServicioMaquinas para las pruebas.
-type stubMaquinas struct {
-	maquinas    []services.MaquinaVirtual
-	filtro      string
-	err         error
-	encendida   string
-	errEncender error
+// stubMachines implementa MachinesService para las pruebas.
+type stubMachines struct {
+	machines   []services.VirtualMachine
+	filter     string
+	err        error
+	encendida  string
+	errPowerOn error
 }
 
-// Listar devuelve el inventario preprogramado y registra el filtro.
-func (s *stubMaquinas) Listar(_ context.Context, filtro string) ([]services.MaquinaVirtual, error) {
-	s.filtro = filtro
+// List devuelve el inventario preprogramado y registra el filtro.
+func (s *stubMachines) List(_ context.Context, filter string) ([]services.VirtualMachine, error) {
+	s.filter = filter
 
-	return s.maquinas, s.err
+	return s.machines, s.err
 }
 
-// Encender registra la máquina y devuelve el error preprogramado.
-func (s *stubMaquinas) Encender(_ context.Context, identificador string) (services.MaquinaVirtual, error) {
-	s.encendida = identificador
+// PowerOn registra la máquina y devuelve el error preprogramado.
+func (s *stubMachines) PowerOn(_ context.Context, identifier string) (services.VirtualMachine, error) {
+	s.encendida = identifier
 
-	if s.errEncender != nil {
-		return services.MaquinaVirtual{}, s.errEncender
+	if s.errPowerOn != nil {
+		return services.VirtualMachine{}, s.errPowerOn
 	}
 
-	return services.MaquinaVirtual{Nombre: identificador, Estado: domain.StateRunning, Activa: true}, nil
+	return services.VirtualMachine{Name: identifier, State: domain.StateRunning, Active: true}, nil
 }
 
-// Vincular devuelve la primera máquina o el error preprogramado.
-func (s *stubMaquinas) Vincular(_ context.Context, _ string) (services.MaquinaVirtual, error) {
+// Bind devuelve la primera máquina o el error preprogramado.
+func (s *stubMachines) Bind(_ context.Context, _ string) (services.VirtualMachine, error) {
 	if s.err != nil {
-		return services.MaquinaVirtual{}, s.err
+		return services.VirtualMachine{}, s.err
 	}
 
-	return s.maquinas[0], nil
+	return s.machines[0], nil
 }
 
-// TestMaquinasListaRespondeJSON comprueba el contrato de GET /api/vms.
-func TestMaquinasListaRespondeJSON(t *testing.T) {
+// TestMachinesListsRespondsJSON comprueba el contrato de GET /api/vms.
+func TestMachinesListsRespondsJSON(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubMaquinas{maquinas: []services.MaquinaVirtual{
-		{Nombre: maquinaDebian, UUID: "uuid-1", Estado: domain.StateRunning, Activa: true},
+	service := &stubMachines{machines: []services.VirtualMachine{
+		{Name: testMachine, UUID: "uuid-1", State: domain.StateRunning, Active: true},
 	}}
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, rutaMaquinas+"?q=deb", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, pathMachines+"?q=deb", http.NoBody)
 	rec := httptest.NewRecorder()
 
-	NuevoMaquinas(servicio).ServeHTTP(rec, req)
+	NewMachines(service).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+		t.Fatalf(msgCode, rec.Code, http.StatusOK)
 	}
 
-	if servicio.filtro != "deb" {
-		t.Errorf("filtro = %q, want %q", servicio.filtro, "deb")
+	if service.filter != "deb" {
+		t.Errorf("filtro = %q, want %q", service.filter, "deb")
 	}
 
 	var body struct {
-		Maquinas []map[string]any `json:"maquinas"`
+		Machines []map[string]any `json:"maquinas"`
 	}
 
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
-		t.Fatalf(msgJSONInvalido, err)
+		t.Fatalf(msgJSONInvalid, err)
 	}
 
-	if len(body.Maquinas) != 1 {
-		t.Fatalf("len(maquinas) = %d, want 1", len(body.Maquinas))
+	if len(body.Machines) != 1 {
+		t.Fatalf("len(maquinas) = %d, want 1", len(body.Machines))
 	}
 
-	if body.Maquinas[0]["nombre"] != maquinaDebian {
-		t.Errorf("nombre = %v, want %q", body.Maquinas[0]["nombre"], maquinaDebian)
+	if body.Machines[0]["nombre"] != testMachine {
+		t.Errorf("nombre = %v, want %q", body.Machines[0]["nombre"], testMachine)
 	}
 
-	if body.Maquinas[0]["activa"] != true {
-		t.Errorf("activa = %v, want true", body.Maquinas[0]["activa"])
+	if body.Machines[0]["activa"] != true {
+		t.Errorf("activa = %v, want true", body.Machines[0]["activa"])
 	}
 }
 
-// TestMaquinasRechazaMetodosNoGET comprueba que el inventario es de
+// TestMachinesRejectsMethodsNotGET comprueba que el inventario es de
 // solo lectura.
-func TestMaquinasRechazaMetodosNoGET(t *testing.T) {
+func TestMachinesRejectsMethodsNotGET(t *testing.T) {
 	t.Parallel()
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, rutaMaquinas, http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, pathMachines, http.NoBody)
 	rec := httptest.NewRecorder()
 
-	NuevoMaquinas(&stubMaquinas{}).ServeHTTP(rec, req)
+	NewMachines(&stubMachines{}).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusMethodNotAllowed {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusMethodNotAllowed)
+		t.Fatalf(msgCode, rec.Code, http.StatusMethodNotAllowed)
 	}
 }
 
-// TestMaquinasErrorDelHipervisorResponde500 comprueba que un fallo de
+// TestMachinesErrorOfHypervisorResponde500 comprueba que un fallo de
 // VBoxManage no se confunde con una lista vacía.
-func TestMaquinasErrorDelHipervisorResponde500(t *testing.T) {
+func TestMachinesErrorOfHypervisorResponde500(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubMaquinas{err: errors.New("VBoxManage no está disponible")}
+	service := &stubMachines{err: errors.New("VBoxManage no está disponible")}
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, rutaMaquinas, http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, pathMachines, http.NoBody)
 	rec := httptest.NewRecorder()
 
-	NuevoMaquinas(servicio).ServeHTTP(rec, req)
+	NewMachines(service).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestSesionVinculaMaquina comprueba PUT /api/session.
-func TestSesionVinculaMaquina(t *testing.T) {
+// TestSessionBindsMachine comprueba PUT /api/session.
+func TestSessionBindsMachine(t *testing.T) {
 	t.Parallel()
 
-	vinculo := &stubVinculacion{maquina: services.MaquinaVirtual{Nombre: maquinaDebian, Estado: domain.StateRunning, Activa: true}}
+	vinculo := &stubBinding{machine: services.VirtualMachine{Name: testMachine, State: domain.StateRunning, Active: true}}
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPut, rutaSesion,
-		strings.NewReader(`{"vm":"debian-1"}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPut, pathSession,
+		strings.NewReader(`{"vm":"vm-1"}`))
 	rec := httptest.NewRecorder()
 
-	NuevoSesion(&stubDescubridor{}, ConVinculador(vinculo)).ServeHTTP(rec, req)
+	NewSession(&stubDiscoverer{}, WithBinder(vinculo)).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+		t.Fatalf(msgCode, rec.Code, http.StatusOK)
 	}
 
-	if vinculo.vinculada != maquinaDebian {
-		t.Errorf("vm vinculada = %q, want %q", vinculo.vinculada, maquinaDebian)
+	if vinculo.vinculada != testMachine {
+		t.Errorf("vm vinculada = %q, want %q", vinculo.vinculada, testMachine)
 	}
 
 	var body map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
-		t.Fatalf(msgJSONInvalido, err)
+		t.Fatalf(msgJSONInvalid, err)
 	}
 
-	if body["nombre"] != maquinaDebian {
-		t.Errorf("nombre = %v, want %q", body["nombre"], maquinaDebian)
+	if body["nombre"] != testMachine {
+		t.Errorf("nombre = %v, want %q", body["nombre"], testMachine)
 	}
 }
 
-// TestSesionVinculaMaquinaInexistenteResponde404 comprueba el error de
+// TestSessionBindsMachineInexistenteResponde404 comprueba el error de
 // una máquina que no está en el inventario.
-func TestSesionVinculaMaquinaInexistenteResponde404(t *testing.T) {
+func TestSessionBindsMachineInexistenteResponde404(t *testing.T) {
 	t.Parallel()
 
-	vinculo := &stubVinculacion{err: services.ErrMaquinaNoEncontrada}
+	vinculo := &stubBinding{err: services.ErrMachineNotFound}
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPut, rutaSesion,
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPut, pathSession,
 		strings.NewReader(`{"vm":"fantasma"}`))
 	rec := httptest.NewRecorder()
 
-	NuevoSesion(&stubDescubridor{}, ConVinculador(vinculo)).ServeHTTP(rec, req)
+	NewSession(&stubDiscoverer{}, WithBinder(vinculo)).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusNotFound {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusNotFound)
+		t.Fatalf(msgCode, rec.Code, http.StatusNotFound)
 	}
 }
 
-// TestSesionVinculaSinNombreResponde400 comprueba la validación del
+// TestSessionBindsWithoutNameResponde400 comprueba la validación del
 // campo obligatorio.
-func TestSesionVinculaSinNombreResponde400(t *testing.T) {
+func TestSessionBindsWithoutNameResponde400(t *testing.T) {
 	t.Parallel()
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPut, rutaSesion,
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPut, pathSession,
 		strings.NewReader(`{"vm":"  "}`))
 	rec := httptest.NewRecorder()
 
-	NuevoSesion(&stubDescubridor{}, ConVinculador(&stubVinculacion{})).ServeHTTP(rec, req)
+	NewSession(&stubDiscoverer{}, WithBinder(&stubBinding{})).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusBadRequest {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusBadRequest)
+		t.Fatalf(msgCode, rec.Code, http.StatusBadRequest)
 	}
 }
 
-// TestSesionVinculaCuerpoInvalidoResponde400 comprueba el rechazo de un
+// TestSessionBindsBodyInvalidResponde400 comprueba el rechazo de un
 // JSON que no cumple el esquema.
-func TestSesionVinculaCuerpoInvalidoResponde400(t *testing.T) {
+func TestSessionBindsBodyInvalidResponde400(t *testing.T) {
 	t.Parallel()
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPut, rutaSesion,
-		strings.NewReader(`{"maquina":maquinaDebian}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPut, pathSession,
+		strings.NewReader(`{"maquina":testMachine}`))
 	rec := httptest.NewRecorder()
 
-	NuevoSesion(&stubDescubridor{}, ConVinculador(&stubVinculacion{})).ServeHTTP(rec, req)
+	NewSession(&stubDiscoverer{}, WithBinder(&stubBinding{})).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusBadRequest {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusBadRequest)
+		t.Fatalf(msgCode, rec.Code, http.StatusBadRequest)
 	}
 }
 
-// TestSesionSinVinculadorRechazaPUT evita aceptar una vinculación que
+// TestSessionWithoutBinderRejectsPUT evita aceptar una vinculación que
 // no se puede aplicar.
-func TestSesionSinVinculadorRechazaPUT(t *testing.T) {
+func TestSessionWithoutBinderRejectsPUT(t *testing.T) {
 	t.Parallel()
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPut, rutaSesion,
-		strings.NewReader(`{"vm":maquinaDebian}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPut, pathSession,
+		strings.NewReader(`{"vm":testMachine}`))
 	rec := httptest.NewRecorder()
 
-	NuevoSesion(&stubDescubridor{}).ServeHTTP(rec, req)
+	NewSession(&stubDiscoverer{}).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusMethodNotAllowed {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusMethodNotAllowed)
+		t.Fatalf(msgCode, rec.Code, http.StatusMethodNotAllowed)
 	}
 }
 
-// TestSesionPublicaLaMaquinaVinculada comprueba el campo vm de GET.
-func TestSesionPublicaLaMaquinaVinculada(t *testing.T) {
+// TestSessionPublicMachineVinculada comprueba el campo vm de GET.
+func TestSessionPublicMachineVinculada(t *testing.T) {
 	t.Parallel()
 
-	desc := &stubDescubridor{info: services.InfoSesion{Conector: conectorSSH, Estado: domain.StateRunning}}
-	vinculo := &stubVinculacion{activa: maquinaDebian}
+	desc := &stubDiscoverer{info: services.SessionInfo{Connector: connectorSSH, State: domain.StateRunning}}
+	vinculo := &stubBinding{active: testMachine}
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, rutaSesion, http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, pathSession, http.NoBody)
 	rec := httptest.NewRecorder()
 
-	NuevoSesion(desc, ConVinculador(vinculo)).ServeHTTP(rec, req)
+	NewSession(desc, WithBinder(vinculo)).ServeHTTP(rec, req)
 
 	var body map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
-		t.Fatalf(msgJSONInvalido, err)
+		t.Fatalf(msgJSONInvalid, err)
 	}
 
-	if body["vm"] != maquinaDebian {
-		t.Errorf("vm = %v, want %q", body["vm"], maquinaDebian)
+	if body["vm"] != testMachine {
+		t.Errorf("vm = %v, want %q", body["vm"], testMachine)
 	}
 }
 
-// stubVinculacion implementa VinculadorSesion.
-type stubVinculacion struct {
-	maquina   services.MaquinaVirtual
+// stubBinding implementa SessionBinder.
+type stubBinding struct {
+	machine   services.VirtualMachine
 	vinculada string
-	activa    string
+	active    string
 	err       error
 }
 
-// Vincular registra el identificador y devuelve la máquina o el error.
-func (s *stubVinculacion) Vincular(_ context.Context, id string) (services.MaquinaVirtual, error) {
+// Bind registra el identificador y devuelve la máquina o el error.
+func (s *stubBinding) Bind(_ context.Context, id string) (services.VirtualMachine, error) {
 	s.vinculada = id
 
 	if s.err != nil {
-		return services.MaquinaVirtual{}, s.err
+		return services.VirtualMachine{}, s.err
 	}
 
-	return s.maquina, nil
+	return s.machine, nil
 }
 
-// Activa devuelve la máquina vinculada.
-func (s *stubVinculacion) Activa() string { return s.activa }
+// Active devuelve la máquina vinculada.
+func (s *stubBinding) Active() string { return s.active }
 
-// TestMaquinasEnciendeRespondeLaMaquina comprueba POST
+// TestMachinesPowersOnRespondsMachine comprueba POST
 // /api/vms/{vm}/poweron.
-func TestMaquinasEnciendeRespondeLaMaquina(t *testing.T) {
+func TestMachinesPowersOnRespondsMachine(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubMaquinas{}
+	service := &stubMachines{}
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, rutaMaquinas+"/debian-1/poweron", http.NoBody)
-	req.SetPathValue("vm", "debian-1")
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, pathMachines+"/vm-1/poweron", http.NoBody)
+	req.SetPathValue("vm", "vm-1")
 
 	rec := httptest.NewRecorder()
 
-	NuevoMaquinas(servicio).Encender(rec, req)
+	NewMachines(service).PowerOn(rec, req)
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+		t.Fatalf(msgCode, rec.Code, http.StatusOK)
 	}
 
-	if servicio.encendida != maquinaDebian {
-		t.Errorf("encendida = %q, want %q", servicio.encendida, maquinaDebian)
+	if service.encendida != testMachine {
+		t.Errorf("encendida = %q, want %q", service.encendida, testMachine)
 	}
 
 	var body map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
-		t.Fatalf(msgJSONInvalido, err)
+		t.Fatalf(msgJSONInvalid, err)
 	}
 
-	if body["estado"] != estadoRunning {
-		t.Errorf("estado = %v, want %q", body["estado"], estadoRunning)
+	if body["estado"] != stateRunning {
+		t.Errorf("estado = %v, want %q", body["estado"], stateRunning)
 	}
 }
 
-// TestMaquinasEnciendeUnaMaquinaYaEncendidaResponde409 comprueba el
+// TestMachinesPowersOnMachineYaEncendidaResponde409 comprueba el
 // conflicto de estado.
-func TestMaquinasEnciendeUnaMaquinaYaEncendidaResponde409(t *testing.T) {
+func TestMachinesPowersOnMachineYaEncendidaResponde409(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubMaquinas{errEncender: services.ErrMaquinaEncendida}
+	service := &stubMachines{errPowerOn: services.ErrMachineRunning}
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, rutaMaquinas+"/debian-1/poweron", http.NoBody)
-	req.SetPathValue("vm", maquinaDebian)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, pathMachines+"/vm-1/poweron", http.NoBody)
+	req.SetPathValue("vm", testMachine)
 
 	rec := httptest.NewRecorder()
 
-	NuevoMaquinas(servicio).Encender(rec, req)
+	NewMachines(service).PowerOn(rec, req)
 
 	if rec.Code != http.StatusConflict {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusConflict)
+		t.Fatalf(msgCode, rec.Code, http.StatusConflict)
 	}
 }
 
-// TestMaquinasEnciendeUnaMaquinaDesconocidaResponde404 comprueba el
+// TestMachinesPowersOnMachineUnknownResponde404 comprueba el
 // recurso inexistente.
-func TestMaquinasEnciendeUnaMaquinaDesconocidaResponde404(t *testing.T) {
+func TestMachinesPowersOnMachineUnknownResponde404(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubMaquinas{errEncender: services.ErrMaquinaNoEncontrada}
+	service := &stubMachines{errPowerOn: services.ErrMachineNotFound}
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, rutaMaquinas+"/fantasma/poweron", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, pathMachines+"/fantasma/poweron", http.NoBody)
 	req.SetPathValue("vm", "fantasma")
 
 	rec := httptest.NewRecorder()
 
-	NuevoMaquinas(servicio).Encender(rec, req)
+	NewMachines(service).PowerOn(rec, req)
 
 	if rec.Code != http.StatusNotFound {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusNotFound)
+		t.Fatalf(msgCode, rec.Code, http.StatusNotFound)
 	}
 }
 
-// TestMaquinasEnciendeRechazaMetodosNoPOST comprueba el verbo.
-func TestMaquinasEnciendeRechazaMetodosNoPOST(t *testing.T) {
+// TestMachinesPowersOnRejectsMethodsNotPOST comprueba el verbo.
+func TestMachinesPowersOnRejectsMethodsNotPOST(t *testing.T) {
 	t.Parallel()
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, rutaMaquinas+"/debian-1/poweron", http.NoBody)
-	req.SetPathValue("vm", maquinaDebian)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, pathMachines+"/vm-1/poweron", http.NoBody)
+	req.SetPathValue("vm", testMachine)
 
 	rec := httptest.NewRecorder()
 
-	NuevoMaquinas(&stubMaquinas{}).Encender(rec, req)
+	NewMachines(&stubMachines{}).PowerOn(rec, req)
 
 	if rec.Code != http.StatusMethodNotAllowed {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusMethodNotAllowed)
+		t.Fatalf(msgCode, rec.Code, http.StatusMethodNotAllowed)
 	}
 }

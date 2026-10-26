@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Jorge Acosta y Andrey Tombe
 
-// Consola para Administración de Máquinas Virtuales GNU/Linux.
-//
-// Punto de entrada de la aplicación web: registra el servidor HTTP,
-// los handlers de cada módulo y sirve los archivos estáticos y los
-// módulos HTML de la interfaz. Es el único lugar que conoce a la vez
-// los puertos del núcleo y sus adaptadores concretos.
+// Package main arranca la consola de administración de máquinas virtuales
+// GNU/Linux: registra el servidor HTTP, los handlers de cada módulo y la
+// interfaz web, y es el único lugar que conoce a la vez los puertos del
+// núcleo y sus adaptadores concretos.
 package main
 
 import (
@@ -31,18 +29,18 @@ import (
 	"consola-vm/internal/services"
 )
 
-// contenidoWeb contiene la interfaz: la aplicación compilada con Vite y
+// embeddedWeb contiene la interfaz: la aplicación compilada con Vite y
 // la interfaz anterior, que se conserva mientras se retira. Se enumeran
 // las carpetas necesarias para no embeber node_modules ni artefactos de
 // desarrollo del frontend.
 //
 //go:embed all:web/dist all:web/modules all:web/static web/index.html
-var contenidoWeb embed.FS
+var embeddedWeb embed.FS
+
+// errorKey es la clave de los errores en el log de arranque.
+const errorKey = "error"
 
 // Variables de entorno que configuran la conexión con la máquina.
-// claveError es la clave de los errores en el log de arranque.
-const claveError = "error"
-
 const (
 	envLog       = "VMCONS_LOG"
 	envLogLevel  = "VMCONS_LOG_LEVEL"
@@ -50,21 +48,21 @@ const (
 	envSSHKey    = "VMCONS_SSH_KEY"    // ruta de la llave privada en el anfitrión
 	envGuestUser = "VMCONS_GUEST_USER" // usuario de Guest Additions
 	// #nosec G101 -- es el nombre de la variable de entorno, no la credencial.
-	envGuestPass  = "VMCONS_GUEST_PASS" // contraseña de Guest Additions
-	envDireccion  = "VMCONS_ADDR"       // dirección donde escucha la consola
-	envWeb        = "VMCONS_WEB"        // directorio de la interfaz web
-	envDB         = "VMCONS_DB"         // ruta de la base SQLite
-	direccionProd = "127.0.0.1:8080"
+	envGuestPass = "VMCONS_GUEST_PASS" // contraseña de Guest Additions
+	envAddress   = "VMCONS_ADDR"       // dirección donde escucha la consola
+	envWeb       = "VMCONS_WEB"        // directorio de la interfaz web
+	envDB        = "VMCONS_DB"         // ruta de la base SQLite
+	addressProd  = "127.0.0.1:8080"
 )
 
-// tiempoMaximoPeticion acota la duración de cada petición HTTP.
-const tiempoMaximoPeticion = 2 * time.Minute
+// maxRequestTime acota la duración de cada petición HTTP.
+const maxRequestTime = 2 * time.Minute
 
-// politicasCache declara cuánto se reutiliza cada lectura de la API. Las
+// cachePolicies declara cuánto se reutiliza cada lectura de la API. Las
 // consultas a la máquina abren sesión y ejecutan órdenes, así que se
 // guardan unos segundos; cualquier escritura vacía la caché completa.
-func politicasCache() []httpcache.Politica {
-	return []httpcache.Politica{
+func cachePolicies() []httpcache.Policy {
+	return []httpcache.Policy{
 		{Prefijo: "/api/session", TTL: 3 * time.Second},
 		{Prefijo: "/api/vms", TTL: 5 * time.Second},
 		{Prefijo: "/api/units", TTL: 5 * time.Second},
@@ -79,157 +77,157 @@ func politicasCache() []httpcache.Politica {
 // main ensambla los adaptadores, los servicios y los handlers, y arranca
 // el servidor HTTP de la consola.
 func main() {
-	configurarLog()
+	configureLog()
 
-	if err := ejecutar(); err != nil {
-		slog.Error("la consola terminó con error", claveError, err)
+	if err := run(); err != nil {
+		slog.Error("la consola terminó con error", errorKey, err)
 		os.Exit(1)
 	}
 }
 
-// ejecutar construye el servidor, lo pone a escuchar y se bloquea hasta
+// run construye el servidor, lo pone a escuchar y se bloquea hasta
 // que el servidor se detiene. Devuelve el error de arranque o de cierre.
-func ejecutar() error {
-	servidor, err := nuevoServidor()
+func run() error {
+	server, err := newServer()
 	if err != nil {
 		return err
 	}
 
-	if err := imprimirBanner(servidor.Addr); err != nil {
-		slog.Warn("no se pudo escribir el banner de arranque", claveError, err)
+	if err := printBanner(server.Addr); err != nil {
+		slog.Warn("no se pudo escribir el banner de arranque", errorKey, err)
 	}
 
-	if err := servidor.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return fmt.Errorf("servir la consola en %q: %w", servidor.Addr, err)
+	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return fmt.Errorf("servir la consola en %q: %w", server.Addr, err)
 	}
 
 	return nil
 }
 
-// nuevoServidor arma el servidor HTTP con sus rutas y tiempos límite.
+// newServer arma el servidor HTTP con sus rutas y tiempos límite.
 // Devuelve también la máquina vinculada, para el banner de arranque.
-func nuevoServidor() (*http.Server, error) {
-	manejador, err := nuevoMux()
+func newServer() (*http.Server, error) {
+	handler, err := newMux()
 	if err != nil {
 		return nil, err
 	}
 
-	manejador = httpcache.Nuevo(politicasCache()).Envolver(manejador)
+	handler = httpcache.New(cachePolicies()).Wrap(handler)
 
 	return &http.Server{
-		Addr:              direccion(),
-		Handler:           manejador,
+		Addr:              address(),
+		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      tiempoMaximoPeticion,
+		WriteTimeout:      maxRequestTime,
 		IdleTimeout:       60 * time.Second,
 	}, nil
 }
 
-// nuevoMux registra los endpoints de la API y el servido de la interfaz.
-func nuevoMux() (http.Handler, error) {
+// newMux registra los endpoints de la API y el servido de la interfaz.
+func newMux() (http.Handler, error) {
 	mux := http.NewServeMux()
 
 	ejecutor := localproc.New()
-	consola := nuevaConsola(ejecutor)
-	sesiones := consola.sesiones
+	console := newConsole(ejecutor)
+	sessions := console.sessions
 
-	llaves := services.NuevoLlaves(services.ConfigLlaves{
-		Sesiones: sesiones,
+	keys := services.NewKeys(services.KeysConfig{
+		Sessions: sessions,
 		Ejecutor: ejecutor,
-		Ruta:     rutaLlave(),
+		Path:     sshKeyPath(),
 	})
 
-	issue := services.NuevoIssue(sesiones)
-	hostname := services.NuevoHostname(sesiones)
+	issue := services.NewIssue(sessions)
+	hostname := services.NewHostname(sessions)
 
-	sistema := handlers.NuevoSistema(services.NuevoPaquetes(sesiones), llaves, issue, hostname)
-	usuarios := handlers.NuevoUsuarios(services.NuevoUsuarios(services.ConfigUsuarios{
-		Sesiones:   sesiones,
-		Ejecutor:   ejecutor,
-		Directorio: filepath.Join(filepath.Dir(rutaLlave()), "users"),
+	system := handlers.NewSystem(services.NewPackages(sessions), keys, issue, hostname)
+	users := handlers.NewUsers(services.NewUsers(services.UsersConfig{
+		Sessions:  sessions,
+		Ejecutor:  ejecutor,
+		Directory: filepath.Join(filepath.Dir(sshKeyPath()), "users"),
 	}))
-	systemd := handlers.NuevoSystemd(services.NuevoSystemd(sesiones))
-	haproxy := handlers.NuevoHaproxy(services.NuevoHaproxy(sesiones))
+	systemd := handlers.NewSystemd(services.NewSystemd(sessions))
+	haproxy := handlers.NewHAProxy(services.NewHAProxy(sessions))
 
-	mux.Handle("/api/session", handlers.NuevoSesion(
-		sesiones,
-		handlers.ConVinculador(consola.vinculacion),
-		handlers.ConRegistro(consola.registro),
+	mux.Handle("/api/session", handlers.NewSession(
+		sessions,
+		handlers.WithBinder(console.binding),
+		handlers.WithRegistration(console.registration),
 	))
 
-	acceso := handlers.NuevoAuth(services.NuevoConsola(consola.registro))
-	mux.HandleFunc("/api/auth/estado", acceso.Estado)
-	mux.HandleFunc("/api/auth/setup", acceso.Configurar)
-	mux.HandleFunc("/api/auth/login", acceso.Entrar)
-	mux.HandleFunc("/api/auth/logout", acceso.Salir)
+	access := handlers.NewAuth(services.NewConsole(console.registration))
+	mux.HandleFunc("/api/auth/estado", access.State)
+	mux.HandleFunc("/api/auth/setup", access.Configure)
+	mux.HandleFunc("/api/auth/login", access.Login)
+	mux.HandleFunc("/api/auth/logout", access.Logout)
 
-	mux.Handle("/api/session/register", handlers.NuevoAcceso(consola.acceso))
-	mux.Handle("/api/session/diagnostico", handlers.NuevoDiagnostico(consola.diagnostico))
-	maquinas := handlers.NuevoMaquinas(consola.vinculacion)
+	mux.Handle("/api/session/register", handlers.NewAccess(console.access))
+	mux.Handle("/api/session/diagnostico", handlers.NewDiagnostics(console.diagnostics))
+	machines := handlers.NewMachines(console.binding)
 
-	mux.Handle("/api/vms", maquinas)
-	mux.HandleFunc("/api/vms/{vm}/poweron", maquinas.Encender)
+	mux.Handle("/api/vms", machines)
+	mux.HandleFunc("/api/vms/{vm}/poweron", machines.PowerOn)
 
-	registrarModulos(mux, sistema, usuarios, systemd, haproxy)
-	historial := registrarHistorial(mux, consola.registro)
+	registerModules(mux, system, users, systemd, haproxy)
+	history := registerHistory(mux, console.registration)
 
-	if err := servirInterfaz(mux); err != nil {
+	if err := serveWeb(mux); err != nil {
 		return nil, err
 	}
 
-	return handlers.ConObservabilidad(
-		handlers.ConAutenticacion(
-			handlers.ConHistorial(mux, historial, consola.vinculacion.Activa),
-			services.NuevoConsola(consola.registro),
+	return handlers.WithObservability(
+		handlers.WithAuthentication(
+			handlers.WithHistory(mux, history, console.binding.Active),
+			services.NewConsole(console.registration),
 		),
-		consola.vinculacion.Activa,
+		console.binding.Active,
 		slog.Default(),
 	), nil
 }
 
-// registrarModulos registra los recursos de los cuatro módulos.
-func registrarModulos(
-	mux *http.ServeMux, sistema *handlers.Sistema, usuarios *handlers.Usuarios,
-	systemd *handlers.Systemd, haproxy *handlers.Haproxy,
+// registerModules registra los recursos de los cuatro módulos.
+func registerModules(
+	mux *http.ServeMux, system *handlers.System, users *handlers.Users,
+	systemd *handlers.Systemd, haproxy *handlers.HAProxy,
 ) {
-	mux.HandleFunc("/api/packages", sistema.Paquetes)
-	mux.HandleFunc("/api/packages/{name}", sistema.Paquete)
-	mux.HandleFunc("/api/keys/root", sistema.LlaveRoot)
-	mux.HandleFunc("/api/issue", sistema.Issue)
-	mux.HandleFunc("/api/hostname", sistema.Hostname)
+	mux.HandleFunc("/api/packages", system.Packages)
+	mux.HandleFunc("/api/packages/{name}", system.Package)
+	mux.HandleFunc("/api/keys/root", system.RootKey)
+	mux.HandleFunc("/api/issue", system.Issue)
+	mux.HandleFunc("/api/hostname", system.Hostname)
 
-	mux.HandleFunc("/api/users", usuarios.Coleccion)
-	mux.HandleFunc("/api/users/{name}", usuarios.Usuario)
-	mux.HandleFunc("/api/users/{name}/key", usuarios.Llave)
+	mux.HandleFunc("/api/users", users.Collection)
+	mux.HandleFunc("/api/users/{name}", users.User)
+	mux.HandleFunc("/api/users/{name}/key", users.Key)
 
-	mux.HandleFunc("/api/units", systemd.Unidades)
-	mux.HandleFunc("/api/units/{unit}", systemd.Unidad)
-	mux.HandleFunc("/api/units/{unit}/restarts", systemd.Reinicios)
+	mux.HandleFunc("/api/units", systemd.Units)
+	mux.HandleFunc("/api/units/{unit}", systemd.Unit)
+	mux.HandleFunc("/api/units/{unit}/restarts", systemd.Restarts)
 
-	mux.HandleFunc("/api/haproxy/backend/servers", haproxy.Servidores)
-	mux.HandleFunc("/api/haproxy/backend/servers/{server}", haproxy.Servidor)
+	mux.HandleFunc("/api/haproxy/backend/servers", haproxy.Servers)
+	mux.HandleFunc("/api/haproxy/backend/servers/{server}", haproxy.Server)
 }
 
-// registrarHistorial registra el endpoint del historial.
-func registrarHistorial(mux *http.ServeMux, almacen *services.Almacen) *services.Historial {
-	historial := services.NuevoHistorial(almacen)
-	mux.HandleFunc("/api/historial", handlers.NuevoHistorial(historial).ServeHTTP)
+// registerHistory registra el endpoint del historial.
+func registerHistory(mux *http.ServeMux, store *services.Store) *services.History {
+	history := services.NewHistory(store)
+	mux.HandleFunc("/api/historial", handlers.NewHistory(history).ServeHTTP)
 
-	return historial
+	return history
 }
 
-// servirInterfaz publica la aplicación compilada con Vite en la raíz y
+// serveWeb publica la aplicación compilada con Vite en la raíz y
 // conserva la interfaz anterior en /modules/ mientras se retira.
-func servirInterfaz(mux *http.ServeMux) error {
-	sub, err := fs.Sub(contenidoWeb, "web")
+func serveWeb(mux *http.ServeMux) error {
+	sub, err := fs.Sub(embeddedWeb, "web")
 	if err != nil {
 		// El sistema de archivos embebido es inmutable: si «web» no
 		// existe, el binario se compiló mal.
 		return fmt.Errorf("preparar los archivos web: %w", err)
 	}
 
-	dist, err := interfazWeb()
+	dist, err := webInterface()
 	if err != nil {
 		return err
 	}
@@ -244,156 +242,156 @@ func servirInterfaz(mux *http.ServeMux) error {
 	return nil
 }
 
-// consola reúne el descubrimiento de sesión y el inventario de máquinas
+// console reúne el descubrimiento de sesión y el inventario de máquinas
 // que comparten los manejadores.
-type consola struct {
-	sesiones    *services.Descubridor
-	vinculacion *services.Vinculacion
-	acceso      *services.Acceso
-	diagnostico *services.DiagnosticoServicio
-	registro    *services.Almacen
+type console struct {
+	sessions     *services.Discoverer
+	binding      *services.Binding
+	access       *services.Access
+	diagnostics  *services.DiagnosticsService
+	registration *services.Store
 }
 
-// nuevaConsola arma el descubrimiento de sesión y el inventario con los
+// newConsole arma el descubrimiento de sesión y el inventario con los
 // adaptadores reales: VirtualBox para el estado, la dirección y el
 // inventario, SSH como conector preferido y Guest Additions como respaldo.
-func nuevaConsola(ejecutor ports.Executor) *consola {
-	almacen, err := services.NuevoAlmacen(rutaBaseDatos(), rutaClaveCifrado())
+func newConsole(ejecutor ports.Executor) *console {
+	store, err := services.NewStore(databasePath(), cipherKeyPath())
 	if err != nil {
 		panic(fmt.Errorf("abrir la base de credenciales: %w", err))
 	}
 
-	maquina := vbox.New(ejecutor,
-		vbox.WithCredenciales(almacen),
-		vbox.WithGuestCredentials(usuarioInvitado(), os.Getenv(envGuestPass)),
+	machine := vbox.New(ejecutor,
+		vbox.WithCredentials(store),
+		vbox.WithGuestCredentials(guestUser(), os.Getenv(envGuestPass)),
 	)
 
-	conectorSSH := ssh.New(ejecutor, ssh.WithKey(rutaLlave()))
+	connectorSSH := ssh.New(ejecutor, ssh.WithKey(sshKeyPath()))
 
-	objetivo := objetivoInicial(almacen)
+	target := initialTarget(store)
 
-	sesiones := services.NuevoDescubridor(&services.ConfigDescubridor{
-		Maquina:  maquina,
-		Objetivo: objetivo,
-		Conectores: []ports.Connector{
-			conectorSSH,
-			maquina,
+	sessions := services.NewDiscoverer(&services.DiscovererConfig{
+		Machine:       machine,
+		CurrentTarget: target,
+		Connectors: []ports.Connector{
+			connectorSSH,
+			machine,
 		},
-		Registro: almacen,
+		Registration: store,
 	})
 
-	return &consola{
-		sesiones: sesiones,
-		acceso: services.NuevoAcceso(&services.ConfigAcceso{
-			Almacen:     almacen,
-			Maquina:     maquina,
-			Guest:       maquina,
-			SSH:         conectorSSH,
-			SSHPassword: conectorSSH,
-			Ejecutor:    ejecutor,
-			RutaLlave:   rutaLlave(),
-			Objetivo:    sesiones.Objetivo,
+	return &console{
+		sessions: sessions,
+		access: services.NewAccess(&services.AccessConfig{
+			Store:         store,
+			Machine:       machine,
+			Guest:         machine,
+			SSH:           connectorSSH,
+			SSHPassword:   connectorSSH,
+			Ejecutor:      ejecutor,
+			PathSSHKey:    sshKeyPath(),
+			CurrentTarget: sessions.CurrentTarget,
 		}),
-		diagnostico: services.NuevoDiagnostico(&services.ConfigDiagnostico{
-			Maquina:        maquina,
-			Registro:       almacen,
-			Objetivo:       sesiones.Objetivo,
-			VersionSistema: maquina.Version,
+		diagnostics: services.NewDiagnostics(&services.DiagnosticsConfig{
+			Machine:       machine,
+			Registration:  store,
+			CurrentTarget: sessions.CurrentTarget,
+			VersionSystem: machine.Version,
 		}),
-		registro: almacen,
-		vinculacion: services.NuevoVinculacion(&services.ConfigVinculacion{
-			Inventario:   maquina,
-			Seleccion:    sesiones,
-			Energia:      maquina,
-			Maquina:      maquina,
-			Registro:     almacen,
-			Persistencia: almacen,
+		registration: store,
+		binding: services.NewBinding(&services.BindingConfig{
+			Inventory:    machine,
+			Selection:    sessions,
+			Power:        machine,
+			Machine:      machine,
+			Registration: store,
+			Persistence:  store,
 		}),
 	}
 }
 
-// objetivoInicial recupera la máquina vinculada o la variable de entorno.
-func objetivoInicial(almacen *services.Almacen) domain.Target {
-	objetivo := domain.Target{ID: os.Getenv(envVM)}
-	if objetivo.ID == "" {
-		objetivo.ID = almacen.Activa()
+// initialTarget recupera la máquina vinculada o la variable de entorno.
+func initialTarget(store *services.Store) domain.Target {
+	target := domain.Target{ID: os.Getenv(envVM)}
+	if target.ID == "" {
+		target.ID = store.Active()
 	}
 
-	if objetivo.ID != "" {
-		slog.Info("máquina vinculada", "vm", objetivo.ID)
+	if target.ID != "" {
+		slog.Info("máquina vinculada", "vm", target.ID)
 	} else {
 		slog.Warn("la consola arranca sin máquina vinculada; elígela en el selector", "variable", envVM)
 	}
 
-	return objetivo
+	return target
 }
 
-// configurarLog elige el formato y el nivel de los logs de la consola.
-func configurarLog() {
-	nivel := slog.LevelInfo
+// configureLog elige el formato y el nivel de los logs de la consola.
+func configureLog() {
+	level := slog.LevelInfo
 
 	switch strings.ToLower(os.Getenv(envLogLevel)) {
 	case "debug":
-		nivel = slog.LevelDebug
+		level = slog.LevelDebug
 	case "warn":
-		nivel = slog.LevelWarn
+		level = slog.LevelWarn
 	case "error":
-		nivel = slog.LevelError
+		level = slog.LevelError
 	}
 
-	var manejador slog.Handler
+	var handler slog.Handler
 	if strings.EqualFold(os.Getenv(envLog), "json") {
-		manejador = slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: nivel})
+		handler = slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level})
 	} else {
-		manejador = nuevoHandlerConsola(os.Stderr, nivel, colorEn(os.Stderr))
+		handler = newConsoleHandler(os.Stderr, level, colorEnabledFor(os.Stderr))
 	}
 
-	slog.SetDefault(slog.New(manejador))
+	slog.SetDefault(slog.New(handler))
 }
 
-// direccion devuelve la dirección de escucha configurada.
-func direccion() string {
-	if valor := os.Getenv(envDireccion); valor != "" {
-		return valor
+// address devuelve la dirección de escucha configurada.
+func address() string {
+	if value := os.Getenv(envAddress); value != "" {
+		return value
 	}
 
-	return direccionProd
+	return addressProd
 }
 
-// rutaBaseDatos devuelve la ruta de la base SQLite de la consola.
-func rutaBaseDatos() string {
-	if valor := os.Getenv(envDB); valor != "" {
-		return valor
+// databasePath devuelve la ruta de la base SQLite de la consola.
+func databasePath() string {
+	if value := os.Getenv(envDB); value != "" {
+		return value
 	}
 
 	return filepath.Join("data", "vmcons.db")
 }
 
-// rutaClaveCifrado devuelve la clave local que cifra las contraseñas.
-func rutaClaveCifrado() string {
-	return filepath.Join(filepath.Dir(rutaBaseDatos()), "credenciales.key")
+// cipherKeyPath devuelve la clave local que cifra las contraseñas.
+func cipherKeyPath() string {
+	return filepath.Join(filepath.Dir(databasePath()), "credenciales.key")
 }
 
-// rutaLlave devuelve la ruta de la llave privada de root: la variable
+// sshKeyPath devuelve la ruta de la llave privada de root: la variable
 // de entorno o, por omisión, el directorio de configuración del usuario.
-func rutaLlave() string {
-	if valor := os.Getenv(envSSHKey); valor != "" {
-		return valor
+func sshKeyPath() string {
+	if value := os.Getenv(envSSHKey); value != "" {
+		return value
 	}
 
-	configuracion, err := os.UserConfigDir()
+	config, err := os.UserConfigDir()
 	if err != nil {
-		configuracion = "."
+		config = "."
 	}
 
-	return filepath.Join(configuracion, "vmcons", "id_ed25519")
+	return filepath.Join(config, "vmcons", "id_ed25519")
 }
 
-// usuarioInvitado devuelve el usuario de Guest Additions, «root» por
+// guestUser devuelve el usuario de Guest Additions, «root» por
 // omisión.
-func usuarioInvitado() string {
-	if valor := os.Getenv(envGuestUser); valor != "" {
-		return valor
+func guestUser() string {
+	if value := os.Getenv(envGuestUser); value != "" {
+		return value
 	}
 
 	return "root"

@@ -15,66 +15,66 @@ import (
 // ipVinculada es la dirección que publica la máquina de prueba.
 const ipVinculada = "192.168.1.77"
 
-// stubMaquina informa el estado y la dirección de la máquina vinculada.
-type stubMaquina struct {
-	estado    domain.MachineState
-	direccion netip.Addr
+// stubLinkedMachine informa el estado y la dirección de la máquina vinculada.
+type stubLinkedMachine struct {
+	state   domain.MachineState
+	address netip.Addr
 }
 
 // State devuelve el estado preprogramado.
-func (s *stubMaquina) State(context.Context, domain.Target) (domain.MachineState, error) {
-	return s.estado, nil
+func (s *stubLinkedMachine) State(context.Context, domain.Target) (domain.MachineState, error) {
+	return s.state, nil
 }
 
 // Address devuelve la dirección preprogramada.
-func (s *stubMaquina) Address(context.Context, domain.Target) (netip.Addr, error) {
-	return s.direccion, nil
+func (s *stubLinkedMachine) Address(context.Context, domain.Target) (netip.Addr, error) {
+	return s.address, nil
 }
 
 // Network devuelve una red puente.
-func (s *stubMaquina) Network(context.Context, domain.Target) (domain.NetworkMode, error) {
+func (s *stubLinkedMachine) Network(context.Context, domain.Target) (domain.NetworkMode, error) {
 	return domain.NetworkBridged, nil
 }
 
 // GuestAdditions no informa datos en esta prueba.
-func (s *stubMaquina) GuestAdditions(context.Context, domain.Target) (domain.GuestAdditions, error) {
+func (s *stubLinkedMachine) GuestAdditions(context.Context, domain.Target) (domain.GuestAdditions, error) {
 	return domain.GuestAdditions{}, nil
 }
 
-// TestDescubridorSinMaquinaVinculada comprueba que la consola sin
+// TestDiscovererWithoutMachineVinculada comprueba que la consola sin
 // vínculo responde «sin sesión» en lugar de consultar el hipervisor.
-func TestDescubridorSinMaquinaVinculada(t *testing.T) {
+func TestDiscovererWithoutMachineVinculada(t *testing.T) {
 	t.Parallel()
 
-	descubridor := NuevoDescubridor(&ConfigDescubridor{
-		Maquina:  &stubMaquina{estado: domain.StateRunning, direccion: netip.MustParseAddr(ipVinculada)},
-		Objetivo: domain.Target{},
+	discoverer := NewDiscoverer(&DiscovererConfig{
+		Machine:       &stubLinkedMachine{state: domain.StateRunning, address: netip.MustParseAddr(ipVinculada)},
+		CurrentTarget: domain.Target{},
 	})
 
-	_, err := descubridor.Descubrir(context.Background())
+	_, err := discoverer.Discover(context.Background())
 
-	if !errors.Is(err, ErrSinMaquina) {
-		t.Fatalf("Descubrir() error = %v, want %v", err, ErrSinMaquina)
+	if !errors.Is(err, ErrNoMachine) {
+		t.Fatalf("Descubrir() error = %v, want %v", err, ErrNoMachine)
 	}
 
-	if !errors.Is(err, ErrSesionNoDisponible) {
-		t.Fatalf("Descubrir() error = %v, want que envuelva %v", err, ErrSesionNoDisponible)
+	if !errors.Is(err, ErrSessionUnavailable) {
+		t.Fatalf("Descubrir() error = %v, want que envuelva %v", err, ErrSessionUnavailable)
 	}
 }
 
-// TestDescubridorVinculaOtraMaquina comprueba que establecer el
+// TestDiscovererBindsOtherMachine comprueba que establecer el
 // objetivo cambia la máquina que se consulta.
-func TestDescubridorVinculaOtraMaquina(t *testing.T) {
+func TestDiscovererBindsOtherMachine(t *testing.T) {
 	t.Parallel()
 
-	descubridor := NuevoDescubridor(&ConfigDescubridor{
-		Maquina:  &stubMaquina{estado: domain.StateRunning, direccion: netip.MustParseAddr(ipVinculada)},
-		Objetivo: domain.Target{ID: nombreDebian},
+	discoverer := NewDiscoverer(&DiscovererConfig{
+		Machine:       &stubLinkedMachine{state: domain.StateRunning, address: netip.MustParseAddr(ipVinculada)},
+		CurrentTarget: domain.Target{ID: testMachineName},
 	})
 
-	descubridor.Establecer(nombreUbuntu)
+	discoverer.Set(nameUbuntu)
 
-	if objetivo := descubridor.Objetivo(); objetivo.ID != nombreUbuntu {
-		t.Fatalf("Objetivo().ID = %q, want %q", objetivo.ID, nombreUbuntu)
+	if target := discoverer.CurrentTarget(); target.ID != nameUbuntu {
+		t.Fatalf("Objetivo().ID = %q, want %q", target.ID, nameUbuntu)
 	}
 }

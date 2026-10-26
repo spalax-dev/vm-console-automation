@@ -14,206 +14,206 @@ import (
 
 // mensajes repetidos en las pruebas de /etc/issue.
 const (
-	textoBienvenido = "Bienvenido"
-	msgObtenerOK    = "Obtener() error = %v, want nil"
+	textBienvenido = "Bienvenido"
+	msgGetOK       = "Obtener() error = %v, want nil"
 )
 
 // issueCompleto simula un /etc/issue escrito por la consola.
 const issueCompleto = "Bienvenido\nHostname: \\n\nFecha: \\d\nIP: \\4\n"
 
-// nuevoIssueDePrueba arma el servicio con una sesión falsa.
-func nuevoIssueDePrueba(sesion *stubSession, err error) *Issue {
-	return NuevoIssue(&stubAbridor{sesion: sesion, err: err})
+// newIssueOfTests arma el servicio con una sesión falsa.
+func newIssueOfTests(session *stubSession, err error) *Issue {
+	return NewIssue(&stubOpener{session: session, err: err})
 }
 
-// TestIssueEscribirGeneraContenido comprueba el formato de una línea por
+// TestIssueWriteGeneratesContent comprueba el formato de una línea por
 // elemento y los permisos del archivo.
-func TestIssueEscribirGeneraContenido(t *testing.T) {
+func TestIssueWriteGeneratesContent(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{}
-	issue := nuevoIssueDePrueba(sesion, nil)
+	session := &stubSession{}
+	issue := newIssueOfTests(session, nil)
 
-	resultado, err := issue.Escribir(context.Background(), ConfiguracionIssue{
-		Mensaje:    textoBienvenido,
-		NombreHost: true,
-		Fecha:      true,
-		IP:         true,
+	result, err := issue.Write(context.Background(), IssueConfig{
+		Message:  textBienvenido,
+		NameHost: true,
+		Date:     true,
+		IP:       true,
 	})
 	if err != nil {
-		t.Fatalf(msgEscribirOK, err)
+		t.Fatalf(msgWriteOK, err)
 	}
 
-	if len(sesion.commands) != 1 {
-		t.Fatalf(msgOrdenUnica, len(sesion.commands))
+	if len(session.commands) != 1 {
+		t.Fatalf(msgCommandUnica, len(session.commands))
 	}
 
-	orden := sesion.commands[0].ShellLine()
-	for _, esperado := range []string{"Bienvenido", "Hostname: \\n", "Fecha: \\d", "IP: \\4", "/etc/issue", "chmod 644"} {
-		if !strings.Contains(orden, esperado) {
-			t.Errorf("orden = %q, want que contenga %q", orden, esperado)
+	command := session.commands[0].ShellLine()
+	for _, expected := range []string{"Bienvenido", "Hostname: \\n", "Fecha: \\d", "IP: \\4", "/etc/issue", "chmod 644"} {
+		if !strings.Contains(command, expected) {
+			t.Errorf("orden = %q, want que contenga %q", command, expected)
 		}
 	}
 
-	if strings.Contains(orden, "Hora: \\t") {
-		t.Errorf("orden = %q, no debe incluir la hora desactivada", orden)
+	if strings.Contains(command, "Hora: \\t") {
+		t.Errorf("orden = %q, no debe incluir la hora desactivada", command)
 	}
 
-	if !sesion.closed {
-		t.Error(msgSesionAbierta)
+	if !session.closed {
+		t.Error(msgSessionOpen)
 	}
 
-	if resultado.Codigo != 0 {
-		t.Errorf(msgCodigoCero, resultado.Codigo)
+	if result.Code != 0 {
+		t.Errorf(msgCodeCero, result.Code)
 	}
 
-	if resultado.Mensaje == "" {
+	if result.Message == "" {
 		t.Error("Mensaje vacío, want el mensaje de éxito")
 	}
 }
 
-// TestIssueObtenerReconoceOpciones comprueba la lectura del formato de la
+// TestIssueGetReconoceOptions comprueba la lectura del formato de la
 // consola.
-func TestIssueObtenerReconoceOpciones(t *testing.T) {
+func TestIssueGetReconoceOptions(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{result: domain.Result{Stdout: issueCompleto}}
-	issue := nuevoIssueDePrueba(sesion, nil)
+	session := &stubSession{result: domain.Result{Stdout: issueCompleto}}
+	issue := newIssueOfTests(session, nil)
 
-	config, err := issue.Obtener(context.Background())
+	config, err := issue.Get(context.Background())
 	if err != nil {
-		t.Fatalf(msgObtenerOK, err)
+		t.Fatalf(msgGetOK, err)
 	}
 
-	if config.Mensaje != textoBienvenido {
-		t.Errorf("Mensaje = %q, want Bienvenido", config.Mensaje)
+	if config.Message != textBienvenido {
+		t.Errorf("Mensaje = %q, want Bienvenido", config.Message)
 	}
 
-	if !config.NombreHost || !config.Fecha || !config.IP {
+	if !config.NameHost || !config.Date || !config.IP {
 		t.Errorf("opciones = %+v, want nombre_host, fecha e IP activos", config)
 	}
 
-	if config.Hora {
+	if config.Hour {
 		t.Error("Hora = true, want false")
 	}
 
-	if config.Contenido != issueCompleto {
-		t.Errorf("Contenido = %q, want el archivo completo", config.Contenido)
+	if config.Content != issueCompleto {
+		t.Errorf("Contenido = %q, want el archivo completo", config.Content)
 	}
 }
 
-// TestIssueObtenerFormatoAjeno comprueba que un /etc/issue ajeno se
+// TestIssueGetFormatAjeno comprueba que un /etc/issue ajeno se
 // devuelve como mensaje sin opciones.
-func TestIssueObtenerFormatoAjeno(t *testing.T) {
+func TestIssueGetFormatAjeno(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{result: domain.Result{Stdout: "Debian GNU/Linux 13 \\n \\l\n"}}
-	issue := nuevoIssueDePrueba(sesion, nil)
+	session := &stubSession{result: domain.Result{Stdout: "Debian GNU/Linux 13 \\n \\l\n"}}
+	issue := newIssueOfTests(session, nil)
 
-	config, err := issue.Obtener(context.Background())
+	config, err := issue.Get(context.Background())
 	if err != nil {
-		t.Fatalf(msgObtenerOK, err)
+		t.Fatalf(msgGetOK, err)
 	}
 
-	if config.NombreHost || config.Fecha || config.Hora || config.IP {
+	if config.NameHost || config.Date || config.Hour || config.IP {
 		t.Errorf("opciones = %+v, want todas desactivadas", config)
 	}
 
-	if !strings.Contains(config.Mensaje, "Debian GNU/Linux") {
-		t.Errorf("Mensaje = %q, want el contenido original", config.Mensaje)
+	if !strings.Contains(config.Message, "Debian GNU/Linux") {
+		t.Errorf("Mensaje = %q, want el contenido original", config.Message)
 	}
 }
 
-// TestIssueEscribirSinSesion comprueba que se propaga la ausencia de
+// TestIssueWriteWithoutSession comprueba que se propaga la ausencia de
 // sesión.
-func TestIssueEscribirSinSesion(t *testing.T) {
+func TestIssueWriteWithoutSession(t *testing.T) {
 	t.Parallel()
 
-	issue := nuevoIssueDePrueba(nil, ErrSesionNoDisponible)
+	issue := newIssueOfTests(nil, ErrSessionUnavailable)
 
-	_, err := issue.Escribir(context.Background(), ConfiguracionIssue{Mensaje: "hola"})
-	if !errors.Is(err, ErrSesionNoDisponible) {
+	_, err := issue.Write(context.Background(), IssueConfig{Message: "hola"})
+	if !errors.Is(err, ErrSessionUnavailable) {
 		t.Fatalf("Escribir() error = %v, want ErrSesionNoDisponible", err)
 	}
 }
 
-// TestIssueObtenerErrorDeLectura comprueba que el fallo de cat se
+// TestIssueGetErrorOfRead comprueba que el fallo de cat se
 // propaga.
-func TestIssueObtenerErrorDeLectura(t *testing.T) {
+func TestIssueGetErrorOfRead(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{err: &domain.ExitError{Code: 1, Command: comandoCat}}
-	issue := nuevoIssueDePrueba(sesion, nil)
+	session := &stubSession{err: &domain.ExitError{Code: 1, Command: commandCat}}
+	issue := newIssueOfTests(session, nil)
 
-	if _, err := issue.Obtener(context.Background()); err == nil {
+	if _, err := issue.Get(context.Background()); err == nil {
 		t.Fatal("Obtener() error = nil, want el error de lectura")
 	}
 }
 
-// TestIssueEscribirErrorDeOrden comprueba que el fallo de la escritura
+// TestIssueWriteErrorOfCommand comprueba que el fallo de la escritura
 // conserva el detalle técnico.
-func TestIssueEscribirErrorDeOrden(t *testing.T) {
+func TestIssueWriteErrorOfCommand(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{
+	session := &stubSession{
 		result: domain.Result{Stderr: "Read-only file system", ExitCode: 1},
 		err:    &domain.ExitError{Code: 1, Command: "sh"},
 	}
-	issue := nuevoIssueDePrueba(sesion, nil)
+	issue := newIssueOfTests(session, nil)
 
-	resultado, err := issue.Escribir(context.Background(), ConfiguracionIssue{Mensaje: "hola"})
+	result, err := issue.Write(context.Background(), IssueConfig{Message: "hola"})
 	if err == nil {
 		t.Fatal("Escribir() error = nil, want el error de escritura")
 	}
 
-	if resultado.Codigo != 1 {
-		t.Errorf("Codigo = %d, want 1", resultado.Codigo)
+	if result.Code != 1 {
+		t.Errorf("Codigo = %d, want 1", result.Code)
 	}
 
-	if resultado.Stderr != "Read-only file system" {
-		t.Errorf(msgStderrSesion, resultado.Stderr)
+	if result.Stderr != "Read-only file system" {
+		t.Errorf(msgStderrSession, result.Stderr)
 	}
 }
 
-// TestIssueHora comprueba la opción de hora al escribir y al leer.
-func TestIssueHora(t *testing.T) {
+// TestIssueHour comprueba la opción de hora al escribir y al leer.
+func TestIssueHour(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{}
-	issue := nuevoIssueDePrueba(sesion, nil)
+	session := &stubSession{}
+	issue := newIssueOfTests(session, nil)
 
-	if _, err := issue.Escribir(context.Background(), ConfiguracionIssue{Hora: true}); err != nil {
-		t.Fatalf(msgEscribirOK, err)
+	if _, err := issue.Write(context.Background(), IssueConfig{Hour: true}); err != nil {
+		t.Fatalf(msgWriteOK, err)
 	}
 
-	if orden := sesion.commands[0].ShellLine(); !strings.Contains(orden, "Hora: \\t") {
-		t.Errorf("orden = %q, want la secuencia de hora", orden)
+	if command := session.commands[0].ShellLine(); !strings.Contains(command, "Hora: \\t") {
+		t.Errorf("orden = %q, want la secuencia de hora", command)
 	}
 
-	sesion.result = domain.Result{Stdout: "Hola\nHora: \\t\n"}
+	session.result = domain.Result{Stdout: "Hola\nHora: \\t\n"}
 
-	config, err := issue.Obtener(context.Background())
+	config, err := issue.Get(context.Background())
 	if err != nil {
-		t.Fatalf(msgObtenerOK, err)
+		t.Fatalf(msgGetOK, err)
 	}
 
-	if !config.Hora {
+	if !config.Hour {
 		t.Error("Hora = false, want true")
 	}
 
-	if config.Mensaje != "Hola" {
-		t.Errorf("Mensaje = %q, want Hola", config.Mensaje)
+	if config.Message != "Hola" {
+		t.Errorf("Mensaje = %q, want Hola", config.Message)
 	}
 }
 
-// TestIssueObtenerSinSesion comprueba que se propaga la ausencia de
+// TestIssueGetWithoutSession comprueba que se propaga la ausencia de
 // sesión al leer.
-func TestIssueObtenerSinSesion(t *testing.T) {
+func TestIssueGetWithoutSession(t *testing.T) {
 	t.Parallel()
 
-	issue := nuevoIssueDePrueba(nil, ErrSesionNoDisponible)
+	issue := newIssueOfTests(nil, ErrSessionUnavailable)
 
-	if _, err := issue.Obtener(context.Background()); !errors.Is(err, ErrSesionNoDisponible) {
-		t.Fatalf(msgObtenerSinSesion, err)
+	if _, err := issue.Get(context.Background()); !errors.Is(err, ErrSessionUnavailable) {
+		t.Fatalf(msgGetWithoutSession, err)
 	}
 }

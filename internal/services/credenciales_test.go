@@ -14,81 +14,81 @@ import (
 	"testing"
 )
 
-// archivoBDPrueba es el nombre de la base temporal.
-const archivoBDPrueba = "vmcons.db"
+// fileBDTests es el nombre de la base temporal.
+const fileBDTests = "vmcons.db"
 
-// nuevaBaseDePrueba crea la base y la clave en un directorio temporal.
-func nuevaBaseDePrueba(t *testing.T) (almacen *Almacen, rutaBD, rutaClave string) {
+// newTestDB crea la base y la clave en un directorio temporal.
+func newTestDB(t *testing.T) (store *Store, pathBD, pathKey string) {
 	t.Helper()
 
-	directorio := t.TempDir()
-	rutaBD = filepath.Join(directorio, archivoBDPrueba)
-	rutaClave = filepath.Join(directorio, archivoClave)
+	directory := t.TempDir()
+	pathBD = filepath.Join(directory, fileBDTests)
+	pathKey = filepath.Join(directory, fileKey)
 
-	almacen, err := NuevoAlmacen(rutaBD, rutaClave)
+	store, err := NewStore(pathBD, pathKey)
 	if err != nil {
-		t.Fatalf(msgAlmacenOK, err)
+		t.Fatalf(msgStoreOK, err)
 	}
 
 	t.Cleanup(func() {
-		if err := almacen.Close(); err != nil {
+		if err := store.Close(); err != nil {
 			t.Errorf("cerrar almacen de prueba: %v", err)
 		}
 	})
 
-	return almacen, rutaBD, rutaClave
+	return store, pathBD, pathKey
 }
 
-// TestAlmacenGuardaYCarga comprueba la persistencia en SQLite.
-func TestAlmacenGuardaYCarga(t *testing.T) {
+// TestStoreSavesYLoads comprueba la persistencia en SQLite.
+func TestStoreSavesYLoads(t *testing.T) {
 	t.Parallel()
 
-	almacen, rutaBD, _ := nuevaBaseDePrueba(t)
+	store, pathBD, _ := newTestDB(t)
 
-	if err := almacen.Guardar(nombreDebian, Credenciales{
-		Usuario: usuarioRoot, Password: passwordPrueba, Puerto: 22, Registrada: true,
+	if err := store.Save(testMachineName, Credentials{
+		User: userRoot, Password: passwordTests, Port: 22, IsRegistered: true,
 	}); err != nil {
-		t.Fatalf(msgGuardarOK, err)
+		t.Fatalf(msgSaveOK, err)
 	}
 
-	otro, err := NuevoAlmacen(rutaBD, filepath.Join(filepath.Dir(rutaBD), archivoClave))
+	other, err := NewStore(pathBD, filepath.Join(filepath.Dir(pathBD), fileKey))
 	if err != nil {
-		t.Fatalf(msgAlmacenOK, err)
+		t.Fatalf(msgStoreOK, err)
 	}
 
 	t.Cleanup(func() {
-		if err := otro.Close(); err != nil {
+		if err := other.Close(); err != nil {
 			t.Errorf("cerrar segundo almacen: %v", err)
 		}
 	})
 
-	credenciales, ok := otro.Obtener(nombreDebian)
+	credentials, ok := other.Get(testMachineName)
 	if !ok {
 		t.Fatal("Obtener() no encontró las credenciales")
 	}
 
-	if credenciales.Usuario != usuarioRoot || credenciales.Password != passwordPrueba || !credenciales.Registrada {
-		t.Errorf("credenciales = %+v, want root/secreto/registrada", credenciales)
+	if credentials.User != userRoot || credentials.Password != passwordTests || !credentials.IsRegistered {
+		t.Errorf("credenciales = %+v, want root/secreto/registrada", credentials)
 	}
 
-	usuario, password, ok := otro.Guest(nombreDebian)
-	if !ok || usuario != usuarioRoot || password != passwordPrueba {
-		t.Errorf("Guest() = %q, %q, %v, want root, secreto, true", usuario, password, ok)
+	user, password, ok := other.Guest(testMachineName)
+	if !ok || user != userRoot || password != passwordTests {
+		t.Errorf("Guest() = %q, %q, %v, want root, secreto, true", user, password, ok)
 	}
 }
 
-// TestAlmacenCifraLaContrasena comprueba que la base no guarda el texto
+// TestStoreCifraContrasena comprueba que la base no guarda el texto
 // plano y que la clave es privada.
-func TestAlmacenCifraLaContrasena(t *testing.T) {
+func TestStoreCifraContrasena(t *testing.T) {
 	t.Parallel()
 
-	almacen, rutaBD, rutaClave := nuevaBaseDePrueba(t)
+	store, pathBD, pathKey := newTestDB(t)
 
-	if err := almacen.Guardar(nombreDebian, Credenciales{Usuario: usuarioRoot, Password: passwordPrueba}); err != nil {
-		t.Fatalf(msgGuardarOK, err)
+	if err := store.Save(testMachineName, Credentials{User: userRoot, Password: passwordTests}); err != nil {
+		t.Fatalf(msgSaveOK, err)
 	}
 
-	db, err := sql.Open("sqlite", rutaBD)
+	db, err := sql.Open("sqlite", pathBD)
 	if err != nil {
 		t.Fatalf("sql.Open() error = %v", err)
 	}
@@ -98,18 +98,18 @@ func TestAlmacenCifraLaContrasena(t *testing.T) {
 		}
 	}()
 
-	var cifrado string
+	var ciphertext string
 	if err := db.QueryRowContext(context.Background(),
-		`SELECT password FROM credenciales WHERE vm = ?`, nombreDebian,
-	).Scan(&cifrado); err != nil {
+		`SELECT password FROM credenciales WHERE vm = ?`, testMachineName,
+	).Scan(&ciphertext); err != nil {
 		t.Fatalf("leer la contraseña: %v", err)
 	}
 
-	if cifrado == passwordPrueba {
+	if ciphertext == passwordTests {
 		t.Error("la contraseña se guardó en texto plano")
 	}
 
-	info, err := os.Stat(rutaClave)
+	info, err := os.Stat(pathKey)
 	if err != nil {
 		t.Fatalf("Stat() de la clave: %v", err)
 	}
@@ -119,60 +119,60 @@ func TestAlmacenCifraLaContrasena(t *testing.T) {
 	}
 }
 
-// TestAlmacenRegistradaYBorrar comprueba la marca y el borrado.
-func TestAlmacenRegistradaYBorrar(t *testing.T) {
+// TestStoreRegisteredYDelete comprueba la marca y el borrado.
+func TestStoreRegisteredYDelete(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
+	store, _, _ := newTestDB(t)
 
-	if err := almacen.Guardar(vmPrueba, Credenciales{Usuario: "admin", Password: "clave", Registrada: true}); err != nil {
-		t.Fatalf(msgGuardarOK, err)
+	if err := store.Save(vmTests, Credentials{User: "admin", Password: "clave", IsRegistered: true}); err != nil {
+		t.Fatalf(msgSaveOK, err)
 	}
 
-	if !almacen.Registrada(vmPrueba) {
+	if !store.IsRegistered(vmTests) {
 		t.Error("Registrada() = false, want true")
 	}
 
-	if err := almacen.Borrar(vmPrueba); err != nil {
+	if err := store.Delete(vmTests); err != nil {
 		t.Fatalf("Borrar() error = %v", err)
 	}
 
-	if almacen.Registrada(vmPrueba) {
+	if store.IsRegistered(vmTests) {
 		t.Error("Registrada() = true tras borrar")
 	}
 
-	if _, ok := almacen.Obtener(vmPrueba); ok {
+	if _, ok := store.Get(vmTests); ok {
 		t.Error("Obtener() encontró credenciales borradas")
 	}
 }
 
-// TestAlmacenClaveCorrupta rechaza una clave con longitud inválida.
-func TestAlmacenClaveCorrupta(t *testing.T) {
+// TestStoreKeyCorrupta rechaza una clave con longitud inválida.
+func TestStoreKeyCorrupta(t *testing.T) {
 	t.Parallel()
 
-	directorio := t.TempDir()
-	rutaClave := filepath.Join(directorio, archivoClave)
+	directory := t.TempDir()
+	pathKey := filepath.Join(directory, fileKey)
 
-	if err := os.WriteFile(rutaClave, []byte("corta"), 0o600); err != nil {
+	if err := os.WriteFile(pathKey, []byte("corta"), 0o600); err != nil {
 		t.Fatalf("preparar la clave: %v", err)
 	}
 
-	_, err := NuevoAlmacen(filepath.Join(directorio, archivoBDPrueba), rutaClave)
+	_, err := NewStore(filepath.Join(directory, fileBDTests), pathKey)
 	if err == nil {
 		t.Fatal("NuevoAlmacen() error = nil, want el error de clave inválida")
 	}
 }
 
-// TestAlmacenMigraElHistorial comprueba que una base anterior recibe la
+// TestStoreMigraHistory comprueba que una base anterior recibe la
 // columna descripcion y conserva sus operaciones.
-func TestAlmacenMigraElHistorial(t *testing.T) {
+func TestStoreMigraHistory(t *testing.T) {
 	t.Parallel()
 
-	directorio := t.TempDir()
-	rutaBD := filepath.Join(directorio, archivoBDPrueba)
-	rutaClave := filepath.Join(directorio, archivoClave)
+	directory := t.TempDir()
+	pathBD := filepath.Join(directory, fileBDTests)
+	pathKey := filepath.Join(directory, fileKey)
 
-	db, err := sql.Open("sqlite", rutaBD)
+	db, err := sql.Open("sqlite", pathBD)
 	if err != nil {
 		t.Fatalf("sql.Open() error = %v", err)
 	}
@@ -191,7 +191,7 @@ func TestAlmacenMigraElHistorial(t *testing.T) {
 
 	if _, err := db.ExecContext(t.Context(), `INSERT INTO operaciones
 		(fecha_hora, vm, modulo, operacion, resultado, detalle)
-		VALUES ('2026-10-25T10:00:00Z', 'debian-1', 'paquetes',
+		VALUES ('2026-10-25T10:00:00Z', 'vm-1', 'paquetes',
 		'POST /api/packages', 'ok', 'HTTP 201')`); err != nil {
 		t.Fatalf("insertar la operación anterior: %v", err)
 	}
@@ -200,140 +200,140 @@ func TestAlmacenMigraElHistorial(t *testing.T) {
 		t.Fatalf("cerrar la base anterior: %v", err)
 	}
 
-	almacen, err := NuevoAlmacen(rutaBD, rutaClave)
+	store, err := NewStore(pathBD, pathKey)
 	if err != nil {
-		t.Fatalf(msgAlmacenOK, err)
+		t.Fatalf(msgStoreOK, err)
 	}
 
 	t.Cleanup(func() {
-		if err := almacen.Close(); err != nil {
+		if err := store.Close(); err != nil {
 			t.Errorf("cerrar almacen migrado: %v", err)
 		}
 	})
 
-	historial := NuevoHistorial(almacen)
+	history := NewHistory(store)
 
-	operaciones, err := historial.Listar(context.Background(), &FiltroHistorial{})
+	operations, err := history.List(context.Background(), &HistoryFilter{})
 	if err != nil {
-		t.Fatalf(msgListarError, err)
+		t.Fatalf(msgListError, err)
 	}
 
-	if len(operaciones) != 1 {
-		t.Fatalf("Listar() devolvió %d, want 1", len(operaciones))
+	if len(operations) != 1 {
+		t.Fatalf("Listar() devolvió %d, want 1", len(operations))
 	}
 
-	if operaciones[0].Descripcion != "" {
-		t.Errorf("Descripcion de la fila anterior = %q, want vacía", operaciones[0].Descripcion)
+	if operations[0].Description != "" {
+		t.Errorf("Descripcion de la fila anterior = %q, want vacía", operations[0].Description)
 	}
 
-	if err := historial.Registrar(context.Background(), &Operacion{
-		VM: nombreDebian, Modulo: moduloPaquetes, Operacion: "POST /api/packages",
-		Descripcion: descripcionNano, Resultado: "ok",
+	if err := history.Register(context.Background(), &Operation{
+		VM: testMachineName, Module: modulePackages, Operation: "POST /api/packages",
+		Description: descriptionNano, Outcome: "ok",
 	}); err != nil {
 		t.Fatalf("Registrar() error = %v", err)
 	}
 
-	operaciones, err = historial.Listar(context.Background(), &FiltroHistorial{})
+	operations, err = history.List(context.Background(), &HistoryFilter{})
 	if err != nil {
-		t.Fatalf(msgListarError, err)
+		t.Fatalf(msgListError, err)
 	}
 
-	if len(operaciones) != 2 || operaciones[0].Descripcion != descripcionNano {
-		t.Errorf("operaciones = %+v, want la descripción nueva", operaciones)
+	if len(operations) != 2 || operations[0].Description != descriptionNano {
+		t.Errorf("operaciones = %+v, want la descripción nueva", operations)
 	}
 }
 
-// TestAlmacenGuardaLaMaquinaActiva comprueba la persistencia del vínculo.
-func TestAlmacenGuardaLaMaquinaActiva(t *testing.T) {
+// TestStoreSavesMachineActive comprueba la persistencia del vínculo.
+func TestStoreSavesMachineActive(t *testing.T) {
 	t.Parallel()
 
-	almacen, rutaBD, rutaClave := nuevaBaseDePrueba(t)
+	store, pathBD, pathKey := newTestDB(t)
 
-	if err := almacen.GuardarActiva(nombreDebian); err != nil {
+	if err := store.SaveActive(testMachineName); err != nil {
 		t.Fatalf("GuardarActiva() error = %v", err)
 	}
 
-	otro, err := NuevoAlmacen(rutaBD, rutaClave)
+	other, err := NewStore(pathBD, pathKey)
 	if err != nil {
-		t.Fatalf(msgAlmacenOK, err)
+		t.Fatalf(msgStoreOK, err)
 	}
 
 	t.Cleanup(func() {
-		if err := otro.Close(); err != nil {
+		if err := other.Close(); err != nil {
 			t.Errorf("cerrar segundo almacen: %v", err)
 		}
 	})
 
-	if activa := otro.Activa(); activa != nombreDebian {
-		t.Errorf("Activa() = %q, want %q", activa, nombreDebian)
+	if active := other.Active(); active != testMachineName {
+		t.Errorf("Activa() = %q, want %q", active, testMachineName)
 	}
 }
 
-// TestAlmacenCloseSinBase comprueba que cerrar un almacén sin base de
+// TestStoreCloseWithoutBase comprueba que cerrar un almacén sin base de
 // datos no falla, tanto con receptor nulo como con la conexión vacía.
-func TestAlmacenCloseSinBase(t *testing.T) {
+func TestStoreCloseWithoutBase(t *testing.T) {
 	t.Parallel()
 
-	var nulo *Almacen
+	var nulo *Store
 
 	if err := nulo.Close(); err != nil {
 		t.Fatalf("Close() con receptor nulo error = %v, want nil", err)
 	}
 
-	vacio := &Almacen{}
+	empty := &Store{}
 
-	if err := vacio.Close(); err != nil {
+	if err := empty.Close(); err != nil {
 		t.Fatalf("Close() sin conexión error = %v, want nil", err)
 	}
 }
 
-// conectorCierre es un conector de prueba cuyo cierre falla.
-type conectorCierre struct{}
+// connectorCierre es un conector de prueba cuyo cierre falla.
+type connectorCierre struct{}
 
 // Connect devuelve una conexión de prueba.
-func (conectorCierre) Connect(context.Context) (driver.Conn, error) {
-	return conexionCierre{}, nil
+func (connectorCierre) Connect(context.Context) (driver.Conn, error) {
+	return connectionCierre{}, nil
 }
 
 // Driver devuelve el controlador de prueba.
-func (conectorCierre) Driver() driver.Driver { return controladorCierre{} }
+func (connectorCierre) Driver() driver.Driver { return controladorCierre{} }
 
 // Close devuelve el error configurado al cerrar la base.
-func (conectorCierre) Close() error { return errCierreFallido }
+func (connectorCierre) Close() error { return errCierreFailed }
 
 // controladorCierre es el controlador del conector de prueba.
 type controladorCierre struct{}
 
 // Open no se usa porque el conector entrega la conexión directamente.
 func (controladorCierre) Open(string) (driver.Conn, error) {
-	return conexionCierre{}, nil
+	return connectionCierre{}, nil
 }
 
-// conexionCierre es una conexión de prueba que no ejecuta sentencias.
-type conexionCierre struct{}
+// connectionCierre es una conexión de prueba que no ejecuta sentencias.
+type connectionCierre struct{}
 
 // Prepare no está soportado por la conexión de prueba.
-func (conexionCierre) Prepare(string) (driver.Stmt, error) {
-	return nil, errCierreFallido
+func (connectionCierre) Prepare(string) (driver.Stmt, error) {
+	return nil, errCierreFailed
 }
 
 // Close devuelve el error configurado.
-func (conexionCierre) Close() error { return nil }
+func (connectionCierre) Close() error { return nil }
 
 // Begin no está soportado por la conexión de prueba.
-func (conexionCierre) Begin() (driver.Tx, error) { return nil, errCierreFallido }
+func (connectionCierre) Begin() (driver.Tx, error) { return nil, errCierreFailed }
 
-// errCierreFallido es el error que devuelve el conector de prueba.
-var errCierreFallido = errors.New("cierre fallido")
+// errCierreFailed es el error que devuelve el conector de prueba.
+var errCierreFailed = errors.New("cierre fallido")
 
-// TestAlmacenCloseDevuelveError comprueba que Close propaga el fallo del
+// TestStoreCloseReturnsError comprueba que Close propaga el fallo del
 // cierre de la base de datos.
-func TestAlmacenCloseDevuelveError(t *testing.T) {
+func TestStoreCloseReturnsError(t *testing.T) {
 	t.Parallel()
 
-	almacen := &Almacen{db: sql.OpenDB(conectorCierre{})}
+	store := &Store{db: sql.OpenDB(connectorCierre{})}
 
-	if err := almacen.Close(); !errors.Is(err, errCierreFallido) {
-		t.Fatalf("Close() error = %v, want %v", err, errCierreFallido)
+	if err := store.Close(); !errors.Is(err, errCierreFailed) {
+		t.Fatalf("Close() error = %v, want %v", err, errCierreFailed)
 	}
 }

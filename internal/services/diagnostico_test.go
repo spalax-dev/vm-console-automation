@@ -12,110 +12,110 @@ import (
 	"consola-vm/internal/core/domain"
 )
 
-// versionAnfitrionPrueba es la versión simulada de VirtualBox.
-const versionAnfitrionPrueba = "7.2.18"
+// versionHostTests es la versión simulada de VirtualBox.
+const versionHostTests = "7.2.18"
 
-// nuevoDiagnosticoDePrueba arma el servicio con la máquina y el sondeo
+// newDiagnosticsOfTests arma el servicio con la máquina y el sondeo
 // de SSH preprogramados.
-func nuevoDiagnosticoDePrueba(
-	t *testing.T, maquina *stubMachine, sshAbierto bool, version string,
-) *DiagnosticoServicio {
+func newDiagnosticsOfTests(
+	t *testing.T, machine *stubMachine, sshOpen bool, version string,
+) *DiagnosticsService {
 	t.Helper()
 
-	return NuevoDiagnostico(&ConfigDiagnostico{
-		Maquina:  maquina,
-		Registro: &stubRegistro{registradas: map[string]bool{}},
-		Objetivo: func() domain.Target { return domain.Target{ID: nombreDebian} },
-		VersionSistema: func(context.Context) (string, error) {
+	return NewDiagnostics(&DiagnosticsConfig{
+		Machine:       machine,
+		Registration:  &stubRegistration{registradas: map[string]bool{}},
+		CurrentTarget: func() domain.Target { return domain.Target{ID: testMachineName} },
+		VersionSystem: func(context.Context) (string, error) {
 			return version, nil
 		},
-		ProbarSSH: func(context.Context, netip.Addr) bool {
-			return sshAbierto
+		TestSSH: func(context.Context, netip.Addr) bool {
+			return sshOpen
 		},
 	})
 }
 
-// TestDiagnosticoSenalaSSHYCredenciales comprueba los problemas y las
+// TestDiagnosticsIndicatesSSHYCredentials comprueba los problemas y las
 // sugerencias de una VM accesible por red pero sin SSH.
-func TestDiagnosticoSenalaSSHYCredenciales(t *testing.T) {
+func TestDiagnosticsIndicatesSSHYCredentials(t *testing.T) {
 	t.Parallel()
 
-	maquina := &stubMachine{
-		addr:    netip.MustParseAddr(ipPrueba),
+	machine := &stubMachine{
+		addr:    netip.MustParseAddr(ipTests),
 		state:   domain.StateRunning,
 		network: domain.NetworkBridged,
 		guest: domain.GuestAdditions{
 			Version:     "6.0.0 r127566",
 			RunLevel:    2,
-			LoggedUsers: []string{nombreJorge},
+			LoggedUsers: []string{nameJorge},
 		},
 	}
 
-	informe, err := nuevoDiagnosticoDePrueba(t, maquina, false, versionAnfitrionPrueba).Obtener(context.Background())
+	report, err := newDiagnosticsOfTests(t, machine, false, versionHostTests).Get(context.Background())
 	if err != nil {
 		t.Fatalf("Obtener() error = %v", err)
 	}
 
-	if informe.VM != nombreDebian || informe.IP.String() != ipPrueba {
-		t.Errorf("informe = %+v, want %s en %s", informe, nombreDebian, ipPrueba)
+	if report.VM != testMachineName || report.IP.String() != ipTests {
+		t.Errorf("informe = %+v, want %s en %s", report, testMachineName, ipTests)
 	}
 
-	if informe.SSHAbierto {
+	if report.SSHOpen {
 		t.Error("SSHAbierto = true, want false")
 	}
 
-	if informe.UsuarioSugerido != nombreJorge {
-		t.Errorf("UsuarioSugerido = %q, want %q", informe.UsuarioSugerido, nombreJorge)
+	if report.UserSugerido != nameJorge {
+		t.Errorf("UsuarioSugerido = %q, want %q", report.UserSugerido, nameJorge)
 	}
 
-	if len(informe.Problemas) < 2 {
-		t.Errorf("Problemas = %v, want SSH y versión", informe.Problemas)
+	if len(report.Problemas) < 2 {
+		t.Errorf("Problemas = %v, want SSH y versión", report.Problemas)
 	}
 
-	if len(informe.Sugerencias) == 0 {
+	if len(report.Sugerencias) == 0 {
 		t.Error("Sugerencias vacías, want al menos una")
 	}
 }
 
-// TestDiagnosticoSenalaNAT comprueba el aviso de red NAT.
-func TestDiagnosticoSenalaNAT(t *testing.T) {
+// TestDiagnosticsIndicatesNAT comprueba el aviso de red NAT.
+func TestDiagnosticsIndicatesNAT(t *testing.T) {
 	t.Parallel()
 
-	maquina := &stubMachine{
-		addr:    netip.MustParseAddr(ipPrueba),
+	machine := &stubMachine{
+		addr:    netip.MustParseAddr(ipTests),
 		state:   domain.StateRunning,
 		network: domain.NetworkNAT,
-		guest:   domain.GuestAdditions{Version: versionAnfitrionPrueba, RunLevel: 2},
+		guest:   domain.GuestAdditions{Version: versionHostTests, RunLevel: 2},
 	}
 
-	informe, err := nuevoDiagnosticoDePrueba(t, maquina, true, versionAnfitrionPrueba).Obtener(context.Background())
+	report, err := newDiagnosticsOfTests(t, machine, true, versionHostTests).Get(context.Background())
 	if err != nil {
 		t.Fatalf("Obtener() error = %v", err)
 	}
 
-	encontrado := false
+	found := false
 
-	for _, problema := range informe.Problemas {
+	for _, problema := range report.Problemas {
 		if problema == "La interfaz está en modo nat; el anfitrión no alcanza esa red." {
-			encontrado = true
+			found = true
 		}
 	}
 
-	if !encontrado {
-		t.Errorf("Problemas = %v, want el aviso de NAT", informe.Problemas)
+	if !found {
+		t.Errorf("Problemas = %v, want el aviso de NAT", report.Problemas)
 	}
 }
 
-// TestDiagnosticoSinMaquina comprueba la consola sin vínculo.
-func TestDiagnosticoSinMaquina(t *testing.T) {
+// TestDiagnosticsWithoutMachine comprueba la consola sin vínculo.
+func TestDiagnosticsWithoutMachine(t *testing.T) {
 	t.Parallel()
 
-	servicio := NuevoDiagnostico(&ConfigDiagnostico{
-		Maquina:  &stubMachine{},
-		Objetivo: func() domain.Target { return domain.Target{} },
+	service := NewDiagnostics(&DiagnosticsConfig{
+		Machine:       &stubMachine{},
+		CurrentTarget: func() domain.Target { return domain.Target{} },
 	})
 
-	if _, err := servicio.Obtener(context.Background()); !errors.Is(err, ErrSinMaquina) {
+	if _, err := service.Get(context.Background()); !errors.Is(err, ErrNoMachine) {
 		t.Fatalf("Obtener() error = %v, want ErrSinMaquina", err)
 	}
 }

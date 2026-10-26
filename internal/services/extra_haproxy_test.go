@@ -10,26 +10,26 @@ import (
 	"testing"
 )
 
-// TestHaproxyErrorAlLeerLaConfiguracion propaga el fallo de lectura.
-func TestHaproxyErrorAlLeerLaConfiguracion(t *testing.T) {
+// TestHaproxyErrorToReadConfig propaga el fallo de lectura.
+func TestHaproxyErrorToReadConfig(t *testing.T) {
 	t.Parallel()
 
-	conError := &stubSession{errs: []error{errors.New("cat falló")}}
-	haproxy := nuevoHaproxyDePrueba(conError, nil)
+	withError := &stubSession{errs: []error{errors.New("cat falló")}}
+	haproxy := newHAProxyForTest(withError, nil)
 
-	if _, err := haproxy.Agregar(context.Background(), ipServidorNuevo, 9090); err == nil {
+	if _, err := haproxy.Add(context.Background(), ipServerNew, 9090); err == nil {
 		t.Error("Agregar() error = nil, want el fallo de lectura")
 	}
 
-	otro := &stubSession{errs: []error{errors.New("cat falló")}}
-	if _, err := nuevoHaproxyDePrueba(otro, nil).Eliminar(context.Background(), ipServidorPrueba, 8080); err == nil {
+	other := &stubSession{errs: []error{errors.New("cat falló")}}
+	if _, err := newHAProxyForTest(other, nil).Delete(context.Background(), ipServerTests, 8080); err == nil {
 		t.Error("Eliminar() error = nil, want el fallo de lectura")
 	}
 }
 
-// TestParsearServidoresIgnoraLineasAjenas descarta lo que no es un
+// TestParseServersIgnoresLinesForeign descarta lo que no es un
 // servidor con destino válido.
-func TestParsearServidoresIgnoraLineasAjenas(t *testing.T) {
+func TestParseServersIgnoresLinesForeign(t *testing.T) {
 	t.Parallel()
 
 	config := "backend app\n" +
@@ -38,41 +38,41 @@ func TestParsearServidoresIgnoraLineasAjenas(t *testing.T) {
 		"    balance roundrobin\n" +
 		"    server srv1 192.168.1.61:8080 check\n"
 
-	servidores, encontrado := parsearServidores(config)
-	if !encontrado || len(servidores) != 1 {
-		t.Fatalf("parsearServidores() = %+v, %v, want un servidor", servidores, encontrado)
+	servers, found := parseServers(config)
+	if !found || len(servers) != 1 {
+		t.Fatalf("parsearServidores() = %+v, %v, want un servidor", servers, found)
 	}
 }
 
-// TestServidoresSinBackend devuelve el error de configuración.
-func TestServidoresSinBackend(t *testing.T) {
+// TestServersWithoutBackend devuelve el error de configuración.
+func TestServersWithoutBackend(t *testing.T) {
 	t.Parallel()
 
 	config := "global\n    daemon\n"
 
-	if _, err := agregarServidor(config, ipServidorNuevo, 9090); !errors.Is(err, ErrBackendNoEncontrado) {
+	if _, err := addServer(config, ipServerNew, 9090); !errors.Is(err, ErrBackendNotFound) {
 		t.Errorf("agregarServidor() error = %v, want ErrBackendNoEncontrado", err)
 	}
 
-	if _, err := quitarServidor(config, ipServidorNuevo, 9090); !errors.Is(err, ErrBackendNoEncontrado) {
+	if _, err := removeServer(config, ipServerNew, 9090); !errors.Is(err, ErrBackendNotFound) {
 		t.Errorf("quitarServidor() error = %v, want ErrBackendNoEncontrado", err)
 	}
 }
 
-// TestServidorCoincideRechazaLineasAjenas compara solo líneas «server».
-func TestServidorCoincideRechazaLineasAjenas(t *testing.T) {
+// TestServerCoincideRejectsLinesForeign compara solo líneas «server».
+func TestServerCoincideRejectsLinesForeign(t *testing.T) {
 	t.Parallel()
 
-	casos := []string{
+	testCases := []string{
 		"",
 		"server",
 		"balance roundrobin",
 		"server srv sin-direccion",
 	}
 
-	for _, linea := range casos {
-		if servidorCoincide(linea, ipServidorPrueba, 8080) {
-			t.Errorf("servidorCoincide(%q) = true, want false", linea)
+	for _, line := range testCases {
+		if serverMatches(line, ipServerTests, 8080) {
+			t.Errorf("servidorCoincide(%q) = true, want false", line)
 		}
 	}
 }
@@ -82,11 +82,11 @@ func TestServidorCoincideRechazaLineasAjenas(t *testing.T) {
 func TestLimitesBackend(t *testing.T) {
 	t.Parallel()
 
-	casos := []struct {
-		nombre string
+	testCases := []struct {
+		name   string
 		config string
-		inicio int
-		fin    int
+		start  int
+		end    int
 	}{
 		{
 			"otra sección",
@@ -110,13 +110,13 @@ func TestLimitesBackend(t *testing.T) {
 		},
 	}
 
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			inicio, fin := limitesBackend(strings.Split(caso.config, "\n"))
-			if inicio != caso.inicio || fin != caso.fin {
-				t.Errorf("limitesBackend() = %d, %d, want %d, %d", inicio, fin, caso.inicio, caso.fin)
+			start, end := backendLimits(strings.Split(testCase.config, "\n"))
+			if start != testCase.start || end != testCase.end {
+				t.Errorf("limitesBackend() = %d, %d, want %d, %d", start, end, testCase.start, testCase.end)
 			}
 		})
 	}

@@ -6,9 +6,7 @@
 import "consola-vm"
 ```
 
-Consola para Administración de Máquinas Virtuales GNU/Linux.
-
-Punto de entrada de la aplicación web: registra el servidor HTTP, los handlers de cada módulo y sirve los archivos estáticos y los módulos HTML de la interfaz. Es el único lugar que conoce a la vez los puertos del núcleo y sus adaptadores concretos.
+Package main arranca la consola de administración de máquinas virtuales GNU/Linux: registra el servidor HTTP, los handlers de cada módulo y la interfaz web, y es el único lugar que conoce a la vez los puertos del núcleo y sus adaptadores concretos.
 
 ## Index
 

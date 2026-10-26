@@ -13,20 +13,20 @@ import (
 
 // usuarioConsola y passwordConsola son las credenciales de las pruebas.
 const (
-	usuarioConsola  = "jorge"
-	usuarioAndrey   = "andrey"
-	passwordConsola = "una-clave-larga" // #nosec G101 -- contraseña de prueba.
-	msgConfigurarOK = "Configurar() error = %v, want nil"
+	userConsole     = "jorge"
+	userAndrey      = "andrey"
+	passwordConsole = "una-clave-larga" // #nosec G101 -- contraseña de prueba.
+	msgConfigureOK  = "Configurar() error = %v, want nil"
 )
 
-// TestConsolaSinCuenta comprueba el estado inicial.
-func TestConsolaSinCuenta(t *testing.T) {
+// TestConsoleWithoutAccount comprueba el estado inicial.
+func TestConsoleWithoutAccount(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
-	consola := NuevoConsola(almacen)
+	store, _, _ := newTestDB(t)
+	console := NewConsole(store)
 
-	configurada, err := consola.Configurada()
+	configurada, err := console.IsConfigured()
 	if err != nil {
 		t.Fatalf("Configurada() error = %v, want nil", err)
 	}
@@ -35,177 +35,177 @@ func TestConsolaSinCuenta(t *testing.T) {
 		t.Error("Configurada() = true, want false en una base nueva")
 	}
 
-	if _, ok := consola.Validar(""); ok {
+	if _, ok := console.Validate(""); ok {
 		t.Error("Validar() = true, want false sin cookie")
 	}
 
-	if _, ok := consola.Validar("jorge|9999999999|firma"); ok {
+	if _, ok := console.Validate("jorge|9999999999|firma"); ok {
 		t.Error("Validar() = true, want false con una firma inventada")
 	}
 }
 
-// TestConsolaConfiguraYAutentica crea la cuenta y comprueba el acceso.
-func TestConsolaConfiguraYAutentica(t *testing.T) {
+// TestConsoleConfiguraYAuthenticates crea la cuenta y comprueba el acceso.
+func TestConsoleConfiguraYAuthenticates(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
-	consola := NuevoConsola(almacen)
+	store, _, _ := newTestDB(t)
+	console := NewConsole(store)
 	ctx := context.Background()
 
-	if err := consola.Configurar(ctx, usuarioConsola, passwordConsola); err != nil {
-		t.Fatalf(msgConfigurarOK, err)
+	if err := console.Configure(ctx, userConsole, passwordConsole); err != nil {
+		t.Fatalf(msgConfigureOK, err)
 	}
 
-	configurada, err := consola.Configurada()
+	configurada, err := console.IsConfigured()
 	if err != nil || !configurada {
 		t.Fatalf("Configurada() = %v, %v, want true", configurada, err)
 	}
 
-	casos := []struct {
-		nombre   string
-		usuario  string
+	testCases := []struct {
+		name     string
+		user     string
 		password string
-		esperado bool
+		expected bool
 	}{
-		{"correctas", usuarioConsola, passwordConsola, true},
-		{"contraseña incorrecta", usuarioConsola, "otra-clave", false},
-		{"usuario inexistente", usuarioAndrey, passwordConsola, false},
-		{"usuario inválido", "Jorge", passwordConsola, false},
-		{"contraseña vacía", usuarioConsola, "", false},
+		{"correctas", userConsole, passwordConsole, true},
+		{"contraseña incorrecta", userConsole, "otra-clave", false},
+		{"usuario inexistente", userAndrey, passwordConsole, false},
+		{"usuario inválido", "Jorge", passwordConsole, false},
+		{"contraseña vacía", userConsole, "", false},
 	}
 
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			ok, err := consola.Autenticar(ctx, caso.usuario, caso.password)
+			ok, err := console.Authenticate(ctx, testCase.user, testCase.password)
 			if err != nil {
 				t.Fatalf("Autenticar() error = %v, want nil", err)
 			}
 
-			if ok != caso.esperado {
-				t.Errorf("Autenticar() = %v, want %v", ok, caso.esperado)
+			if ok != testCase.expected {
+				t.Errorf("Autenticar() = %v, want %v", ok, testCase.expected)
 			}
 		})
 	}
 }
 
-// TestConsolaDatosInvalidos rechaza usuarios y contraseñas fuera de las
+// TestConsoleDataInvalid rechaza usuarios y contraseñas fuera de las
 // reglas antes de tocar la base.
-func TestConsolaDatosInvalidos(t *testing.T) {
+func TestConsoleDataInvalid(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
-	consola := NuevoConsola(almacen)
+	store, _, _ := newTestDB(t)
+	console := NewConsole(store)
 
-	casos := []struct {
-		nombre   string
-		usuario  string
+	testCases := []struct {
+		name     string
+		user     string
 		password string
 	}{
-		{"usuario con mayúscula", "Jorge", passwordConsola},
-		{"usuario corto", "ab", passwordConsola},
-		{"usuario con espacio", "jor ge", passwordConsola},
-		{"contraseña corta", usuarioConsola, "corta"},
-		{"contraseña con NUL", usuarioConsola, "una\x00clave"},
-		{"contraseña larga", usuarioConsola, strings.Repeat("a", maxPasswordConsola+1)},
+		{"usuario con mayúscula", "Jorge", passwordConsole},
+		{"usuario corto", "ab", passwordConsole},
+		{"usuario con espacio", "jor ge", passwordConsole},
+		{"contraseña corta", userConsole, "corta"},
+		{"contraseña con NUL", userConsole, "una\x00clave"},
+		{"contraseña larga", userConsole, strings.Repeat("a", maxPasswordConsole+1)},
 	}
 
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := consola.Configurar(context.Background(), caso.usuario, caso.password)
-			if !errors.Is(err, ErrDatosConsola) {
+			err := console.Configure(context.Background(), testCase.user, testCase.password)
+			if !errors.Is(err, ErrConsoleData) {
 				t.Errorf("Configurar() error = %v, want ErrDatosConsola", err)
 			}
 		})
 	}
 }
 
-// TestConsolaSoloUnaCuenta impide crear una segunda cuenta.
-func TestConsolaSoloUnaCuenta(t *testing.T) {
+// TestConsoleSoloAccount impide crear una segunda cuenta.
+func TestConsoleSoloAccount(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
-	consola := NuevoConsola(almacen)
+	store, _, _ := newTestDB(t)
+	console := NewConsole(store)
 	ctx := context.Background()
 
-	if err := consola.Configurar(ctx, usuarioConsola, passwordConsola); err != nil {
-		t.Fatalf(msgConfigurarOK, err)
+	if err := console.Configure(ctx, userConsole, passwordConsole); err != nil {
+		t.Fatalf(msgConfigureOK, err)
 	}
 
-	err := consola.Configurar(ctx, usuarioAndrey, passwordConsola)
-	if !errors.Is(err, ErrConsolaConfigurada) {
+	err := console.Configure(ctx, userAndrey, passwordConsole)
+	if !errors.Is(err, ErrConsoleConfigured) {
 		t.Errorf("Configurar() error = %v, want ErrConsolaConfigurada", err)
 	}
 }
 
-// TestConsolaSesionFirmada comprueba la emisión y la validación de la
+// TestConsoleSessionFirmada comprueba la emisión y la validación de la
 // cookie, incluida su vigencia.
-func TestConsolaSesionFirmada(t *testing.T) {
+func TestConsoleSessionFirmada(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
-	consola := NuevoConsola(almacen)
+	store, _, _ := newTestDB(t)
+	console := NewConsole(store)
 
-	if err := consola.Configurar(context.Background(), usuarioConsola, passwordConsola); err != nil {
-		t.Fatalf(msgConfigurarOK, err)
+	if err := console.Configure(context.Background(), userConsole, passwordConsole); err != nil {
+		t.Fatalf(msgConfigureOK, err)
 	}
 
-	token, err := consola.AbrirSesion(usuarioConsola)
+	token, err := console.OpenSession(userConsole)
 	if err != nil {
 		t.Fatalf("AbrirSesion() error = %v, want nil", err)
 	}
 
-	usuario, ok := consola.Validar(token)
-	if !ok || usuario != usuarioConsola {
-		t.Fatalf("Validar() = %q, %v, want %q, true", usuario, ok, usuarioConsola)
+	user, ok := console.Validate(token)
+	if !ok || user != userConsole {
+		t.Fatalf("Validar() = %q, %v, want %q, true", user, ok, userConsole)
 	}
 
-	partes := strings.Split(token, "|")
-	manipulado := partes[0] + "|" + partes[1] + "|" + strings.Repeat("0", len(partes[2]))
+	parts := strings.Split(token, "|")
+	manipulado := parts[0] + "|" + parts[1] + "|" + strings.Repeat("0", len(parts[2]))
 
-	if _, ok := consola.Validar(manipulado); ok {
+	if _, ok := console.Validate(manipulado); ok {
 		t.Error("Validar() = true, want false con la firma alterada")
 	}
 
-	if _, ok := consola.Validar("solo-dos|partes"); ok {
+	if _, ok := console.Validate("solo-dos|partes"); ok {
 		t.Error("Validar() = true, want false con formato incompleto")
 	}
 
 	// Doce horas después la sesión vence.
-	consola.ahora = func() time.Time { return time.Now().Add(VigenciaSesionConsola + time.Minute) }
+	console.now = func() time.Time { return time.Now().Add(SessionLifetime + time.Minute) }
 
-	if _, ok := consola.Validar(token); ok {
+	if _, ok := console.Validate(token); ok {
 		t.Error("Validar() = true, want false con la sesión vencida")
 	}
 }
 
-// TestConsolaSecretoPersistente valida una cookie emitida por otra
+// TestConsoleSecretPersistente valida una cookie emitida por otra
 // instancia de la consola sobre la misma base.
-func TestConsolaSecretoPersistente(t *testing.T) {
+func TestConsoleSecretPersistente(t *testing.T) {
 	t.Parallel()
 
-	almacen, rutaBD, rutaClave := nuevaBaseDePrueba(t)
-	primera := NuevoConsola(almacen)
+	store, pathBD, pathKey := newTestDB(t)
+	first := NewConsole(store)
 
-	if err := primera.Configurar(context.Background(), usuarioConsola, passwordConsola); err != nil {
-		t.Fatalf(msgConfigurarOK, err)
+	if err := first.Configure(context.Background(), userConsole, passwordConsole); err != nil {
+		t.Fatalf(msgConfigureOK, err)
 	}
 
-	token, err := primera.AbrirSesion(usuarioConsola)
+	token, err := first.OpenSession(userConsole)
 	if err != nil {
 		t.Fatalf("AbrirSesion() error = %v, want nil", err)
 	}
 
-	otro, err := NuevoAlmacen(rutaBD, rutaClave)
+	other, err := NewStore(pathBD, pathKey)
 	if err != nil {
 		t.Fatalf("NuevoAlmacen() error = %v, want nil", err)
 	}
 
-	usuario, ok := NuevoConsola(otro).Validar(token)
-	if !ok || usuario != usuarioConsola {
-		t.Errorf("Validar() tras reabrir la base = %q, %v, want %q, true", usuario, ok, usuarioConsola)
+	user, ok := NewConsole(other).Validate(token)
+	if !ok || user != userConsole {
+		t.Errorf("Validar() tras reabrir la base = %q, %v, want %q, true", user, ok, userConsole)
 	}
 }

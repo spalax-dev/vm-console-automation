@@ -18,229 +18,235 @@ import (
 	"consola-vm/internal/core/ports"
 )
 
-// Diagnostico reúne el estado de una máquina para explicar por qué no se
+// Diagnostics reúne el estado de una máquina para explicar por qué no se
 // puede registrar.
-type Diagnostico struct {
+type Diagnostics struct {
 	// VM es la máquina vinculada.
 	VM string
-	// Estado es el estado de encendido.
-	Estado domain.MachineState
-	// Red es el modo de la primera interfaz.
-	Red domain.NetworkMode
+	// State es el estado de encendido.
+	State domain.MachineState
+	// Network es el modo de la primera interfaz.
+	Network domain.NetworkMode
 	// IP es la dirección descubierta.
 	IP netip.Addr
-	// Registrada indica si ya está registrada.
-	Registrada bool
+	// IsRegistered indica si ya está registrada.
+	IsRegistered bool
 	// GuestAdditionsVersion es la versión que informa la VM.
 	GuestAdditionsVersion string
 	// GuestAdditionsRunLevel es el nivel de Guest Additions.
 	GuestAdditionsRunLevel int
-	// UsuarioSugerido es el primer usuario con sesión iniciada.
-	UsuarioSugerido string
-	// SSHAbierto indica si el puerto 22 responde.
-	SSHAbierto bool
+	// UserSugerido es el primer usuario con sesión iniciada.
+	UserSugerido string
+	// SSHOpen indica si el puerto 22 responde.
+	SSHOpen bool
 	// Problemas describe lo que impide el registro.
 	Problemas []string
 	// Sugerencias indica qué hacer para resolverlo.
 	Sugerencias []string
 }
 
-// ConfigDiagnostico reúne las dependencias del diagnóstico.
-type ConfigDiagnostico struct {
-	Maquina        ports.Machine
-	Registro       Registro
-	Objetivo       func() domain.Target
-	VersionSistema func(ctx context.Context) (string, error)
-	ProbarSSH      func(ctx context.Context, direccion netip.Addr) bool
+// DiagnosticsConfig reúne las dependencias del diagnóstico.
+type DiagnosticsConfig struct {
+	// Machine consulta el estado, la red, la dirección y Guest Additions.
+	Machine ports.Machine
+	// Registration informa si la máquina ya está registrada en la consola.
+	Registration Registration
+	// CurrentTarget devuelve la máquina vinculada.
+	CurrentTarget func() domain.Target
+	// VersionSystem devuelve la versión de VirtualBox del anfitrión.
+	VersionSystem func(ctx context.Context) (string, error)
+	// TestSSH comprueba si el puerto 22 responde; si es nil se usa la
+	// prueba TCP por omisión.
+	TestSSH func(ctx context.Context, address netip.Addr) bool
 }
 
-// DiagnosticoServicio explica el estado de la máquina vinculada.
-type DiagnosticoServicio struct {
-	maquina        ports.Machine
-	registro       Registro
-	objetivo       func() domain.Target
-	versionSistema func(ctx context.Context) (string, error)
-	probarSSH      func(ctx context.Context, direccion netip.Addr) bool
+// DiagnosticsService explica el estado de la máquina vinculada.
+type DiagnosticsService struct {
+	machine       ports.Machine
+	registration  Registration
+	target        func() domain.Target
+	versionSystem func(ctx context.Context) (string, error)
+	testSSH       func(ctx context.Context, address netip.Addr) bool
 }
 
-// NuevoDiagnostico construye el servicio.
-func NuevoDiagnostico(config *ConfigDiagnostico) *DiagnosticoServicio {
-	probar := config.ProbarSSH
-	if probar == nil {
-		probar = probarPuertoSSH
+// NewDiagnostics construye el servicio.
+func NewDiagnostics(config *DiagnosticsConfig) *DiagnosticsService {
+	test := config.TestSSH
+	if test == nil {
+		test = testPortSSH
 	}
 
-	return &DiagnosticoServicio{
-		maquina:        config.Maquina,
-		registro:       config.Registro,
-		objetivo:       config.Objetivo,
-		versionSistema: config.VersionSistema,
-		probarSSH:      probar,
+	return &DiagnosticsService{
+		machine:       config.Machine,
+		registration:  config.Registration,
+		target:        config.CurrentTarget,
+		versionSystem: config.VersionSystem,
+		testSSH:       test,
 	}
 }
 
-// Obtener devuelve el diagnóstico de la máquina vinculada.
-func (d *DiagnosticoServicio) Obtener(ctx context.Context) (Diagnostico, error) {
-	objetivo := d.objetivo()
-	if objetivo.ID == "" {
-		return Diagnostico{}, ErrSinMaquina
+// Get devuelve el diagnóstico de la máquina vinculada.
+func (d *DiagnosticsService) Get(ctx context.Context) (Diagnostics, error) {
+	target := d.target()
+	if target.ID == "" {
+		return Diagnostics{}, ErrNoMachine
 	}
 
-	informe := Diagnostico{VM: objetivo.ID}
+	report := Diagnostics{VM: target.ID}
 
-	if d.registro != nil {
-		informe.Registrada = d.registro.Registrada(objetivo.ID)
+	if d.registration != nil {
+		report.IsRegistered = d.registration.IsRegistered(target.ID)
 	}
 
-	estado, err := d.maquina.State(ctx, objetivo)
+	state, err := d.machine.State(ctx, target)
 	if err != nil {
-		return Diagnostico{}, fmt.Errorf(msgEstadoMaquina, err)
+		return Diagnostics{}, fmt.Errorf(msgStateMachine, err)
 	}
 
-	informe.Estado = estado
+	report.State = state
 
-	if red, err := d.maquina.Network(ctx, objetivo); err == nil {
-		informe.Red = red
+	if network, err := d.machine.Network(ctx, target); err == nil {
+		report.Network = network
 	}
 
-	if guest, err := d.maquina.GuestAdditions(ctx, objetivo); err == nil {
-		informe.GuestAdditionsVersion = guest.Version
-		informe.GuestAdditionsRunLevel = guest.RunLevel
+	if guest, err := d.machine.GuestAdditions(ctx, target); err == nil {
+		report.GuestAdditionsVersion = guest.Version
+		report.GuestAdditionsRunLevel = guest.RunLevel
 
 		if len(guest.LoggedUsers) > 0 {
-			informe.UsuarioSugerido = guest.LoggedUsers[0]
+			report.UserSugerido = guest.LoggedUsers[0]
 		}
 	}
 
-	if estado == domain.StateRunning {
-		if direccion, err := d.maquina.Address(ctx, objetivo); err == nil {
-			informe.IP = direccion
-			informe.SSHAbierto = d.probarSSH(ctx, direccion)
+	if state == domain.StateRunning {
+		if address, err := d.machine.Address(ctx, target); err == nil {
+			report.IP = address
+			report.SSHOpen = d.testSSH(ctx, address)
 		}
 	}
 
-	d.evaluar(ctx, &informe)
+	d.evaluate(ctx, &report)
 
-	return informe, nil
+	return report, nil
 }
 
-// evaluar llena los problemas y las sugerencias del informe.
-func (d *DiagnosticoServicio) evaluar(ctx context.Context, informe *Diagnostico) {
-	d.evaluarEstado(informe)
-	d.evaluarRed(informe)
-	d.evaluarSSH(informe)
-	d.evaluarGuest(ctx, informe)
+// evaluate llena los problemas y las sugerencias del informe.
+func (d *DiagnosticsService) evaluate(ctx context.Context, report *Diagnostics) {
+	d.evaluateState(report)
+	d.evaluateNetwork(report)
+	d.evaluateSSH(report)
+	d.evaluateGuest(ctx, report)
 
-	if informe.UsuarioSugerido != "" {
-		informe.Sugerencias = append(informe.Sugerencias,
-			"Prueba el registro con el usuario "+informe.UsuarioSugerido+".")
+	if report.UserSugerido != "" {
+		report.Sugerencias = append(report.Sugerencias,
+			"Prueba el registro con el usuario "+report.UserSugerido+".")
 	}
 
-	if informe.Registrada {
-		informe.Problemas = append(informe.Problemas, "La máquina ya está registrada.")
-		informe.Sugerencias = append(informe.Sugerencias, "No necesitas registrarla de nuevo.")
+	if report.IsRegistered {
+		report.Problemas = append(report.Problemas, "La máquina ya está registrada.")
+		report.Sugerencias = append(report.Sugerencias, "No necesitas registrarla de nuevo.")
 	}
 }
 
-// evaluarEstado avisa si la máquina está apagada.
-func (d *DiagnosticoServicio) evaluarEstado(informe *Diagnostico) {
-	if informe.Estado == domain.StateRunning {
+// evaluateState avisa si la máquina está apagada.
+func (d *DiagnosticsService) evaluateState(report *Diagnostics) {
+	if report.State == domain.StateRunning {
 		return
 	}
 
-	informe.Problemas = append(informe.Problemas, "La máquina está apagada.")
-	informe.Sugerencias = append(informe.Sugerencias, "Enciéndela con el botón de encendido del selector.")
+	report.Problemas = append(report.Problemas, "La máquina está apagada.")
+	report.Sugerencias = append(report.Sugerencias, "Enciéndela con el botón de encendido del selector.")
 }
 
-// evaluarRed avisa si el adaptador no es alcanzable.
-func (d *DiagnosticoServicio) evaluarRed(informe *Diagnostico) {
-	switch informe.Red {
+// evaluateNetwork avisa si el adaptador no es alcanzable.
+func (d *DiagnosticsService) evaluateNetwork(report *Diagnostics) {
+	switch report.Network {
 	case domain.NetworkNAT, domain.NetworkInternal, domain.NetworkNone:
-		informe.Problemas = append(informe.Problemas,
-			"La interfaz está en modo "+string(informe.Red)+"; el anfitrión no alcanza esa red.")
-		informe.Sugerencias = append(informe.Sugerencias,
+		report.Problemas = append(report.Problemas,
+			"La interfaz está en modo "+string(report.Network)+"; el anfitrión no alcanza esa red.")
+		report.Sugerencias = append(report.Sugerencias,
 			"Cambia el adaptador a modo puente u host-only en VirtualBox.")
 	case domain.NetworkBridged, domain.NetworkHostOnly, domain.NetworkUnknown:
 	}
 }
 
-// evaluarSSH avisa si el puerto 22 no responde.
-func (d *DiagnosticoServicio) evaluarSSH(informe *Diagnostico) {
-	if informe.Estado != domain.StateRunning || !informe.IP.IsValid() || informe.SSHAbierto {
+// evaluateSSH avisa si el puerto 22 no responde.
+func (d *DiagnosticsService) evaluateSSH(report *Diagnostics) {
+	if report.State != domain.StateRunning || !report.IP.IsValid() || report.SSHOpen {
 		return
 	}
 
-	informe.Problemas = append(informe.Problemas,
-		"SSH no responde en "+informe.IP.String()+":22.")
-	informe.Sugerencias = append(informe.Sugerencias,
+	report.Problemas = append(report.Problemas,
+		"SSH no responde en "+report.IP.String()+":22.")
+	report.Sugerencias = append(report.Sugerencias,
 		"Instala openssh-server dentro de la VM o actualiza Guest Additions.")
 }
 
-// evaluarGuest avisa de problemas de Guest Additions y de versión.
-func (d *DiagnosticoServicio) evaluarGuest(ctx context.Context, informe *Diagnostico) {
-	if informe.Estado != domain.StateRunning {
+// evaluateGuest avisa de problemas de Guest Additions y de versión.
+func (d *DiagnosticsService) evaluateGuest(ctx context.Context, report *Diagnostics) {
+	if report.State != domain.StateRunning {
 		return
 	}
 
-	if informe.GuestAdditionsVersion == "" {
-		informe.Problemas = append(informe.Problemas, "Guest Additions no informa su versión.")
-		informe.Sugerencias = append(informe.Sugerencias, "Instala o actualiza Guest Additions en la VM.")
+	if report.GuestAdditionsVersion == "" {
+		report.Problemas = append(report.Problemas, "Guest Additions no informa su versión.")
+		report.Sugerencias = append(report.Sugerencias, "Instala o actualiza Guest Additions en la VM.")
 
 		return
 	}
 
-	if informe.GuestAdditionsRunLevel < 2 {
-		informe.Problemas = append(informe.Problemas,
-			"Guest Additions no está listo (nivel "+strconv.Itoa(informe.GuestAdditionsRunLevel)+").")
-		informe.Sugerencias = append(informe.Sugerencias, "Reinicia la VM para completar Guest Additions.")
+	if report.GuestAdditionsRunLevel < 2 {
+		report.Problemas = append(report.Problemas,
+			"Guest Additions no está listo (nivel "+strconv.Itoa(report.GuestAdditionsRunLevel)+").")
+		report.Sugerencias = append(report.Sugerencias, "Reinicia la VM para completar Guest Additions.")
 	}
 
-	if d.versionSistema == nil {
+	if d.versionSystem == nil {
 		return
 	}
 
-	version, err := d.versionSistema(ctx)
-	if err != nil || mismaVersionMayor(version, informe.GuestAdditionsVersion) {
+	version, err := d.versionSystem(ctx)
+	if err != nil || sameVersionGreater(version, report.GuestAdditionsVersion) {
 		return
 	}
 
-	informe.Problemas = append(informe.Problemas,
-		"Guest Additions "+informe.GuestAdditionsVersion+" no coincide con VirtualBox "+version+".")
-	informe.Sugerencias = append(informe.Sugerencias,
+	report.Problemas = append(report.Problemas,
+		"Guest Additions "+report.GuestAdditionsVersion+" no coincide con VirtualBox "+version+".")
+	report.Sugerencias = append(report.Sugerencias,
 		"Actualiza Guest Additions a la versión del anfitrión.")
 }
 
-// mismaVersionMayor compara el número mayor de dos versiones.
-func mismaVersionMayor(anfitrion, invitada string) bool {
-	mayor := func(version string) string {
-		partes := strings.SplitN(strings.TrimSpace(version), ".", 2)
-		return partes[0]
+// sameVersionGreater compara el número mayor de dos versiones.
+func sameVersionGreater(host, invitada string) bool {
+	greater := func(version string) string {
+		parts := strings.SplitN(strings.TrimSpace(version), ".", 2)
+		return parts[0]
 	}
 
-	return mayor(anfitrion) == mayor(invitada)
+	return greater(host) == greater(invitada)
 }
 
-// abrirConexion abre la conexión TCP de la prueba; es una variable para
+// openConnection abre la conexión TCP de la prueba; es una variable para
 // poder simular el resultado en las pruebas.
-var abrirConexion = func(ctx context.Context, direccion string) (net.Conn, error) {
+var openConnection = func(ctx context.Context, address string) (net.Conn, error) {
 	dialer := net.Dialer{Timeout: 2 * time.Second}
 
-	return dialer.DialContext(ctx, "tcp", direccion)
+	return dialer.DialContext(ctx, "tcp", address)
 }
 
-// probarPuertoSSH comprueba si el puerto 22 acepta conexiones.
-func probarPuertoSSH(ctx context.Context, direccion netip.Addr) bool {
-	conexion, err := abrirConexion(ctx, net.JoinHostPort(direccion.String(), "22"))
+// testPortSSH comprueba si el puerto 22 acepta conexiones.
+func testPortSSH(ctx context.Context, address netip.Addr) bool {
+	connection, err := openConnection(ctx, net.JoinHostPort(address.String(), "22"))
 	if err != nil {
 		return false
 	}
 
-	if err := conexion.Close(); err != nil {
-		slog.Warn("cerrar la prueba SSH", claveErrorLog, err)
+	if err := connection.Close(); err != nil {
+		slog.Warn("cerrar la prueba SSH", logErrorKey, err)
 	}
 
 	return true
 }
 
-// ErrDiagnosticoNoDisponible envuelve un fallo del diagnóstico.
-var ErrDiagnosticoNoDisponible = errors.New("no se pudo diagnosticar la máquina")
+// ErrDiagnosticsUnavailable envuelve un fallo del diagnóstico.
+var ErrDiagnosticsUnavailable = errors.New("no se pudo diagnosticar la máquina")

@@ -70,6 +70,18 @@ estado, creación de la cuenta, acceso y salida, y su middleware devuelve
 interfaz no monta el armazón hasta que `GET /api/auth/estado` confirma la
 sesión.
 
+## Convenciones de nombres
+
+- Los identificadores de Go ---paquetes, tipos, funciones, métodos, variables,
+  campos y constantes--- se escriben en inglés.
+- Los comentarios, la documentación y los mensajes dirigidos al usuario se
+  escriben en español.
+- Los nombres del contrato JSON y de las rutas de la API se mantienen en
+  español para no romper el cliente; los tipos que los representan usan
+  nombres en inglés con la etiqueta `json` correspondiente.
+- Los nombres de las pruebas y sus datos auxiliares se escriben en inglés; no
+  se usa el nombre de una distribución como sinónimo de máquina virtual.
+
 ## Registro y observabilidad
 
 Cada petición a `/api/` recibe un identificador `X-Request-ID` y se

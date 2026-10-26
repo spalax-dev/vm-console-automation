@@ -13,357 +13,357 @@ import (
 	"consola-vm/internal/services"
 )
 
-// errLectura simula un fallo de lectura de la llave.
-var errLectura = errors.New("fallo de lectura")
+// errRead simula un fallo de lectura de la llave.
+var errRead = errors.New("fallo de lectura")
 
-// stubUsuarios es un servicio de usuarios falso con resultados
+// stubUsers es un servicio de usuarios falso con resultados
 // preprogramados.
-type stubUsuarios struct {
-	lista       []services.Usuario
-	usuario     services.Usuario
-	resultado   services.Resultado
-	err         error
-	nombre      string
-	sudo        bool
-	llaves      bool
-	archivos    bool
-	archivo     string
-	contenido   []byte
-	descargaErr error
-	creados     int
-	eliminados  int
+type stubUsers struct {
+	lists        []services.User
+	user         services.User
+	result       services.Outcome
+	err          error
+	name         string
+	sudo         bool
+	keys         bool
+	files        bool
+	file         string
+	content      []byte
+	downloadsErr error
+	created      int
+	deleted      int
 }
 
-// Listar devuelve la lista preprogramada.
-func (s *stubUsuarios) Listar(context.Context) ([]services.Usuario, error) {
-	return s.lista, s.err
+// List devuelve la lista preprogramada.
+func (s *stubUsers) List(context.Context) ([]services.User, error) {
+	return s.lists, s.err
 }
 
-// Obtener devuelve el usuario preprogramado.
-func (s *stubUsuarios) Obtener(_ context.Context, nombre string) (services.Usuario, error) {
-	s.nombre = nombre
+// Get devuelve el usuario preprogramado.
+func (s *stubUsers) Get(_ context.Context, name string) (services.User, error) {
+	s.name = name
 
-	return s.usuario, s.err
+	return s.user, s.err
 }
 
-// Crear registra los argumentos y devuelve el resultado.
-func (s *stubUsuarios) Crear(_ context.Context, nombre string, sudo, llaves bool) (services.Resultado, error) {
-	s.nombre = nombre
+// Create registra los argumentos y devuelve el resultado.
+func (s *stubUsers) Create(_ context.Context, name string, sudo, keys bool) (services.Outcome, error) {
+	s.name = name
 	s.sudo = sudo
-	s.llaves = llaves
-	s.creados++
+	s.keys = keys
+	s.created++
 
-	return s.resultado, s.err
+	return s.result, s.err
 }
 
-// Eliminar registra los argumentos y devuelve el resultado.
-func (s *stubUsuarios) Eliminar(_ context.Context, nombre string, archivos bool) (services.Resultado, error) {
-	s.nombre = nombre
-	s.archivos = archivos
-	s.eliminados++
+// Delete registra los argumentos y devuelve el resultado.
+func (s *stubUsers) Delete(_ context.Context, name string, files bool) (services.Outcome, error) {
+	s.name = name
+	s.files = files
+	s.deleted++
 
-	return s.resultado, s.err
+	return s.result, s.err
 }
 
-// DescargarLlave devuelve la llave preprogramada.
-func (s *stubUsuarios) DescargarLlave(nombre string) (archivo string, contenido []byte, err error) {
-	s.nombre = nombre
+// DownloadKey devuelve la llave preprogramada.
+func (s *stubUsers) DownloadKey(name string) (file string, content []byte, err error) {
+	s.name = name
 
-	return s.archivo, s.contenido, s.descargaErr
+	return s.file, s.content, s.downloadsErr
 }
 
-// TestUsuariosListar cubre el listado de cuentas.
-func TestUsuariosListar(t *testing.T) {
+// TestUsersList cubre el listado de cuentas.
+func TestUsersList(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubUsuarios{lista: []services.Usuario{
-		{Nombre: usuarioJorge, Sudo: true, UID: 1000, Home: "/home/jorge"},
+	service := &stubUsers{lists: []services.User{
+		{Name: userJorge, Sudo: true, UID: 1000, Home: "/home/jorge"},
 	}}
 
-	rec := ejecutarCaso(t, NuevoUsuarios(servicio).Coleccion, rutaUsuarios, casoPeticion{
-		nombre: casoListar, metodo: http.MethodGet,
+	rec := runTestCase(t, NewUsers(service).Collection, pathUsers, testCaseRequest{
+		name: testCaseList, method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+		t.Fatalf(msgCode, rec.Code, http.StatusOK)
 	}
 
-	var cuerpo listaUsuarios
-	if err := json.Unmarshal(rec.Body.Bytes(), &cuerpo); err != nil {
-		t.Fatalf(msgJSONInvalido, err)
+	var body userList
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf(msgJSONInvalid, err)
 	}
 
-	if len(cuerpo.Usuarios) != 1 || cuerpo.Usuarios[0].Nombre != usuarioJorge {
-		t.Errorf("usuarios = %+v, want jorge", cuerpo.Usuarios)
+	if len(body.Users) != 1 || body.Users[0].Name != userJorge {
+		t.Errorf("usuarios = %+v, want jorge", body.Users)
 	}
 }
 
-// TestUsuariosCrear cubre la creación de una cuenta.
-func TestUsuariosCrear(t *testing.T) {
+// TestUsersCreate cubre la creación de una cuenta.
+func TestUsersCreate(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubUsuarios{resultado: services.Resultado{Mensaje: "Usuario «jorge» creado."}}
+	service := &stubUsers{result: services.Outcome{Message: "Usuario «jorge» creado."}}
 
-	rec := ejecutarCaso(t, NuevoUsuarios(servicio).Coleccion, rutaUsuarios, casoPeticion{
-		nombre: "crear", metodo: http.MethodPost, cuerpo: `{"nombre":"jorge","sudo":true,"llaves":true}`,
+	rec := runTestCase(t, NewUsers(service).Collection, pathUsers, testCaseRequest{
+		name: "crear", method: http.MethodPost, body: `{"nombre":"jorge","sudo":true,"llaves":true}`,
 	})
 
 	if rec.Code != http.StatusCreated {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusCreated)
+		t.Fatalf(msgCode, rec.Code, http.StatusCreated)
 	}
 
-	if got := rec.Header().Get(cabeceraLocation); got != rutaUsuarioJorge {
-		t.Errorf("Location = %q, want %q", got, rutaUsuarioJorge)
+	if got := rec.Header().Get(headerLocation); got != pathUserJorge {
+		t.Errorf("Location = %q, want %q", got, pathUserJorge)
 	}
 
-	if servicio.creados != 1 || !servicio.sudo || !servicio.llaves {
-		t.Errorf("Crear() = %+v, want jorge con sudo y llaves", servicio)
+	if service.created != 1 || !service.sudo || !service.keys {
+		t.Errorf("Crear() = %+v, want jorge con sudo y llaves", service)
 	}
 }
 
-// TestUsuariosCrearExistente cubre el conflicto de una cuenta que ya
+// TestUsersCreateExisting cubre el conflicto de una cuenta que ya
 // existe.
-func TestUsuariosCrearExistente(t *testing.T) {
+func TestUsersCreateExisting(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubUsuarios{err: services.ErrUsuarioExistente}
+	service := &stubUsers{err: services.ErrUserExists}
 
-	rec := ejecutarCaso(t, NuevoUsuarios(servicio).Coleccion, rutaUsuarios, casoPeticion{
-		nombre: "existente", metodo: http.MethodPost, cuerpo: `{"nombre":"jorge"}`,
+	rec := runTestCase(t, NewUsers(service).Collection, pathUsers, testCaseRequest{
+		name: "existente", method: http.MethodPost, body: `{"nombre":"jorge"}`,
 	})
 
 	if rec.Code != http.StatusConflict {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusConflict)
+		t.Fatalf(msgCode, rec.Code, http.StatusConflict)
 	}
 }
 
-// TestUsuariosValidacion cubre las reglas de nombre y método.
-func TestUsuariosValidacion(t *testing.T) {
+// TestUsersValidacion cubre las reglas de nombre y método.
+func TestUsersValidacion(t *testing.T) {
 	t.Parallel()
 
-	handler := NuevoUsuarios(&stubUsuarios{}).Coleccion
-	casos := []casoPeticion{
-		{nombre: "con mayúsculas", metodo: http.MethodPost, cuerpo: `{"nombre":"José","sudo":false}`, codigo: http.StatusBadRequest, campo: campoNombre},
-		{nombre: "root", metodo: http.MethodPost, cuerpo: `{"nombre":"root","sudo":true}`, codigo: http.StatusBadRequest, campo: campoNombre},
-		{nombre: casoCuerpoInvalido, metodo: http.MethodPost, cuerpo: `{`, codigo: http.StatusBadRequest},
-		{nombre: casoMetodoNoPermitido, metodo: http.MethodPut, codigo: http.StatusMethodNotAllowed},
+	handler := NewUsers(&stubUsers{}).Collection
+	testCases := []testCaseRequest{
+		{name: "con mayúsculas", method: http.MethodPost, body: `{"nombre":"José","sudo":false}`, code: http.StatusBadRequest, field: nameField},
+		{name: "root", method: http.MethodPost, body: `{"nombre":"root","sudo":true}`, code: http.StatusBadRequest, field: nameField},
+		{name: testCaseBodyInvalid, method: http.MethodPost, body: `{`, code: http.StatusBadRequest},
+		{name: testCaseMethodNotPermitido, method: http.MethodPut, code: http.StatusMethodNotAllowed},
 	}
 
-	for _, caso := range casos {
-		rec := ejecutarCaso(t, handler, rutaUsuarios, caso)
-		comprobarCaso(t, rec, caso)
+	for _, testCase := range testCases {
+		rec := runTestCase(t, handler, pathUsers, testCase)
+		checkTestCase(t, rec, testCase)
 	}
 }
 
-// TestUsuarioObtener cubre la consulta de una cuenta.
-func TestUsuarioObtener(t *testing.T) {
+// TestUserGet cubre la consulta de una cuenta.
+func TestUserGet(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubUsuarios{usuario: services.Usuario{
-		Nombre: "jorge", Sudo: true, UID: 1000, Home: "/home/jorge",
+	service := &stubUsers{user: services.User{
+		Name: "jorge", Sudo: true, UID: 1000, Home: "/home/jorge",
 	}}
 
-	rec := ejecutarCasoConPath(t, NuevoUsuarios(servicio).Usuario, rutaUsuarioJorge, campoName, usuarioJorge, casoPeticion{
-		nombre: casoConsultar, metodo: http.MethodGet,
+	rec := runTestCaseWithPath(t, NewUsers(service).User, pathUserJorge, nameParam, userJorge, testCaseRequest{
+		name: testCaseGet, method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+		t.Fatalf(msgCode, rec.Code, http.StatusOK)
 	}
 
-	var cuerpo usuarioRespuesta
-	if err := json.Unmarshal(rec.Body.Bytes(), &cuerpo); err != nil {
-		t.Fatalf(msgJSONInvalido, err)
+	var body userResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf(msgJSONInvalid, err)
 	}
 
-	if cuerpo.Nombre != usuarioJorge || !cuerpo.Sudo {
-		t.Errorf("usuario = %+v, want jorge con sudo", cuerpo)
+	if body.Name != userJorge || !body.Sudo {
+		t.Errorf("usuario = %+v, want jorge con sudo", body)
 	}
 }
 
-// TestUsuarioNoEncontrado cubre la consulta de una cuenta inexistente.
-func TestUsuarioNoEncontrado(t *testing.T) {
+// TestUserNotFound cubre la consulta de una cuenta inexistente.
+func TestUserNotFound(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubUsuarios{err: services.ErrUsuarioNoEncontrado}
+	service := &stubUsers{err: services.ErrUserNotFound}
 
-	rec := ejecutarCasoConPath(t, NuevoUsuarios(servicio).Usuario, rutaUsuarioJorge, campoName, usuarioJorge, casoPeticion{
-		nombre: casoInexistente, metodo: http.MethodGet,
+	rec := runTestCaseWithPath(t, NewUsers(service).User, pathUserJorge, nameParam, userJorge, testCaseRequest{
+		name: testCaseInexistente, method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusNotFound {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusNotFound)
+		t.Fatalf(msgCode, rec.Code, http.StatusNotFound)
 	}
 }
 
-// TestUsuarioEliminar cubre la eliminación con archivos.
-func TestUsuarioEliminar(t *testing.T) {
+// TestUserDelete cubre la eliminación con archivos.
+func TestUserDelete(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubUsuarios{}
+	service := &stubUsers{}
 
-	rec := ejecutarCasoConPath(t, NuevoUsuarios(servicio).Usuario, rutaUsuarioJorge+"?files=true", campoName, usuarioJorge, casoPeticion{
-		nombre: casoEliminar, metodo: http.MethodDelete,
+	rec := runTestCaseWithPath(t, NewUsers(service).User, pathUserJorge+"?files=true", nameParam, userJorge, testCaseRequest{
+		name: testCaseDelete, method: http.MethodDelete,
 	})
 
 	if rec.Code != http.StatusNoContent {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusNoContent)
+		t.Fatalf(msgCode, rec.Code, http.StatusNoContent)
 	}
 
-	if servicio.eliminados != 1 || !servicio.archivos {
-		t.Errorf("Eliminar() = %+v, want con archivos", servicio)
+	if service.deleted != 1 || !service.files {
+		t.Errorf("Eliminar() = %+v, want con archivos", service)
 	}
 }
 
-// TestUsuarioArchivosInvalido cubre el parámetro files no booleano.
-func TestUsuarioArchivosInvalido(t *testing.T) {
+// TestUserFilesInvalid cubre el parámetro files no booleano.
+func TestUserFilesInvalid(t *testing.T) {
 	t.Parallel()
 
-	rec := ejecutarCasoConPath(t, NuevoUsuarios(&stubUsuarios{}).Usuario, rutaUsuarioJorge+"?files=quizá", campoName, usuarioJorge, casoPeticion{
-		nombre: "archivos inválido", metodo: http.MethodDelete,
+	rec := runTestCaseWithPath(t, NewUsers(&stubUsers{}).User, pathUserJorge+"?files=quizá", nameParam, userJorge, testCaseRequest{
+		name: "archivos inválido", method: http.MethodDelete,
 	})
 
-	comprobarCaso(t, rec, casoPeticion{nombre: "archivos inválido", codigo: http.StatusBadRequest, campo: campoFiles})
+	checkTestCase(t, rec, testCaseRequest{name: "archivos inválido", code: http.StatusBadRequest, field: filesParam})
 }
 
-// TestUsuarioLlave cubre la descarga de la llave privada.
-func TestUsuarioLlave(t *testing.T) {
+// TestUserSSHKey cubre la descarga de la llave privada.
+func TestUserSSHKey(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubUsuarios{archivo: "jorge_ed25519", contenido: []byte(llavePrivadaPrueba)}
+	service := &stubUsers{file: "jorge_ed25519", content: []byte(sshKeyPrivateTests)}
 
-	rec := ejecutarCasoConPath(t, NuevoUsuarios(servicio).Llave, rutaUsuarioJorge+"/key", campoName, usuarioJorge, casoPeticion{
-		nombre: "descargar", metodo: http.MethodGet,
+	rec := runTestCaseWithPath(t, NewUsers(service).Key, pathUserJorge+"/key", nameParam, userJorge, testCaseRequest{
+		name: "descargar", method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+		t.Fatalf(msgCode, rec.Code, http.StatusOK)
 	}
 
 	if got := rec.Header().Get("Content-Disposition"); got != `attachment; filename="jorge_ed25519"` {
 		t.Errorf("Content-Disposition = %q", got)
 	}
 
-	if rec.Body.String() != llavePrivadaPrueba {
+	if rec.Body.String() != sshKeyPrivateTests {
 		t.Errorf("cuerpo = %q, want la llave privada", rec.Body.String())
 	}
 }
 
-// TestUsuarioLlaveInexistente cubre la llave que no existe.
-func TestUsuarioLlaveInexistente(t *testing.T) {
+// TestUserSSHKeyInexistente cubre la llave que no existe.
+func TestUserSSHKeyInexistente(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubUsuarios{descargaErr: services.ErrLlaveUsuarioNoEncontrada}
+	service := &stubUsers{downloadsErr: services.ErrUserKeyNotFound}
 
-	rec := ejecutarCasoConPath(t, NuevoUsuarios(servicio).Llave, rutaUsuarioJorge+"/key", campoName, usuarioJorge, casoPeticion{
-		nombre: "sin llave", metodo: http.MethodGet,
+	rec := runTestCaseWithPath(t, NewUsers(service).Key, pathUserJorge+"/key", nameParam, userJorge, testCaseRequest{
+		name: "sin llave", method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusNotFound {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusNotFound)
+		t.Fatalf(msgCode, rec.Code, http.StatusNotFound)
 	}
 }
 
-// TestUsuarioLlaveError cubre un fallo inesperado al leer la llave.
-func TestUsuarioLlaveError(t *testing.T) {
+// TestUserSSHKeyError cubre un fallo inesperado al leer la llave.
+func TestUserSSHKeyError(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubUsuarios{descargaErr: errLectura}
+	service := &stubUsers{downloadsErr: errRead}
 
-	rec := ejecutarCasoConPath(t, NuevoUsuarios(servicio).Llave, rutaUsuarioJorge+"/key", campoName, usuarioJorge, casoPeticion{
-		nombre: casoErrorLectura, metodo: http.MethodGet,
+	rec := runTestCaseWithPath(t, NewUsers(service).Key, pathUserJorge+"/key", nameParam, userJorge, testCaseRequest{
+		name: testCaseErrorRead, method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestUsuariosListarError cubre el fallo al listar cuentas.
-func TestUsuariosListarError(t *testing.T) {
+// TestUsersListError cubre el fallo al listar cuentas.
+func TestUsersListError(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubUsuarios{err: errLectura}
+	service := &stubUsers{err: errRead}
 
-	rec := ejecutarCaso(t, NuevoUsuarios(servicio).Coleccion, rutaUsuarios, casoPeticion{
-		nombre: casoListar, metodo: http.MethodGet,
+	rec := runTestCase(t, NewUsers(service).Collection, pathUsers, testCaseRequest{
+		name: testCaseList, method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestUsuariosCrearError cubre el fallo de useradd.
-func TestUsuariosCrearError(t *testing.T) {
+// TestUsersCreateError cubre el fallo de useradd.
+func TestUsersCreateError(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubUsuarios{err: errLectura}
+	service := &stubUsers{err: errRead}
 
-	rec := ejecutarCaso(t, NuevoUsuarios(servicio).Coleccion, rutaUsuarios, casoPeticion{
-		nombre: "fallo de creación", metodo: http.MethodPost, cuerpo: `{"nombre":"jorge"}`,
+	rec := runTestCase(t, NewUsers(service).Collection, pathUsers, testCaseRequest{
+		name: "fallo de creación", method: http.MethodPost, body: `{"nombre":"jorge"}`,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestUsuarioErrorGenerico cubre un fallo inesperado al consultar.
-func TestUsuarioErrorGenerico(t *testing.T) {
+// TestUserErrorGeneric cubre un fallo inesperado al consultar.
+func TestUserErrorGeneric(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubUsuarios{err: errLectura}
+	service := &stubUsers{err: errRead}
 
-	rec := ejecutarCasoConPath(t, NuevoUsuarios(servicio).Usuario, rutaUsuarioJorge, campoName, usuarioJorge, casoPeticion{
-		nombre: "error de consulta", metodo: http.MethodGet,
+	rec := runTestCaseWithPath(t, NewUsers(service).User, pathUserJorge, nameParam, userJorge, testCaseRequest{
+		name: "error de consulta", method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestUsuarioEliminarNoEncontrado cubre la eliminación de una cuenta
+// TestUserDeleteNotFound cubre la eliminación de una cuenta
 // inexistente.
-func TestUsuarioEliminarNoEncontrado(t *testing.T) {
+func TestUserDeleteNotFound(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubUsuarios{err: services.ErrUsuarioNoEncontrado}
+	service := &stubUsers{err: services.ErrUserNotFound}
 
-	rec := ejecutarCasoConPath(t, NuevoUsuarios(servicio).Usuario, rutaUsuarioJorge, campoName, usuarioJorge, casoPeticion{
-		nombre: casoInexistente, metodo: http.MethodDelete,
+	rec := runTestCaseWithPath(t, NewUsers(service).User, pathUserJorge, nameParam, userJorge, testCaseRequest{
+		name: testCaseInexistente, method: http.MethodDelete,
 	})
 
 	if rec.Code != http.StatusNotFound {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusNotFound)
+		t.Fatalf(msgCode, rec.Code, http.StatusNotFound)
 	}
 }
 
-// TestUsuarioEliminarError cubre el fallo de userdel.
-func TestUsuarioEliminarError(t *testing.T) {
+// TestUserDeleteError cubre el fallo de userdel.
+func TestUserDeleteError(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubUsuarios{err: errLectura}
+	service := &stubUsers{err: errRead}
 
-	rec := ejecutarCasoConPath(t, NuevoUsuarios(servicio).Usuario, rutaUsuarioJorge, campoName, usuarioJorge, casoPeticion{
-		nombre: "fallo de eliminación", metodo: http.MethodDelete,
+	rec := runTestCaseWithPath(t, NewUsers(service).User, pathUserJorge, nameParam, userJorge, testCaseRequest{
+		name: "fallo de eliminación", method: http.MethodDelete,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestUsuarioLlaveMetodo cubre el método no permitido al descargar.
-func TestUsuarioLlaveMetodo(t *testing.T) {
+// TestUserSSHKeyMethod cubre el método no permitido al descargar.
+func TestUserSSHKeyMethod(t *testing.T) {
 	t.Parallel()
 
-	rec := ejecutarCasoConPath(t, NuevoUsuarios(&stubUsuarios{}).Llave, rutaUsuarioJorge+"/key", campoName, usuarioJorge, casoPeticion{
-		nombre: casoMetodoNoPermitido, metodo: http.MethodPost,
+	rec := runTestCaseWithPath(t, NewUsers(&stubUsers{}).Key, pathUserJorge+"/key", nameParam, userJorge, testCaseRequest{
+		name: testCaseMethodNotPermitido, method: http.MethodPost,
 	})
 
 	if rec.Code != http.StatusMethodNotAllowed {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusMethodNotAllowed)
+		t.Fatalf(msgCode, rec.Code, http.StatusMethodNotAllowed)
 	}
 }

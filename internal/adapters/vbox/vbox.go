@@ -42,26 +42,26 @@ const cmdGuestProperty = "guestproperty"
 // cmdList es el subcomando que enumera máquinas.
 const cmdList = "list"
 
-// msgErrorComando es el contexto de error de VBoxManage.
-const msgErrorComando = "%s: %w"
+// msgErrorCommand es el contexto de error de VBoxManage.
+const msgErrorCommand = "%s: %w"
 
 // Client implementa ports.Machine y ports.Connector sobre VirtualBox.
 type Client struct {
-	exe          ports.Executor
-	bin          string
-	user         string
-	pass         string
-	credenciales Credenciales
+	exe         ports.Executor
+	bin         string
+	user        string
+	pass        string
+	credentials Credentials
 
 	// mu serializa las llamadas a VBoxManage: el programa usa un bloqueo
 	// global y las peticiones concurrentes fallan mientras otra lo tiene.
 	mu sync.Mutex
 }
 
-// Credenciales resuelve el usuario y la contraseña de Guest Additions
+// Credentials resuelve el usuario y la contraseña de Guest Additions
 // para una máquina concreta.
-type Credenciales interface {
-	Guest(vm string) (usuario, password string, ok bool)
+type Credentials interface {
+	Guest(vm string) (user, password string, ok bool)
 }
 
 // Option configura un Client.
@@ -74,11 +74,11 @@ func WithBinary(bin string) Option {
 	}
 }
 
-// WithCredenciales establece el almacén que resuelve las credenciales
+// WithCredentials establece el almacén que resuelve las credenciales
 // por máquina; tiene prioridad sobre las credenciales por omisión.
-func WithCredenciales(credenciales Credenciales) Option {
+func WithCredentials(credentials Credentials) Option {
 	return func(c *Client) {
-		c.credenciales = credenciales
+		c.credentials = credentials
 	}
 }
 
@@ -106,38 +106,38 @@ func New(exe ports.Executor, opts ...Option) *Client {
 	return client
 }
 
-// ejecutar lanza VBoxManage en serie y reintenta una vez las consultas
+// run lanza VBoxManage en serie y reintenta una vez las consultas
 // de solo lectura cuando VirtualBox está ocupado.
-func (c *Client) ejecutar(ctx context.Context, args ...string) (domain.Result, error) {
+func (c *Client) run(ctx context.Context, args ...string) (domain.Result, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	comando := "VBoxManage"
+	command := "VBoxManage"
 	if len(args) > 0 {
-		comando += " " + args[0]
+		command += " " + args[0]
 	}
 
-	resultado, err := c.exe.Execute(ctx, c.bin, args...)
+	result, err := c.exe.Execute(ctx, c.bin, args...)
 	if err == nil {
-		return resultado, nil
+		return result, nil
 	}
 
 	if ctx.Err() != nil || !reintentable(args) {
-		return resultado, fmt.Errorf(msgErrorComando, comando, err)
+		return result, fmt.Errorf(msgErrorCommand, command, err)
 	}
 
 	select {
 	case <-ctx.Done():
-		return resultado, fmt.Errorf(msgErrorComando, comando, err)
+		return result, fmt.Errorf(msgErrorCommand, command, err)
 	case <-time.After(250 * time.Millisecond):
 	}
 
-	resultado, err = c.exe.Execute(ctx, c.bin, args...)
+	result, err = c.exe.Execute(ctx, c.bin, args...)
 	if err != nil {
-		return resultado, fmt.Errorf(msgErrorComando, comando, err)
+		return result, fmt.Errorf(msgErrorCommand, command, err)
 	}
 
-	return resultado, nil
+	return result, nil
 }
 
 // reintentable limita los reintentos a las consultas que no modifican
@@ -166,39 +166,39 @@ func (c *Client) Name() string {
 // una ejecución de VBoxManage por máquina, así que las que no están en
 // ejecución se informan como apagadas.
 func (c *Client) List(ctx context.Context) ([]domain.VM, error) {
-	todas, err := c.ejecutar(ctx, cmdList, "vms")
+	todas, err := c.run(ctx, cmdList, "vms")
 	if err != nil {
 		return nil, fmt.Errorf("listar las máquinas virtuales: %w", err)
 	}
 
-	enMarcha, err := c.ejecutar(ctx, cmdList, "runningvms")
+	inRunning, err := c.run(ctx, cmdList, "runningvms")
 	if err != nil {
 		return nil, fmt.Errorf("listar las máquinas en ejecución: %w", err)
 	}
 
 	running := make(map[string]struct{})
 
-	for _, maquina := range parseList(enMarcha.Stdout) {
-		running[maquina.Name] = struct{}{}
+	for _, machine := range parseList(inRunning.Stdout) {
+		running[machine.Name] = struct{}{}
 	}
 
-	maquinas := parseList(todas.Stdout)
+	machines := parseList(todas.Stdout)
 
-	for i := range maquinas {
-		if _, activa := running[maquinas[i].Name]; activa {
-			maquinas[i].State = domain.StateRunning
+	for i := range machines {
+		if _, active := running[machines[i].Name]; active {
+			machines[i].State = domain.StateRunning
 		} else {
-			maquinas[i].State = domain.StatePoweredOff
+			machines[i].State = domain.StatePoweredOff
 		}
 	}
 
-	return maquinas, nil
+	return machines, nil
 }
 
 // Start implements ports.Power: arranca la máquina en modo sin interfaz
 // gráfica, que es el que corresponde a una consola de administración.
 func (c *Client) Start(ctx context.Context, target domain.Target) error {
-	if _, err := c.ejecutar(ctx, "startvm", target.ID, "--type", "headless"); err != nil {
+	if _, err := c.run(ctx, "startvm", target.ID, "--type", "headless"); err != nil {
 		return fmt.Errorf("encender la máquina %q: %w", target.ID, err)
 	}
 
@@ -212,7 +212,7 @@ var listPattern = regexp.MustCompile(`^"([^"]*)" \{([^}]*)\}$`)
 // parseList extrae las máquinas de la salida de VBoxManage, ignorando
 // las líneas que no siguen el formato.
 func parseList(output string) []domain.VM {
-	maquinas := make([]domain.VM, 0, strings.Count(output, "\n"))
+	machines := make([]domain.VM, 0, strings.Count(output, "\n"))
 
 	for _, line := range strings.Split(output, "\n") {
 		coincidencia := listPattern.FindStringSubmatch(strings.TrimSpace(line))
@@ -220,19 +220,19 @@ func parseList(output string) []domain.VM {
 			continue
 		}
 
-		maquinas = append(maquinas, domain.VM{
+		machines = append(machines, domain.VM{
 			Name: coincidencia[1],
 			UUID: coincidencia[2],
 		})
 	}
 
-	return maquinas
+	return machines
 }
 
 // Address implements ports.Machine: lee la propiedad que publica Guest
 // Additions y devuelve la dirección de la máquina.
 func (c *Client) Address(ctx context.Context, target domain.Target) (netip.Addr, error) {
-	result, err := c.ejecutar(ctx, cmdGuestProperty, "get", target.ID, guestIPv4Property)
+	result, err := c.run(ctx, cmdGuestProperty, "get", target.ID, guestIPv4Property)
 	if err != nil {
 		return netip.Addr{}, fmt.Errorf("guest-additions: leer la dirección de %q: %w", target.ID, err)
 	}
@@ -248,7 +248,7 @@ func (c *Client) Address(ctx context.Context, target domain.Target) (netip.Addr,
 // State implements ports.Machine: consulta el estado de encendido de la
 // máquina con salida legible por máquina.
 func (c *Client) State(ctx context.Context, target domain.Target) (domain.MachineState, error) {
-	result, err := c.ejecutar(ctx, cmdShowVMInfo, target.ID, flagMachineReadable)
+	result, err := c.run(ctx, cmdShowVMInfo, target.ID, flagMachineReadable)
 	if err != nil {
 		return domain.StateUnknown, fmt.Errorf("guest-additions: leer el estado de %q: %w", target.ID, err)
 	}
@@ -259,7 +259,7 @@ func (c *Client) State(ctx context.Context, target domain.Target) (domain.Machin
 // Network implements ports.Machine: interpreta el modo de la primera
 // interfaz de red de «showvminfo --machinereadable».
 func (c *Client) Network(ctx context.Context, target domain.Target) (domain.NetworkMode, error) {
-	result, err := c.ejecutar(ctx, cmdShowVMInfo, target.ID, flagMachineReadable)
+	result, err := c.run(ctx, cmdShowVMInfo, target.ID, flagMachineReadable)
 	if err != nil {
 		return domain.NetworkUnknown, fmt.Errorf("leer la red de %q: %w", target.ID, err)
 	}
@@ -269,7 +269,7 @@ func (c *Client) Network(ctx context.Context, target domain.Target) (domain.Netw
 
 // Version devuelve la versión de VirtualBox del anfitrión.
 func (c *Client) Version(ctx context.Context) (string, error) {
-	result, err := c.ejecutar(ctx, "--version")
+	result, err := c.run(ctx, "--version")
 	if err != nil {
 		return "", fmt.Errorf("leer la versión de VirtualBox: %w", err)
 	}
@@ -280,77 +280,77 @@ func (c *Client) Version(ctx context.Context) (string, error) {
 // GuestAdditions implements ports.Machine: lee la versión y el nivel de
 // Guest Additions y los usuarios con sesión iniciada.
 func (c *Client) GuestAdditions(ctx context.Context, target domain.Target) (domain.GuestAdditions, error) {
-	result, err := c.ejecutar(ctx, cmdShowVMInfo, target.ID, flagMachineReadable)
+	result, err := c.run(ctx, cmdShowVMInfo, target.ID, flagMachineReadable)
 	if err != nil {
 		return domain.GuestAdditions{}, fmt.Errorf("leer Guest Additions de %q: %w", target.ID, err)
 	}
 
 	guest := domain.GuestAdditions{
-		Version:  valorPropiedad(result.Stdout, "GuestAdditionsVersion"),
-		RunLevel: enteroPropiedad(result.Stdout, "GuestAdditionsRunLevel"),
+		Version:  valueProperty(result.Stdout, "GuestAdditionsVersion"),
+		RunLevel: enteroProperty(result.Stdout, "GuestAdditionsRunLevel"),
 	}
 
-	usuarios, err := c.ejecutar(ctx, cmdGuestProperty, "get", target.ID,
+	users, err := c.run(ctx, cmdGuestProperty, "get", target.ID,
 		"/VirtualBox/GuestInfo/OS/LoggedInUsersList")
 	if err == nil {
-		guest.LoggedUsers = parsearUsuarios(usuarios.Stdout)
+		guest.LoggedUsers = parseUsers(users.Stdout)
 	}
 
 	return guest, nil
 }
 
-// valorPropiedad extrae «clave="valor"» de showvminfo.
-func valorPropiedad(salida, clave string) string {
-	prefijo := clave + `="`
+// valueProperty extrae «clave="valor"» de showvminfo.
+func valueProperty(output, key string) string {
+	prefijo := key + `="`
 
-	for _, linea := range strings.Split(salida, "\n") {
-		valor, encontrado := strings.CutPrefix(strings.TrimSpace(linea), prefijo)
-		if encontrado {
-			return strings.TrimSuffix(valor, `"`)
+	for _, line := range strings.Split(output, "\n") {
+		value, found := strings.CutPrefix(strings.TrimSpace(line), prefijo)
+		if found {
+			return strings.TrimSuffix(value, `"`)
 		}
 	}
 
 	return ""
 }
 
-// enteroPropiedad extrae «clave=valor» de showvminfo.
-func enteroPropiedad(salida, clave string) int {
-	prefijo := clave + "="
+// enteroProperty extrae «clave=valor» de showvminfo.
+func enteroProperty(output, key string) int {
+	prefijo := key + "="
 
-	for _, linea := range strings.Split(salida, "\n") {
-		valor, encontrado := strings.CutPrefix(strings.TrimSpace(linea), prefijo)
-		if !encontrado {
+	for _, line := range strings.Split(output, "\n") {
+		value, found := strings.CutPrefix(strings.TrimSpace(line), prefijo)
+		if !found {
 			continue
 		}
 
-		numero, err := strconv.Atoi(strings.TrimSpace(valor))
+		number, err := strconv.Atoi(strings.TrimSpace(value))
 		if err == nil {
-			return numero
+			return number
 		}
 	}
 
 	return 0
 }
 
-// parsearUsuarios interpreta la propiedad de usuarios conectados.
-func parsearUsuarios(salida string) []string {
+// parseUsers interpreta la propiedad de usuarios conectados.
+func parseUsers(output string) []string {
 	const prefijo = "Value:"
 
-	for _, linea := range strings.Split(salida, "\n") {
-		valor, encontrado := strings.CutPrefix(strings.TrimSpace(linea), prefijo)
-		if !encontrado {
+	for _, line := range strings.Split(output, "\n") {
+		value, found := strings.CutPrefix(strings.TrimSpace(line), prefijo)
+		if !found {
 			continue
 		}
 
-		usuarios := []string{}
+		users := []string{}
 
-		for _, usuario := range strings.Split(strings.TrimSpace(valor), ",") {
-			if usuario != "" {
-				usuarios = append(usuarios, usuario)
+		for _, user := range strings.Split(strings.TrimSpace(value), ",") {
+			if user != "" {
+				users = append(users, user)
 			}
 		}
 
-		return usuarios
+		return users
 	}
 
 	return nil
@@ -378,15 +378,15 @@ func (c *Client) Connect(ctx context.Context, target domain.Target) (ports.Sessi
 		return nil, err
 	}
 
-	usuario, password := c.user, c.pass
+	user, password := c.user, c.pass
 
-	if c.credenciales != nil {
-		if u, p, ok := c.credenciales.Guest(target.ID); ok {
-			usuario, password = u, p
+	if c.credentials != nil {
+		if u, p, ok := c.credentials.Guest(target.ID); ok {
+			user, password = u, p
 		}
 	}
 
-	return &Session{client: c, target: target, user: usuario, pass: password}, nil
+	return &Session{client: c, target: target, user: user, pass: password}, nil
 }
 
 // Session implements ports.Session usando «vboxmanage guestcontrol».
@@ -413,10 +413,10 @@ func (s *Session) Run(ctx context.Context, cmd *domain.Command) (domain.Result, 
 	args = append(args, "--exe", cmd.Path, "--")
 	args = append(args, cmd.Args...)
 
-	result, err := s.client.ejecutar(ctx, args...)
+	result, err := s.client.run(ctx, args...)
 	if err != nil {
 		return result, fmt.Errorf("guest-additions: ejecutar %q: %w", cmd.Path,
-			errorSanitizado(err, "VBoxManage guestcontrol "+s.target.ID+" run"))
+			sanitizeError(err, "VBoxManage guestcontrol "+s.target.ID+" run"))
 	}
 
 	return result, nil
@@ -431,9 +431,9 @@ func (s *Session) Put(ctx context.Context, localPath, remotePath string) error {
 		localPath, remotePath,
 	}
 
-	if _, err := s.client.ejecutar(ctx, args...); err != nil {
+	if _, err := s.client.run(ctx, args...); err != nil {
 		return fmt.Errorf("guest-additions: transferir %q: %w", localPath,
-			errorSanitizado(err, "VBoxManage guestcontrol "+s.target.ID+" copyto"))
+			sanitizeError(err, "VBoxManage guestcontrol "+s.target.ID+" copyto"))
 	}
 
 	return nil
@@ -445,12 +445,12 @@ func (s *Session) Close() error {
 	return nil
 }
 
-// errorSanitizado reemplaza la orden completa por una versión sin
+// sanitizeError reemplaza la orden completa por una versión sin
 // argumentos sensibles (por ejemplo, la contraseña de Guest Additions).
-func errorSanitizado(err error, comando string) error {
+func sanitizeError(err error, command string) error {
 	var exitErr *domain.ExitError
 	if errors.As(err, &exitErr) {
-		return &domain.ExitError{Code: exitErr.Code, Command: comando}
+		return &domain.ExitError{Code: exitErr.Code, Command: command}
 	}
 
 	return err

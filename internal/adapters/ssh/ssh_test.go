@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	salidaInstalado  = "instalado\n"
+	outputInstalado  = "instalado\n"
 	binAptGet        = "/usr/bin/apt-get"
 	remoteService    = "/etc/systemd/system/svc.service"
 	msgConnectFail   = "Connect() error = %v, want nil"
@@ -76,7 +76,7 @@ func writeTempKey(t *testing.T) string {
 }
 
 func runningTarget() domain.Target {
-	return domain.Target{ID: "debian13", Address: netip.MustParseAddr("10.0.2.15")}
+	return domain.Target{ID: "vm1", Address: netip.MustParseAddr("10.0.2.15")}
 }
 
 func TestNameIsSSH(t *testing.T) {
@@ -93,7 +93,7 @@ func TestProbeErrorWhenAddressMissing(t *testing.T) {
 	t.Parallel()
 
 	connector := New(newFakeExecutor(), WithKey(writeTempKey(t)))
-	target := domain.Target{ID: "debian13"}
+	target := domain.Target{ID: "vm1"}
 
 	if err := connector.Probe(context.Background(), target); err == nil {
 		t.Fatal("Probe() error = nil, want un error cuando no hay dirección conocida")
@@ -114,7 +114,7 @@ func TestRunBuildsSSHCommandWithQuotedRemoteCommand(t *testing.T) {
 	t.Parallel()
 
 	fake := newFakeExecutor()
-	fake.results[binarySSH] = domain.Result{Stdout: salidaInstalado}
+	fake.results[binarySSH] = domain.Result{Stdout: outputInstalado}
 
 	key := writeTempKey(t)
 	connector := New(fake, WithKey(key), WithUser("root"), WithPort(2222))
@@ -133,8 +133,8 @@ func TestRunBuildsSSHCommandWithQuotedRemoteCommand(t *testing.T) {
 		t.Fatalf("Run() error = %v, want nil", err)
 	}
 
-	if result.Stdout != salidaInstalado {
-		t.Errorf("Run().Stdout = %q, want %q", result.Stdout, salidaInstalado)
+	if result.Stdout != outputInstalado {
+		t.Errorf("Run().Stdout = %q, want %q", result.Stdout, outputInstalado)
 	}
 
 	want := []string{
@@ -257,13 +257,13 @@ func TestConnectPasswordUsesSSHPass(t *testing.T) {
 		t.Fatalf("sshpass args = %v, want -f", llamada)
 	}
 
-	contenido, err := os.ReadFile(llamada[2])
+	content, err := os.ReadFile(llamada[2])
 	if err != nil {
 		t.Fatalf("leer el archivo temporal: %v", err)
 	}
 
-	if string(contenido) != "clave-secreta" {
-		t.Errorf("archivo temporal = %q, want la contraseña", string(contenido))
+	if string(content) != "clave-secreta" {
+		t.Errorf("archivo temporal = %q, want la contraseña", string(content))
 	}
 
 	if err := session.Close(); err != nil {
@@ -275,9 +275,9 @@ func TestConnectPasswordUsesSSHPass(t *testing.T) {
 	}
 }
 
-// TestRunSanitizaElError comprueba que la orden remota no se filtra en
+// TestRunSanitizesError comprueba que la orden remota no se filtra en
 // el error.
-func TestRunSanitizaElError(t *testing.T) {
+func TestRunSanitizesError(t *testing.T) {
 	t.Parallel()
 
 	fake := newFakeExecutor()

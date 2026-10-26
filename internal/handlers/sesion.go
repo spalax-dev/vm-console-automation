@@ -13,197 +13,197 @@ import (
 	"consola-vm/internal/services"
 )
 
-// DescubridorSesion es el caso de uso que resuelve el conector
+// SessionDiscoverer es el caso de uso que resuelve el conector
 // disponible con la máquina virtual.
-type DescubridorSesion interface {
-	Descubrir(ctx context.Context) (services.InfoSesion, error)
+type SessionDiscoverer interface {
+	Discover(ctx context.Context) (services.SessionInfo, error)
 }
 
-// VinculadorSesion cambia la máquina con la que trabaja la consola.
-type VinculadorSesion interface {
-	// Vincular establece la máquina indicada por su nombre o UUID.
-	Vincular(ctx context.Context, identificador string) (services.MaquinaVirtual, error)
-	// Activa devuelve el nombre de la máquina vinculada.
-	Activa() string
+// SessionBinder cambia la máquina con la que trabaja la consola.
+type SessionBinder interface {
+	// Bind establece la máquina indicada por su nombre o UUID.
+	Bind(ctx context.Context, identifier string) (services.VirtualMachine, error)
+	// Active devuelve el nombre de la máquina vinculada.
+	Active() string
 }
 
-// OpcionSesion configura el handler del recurso de sesión.
-type OpcionSesion func(*Sesion)
+// SessionOption configura el handler del recurso de sesión.
+type SessionOption func(*Session)
 
-// ConVinculador habilita PUT /api/session con el servicio dado.
-func ConVinculador(vinculador VinculadorSesion) OpcionSesion {
-	return func(h *Sesion) {
-		h.vinculador = vinculador
+// WithBinder habilita PUT /api/session con el servicio dado.
+func WithBinder(binder SessionBinder) SessionOption {
+	return func(h *Session) {
+		h.binder = binder
 	}
 }
 
-// RegistroSesion informa si la máquina vinculada está registrada.
-type RegistroSesion interface {
-	Registrada(vm string) bool
+// SessionRegistration informa si la máquina vinculada está registrada.
+type SessionRegistration interface {
+	IsRegistered(vm string) bool
 }
 
-// ConRegistro habilita el estado de registro en GET /api/session.
-func ConRegistro(registro RegistroSesion) OpcionSesion {
-	return func(h *Sesion) {
-		h.registro = registro
+// WithRegistration habilita el estado de registro en GET /api/session.
+func WithRegistration(registration SessionRegistration) SessionOption {
+	return func(h *Session) {
+		h.registration = registration
 	}
 }
 
-// Sesion expone GET /api/session, que informa el conector activo, la
+// Session expone GET /api/session, que informa el conector activo, la
 // dirección de la máquina y su estado, y PUT /api/session, que vincula
 // la consola con una máquina del inventario.
-type Sesion struct {
-	descubridor DescubridorSesion
-	vinculador  VinculadorSesion
-	registro    RegistroSesion
+type Session struct {
+	discoverer   SessionDiscoverer
+	binder       SessionBinder
+	registration SessionRegistration
 }
 
-// NuevoSesion construye el handler del recurso de sesión.
-func NuevoSesion(descubridor DescubridorSesion, opciones ...OpcionSesion) *Sesion {
-	sesion := &Sesion{descubridor: descubridor}
+// NewSession construye el handler del recurso de sesión.
+func NewSession(discoverer SessionDiscoverer, options ...SessionOption) *Session {
+	session := &Session{discoverer: discoverer}
 
-	for _, opcion := range opciones {
-		opcion(sesion)
+	for _, option := range options {
+		option(session)
 	}
 
-	return sesion
+	return session
 }
 
-// respuestaSesion es el cuerpo JSON de una sesión resuelta.
-type respuestaSesion struct {
-	VM         string `json:"vm,omitempty"`
-	Conector   string `json:"conector"`
-	IP         string `json:"ip"`
-	Estado     string `json:"estado"`
-	Registrada bool   `json:"registrada"`
+// sessionResponse es el cuerpo JSON de una sesión resuelta.
+type sessionResponse struct {
+	VM           string `json:"vm,omitempty"`
+	Connector    string `json:"conector"`
+	IP           string `json:"ip"`
+	State        string `json:"estado"`
+	IsRegistered bool   `json:"registrada"`
 }
 
-// solicitudVinculacion es el cuerpo de PUT /api/session.
-type solicitudVinculacion struct {
+// bindRequest es el cuerpo de PUT /api/session.
+type bindRequest struct {
 	VM string `json:"vm"`
 }
 
 // ServeHTTP implementa http.Handler: traduce el descubrimiento al
 // contrato JSON y acepta la vinculación de una máquina.
-func (h *Sesion) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodPut && h.vinculador == nil {
+func (h *Session) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPut && h.binder == nil {
 		w.Header().Set("Allow", http.MethodGet)
-		escribirJSON(w, http.StatusMethodNotAllowed, respuestaError{
-			Mensaje: "Método no permitido para este recurso.",
+		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{
+			Message: "Método no permitido para este recurso.",
 		})
 
 		return
 	}
 
-	if !exigirMetodo(w, r, http.MethodGet, http.MethodPut) {
+	if !requireMethod(w, r, http.MethodGet, http.MethodPut) {
 		return
 	}
 
 	if r.Method == http.MethodPut {
-		h.vincular(w, r)
+		h.bind(w, r)
 
 		return
 	}
 
-	info, err := h.descubridor.Descubrir(r.Context())
+	info, err := h.discoverer.Discover(r.Context())
 	if err != nil {
-		h.responderError(w, err)
+		h.respondError(w, err)
 
 		return
 	}
 
-	escribirJSON(w, http.StatusOK, respuestaSesion{
-		VM:         h.vinculadorActivo(),
-		Conector:   info.Conector,
-		IP:         info.IP.String(),
-		Estado:     string(info.Estado),
-		Registrada: h.estaRegistrada(),
+	writeJSON(w, http.StatusOK, sessionResponse{
+		VM:           h.binderActive(),
+		Connector:    info.Connector,
+		IP:           info.IP.String(),
+		State:        string(info.State),
+		IsRegistered: h.estaRegistered(),
 	})
 }
 
-// vincular atiende PUT /api/session: valida el cuerpo, aplica la
+// bind atiende PUT /api/session: valida el cuerpo, aplica la
 // vinculación y devuelve la máquina resultante.
-func (h *Sesion) vincular(w http.ResponseWriter, r *http.Request) {
-	var solicitud solicitudVinculacion
+func (h *Session) bind(w http.ResponseWriter, r *http.Request) {
+	var request bindRequest
 
-	if err := decodificarJSON(w, r, &solicitud); err != nil {
-		responderValidacion(w, err)
-
-		return
-	}
-
-	if strings.TrimSpace(solicitud.VM) == "" {
-		responderValidacion(w, campoInvalido("vm", "es obligatorio"))
+	if err := decodeJSON(w, r, &request); err != nil {
+		respondValidacion(w, err)
 
 		return
 	}
 
-	maquina, err := h.vinculador.Vincular(r.Context(), solicitud.VM)
+	if strings.TrimSpace(request.VM) == "" {
+		respondValidacion(w, invalidField("vm", "es obligatorio"))
+
+		return
+	}
+
+	machine, err := h.binder.Bind(r.Context(), request.VM)
 	if err != nil {
-		if errors.Is(err, services.ErrMaquinaNoEncontrada) {
-			escribirJSON(w, http.StatusNotFound, respuestaError{
-				Mensaje: "La máquina indicada no está registrada en el hipervisor.",
-				Tecnico: err.Error(),
+		if errors.Is(err, services.ErrMachineNotFound) {
+			writeJSON(w, http.StatusNotFound, errorResponse{
+				Message:   "La máquina indicada no está registrada en el hipervisor.",
+				Technical: err.Error(),
 			})
 
 			return
 		}
 
-		slog.Error("vincular la máquina virtual", claveError, err)
-		escribirJSON(w, http.StatusInternalServerError, respuestaError{
-			Mensaje: "No fue posible vincular la máquina virtual.",
-			Tecnico: err.Error(),
+		slog.Error("vincular la máquina virtual", errorKey, err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{
+			Message:   "No fue posible vincular la máquina virtual.",
+			Technical: err.Error(),
 		})
 
 		return
 	}
 
-	escribirJSON(w, http.StatusOK, nuevaMaquinaRespuesta(maquina))
+	writeJSON(w, http.StatusOK, newMachineResponse(machine))
 }
 
-// vinculadorActivo es el nombre de la máquina vinculada, si el handler
+// binderActive es el nombre de la máquina vinculada, si el handler
 // tiene vinculador.
-func (h *Sesion) vinculadorActivo() string {
-	if h.vinculador == nil {
+func (h *Session) binderActive() string {
+	if h.binder == nil {
 		return ""
 	}
 
-	return h.vinculador.Activa()
+	return h.binder.Active()
 }
 
-// estaRegistrada informa si la máquina vinculada ya fue registrada.
-func (h *Sesion) estaRegistrada() bool {
-	if h.registro == nil {
+// estaRegistered informa si la máquina vinculada ya fue registrada.
+func (h *Session) estaRegistered() bool {
+	if h.registration == nil {
 		return false
 	}
 
-	return h.registro.Registrada(h.vinculadorActivo())
+	return h.registration.IsRegistered(h.binderActive())
 }
 
-// responderError clasifica el fallo del descubrimiento y escribe la
+// respondError clasifica el fallo del descubrimiento y escribe la
 // respuesta HTTP correspondiente, conservando el detalle técnico.
-func (h *Sesion) responderError(w http.ResponseWriter, err error) {
-	if errors.Is(err, services.ErrSinMaquina) {
-		escribirJSON(w, http.StatusServiceUnavailable, respuestaError{
-			Mensaje: "La consola no está vinculada con ninguna máquina: elige una del inventario.",
-			Tecnico: err.Error(),
+func (h *Session) respondError(w http.ResponseWriter, err error) {
+	if errors.Is(err, services.ErrNoMachine) {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{
+			Message:   "La consola no está vinculada con ninguna máquina: elige una del inventario.",
+			Technical: err.Error(),
 		})
 
 		return
 	}
 
-	if errors.Is(err, services.ErrSesionNoDisponible) {
-		escribirJSON(w, http.StatusServiceUnavailable, respuestaError{
-			Mensaje: "No hay una sesión disponible con la máquina: enciéndela o revisa la red.",
-			Tecnico: err.Error(),
+	if errors.Is(err, services.ErrSessionUnavailable) {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{
+			Message:   "No hay una sesión disponible con la máquina: enciéndela o revisa la red.",
+			Technical: err.Error(),
 		})
 
 		return
 	}
 
-	slog.Error("descubrir la sesión", claveError, err)
-	escribirJSON(w, http.StatusInternalServerError, respuestaError{
-		Mensaje: "No fue posible determinar el estado de la máquina.",
-		Tecnico: err.Error(),
+	slog.Error("descubrir la sesión", errorKey, err)
+	writeJSON(w, http.StatusInternalServerError, errorResponse{
+		Message:   "No fue posible determinar el estado de la máquina.",
+		Technical: err.Error(),
 	})
 }

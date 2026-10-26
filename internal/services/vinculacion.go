@@ -14,123 +14,123 @@ import (
 	"consola-vm/internal/core/ports"
 )
 
-// ErrMaquinaNoEncontrada indica que el identificador recibido no
+// ErrMachineNotFound indica que el identificador recibido no
 // corresponde a ninguna máquina del inventario del hipervisor.
-var ErrMaquinaNoEncontrada = errors.New("la máquina virtual no está en el inventario")
+var ErrMachineNotFound = errors.New("la máquina virtual no está en el inventario")
 
-// ErrMaquinaEncendida indica que se pidió encender una máquina que ya
+// ErrMachineRunning indica que se pidió encender una máquina que ya
 // está en ejecución.
-var ErrMaquinaEncendida = errors.New("la máquina virtual ya está encendida")
+var ErrMachineRunning = errors.New("la máquina virtual ya está encendida")
 
 // Mensajes de error reutilizados por las operaciones del inventario.
 const (
-	msgListarInventario = "listar las máquinas virtuales: %w"
-	msgIdentificador    = "%w: %q"
+	msgListInventory = "listar las máquinas virtuales: %w"
+	msgIdentifier    = "%w: %q"
 )
 
-// MaquinaVirtual es una máquina del inventario tal como la publica la
+// VirtualMachine es una máquina del inventario tal como la publica la
 // consola: el nombre, el UUID, su estado y si es la vinculada.
-type MaquinaVirtual struct {
-	// Nombre es el nombre con el que el hipervisor registra la máquina.
-	Nombre string
+type VirtualMachine struct {
+	// Name es el nombre con el que el hipervisor registra la máquina.
+	Name string
 	// UUID es el identificador único de la máquina.
 	UUID string
-	// Estado es el estado de encendido observado.
-	Estado domain.MachineState
-	// Activa indica que la consola está vinculada con esta máquina.
-	Activa bool
-	// Registrada indica que la consola ya preparó SSH en la máquina.
-	Registrada bool
+	// State es el estado de encendido observado.
+	State domain.MachineState
+	// Active indica que la consola está vinculada con esta máquina.
+	Active bool
+	// IsRegistered indica que la consola ya preparó SSH en la máquina.
+	IsRegistered bool
 }
 
 // Selector es la máquina con la que trabaja la consola. El descubridor
 // de sesión lo implementa: vincular es cambiar su objetivo.
 type Selector interface {
-	// Objetivo devuelve la máquina vinculada.
-	Objetivo() domain.Target
-	// Establecer vincula la máquina indicada por su nombre.
-	Establecer(nombre string)
+	// CurrentTarget devuelve la máquina vinculada.
+	CurrentTarget() domain.Target
+	// Set vincula la máquina indicada por su nombre.
+	Set(name string)
 }
 
-// Registro informa si una máquina ya fue registrada en la consola.
-type Registro interface {
-	Registrada(vm string) bool
+// Registration informa si una máquina ya fue registrada en la consola.
+type Registration interface {
+	IsRegistered(vm string) bool
 }
 
-// ConfigVinculacion reúne las dependencias de la vinculación.
-type ConfigVinculacion struct {
-	// Inventario enumera las máquinas del hipervisor.
-	Inventario ports.Inventory
-	// Seleccion es la máquina con la que trabaja la consola.
-	Seleccion Selector
-	// Energia enciende las máquinas del hipervisor.
-	Energia ports.Power
-	// Maquina comprueba si una máquina en ejecución publica Guest
+// BindingConfig reúne las dependencias de la vinculación.
+type BindingConfig struct {
+	// Inventory enumera las máquinas del hipervisor.
+	Inventory ports.Inventory
+	// Selection es la máquina con la que trabaja la consola.
+	Selection Selector
+	// Power enciende las máquinas del hipervisor.
+	Power ports.Power
+	// Machine comprueba si una máquina en ejecución publica Guest
 	// Additions y, por tanto, puede administrarse.
-	Maquina ports.Machine
-	// Registro consulta el estado de registro de las máquinas.
-	Registro Registro
-	// Persistencia guarda la máquina vinculada entre arranques.
-	Persistencia PersistenciaActiva
+	Machine ports.Machine
+	// Registration consulta el estado de registro de las máquinas.
+	Registration Registration
+	// Persistence guarda la máquina vinculada entre arranques.
+	Persistence ActivePersistence
 }
 
-// PersistenciaActiva guarda y recupera la máquina vinculada.
-type PersistenciaActiva interface {
-	Activa() string
-	GuardarActiva(vm string) error
+// ActivePersistence guarda y recupera la máquina vinculada.
+type ActivePersistence interface {
+	Active() string
+	SaveActive(vm string) error
 }
 
-// Vinculacion busca máquinas en el inventario y cambia la que administra
+// Binding busca máquinas en el inventario y cambia la que administra
 // la consola.
-type Vinculacion struct {
-	inventario   ports.Inventory
-	seleccion    Selector
-	energia      ports.Power
-	maquina      ports.Machine
-	registro     Registro
-	persistencia PersistenciaActiva
+type Binding struct {
+	inventory    ports.Inventory
+	selection    Selector
+	power        ports.Power
+	machine      ports.Machine
+	registration Registration
+	persistence  ActivePersistence
 }
 
-// NuevoVinculacion construye el servicio con las dependencias dadas.
-func NuevoVinculacion(config *ConfigVinculacion) *Vinculacion {
-	return &Vinculacion{
-		inventario:   config.Inventario,
-		seleccion:    config.Seleccion,
-		energia:      config.Energia,
-		maquina:      config.Maquina,
-		registro:     config.Registro,
-		persistencia: config.Persistencia,
+// NewBinding construye el servicio con las dependencias dadas.
+func NewBinding(config *BindingConfig) *Binding {
+	return &Binding{
+		inventory:    config.Inventory,
+		selection:    config.Selection,
+		power:        config.Power,
+		machine:      config.Machine,
+		registration: config.Registration,
+		persistence:  config.Persistence,
 	}
 }
 
-// Listar devuelve las máquinas del inventario marcando la vinculada. Si
+// List devuelve las máquinas del inventario marcando la vinculada. Si
 // filtro no está vacío, se compara, sin distinguir mayúsculas, contra el
 // nombre y el UUID.
-func (v *Vinculacion) Listar(ctx context.Context, filtro string) ([]MaquinaVirtual, error) {
-	maquinas, err := v.inventario.List(ctx)
+func (v *Binding) List(ctx context.Context, filter string) ([]VirtualMachine, error) {
+	machines, err := v.inventory.List(ctx)
 	if err != nil {
-		return nil, fmt.Errorf(msgListarInventario, err)
+		return nil, fmt.Errorf(msgListInventory, err)
 	}
 
-	objetivo := v.seleccion.Objetivo()
-	texto := strings.ToLower(strings.TrimSpace(filtro))
-	visibles := make([]MaquinaVirtual, 0, len(maquinas))
+	target := v.selection.CurrentTarget()
+	text := strings.ToLower(strings.TrimSpace(filter))
+	visibles := make([]VirtualMachine, 0, len(machines))
 
-	for _, maquina := range maquinas {
-		if texto != "" && !coincide(maquina, texto) {
+	for _, machine := range machines {
+		if text != "" && !matches(machine, text) {
 			continue
 		}
 
-		if !v.administrable(ctx, maquina) {
+		if !v.administrable(ctx, machine) {
 			continue
 		}
 
-		visibles = append(visibles, MaquinaVirtual{
-			Nombre:     maquina.Name,
-			UUID:       maquina.UUID,
-			Estado:     maquina.State,
-			Activa:     maquina.Name == objetivo.ID || maquina.UUID == objetivo.ID,
-			Registrada: v.estaRegistrada(maquina.Name),
+		visibles = append(visibles, VirtualMachine{
+			Name:         machine.Name,
+			UUID:         machine.UUID,
+			State:        machine.State,
+			Active:       machine.Name == target.ID || machine.UUID == target.ID,
+			IsRegistered: v.estaRegistered(machine.Name),
 		})
 	}
 
@@ -140,19 +140,19 @@ func (v *Vinculacion) Listar(ctx context.Context, filtro string) ([]MaquinaVirtu
 // administrable informa si la máquina puede administrarse: las apagadas
 // se listan para poder encenderlas y las encendidas deben publicar Guest
 // Additions, único canal para instalar SSH.
-func (v *Vinculacion) administrable(ctx context.Context, maquina domain.VM) bool {
-	if v.maquina == nil {
+func (v *Binding) administrable(ctx context.Context, machine domain.VM) bool {
+	if v.machine == nil {
 		return true
 	}
 
-	objetivo := domain.Target{ID: maquina.Name}
+	target := domain.Target{ID: machine.Name}
 
-	modo, err := v.maquina.Network(ctx, objetivo)
+	mode, err := v.machine.Network(ctx, target)
 	if err != nil {
 		return false
 	}
 
-	switch modo {
+	switch mode {
 	case domain.NetworkNAT, domain.NetworkInternal, domain.NetworkNone:
 		return false
 	case domain.NetworkBridged, domain.NetworkHostOnly:
@@ -160,118 +160,118 @@ func (v *Vinculacion) administrable(ctx context.Context, maquina domain.VM) bool
 		return false
 	}
 
-	if maquina.State != domain.StateRunning {
+	if machine.State != domain.StateRunning {
 		return true
 	}
 
-	_, err = v.maquina.Address(ctx, objetivo)
+	_, err = v.machine.Address(ctx, target)
 
 	return err == nil
 }
 
-// Vincular establece la máquina que administra la consola. Acepta el
+// Bind establece la máquina que administra la consola. Acepta el
 // nombre o el UUID del inventario y guarda siempre el nombre, que es el
-// identificador estable que usan los adaptadores. Vincular una máquina
+// identificador estable que usan los adaptadores. Bind una máquina
 // apagada es válido: solo impide abrir sesión con ella.
-func (v *Vinculacion) Vincular(ctx context.Context, identificador string) (MaquinaVirtual, error) {
-	maquinas, err := v.inventario.List(ctx)
+func (v *Binding) Bind(ctx context.Context, identifier string) (VirtualMachine, error) {
+	machines, err := v.inventory.List(ctx)
 	if err != nil {
-		return MaquinaVirtual{}, fmt.Errorf(msgListarInventario, err)
+		return VirtualMachine{}, fmt.Errorf(msgListInventory, err)
 	}
 
-	buscado := strings.TrimSpace(identificador)
+	buscado := strings.TrimSpace(identifier)
 
-	for _, maquina := range maquinas {
-		if !strings.EqualFold(maquina.Name, buscado) && !strings.EqualFold(maquina.UUID, buscado) {
+	for _, machine := range machines {
+		if !strings.EqualFold(machine.Name, buscado) && !strings.EqualFold(machine.UUID, buscado) {
 			continue
 		}
 
-		v.seleccion.Establecer(maquina.Name)
-		v.guardarActiva(maquina.Name)
+		v.selection.Set(machine.Name)
+		v.saveActive(machine.Name)
 
-		return MaquinaVirtual{
-			Nombre:     maquina.Name,
-			UUID:       maquina.UUID,
-			Estado:     maquina.State,
-			Activa:     true,
-			Registrada: v.estaRegistrada(maquina.Name),
+		return VirtualMachine{
+			Name:         machine.Name,
+			UUID:         machine.UUID,
+			State:        machine.State,
+			Active:       true,
+			IsRegistered: v.estaRegistered(machine.Name),
 		}, nil
 	}
 
-	return MaquinaVirtual{}, fmt.Errorf(msgIdentificador, ErrMaquinaNoEncontrada, buscado)
+	return VirtualMachine{}, fmt.Errorf(msgIdentifier, ErrMachineNotFound, buscado)
 }
 
-// Encender arranca una máquina del inventario. Rechaza con
-// ErrMaquinaEncendida la que ya está en ejecución, para no informar un
+// PowerOn arranca una máquina del inventario. Rechaza con
+// ErrMachineRunning la que ya está en ejecución, para no informar un
 // éxito que no ocurrió, y devuelve la máquina ya en estado «running».
-func (v *Vinculacion) Encender(ctx context.Context, identificador string) (MaquinaVirtual, error) {
-	maquina, err := v.buscar(ctx, identificador)
+func (v *Binding) PowerOn(ctx context.Context, identifier string) (VirtualMachine, error) {
+	machine, err := v.find(ctx, identifier)
 	if err != nil {
-		return MaquinaVirtual{}, err
+		return VirtualMachine{}, err
 	}
 
-	if maquina.State == domain.StateRunning {
-		return MaquinaVirtual{}, fmt.Errorf(msgIdentificador, ErrMaquinaEncendida, maquina.Name)
+	if machine.State == domain.StateRunning {
+		return VirtualMachine{}, fmt.Errorf(msgIdentifier, ErrMachineRunning, machine.Name)
 	}
 
-	if err := v.energia.Start(ctx, domain.Target{ID: maquina.Name}); err != nil {
-		return MaquinaVirtual{}, fmt.Errorf("encender la máquina %q: %w", maquina.Name, err)
+	if err := v.power.Start(ctx, domain.Target{ID: machine.Name}); err != nil {
+		return VirtualMachine{}, fmt.Errorf("encender la máquina %q: %w", machine.Name, err)
 	}
 
-	return MaquinaVirtual{
-		Nombre:     maquina.Name,
-		UUID:       maquina.UUID,
-		Estado:     domain.StateRunning,
-		Activa:     v.seleccion.Objetivo().ID == maquina.Name || v.seleccion.Objetivo().ID == maquina.UUID,
-		Registrada: v.estaRegistrada(maquina.Name),
+	return VirtualMachine{
+		Name:         machine.Name,
+		UUID:         machine.UUID,
+		State:        domain.StateRunning,
+		Active:       v.selection.CurrentTarget().ID == machine.Name || v.selection.CurrentTarget().ID == machine.UUID,
+		IsRegistered: v.estaRegistered(machine.Name),
 	}, nil
 }
 
-// guardarActiva persiste la máquina vinculada sin romper la operación si
+// saveActive persiste la máquina vinculada sin romper la operación si
 // el almacenamiento falla.
-func (v *Vinculacion) guardarActiva(nombre string) {
-	if v.persistencia == nil {
+func (v *Binding) saveActive(name string) {
+	if v.persistence == nil {
 		return
 	}
 
-	if err := v.persistencia.GuardarActiva(nombre); err != nil {
-		slog.Warn("guardar la máquina vinculada", claveErrorLog, err)
+	if err := v.persistence.SaveActive(name); err != nil {
+		slog.Warn("guardar la máquina vinculada", logErrorKey, err)
 	}
 }
 
-// estaRegistrada informa si la máquina ya fue registrada.
-func (v *Vinculacion) estaRegistrada(nombre string) bool {
-	return v.registro != nil && v.registro.Registrada(nombre)
+// estaRegistered informa si la máquina ya fue registrada.
+func (v *Binding) estaRegistered(name string) bool {
+	return v.registration != nil && v.registration.IsRegistered(name)
 }
 
-// buscar devuelve la máquina del inventario que corresponde al
+// find devuelve la máquina del inventario que corresponde al
 // identificador, por nombre o por UUID.
-func (v *Vinculacion) buscar(ctx context.Context, identificador string) (domain.VM, error) {
-	maquinas, err := v.inventario.List(ctx)
+func (v *Binding) find(ctx context.Context, identifier string) (domain.VM, error) {
+	machines, err := v.inventory.List(ctx)
 	if err != nil {
-		return domain.VM{}, fmt.Errorf(msgListarInventario, err)
+		return domain.VM{}, fmt.Errorf(msgListInventory, err)
 	}
 
-	buscado := strings.TrimSpace(identificador)
+	buscado := strings.TrimSpace(identifier)
 
-	for _, maquina := range maquinas {
-		if strings.EqualFold(maquina.Name, buscado) || strings.EqualFold(maquina.UUID, buscado) {
-			return maquina, nil
+	for _, machine := range machines {
+		if strings.EqualFold(machine.Name, buscado) || strings.EqualFold(machine.UUID, buscado) {
+			return machine, nil
 		}
 	}
 
-	return domain.VM{}, fmt.Errorf(msgIdentificador, ErrMaquinaNoEncontrada, buscado)
+	return domain.VM{}, fmt.Errorf(msgIdentifier, ErrMachineNotFound, buscado)
 }
 
-// Activa devuelve el nombre de la máquina vinculada, o una cadena vacía
+// Active devuelve el nombre de la máquina vinculada, o una cadena vacía
 // si la consola todavía no está vinculada con ninguna.
-func (v *Vinculacion) Activa() string {
-	return v.seleccion.Objetivo().ID
+func (v *Binding) Active() string {
+	return v.selection.CurrentTarget().ID
 }
 
-// coincide informa si la máquina contiene el texto de búsqueda en su
+// matches informa si la máquina contiene el texto de búsqueda en su
 // nombre o en su UUID; el texto debe venir en minúsculas.
-func coincide(maquina domain.VM, texto string) bool {
-	return strings.Contains(strings.ToLower(maquina.Name), texto) ||
-		strings.Contains(strings.ToLower(maquina.UUID), texto)
+func matches(machine domain.VM, text string) bool {
+	return strings.Contains(strings.ToLower(machine.Name), text) ||
+		strings.Contains(strings.ToLower(machine.UUID), text)
 }

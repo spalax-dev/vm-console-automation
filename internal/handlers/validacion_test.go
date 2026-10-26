@@ -10,191 +10,191 @@ import (
 	"testing"
 )
 
-// TestValidarPaquete comprueba la regla de nombres de paquete APT.
-func TestValidarPaquete(t *testing.T) {
+// TestValidatePkg comprueba la regla de nombres de paquete APT.
+func TestValidatePkg(t *testing.T) {
 	t.Parallel()
 
-	validos := []string{nombreNano, "nginx", "python3-pip", "g++", "libc6-dev"}
-	for _, valor := range validos {
-		if err := validarPaquete(campoNombre, valor); err != nil {
-			t.Errorf("validarPaquete(%q) error = %v, want nil", valor, err)
+	valid := []string{nameNano, "nginx", "python3-pip", "g++", "libc6-dev"}
+	for _, value := range valid {
+		if err := validatePkg(nameField, value); err != nil {
+			t.Errorf("validarPaquete(%q) error = %v, want nil", value, err)
 		}
 	}
 
-	invalidos := []string{"", "Nano", "nano; rm -rf /", "-nano", "nano/../x"}
-	for _, valor := range invalidos {
-		if err := validarPaquete(campoNombre, valor); err == nil {
-			t.Errorf("validarPaquete(%q) error = nil, want un error", valor)
+	invalid := []string{"", "Nano", "nano; rm -rf /", "-nano", "nano/../x"}
+	for _, value := range invalid {
+		if err := validatePkg(nameField, value); err == nil {
+			t.Errorf("validarPaquete(%q) error = nil, want un error", value)
 		}
 	}
 }
 
-// TestValidarUsuario comprueba la regla de nombres de usuario POSIX.
-func TestValidarUsuario(t *testing.T) {
+// TestValidateUser comprueba la regla de nombres de usuario POSIX.
+func TestValidateUser(t *testing.T) {
 	t.Parallel()
 
-	validos := []string{usuarioJorge, "_servicio", "andrey_t", "soporte-1"}
-	for _, valor := range validos {
-		if err := validarUsuario(campoNombre, valor); err != nil {
-			t.Errorf("validarUsuario(%q) error = %v, want nil", valor, err)
+	valid := []string{userJorge, "_servicio", "andrey_t", "soporte-1"}
+	for _, value := range valid {
+		if err := validateUser(nameField, value); err != nil {
+			t.Errorf("validarUsuario(%q) error = %v, want nil", value, err)
 		}
 	}
 
-	invalidos := []string{"", usuarioJorgeMayus, "1jorge", "josé", strings.Repeat("a", 33)}
-	for _, valor := range invalidos {
-		if err := validarUsuario(campoNombre, valor); err == nil {
-			t.Errorf("validarUsuario(%q) error = nil, want un error", valor)
+	invalid := []string{"", userJorgeMayus, "1jorge", "josé", strings.Repeat("a", 33)}
+	for _, value := range invalid {
+		if err := validateUser(nameField, value); err == nil {
+			t.Errorf("validarUsuario(%q) error = nil, want un error", value)
 		}
 	}
 }
 
-// TestValidarHostname comprueba la regla RFC 1123.
-func TestValidarHostname(t *testing.T) {
+// TestValidateHostname comprueba la regla RFC 1123.
+func TestValidateHostname(t *testing.T) {
 	t.Parallel()
 
-	validos := []string{hostDebian, "nodo-web-01", "a"}
-	for _, valor := range validos {
-		if err := validarHostname(valor); err != nil {
-			t.Errorf("validarHostname(%q) error = %v, want nil", valor, err)
+	valid := []string{hostTest, "nodo-web-01", "a"}
+	for _, value := range valid {
+		if err := validateHostname(value); err != nil {
+			t.Errorf("validarHostname(%q) error = %v, want nil", value, err)
 		}
 	}
 
-	invalidos := []string{"", "-inicio", "mi equipo", "NODO", strings.Repeat("a", 64)}
-	for _, valor := range invalidos {
-		if err := validarHostname(valor); err == nil {
-			t.Errorf("validarHostname(%q) error = nil, want un error", valor)
+	invalid := []string{"", "-inicio", "mi equipo", "NODO", strings.Repeat("a", 64)}
+	for _, value := range invalid {
+		if err := validateHostname(value); err == nil {
+			t.Errorf("validarHostname(%q) error = nil, want un error", value)
 		}
 	}
 }
 
-// TestValidarUnidad comprueba la regla de nombres de unidad systemd.
-func TestValidarUnidad(t *testing.T) {
+// TestValidateUnit comprueba la regla de nombres de unidad systemd.
+func TestValidateUnit(t *testing.T) {
 	t.Parallel()
 
-	validos := []string{"catalogo.service", "vmcons-tarea.service", "getty@tty1.service"}
-	for _, valor := range validos {
-		if err := validarUnidad(valor); err != nil {
-			t.Errorf("validarUnidad(%q) error = %v, want nil", valor, err)
+	valid := []string{"catalogo.service", "vmcons-tarea.service", "getty@tty1.service"}
+	for _, value := range valid {
+		if err := validateUnit(value); err != nil {
+			t.Errorf("validarUnidad(%q) error = %v, want nil", value, err)
 		}
 	}
 
-	invalidos := []string{"", propietarioCatalogo, "../etc/passwd.service", "catalogo.timer"}
-	for _, valor := range invalidos {
-		if err := validarUnidad(valor); err == nil {
-			t.Errorf("validarUnidad(%q) error = nil, want un error", valor)
+	invalid := []string{"", propietarioCatalogo, "../etc/passwd.service", "catalogo.timer"}
+	for _, value := range invalid {
+		if err := validateUnit(value); err == nil {
+			t.Errorf("validarUnidad(%q) error = nil, want un error", value)
 		}
 	}
 }
 
-// TestValidarServidor comprueba el identificador direccion:puerto.
-func TestValidarServidor(t *testing.T) {
+// TestValidateServer comprueba el identificador direccion:puerto.
+func TestValidateServer(t *testing.T) {
 	t.Parallel()
 
-	validos := []string{servidorPrueba, "10.0.2.15:1", "10.0.2.15:65535"}
-	for _, valor := range validos {
-		if _, err := validarServidor(campoServer, valor); err != nil {
-			t.Errorf("validarServidor(%q) error = %v, want nil", valor, err)
+	valid := []string{serverTests, "10.0.2.15:1", "10.0.2.15:65535"}
+	for _, value := range valid {
+		if _, err := validateServer(serverParam, value); err != nil {
+			t.Errorf("validarServidor(%q) error = %v, want nil", value, err)
 		}
 	}
 
-	invalidos := []string{"", ipServidor, "192.168.1.61:0", "localhost:8080", "[::1]:8080", "192.168.1.61:70000"}
-	for _, valor := range invalidos {
-		if _, err := validarServidor(campoServer, valor); err == nil {
-			t.Errorf("validarServidor(%q) error = nil, want un error", valor)
+	invalid := []string{"", ipServer, "192.168.1.61:0", "localhost:8080", "[::1]:8080", "192.168.1.61:70000"}
+	for _, value := range invalid {
+		if _, err := validateServer(serverParam, value); err == nil {
+			t.Errorf("validarServidor(%q) error = nil, want un error", value)
 		}
 	}
 }
 
-// TestValidarRuta comprueba que solo se aceptan rutas absolutas sin
+// TestValidatePath comprueba que solo se aceptan rutas absolutas sin
 // traversal ni comodines.
-func TestValidarRuta(t *testing.T) {
+func TestValidatePath(t *testing.T) {
 	t.Parallel()
 
-	validos := []string{"/opt/catalogo/app", "/etc/systemd/system/catalogo.service"}
-	for _, valor := range validos {
-		if err := validarRuta(campoDestino, valor); err != nil {
-			t.Errorf("validarRuta(%q) error = %v, want nil", valor, err)
+	valid := []string{"/opt/catalogo/app", "/etc/systemd/system/catalogo.service"}
+	for _, value := range valid {
+		if err := validatePath(destinationField, value); err != nil {
+			t.Errorf("validarRuta(%q) error = %v, want nil", value, err)
 		}
 	}
 
-	invalidos := []string{"", "opt/app", "/opt/../etc/shadow", "/opt/app/*", "/opt/app/?", "/opt/app\x00oculto"}
-	for _, valor := range invalidos {
-		if err := validarRuta(campoDestino, valor); err == nil {
-			t.Errorf("validarRuta(%q) error = nil, want un error", valor)
+	invalid := []string{"", "opt/app", "/opt/../etc/shadow", "/opt/app/*", "/opt/app/?", "/opt/app\x00oculto"}
+	for _, value := range invalid {
+		if err := validatePath(destinationField, value); err == nil {
+			t.Errorf("validarRuta(%q) error = nil, want un error", value)
 		}
 	}
 }
 
-// TestValidarModo comprueba la regla de permisos en octal.
-func TestValidarModo(t *testing.T) {
+// TestValidateMode comprueba la regla de permisos en octal.
+func TestValidateMode(t *testing.T) {
 	t.Parallel()
 
-	for _, valor := range []string{"644", "755", "0755"} {
-		if err := validarModo(campoModo, valor); err != nil {
-			t.Errorf("validarModo(%q) error = %v, want nil", valor, err)
+	for _, value := range []string{"644", "755", "0755"} {
+		if err := validateMode(modeField, value); err != nil {
+			t.Errorf("validarModo(%q) error = %v, want nil", value, err)
 		}
 	}
 
-	for _, valor := range []string{"", "rwx", "999", "75"} {
-		if err := validarModo(campoModo, valor); err == nil {
-			t.Errorf("validarModo(%q) error = nil, want un error", valor)
+	for _, value := range []string{"", "rwx", "999", "75"} {
+		if err := validateMode(modeField, value); err == nil {
+			t.Errorf("validarModo(%q) error = nil, want un error", value)
 		}
 	}
 }
 
-// TestValidarMensajeIssue comprueba el límite y la ausencia de NUL.
-func TestValidarMensajeIssue(t *testing.T) {
+// TestValidateMessageIssue comprueba el límite y la ausencia de NUL.
+func TestValidateMessageIssue(t *testing.T) {
 	t.Parallel()
 
-	if err := validarMensajeIssue("Bienvenido a la consola"); err != nil {
+	if err := validateMessageIssue("Bienvenido a la consola"); err != nil {
 		t.Errorf("mensaje válido: error = %v, want nil", err)
 	}
 
-	if err := validarMensajeIssue(strings.Repeat("a", 512)); err != nil {
+	if err := validateMessageIssue(strings.Repeat("a", 512)); err != nil {
 		t.Errorf("mensaje de 512: error = %v, want nil", err)
 	}
 
-	if err := validarMensajeIssue(strings.Repeat("a", 513)); err == nil {
+	if err := validateMessageIssue(strings.Repeat("a", 513)); err == nil {
 		t.Error("mensaje de 513 caracteres: error = nil, want un error")
 	}
 
-	if err := validarMensajeIssue("mensaje\x00oculto"); err == nil {
+	if err := validateMessageIssue("mensaje\x00oculto"); err == nil {
 		t.Error("mensaje con NUL: error = nil, want un error")
 	}
 }
 
-// TestValidarIPv4 comprueba la regla de direcciones IPv4.
-func TestValidarIPv4(t *testing.T) {
+// TestValidateIPv4 comprueba la regla de direcciones IPv4.
+func TestValidateIPv4(t *testing.T) {
 	t.Parallel()
 
-	validos := []string{"192.168.1.60", "10.0.2.15"}
-	for _, valor := range validos {
-		if err := validarIPv4(campoIP, valor); err != nil {
-			t.Errorf("validarIPv4(%q) error = %v, want nil", valor, err)
+	valid := []string{"192.168.1.60", "10.0.2.15"}
+	for _, value := range valid {
+		if err := validateIPv4(ipField, value); err != nil {
+			t.Errorf("validarIPv4(%q) error = %v, want nil", value, err)
 		}
 	}
 
-	invalidos := []string{"", "999.1.1.1", "localhost", "::1"}
-	for _, valor := range invalidos {
-		if err := validarIPv4(campoIP, valor); err == nil {
-			t.Errorf("validarIPv4(%q) error = nil, want un error", valor)
+	invalid := []string{"", "999.1.1.1", "localhost", "::1"}
+	for _, value := range invalid {
+		if err := validateIPv4(ipField, value); err == nil {
+			t.Errorf("validarIPv4(%q) error = nil, want un error", value)
 		}
 	}
 }
 
-// TestValidarPuerto comprueba el rango 1–65535.
-func TestValidarPuerto(t *testing.T) {
+// TestValidatePort comprueba el rango 1–65535.
+func TestValidatePort(t *testing.T) {
 	t.Parallel()
 
-	for _, valor := range []int{1, 80, 65535} {
-		if err := validarPuerto(valor); err != nil {
-			t.Errorf("validarPuerto(%d) error = %v, want nil", valor, err)
+	for _, value := range []int{1, 80, 65535} {
+		if err := validatePort(value); err != nil {
+			t.Errorf("validarPuerto(%d) error = %v, want nil", value, err)
 		}
 	}
 
-	for _, valor := range []int{0, -1, 65536} {
-		if err := validarPuerto(valor); err == nil {
-			t.Errorf("validarPuerto(%d) error = nil, want un error", valor)
+	for _, value := range []int{0, -1, 65536} {
+		if err := validatePort(value); err == nil {
+			t.Errorf("validarPuerto(%d) error = nil, want un error", value)
 		}
 	}
 }
@@ -203,8 +203,8 @@ func TestValidarPuerto(t *testing.T) {
 func TestBooleanoQuery(t *testing.T) {
 	t.Parallel()
 
-	casos := []struct {
-		valor string
+	testCases := []struct {
+		value string
 		want  bool
 		error bool
 	}{
@@ -214,18 +214,18 @@ func TestBooleanoQuery(t *testing.T) {
 		{"quizá", false, true},
 	}
 
-	for _, caso := range casos {
-		req := httptest.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/users/jorge?files="+caso.valor, http.NoBody)
+	for _, testCase := range testCases {
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/users/jorge?files="+testCase.value, http.NoBody)
 
-		obtenido, err := booleanoQuery(req, campoFiles)
-		if (err != nil) != caso.error {
-			t.Errorf("booleanoQuery(%q) error = %v, want error=%v", caso.valor, err, caso.error)
+		obtained, err := booleanoQuery(req, filesParam)
+		if (err != nil) != testCase.error {
+			t.Errorf("booleanoQuery(%q) error = %v, want error=%v", testCase.value, err, testCase.error)
 
 			continue
 		}
 
-		if obtenido != caso.want {
-			t.Errorf("booleanoQuery(%q) = %v, want %v", caso.valor, obtenido, caso.want)
+		if obtained != testCase.want {
+			t.Errorf("booleanoQuery(%q) = %v, want %v", testCase.value, obtained, testCase.want)
 		}
 	}
 }

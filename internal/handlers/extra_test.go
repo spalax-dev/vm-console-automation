@@ -18,214 +18,214 @@ import (
 )
 
 const (
-	rutaHistorialPrueba = "/api/historial"
-	rutaUnidadesPrueba  = "/api/units"
+	pathHistoryTests = "/api/historial"
+	pathUnitsTests   = "/api/units"
 )
 
-// escritorConFallo simula un cliente que corta la respuesta a mitad.
-type escritorConFallo struct {
-	cabecera http.Header
-	estado   int
+// failingWriter simula un cliente que corta la respuesta a mitad.
+type failingWriter struct {
+	header http.Header
+	state  int
 }
 
 // Header devuelve las cabeceras de la respuesta.
-func (e *escritorConFallo) Header() http.Header {
-	if e.cabecera == nil {
-		e.cabecera = make(http.Header)
+func (e *failingWriter) Header() http.Header {
+	if e.header == nil {
+		e.header = make(http.Header)
 	}
 
-	return e.cabecera
+	return e.header
 }
 
 // WriteHeader registra el primer estado y descarta la escritura.
-func (e *escritorConFallo) WriteHeader(codigo int) {
-	if e.estado == 0 {
-		e.estado = codigo
+func (e *failingWriter) WriteHeader(code int) {
+	if e.state == 0 {
+		e.state = code
 	}
 }
 
 // Write siempre falla, como una conexión cerrada.
-func (e *escritorConFallo) Write([]byte) (int, error) {
+func (e *failingWriter) Write([]byte) (int, error) {
 	return 0, errors.New("conexión cerrada")
 }
 
-// TestAccesoRegistrarErrorInterno devuelve 500 ante un fallo inesperado.
-func TestAccesoRegistrarErrorInterno(t *testing.T) {
+// TestAccessRegisterErrorInternal devuelve 500 ante un fallo inesperado.
+func TestAccessRegisterErrorInternal(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubAcceso{err: errors.New("base caída")}
+	service := &stubAccess{err: errors.New("base caída")}
 
-	rec := ejecutarCaso(t, NuevoAcceso(servicio).ServeHTTP, rutaRegistro, casoPeticion{
-		nombre: "error interno", metodo: http.MethodPost, cuerpo: `{"usuario":"root","password":"secreto"}`,
+	rec := runTestCase(t, NewAccess(service).ServeHTTP, pathRegistration, testCaseRequest{
+		name: "error interno", method: http.MethodPost, body: `{"usuario":"root","password":"secreto"}`,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
 // TestAccesoOlvidar cubre el borrado del registro y sus errores.
-func TestAccesoOlvidarRespuestas(t *testing.T) {
+func TestAccessForgetResponses(t *testing.T) {
 	t.Parallel()
 
-	casos := []struct {
-		nombre   string
+	testCases := []struct {
+		name     string
 		err      error
-		esperado int
+		expected int
 	}{
 		{"correcto", nil, http.StatusNoContent},
-		{"sin máquina", services.ErrSinMaquina, http.StatusConflict},
+		{"sin máquina", services.ErrNoMachine, http.StatusConflict},
 		{"error interno", errors.New("base caída"), http.StatusInternalServerError},
 	}
 
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			servicio := &stubAcceso{err: caso.err}
+			service := &stubAccess{err: testCase.err}
 
-			rec := ejecutarCaso(t, NuevoAcceso(servicio).ServeHTTP, rutaRegistro, casoPeticion{
-				nombre: caso.nombre, metodo: http.MethodDelete,
+			rec := runTestCase(t, NewAccess(service).ServeHTTP, pathRegistration, testCaseRequest{
+				name: testCase.name, method: http.MethodDelete,
 			})
 
-			if rec.Code != caso.esperado {
-				t.Errorf(msgCodigo, rec.Code, caso.esperado)
+			if rec.Code != testCase.expected {
+				t.Errorf(msgCode, rec.Code, testCase.expected)
 			}
 		})
 	}
 }
 
-// TestAuthErroresInternos cubre los fallos del servicio de autenticación.
-func TestAuthErroresInternos(t *testing.T) {
+// TestAuthErrorsInternos cubre los fallos del servicio de autenticación.
+func TestAuthErrorsInternos(t *testing.T) {
 	t.Parallel()
 
 	rec := httptest.NewRecorder()
-	NuevoAuth(&stubConsola{configurarErr: errors.New("base caída")}).Estado(rec,
-		peticionConCookie(http.MethodGet, rutaAuthEstado, "", ""))
+	NewAuth(&stubConsole{configureErr: errors.New("base caída")}).State(rec,
+		requestWithCookie(http.MethodGet, pathAuthState, "", ""))
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Errorf("Estado() = %d, want 500", rec.Code)
 	}
 
 	rec = httptest.NewRecorder()
-	NuevoAuth(&stubConsola{configurarErr: errors.New("base caída")}).Configurar(rec,
-		peticionConCookie(http.MethodPost, "/api/auth/setup", cuerpoCredenciales, ""))
+	NewAuth(&stubConsole{configureErr: errors.New("base caída")}).Configure(rec,
+		requestWithCookie(http.MethodPost, "/api/auth/setup", bodyCredentials, ""))
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Errorf("Configurar() = %d, want 500", rec.Code)
 	}
 
 	rec = httptest.NewRecorder()
-	NuevoAuth(&stubConsola{configurarErr: services.ErrDatosConsola}).Configurar(rec,
-		peticionConCookie(http.MethodPost, "/api/auth/setup", cuerpoCredenciales, ""))
+	NewAuth(&stubConsole{configureErr: services.ErrConsoleData}).Configure(rec,
+		requestWithCookie(http.MethodPost, "/api/auth/setup", bodyCredentials, ""))
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("Configurar() con datos inválidos = %d, want 400", rec.Code)
 	}
 
 	rec = httptest.NewRecorder()
-	NuevoAuth(&stubConsola{autenticarErr: errors.New("base caída")}).Entrar(rec,
-		peticionConCookie(http.MethodPost, rutaAuthLogin, cuerpoCredenciales, ""))
+	NewAuth(&stubConsole{authenticateErr: errors.New("base caída")}).Login(rec,
+		requestWithCookie(http.MethodPost, pathAuthLogin, bodyCredentials, ""))
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Errorf("Entrar() = %d, want 500", rec.Code)
 	}
 
 	rec = httptest.NewRecorder()
-	NuevoAuth(&stubConsola{tokenErr: errors.New("sin secreto"), autenticado: true}).Entrar(rec,
-		peticionConCookie(http.MethodPost, rutaAuthLogin, cuerpoCredenciales, ""))
+	NewAuth(&stubConsole{tokenErr: errors.New("sin secreto"), autenticado: true}).Login(rec,
+		requestWithCookie(http.MethodPost, pathAuthLogin, bodyCredentials, ""))
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Errorf("Entrar() sin sesión = %d, want 500", rec.Code)
 	}
 
 	rec = httptest.NewRecorder()
-	NuevoAuth(&stubConsola{}).Salir(rec,
-		peticionConCookie(http.MethodGet, "/api/auth/logout", "", ""))
+	NewAuth(&stubConsole{}).Logout(rec,
+		requestWithCookie(http.MethodGet, "/api/auth/logout", "", ""))
 
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Errorf("Salir() con GET = %d, want 405", rec.Code)
 	}
 }
 
-// TestDiagnosticoErrorInterno devuelve 500 ante un fallo inesperado.
-func TestDiagnosticoErrorInterno(t *testing.T) {
+// TestDiagnosticsErrorInternal devuelve 500 ante un fallo inesperado.
+func TestDiagnosticsErrorInternal(t *testing.T) {
 	t.Parallel()
 
-	rec := ejecutarCaso(t, NuevoDiagnostico(&stubDiagnostico{err: errors.New("fallo")}).ServeHTTP,
-		rutaDiagnostico, casoPeticion{nombre: "error", metodo: http.MethodGet})
+	rec := runTestCase(t, NewDiagnostics(&stubDiagnostics{err: errors.New("fallo")}).ServeHTTP,
+		pathDiagnostics, testCaseRequest{name: "error", method: http.MethodGet})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Errorf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Errorf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestServidorInvalidoRechazaElFormato valida el identificador del
+// TestServerInvalidRejectsFormat valida el identificador del
 // back-end antes de tocar la máquina.
-func TestServidorInvalidoRechazaElFormato(t *testing.T) {
+func TestServerInvalidRejectsFormat(t *testing.T) {
 	t.Parallel()
 
-	rec := ejecutarCasoConPath(t, NuevoHaproxy(&stubHaproxy{}).Servidor, rutaServidores+"/x",
-		campoServer, "192.168.1.61", casoPeticion{nombre: "sin puerto", metodo: http.MethodDelete})
+	rec := runTestCaseWithPath(t, NewHAProxy(&stubHAProxy{}).Server, pathServers+"/x",
+		serverParam, "192.168.1.61", testCaseRequest{name: "sin puerto", method: http.MethodDelete})
 
 	if rec.Code != http.StatusBadRequest {
-		t.Errorf(msgCodigo, rec.Code, http.StatusBadRequest)
+		t.Errorf(msgCode, rec.Code, http.StatusBadRequest)
 	}
 }
 
-// TestEncenderSinMaquinaRechazaLaRuta exige el identificador.
-func TestEncenderSinMaquinaRechazaLaRuta(t *testing.T) {
+// TestPowerOnWithoutMachineRejectsPath exige el identificador.
+func TestPowerOnWithoutMachineRejectsPath(t *testing.T) {
 	t.Parallel()
 
-	rec := ejecutarCasoConPath(t, NuevoMaquinas(&stubMaquinas{}).Encender, "/api/vms//poweron",
-		"vm", "", casoPeticion{nombre: "sin máquina", metodo: http.MethodPost})
+	rec := runTestCaseWithPath(t, NewMachines(&stubMachines{}).PowerOn, "/api/vms//poweron",
+		"vm", "", testCaseRequest{name: "sin máquina", method: http.MethodPost})
 
 	if rec.Code != http.StatusBadRequest {
-		t.Errorf(msgCodigo, rec.Code, http.StatusBadRequest)
+		t.Errorf(msgCode, rec.Code, http.StatusBadRequest)
 	}
 }
 
-// TestEncenderErrorInterno devuelve 500 ante un fallo inesperado.
-func TestEncenderErrorInterno(t *testing.T) {
+// TestPowerOnErrorInternal devuelve 500 ante un fallo inesperado.
+func TestPowerOnErrorInternal(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubMaquinas{errEncender: errors.New("hipervisor ocupado")}
+	service := &stubMachines{errPowerOn: errors.New("hipervisor ocupado")}
 
-	rec := ejecutarCasoConPath(t, NuevoMaquinas(servicio).Encender, "/api/vms/debian/poweron",
-		"vm", maquinaDebian, casoPeticion{nombre: "error", metodo: http.MethodPost})
+	rec := runTestCaseWithPath(t, NewMachines(service).PowerOn, "/api/vms/vm1/poweron",
+		"vm", testMachine, testCaseRequest{name: "error", method: http.MethodPost})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Errorf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Errorf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestVincularErrorInterno devuelve 500 ante un fallo inesperado.
-func TestVincularErrorInterno(t *testing.T) {
+// TestBindErrorInternal devuelve 500 ante un fallo inesperado.
+func TestBindErrorInternal(t *testing.T) {
 	t.Parallel()
 
-	vinculador := &stubVinculacion{err: errors.New("hipervisor ocupado")}
-	handler := NuevoSesion(&stubDescubridor{}, ConVinculador(vinculador))
+	binder := &stubBinding{err: errors.New("hipervisor ocupado")}
+	handler := NewSession(&stubDiscoverer{}, WithBinder(binder))
 
-	rec := ejecutarCaso(t, handler.ServeHTTP, rutaSesion, casoPeticion{
-		nombre: "vincular", metodo: http.MethodPut, cuerpo: `{"vm":"debian"}`,
+	rec := runTestCase(t, handler.ServeHTTP, pathSession, testCaseRequest{
+		name: "vincular", method: http.MethodPut, body: `{"vm":"vm1"}`,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Errorf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Errorf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestSesionSinMaquinaVinculada devuelve 503 con un mensaje claro.
-func TestSesionSinMaquinaVinculada(t *testing.T) {
+// TestSessionWithoutMachineVinculada devuelve 503 con un mensaje claro.
+func TestSessionWithoutMachineVinculada(t *testing.T) {
 	t.Parallel()
 
-	handler := NuevoSesion(&stubDescubridor{err: services.ErrSinMaquina})
+	handler := NewSession(&stubDiscoverer{err: services.ErrNoMachine})
 
 	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, rutaSesion, http.NoBody))
+	handler.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, pathSession, http.NoBody))
 
 	if rec.Code != http.StatusServiceUnavailable {
-		t.Errorf(msgCodigo, rec.Code, http.StatusServiceUnavailable)
+		t.Errorf(msgCode, rec.Code, http.StatusServiceUnavailable)
 	}
 
 	if !strings.Contains(rec.Body.String(), "vinculada") {
@@ -233,470 +233,470 @@ func TestSesionSinMaquinaVinculada(t *testing.T) {
 	}
 }
 
-// TestHistorialErrorInterno devuelve 500 cuando la consulta falla.
-func TestHistorialErrorInterno(t *testing.T) {
+// TestHistoryErrorInternal devuelve 500 cuando la consulta falla.
+func TestHistoryErrorInternal(t *testing.T) {
 	t.Parallel()
 
-	rec := ejecutarCaso(t, NuevoHistorial(&stubHistorial{err: errors.New("base caída")}).ServeHTTP,
-		rutaHistorialPrueba, casoPeticion{nombre: "error", metodo: http.MethodGet})
+	rec := runTestCase(t, NewHistory(&stubHistory{err: errors.New("base caída")}).ServeHTTP,
+		pathHistoryTests, testCaseRequest{name: "error", method: http.MethodGet})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Errorf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Errorf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestHistorialConRegistroFallidoNoInterrumpe la operación.
-func TestHistorialConRegistroFallidoNoInterrumpe(t *testing.T) {
+// TestHistoryWithRegistrationFailedNotInterrumpe la operación.
+func TestHistoryWithRegistrationFailedNotInterrumpe(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubHistorial{err: errors.New("base caída")}
-	manejador := ConHistorial(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	service := &stubHistory{err: errors.New("base caída")}
+	handler := WithHistory(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
-	}), servicio, func() string { return maquinaDebian })
+	}), service, func() string { return testMachine })
 
 	rec := httptest.NewRecorder()
-	manejador.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodPost,
-		rutaPaquetes, strings.NewReader(`{"nombre":"nano"}`)))
+	handler.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		pathPackages, strings.NewReader(`{"nombre":"nano"}`)))
 
 	if rec.Code != http.StatusNoContent {
-		t.Errorf(msgCodigo, rec.Code, http.StatusNoContent)
+		t.Errorf(msgCode, rec.Code, http.StatusNoContent)
 	}
 }
 
-// TestRegistroWriterEscribeSinEstado fija 200 y propaga el fallo.
-func TestRegistroWriterEscribeSinEstado(t *testing.T) {
+// TestRegistrationWriterWritesWithoutState fija 200 y propaga el fallo.
+func TestRegistrationWriterWritesWithoutState(t *testing.T) {
 	t.Parallel()
 
 	rec := httptest.NewRecorder()
-	registro := &registroWriter{ResponseWriter: rec}
+	registration := &registrationWriter{ResponseWriter: rec}
 
-	if _, err := registro.Write([]byte("x")); err != nil {
+	if _, err := registration.Write([]byte("x")); err != nil {
 		t.Fatalf("Write() error = %v, want nil", err)
 	}
 
-	if registro.estado != http.StatusOK {
-		t.Errorf("estado = %d, want 200", registro.estado)
+	if registration.state != http.StatusOK {
+		t.Errorf("estado = %d, want 200", registration.state)
 	}
 
-	conFallo := &registroWriter{ResponseWriter: &escritorConFallo{}}
-	if _, err := conFallo.Write([]byte("x")); err == nil {
+	withFailure := &registrationWriter{ResponseWriter: &failingWriter{}}
+	if _, err := withFailure.Write([]byte("x")); err == nil {
 		t.Error("Write() error = nil, want el fallo del cliente")
 	}
 }
 
-// TestMotivoDeIgnoraCuerposAjenos deja vacío el motivo cuando no aplica.
-func TestMotivoDeIgnoraCuerposAjenos(t *testing.T) {
+// TestReasonOfIgnoresBodiesForeign deja vacío el motivo cuando no aplica.
+func TestReasonOfIgnoresBodiesForeign(t *testing.T) {
 	t.Parallel()
 
-	if motivo := motivoDe(http.StatusOK, []byte(`{"mensaje":"x"}`)); motivo != "" {
-		t.Errorf("motivoDe() = %q, want vacío para un 200", motivo)
+	if reason := reasonOf(http.StatusOK, []byte(`{"mensaje":"x"}`)); reason != "" {
+		t.Errorf("motivoDe() = %q, want vacío para un 200", reason)
 	}
 
-	if motivo := motivoDe(http.StatusBadRequest, nil); motivo != "" {
-		t.Errorf("motivoDe() = %q, want vacío sin cuerpo", motivo)
+	if reason := reasonOf(http.StatusBadRequest, nil); reason != "" {
+		t.Errorf("motivoDe() = %q, want vacío sin cuerpo", reason)
 	}
 
-	if motivo := motivoDe(http.StatusBadRequest, []byte("no es json")); motivo != "" {
-		t.Errorf("motivoDe() = %q, want vacío con JSON inválido", motivo)
+	if reason := reasonOf(http.StatusBadRequest, []byte("no es json")); reason != "" {
+		t.Errorf("motivoDe() = %q, want vacío con JSON inválido", reason)
 	}
 }
 
-// TestRecortarLimitaElTexto sin partir caracteres.
-func TestRecortarLimitaElTexto(t *testing.T) {
+// TestTruncateLimitaText sin partir caracteres.
+func TestTruncateLimitaText(t *testing.T) {
 	t.Parallel()
 
-	if texto := recortar("corto", 10); texto != "corto" {
-		t.Errorf("recortar() = %q, want corto", texto)
+	if text := truncate("corto", 10); text != "corto" {
+		t.Errorf("recortar() = %q, want corto", text)
 	}
 
-	if texto := recortar(strings.Repeat("á", 12), 5); texto != "ááááá…" {
-		t.Errorf("recortar() = %q, want cinco caracteres y puntos suspensivos", texto)
+	if text := truncate(strings.Repeat("á", 12), 5); text != "ááááá…" {
+		t.Errorf("recortar() = %q, want cinco caracteres y puntos suspensivos", text)
 	}
 }
 
-// TestNivelDeEstadoClasifica clasifica advertencias, errores e info.
-func TestNivelDeEstadoClasifica(t *testing.T) {
+// TestLevelOfStateClasifica clasifica advertencias, errores e info.
+func TestLevelOfStateClasifica(t *testing.T) {
 	t.Parallel()
 
-	casos := map[int]slog.Level{
+	testCases := map[int]slog.Level{
 		http.StatusOK:                  slog.LevelInfo,
 		http.StatusNotFound:            slog.LevelWarn,
 		http.StatusServiceUnavailable:  slog.LevelWarn,
 		http.StatusInternalServerError: slog.LevelError,
 	}
 
-	for estado, esperado := range casos {
-		if nivel := nivelDeEstado(estado); nivel != esperado {
-			t.Errorf("nivelDeEstado(%d) = %v, want %v", estado, nivel, esperado)
+	for state, expected := range testCases {
+		if level := stateLevel(state); level != expected {
+			t.Errorf("nivelDeEstado(%d) = %v, want %v", state, level, expected)
 		}
 	}
 }
 
-// TestNuevaSolicitudConFalloDeAleatorio usa la hora como respaldo.
-func TestNuevaSolicitudConFalloDeAleatorio(t *testing.T) {
-	original := leerAleatorio
+// TestNewRequestWithFailureOfAleatorio usa la hora como respaldo.
+func TestNewRequestWithFailureOfAleatorio(t *testing.T) {
+	original := readAleatorio
 
-	t.Cleanup(func() { leerAleatorio = original })
+	t.Cleanup(func() { readAleatorio = original })
 
-	leerAleatorio = func([]byte) (int, error) { return 0, errors.New("sin entropía") }
+	readAleatorio = func([]byte) (int, error) { return 0, errors.New("sin entropía") }
 
-	solicitud := nuevaSolicitud()
-	if _, err := time.Parse("20060102T150405.000000", solicitud); err != nil {
-		t.Errorf("nuevaSolicitud() = %q, want el respaldo con formato de hora: %v", solicitud, err)
+	request := newRequestID()
+	if _, err := time.Parse("20060102T150405.000000", request); err != nil {
+		t.Errorf("nuevaSolicitud() = %q, want el respaldo con formato de hora: %v", request, err)
 	}
 }
 
-// TestConObservabilidadSinLogger usa el logger por omisión.
-func TestConObservabilidadSinLogger(t *testing.T) {
+// TestWithObservabilityWithoutLogger usa el logger por omisión.
+func TestWithObservabilityWithoutLogger(t *testing.T) {
 	t.Parallel()
 
-	manejador := ConObservabilidad(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := WithObservability(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}), nil, nil)
 
 	rec := httptest.NewRecorder()
-	manejador.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet,
-		rutaSesion, http.NoBody))
+	handler.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		pathSession, http.NoBody))
 
 	if rec.Code != http.StatusOK {
-		t.Errorf(msgCodigo, rec.Code, http.StatusOK)
+		t.Errorf(msgCode, rec.Code, http.StatusOK)
 	}
 }
 
-// TestEscritorEstadoCapturaElError fija 200 y trunca el cuerpo de error.
-func TestEscritorEstadoCapturaElError(t *testing.T) {
+// TestWriterStateCapturesError fija 200 y trunca el cuerpo de error.
+func TestWriterStateCapturesError(t *testing.T) {
 	t.Parallel()
 
 	rec := httptest.NewRecorder()
-	escritor := &escritorEstado{ResponseWriter: rec}
+	writer := &writerState{ResponseWriter: rec}
 
-	cuerpo := strings.Repeat("x", maxCuerpoLog+10)
+	body := strings.Repeat("x", maxBodyLog+10)
 
-	if _, err := escritor.Write([]byte(cuerpo)); err != nil {
+	if _, err := writer.Write([]byte(body)); err != nil {
 		t.Fatalf("Write() error = %v, want nil", err)
 	}
 
-	if escritor.estado != http.StatusOK {
-		t.Errorf("estado = %d, want 200", escritor.estado)
+	if writer.state != http.StatusOK {
+		t.Errorf("estado = %d, want 200", writer.state)
 	}
 
-	conFallo := &escritorEstado{ResponseWriter: &escritorConFallo{}}
-	if _, err := conFallo.Write([]byte("x")); err == nil {
+	withFailure := &writerState{ResponseWriter: &failingWriter{}}
+	if _, err := withFailure.Write([]byte("x")); err == nil {
 		t.Error("Write() error = nil, want el fallo del cliente")
 	}
 
-	conError := &escritorEstado{ResponseWriter: httptest.NewRecorder()}
-	conError.WriteHeader(http.StatusBadRequest)
+	withError := &writerState{ResponseWriter: httptest.NewRecorder()}
+	withError.WriteHeader(http.StatusBadRequest)
 
-	if _, err := conError.Write([]byte(cuerpo)); err != nil {
+	if _, err := withError.Write([]byte(body)); err != nil {
 		t.Fatalf("Write() error = %v, want nil", err)
 	}
 
-	if conError.captura.Len() != maxCuerpoLog {
-		t.Errorf("captura = %d bytes, want %d", conError.captura.Len(), maxCuerpoLog)
+	if withError.captures.Len() != maxBodyLog {
+		t.Errorf("captura = %d bytes, want %d", withError.captures.Len(), maxBodyLog)
 	}
 }
 
-// TestEscribirJSONConCuerpoNoSerializable solo deja constancia en el log.
-func TestEscribirJSONConCuerpoNoSerializable(t *testing.T) {
+// TestWriteJSONWithBodyNotSerializable solo deja constancia en el log.
+func TestWriteJSONWithBodyNotSerializable(t *testing.T) {
 	t.Parallel()
 
 	rec := httptest.NewRecorder()
-	escribirJSON(rec, http.StatusOK, make(chan int))
+	writeJSON(rec, http.StatusOK, make(chan int))
 
 	if rec.Code != http.StatusOK {
-		t.Errorf(msgCodigo, rec.Code, http.StatusOK)
+		t.Errorf(msgCode, rec.Code, http.StatusOK)
 	}
 }
 
-// TestDescargarLlavesConClienteCaido comprueba que la descarga conserva
+// TestDownloadKeysWithClienteCaido comprueba que la descarga conserva
 // las cabeceras aunque el cliente corte la conexión al escribir.
-func TestDescargarLlavesConClienteCaido(t *testing.T) {
+func TestDownloadKeysWithClienteCaido(t *testing.T) {
 	t.Parallel()
 
-	escritor := &escritorConFallo{}
+	writer := &failingWriter{}
 
-	sistema := NuevoSistema(&stubPaquetes{}, &stubLlaves{nombre: "id_ed25519", contenido: []byte("k")},
+	system := NewSystem(&stubPackages{}, &stubKeys{name: "id_ed25519", content: []byte("k")},
 		&stubIssue{}, &stubHostname{})
-	sistema.descargarLlaveRoot(escritor)
+	system.downloadSSHKeyRoot(writer)
 
-	if escritor.estado != http.StatusOK {
-		t.Errorf("descargarLlaveRoot() estado = %d, want 200", escritor.estado)
+	if writer.state != http.StatusOK {
+		t.Errorf("descargarLlaveRoot() estado = %d, want 200", writer.state)
 	}
 
-	if tipo := escritor.Header().Get(cabeceraContentType); tipo != "application/octet-stream" {
-		t.Errorf("%s = %q, want application/octet-stream", cabeceraContentType, tipo)
+	if kind := writer.Header().Get(headerContentType); kind != "application/octet-stream" {
+		t.Errorf("%s = %q, want application/octet-stream", headerContentType, kind)
 	}
 
-	if disposicion := escritor.Header().Get("Content-Disposition"); !strings.Contains(disposicion, "id_ed25519") {
+	if disposicion := writer.Header().Get("Content-Disposition"); !strings.Contains(disposicion, "id_ed25519") {
 		t.Errorf("Content-Disposition = %q, want el nombre de la llave", disposicion)
 	}
 
-	usuarios := NuevoUsuarios(&stubUsuarios{archivo: "jorge_ed25519", contenido: []byte("k")})
-	escritor = &escritorConFallo{}
+	users := NewUsers(&stubUsers{file: "jorge_ed25519", content: []byte("k")})
+	writer = &failingWriter{}
 
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, rutaUsuarioJorge+"/key", http.NoBody)
-	req.SetPathValue(campoName, usuarioJorge)
-	usuarios.Llave(escritor, req)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, pathUserJorge+"/key", http.NoBody)
+	req.SetPathValue(nameParam, userJorge)
+	users.Key(writer, req)
 
-	if escritor.estado != http.StatusOK {
-		t.Errorf("Llave() estado = %d, want 200", escritor.estado)
+	if writer.state != http.StatusOK {
+		t.Errorf("Llave() estado = %d, want 200", writer.state)
 	}
 
-	if disposicion := escritor.Header().Get("Content-Disposition"); !strings.Contains(disposicion, "jorge_ed25519") {
+	if disposicion := writer.Header().Get("Content-Disposition"); !strings.Contains(disposicion, "jorge_ed25519") {
 		t.Errorf("Content-Disposition = %q, want el nombre de la llave", disposicion)
 	}
 }
 
-// TestUnidadesErrorInterno devuelve 500 cuando el listado falla.
-func TestUnidadesErrorInterno(t *testing.T) {
+// TestUnitsErrorInternal devuelve 500 cuando el listado falla.
+func TestUnitsErrorInternal(t *testing.T) {
 	t.Parallel()
 
-	rec := ejecutarCaso(t, NuevoSystemd(&stubSystemd{err: errors.New("systemd caído")}).Unidades,
-		rutaUnidadesPrueba, casoPeticion{nombre: "error", metodo: http.MethodGet})
+	rec := runTestCase(t, NewSystemd(&stubSystemd{err: errors.New("systemd caído")}).Units,
+		pathUnitsTests, testCaseRequest{name: "error", method: http.MethodGet})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Errorf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Errorf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestCambiarEstadoSinObtener devuelve 500 si la relectura falla.
-func TestCambiarEstadoSinObtener(t *testing.T) {
+// TestChangeStateWithoutGet devuelve 500 si la relectura falla.
+func TestChangeStateWithoutGet(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubSystemd{obtenerErr: errors.New("systemd caído")}
+	service := &stubSystemd{getErr: errors.New("systemd caído")}
 
-	rec := ejecutarCasoConPath(t, NuevoSystemd(servicio).Unidad, rutaUnidadesPrueba+"/"+unidadCatalogo,
-		campoUnit, unidadCatalogo, casoPeticion{
-			nombre: "cambiar estado", metodo: http.MethodPatch, cuerpo: `{"activo":true}`,
+	rec := runTestCaseWithPath(t, NewSystemd(service).Unit, pathUnitsTests+"/"+unitCatalogo,
+		unitParam, unitCatalogo, testCaseRequest{
+			name: "cambiar estado", method: http.MethodPatch, body: `{"activo":true}`,
 		})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Errorf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Errorf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestUsuarioErrorInterno devuelve 500 cuando la consulta falla.
-func TestUsuarioErrorInterno(t *testing.T) {
+// TestUserErrorInternal devuelve 500 cuando la consulta falla.
+func TestUserErrorInternal(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubUsuarios{err: errors.New("máquina caída")}
+	service := &stubUsers{err: errors.New("máquina caída")}
 
-	rec := ejecutarCasoConPath(t, NuevoUsuarios(servicio).Usuario, rutaUsuarioJorge,
-		campoName, usuarioJorge, casoPeticion{nombre: "consultar", metodo: http.MethodGet})
+	rec := runTestCaseWithPath(t, NewUsers(service).User, pathUserJorge,
+		nameParam, userJorge, testCaseRequest{name: "consultar", method: http.MethodGet})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Errorf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Errorf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestAyudantesDeHistorialCubrenLosValoresPorOmision comprueba las
+// TestAyudantesOfHistoryCubrenValuesByOmision comprueba las
 // funciones que traducen el estado y el resultado.
-func TestAyudantesDeHistorialCubrenLosValoresPorOmision(t *testing.T) {
+func TestAyudantesOfHistoryCubrenValuesByOmision(t *testing.T) {
 	t.Parallel()
 
-	if estado := estadoDe(&registroWriter{}); estado != http.StatusOK {
-		t.Errorf("estadoDe() = %d, want 200", estado)
+	if state := stateOf(&registrationWriter{}); state != http.StatusOK {
+		t.Errorf("estadoDe() = %d, want 200", state)
 	}
 
-	if resultado := resultadoDe(http.StatusNotFound); resultado != "error" {
-		t.Errorf("resultadoDe() = %q, want error", resultado)
+	if result := resultOf(http.StatusNotFound); result != "error" {
+		t.Errorf("resultadoDe() = %q, want error", result)
 	}
 
-	if nombre := nombreActivo(nil); nombre != "" {
-		t.Errorf("nombreActivo(nil) = %q, want vacío", nombre)
+	if name := activeName(nil); name != "" {
+		t.Errorf("nombreActivo(nil) = %q, want vacío", name)
 	}
 
-	if datos := leerCuerpo(&http.Request{}); len(datos) != 0 {
-		t.Errorf("leerCuerpo() = %v, want vacío sin cuerpo", datos)
+	if data := readBody(&http.Request{}); len(data) != 0 {
+		t.Errorf("leerCuerpo() = %v, want vacío sin cuerpo", data)
 	}
 }
 
-// TestConObservabilidadConSolicitudLarga genera un identificador nuevo.
-func TestConObservabilidadConSolicitudLarga(t *testing.T) {
+// TestWithObservabilityWithRequestLarga genera un identificador nuevo.
+func TestWithObservabilityWithRequestLarga(t *testing.T) {
 	t.Parallel()
 
-	manejador := ConObservabilidad(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := WithObservability(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
-	}), func() string { return maquinaDebian }, slog.New(slog.NewTextHandler(&strings.Builder{}, nil)))
+	}), func() string { return testMachine }, slog.New(slog.NewTextHandler(&strings.Builder{}, nil)))
 
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, rutaSesion, http.NoBody)
-	req.Header.Set(cabeceraSolicitud, strings.Repeat("x", 80))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, pathSession, http.NoBody)
+	req.Header.Set(headerRequest, strings.Repeat("x", 80))
 
 	rec := httptest.NewRecorder()
-	manejador.ServeHTTP(rec, req)
+	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusNoContent {
-		t.Errorf(msgCodigo, rec.Code, http.StatusNoContent)
+		t.Errorf(msgCode, rec.Code, http.StatusNoContent)
 	}
 
-	if len(rec.Header().Get(cabeceraSolicitud)) != 16 {
-		t.Errorf("solicitud = %q, want un identificador nuevo", rec.Header().Get(cabeceraSolicitud))
+	if len(rec.Header().Get(headerRequest)) != 16 {
+		t.Errorf("solicitud = %q, want un identificador nuevo", rec.Header().Get(headerRequest))
 	}
 }
 
-// TestServidorEliminadoSinCuerpo responde 204 y registra la baja.
-func TestServidorEliminadoSinCuerpo(t *testing.T) {
+// TestServerDeletedWithoutBody responde 204 y registra la baja.
+func TestServerDeletedWithoutBody(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubHaproxy{}
+	service := &stubHAProxy{}
 
-	rec := ejecutarCasoConPath(t, NuevoHaproxy(servicio).Servidor, rutaServidores+"/"+servidorPrueba,
-		campoServer, servidorPrueba, casoPeticion{
-			nombre: "eliminar", metodo: http.MethodDelete,
+	rec := runTestCaseWithPath(t, NewHAProxy(service).Server, pathServers+"/"+serverTests,
+		serverParam, serverTests, testCaseRequest{
+			name: "eliminar", method: http.MethodDelete,
 		})
 
 	if rec.Code != http.StatusNoContent {
-		t.Errorf(msgCodigo, rec.Code, http.StatusNoContent)
+		t.Errorf(msgCode, rec.Code, http.StatusNoContent)
 	}
 
-	if servicio.eliminados != 1 {
-		t.Errorf("eliminados = %d, want 1", servicio.eliminados)
+	if service.deleted != 1 {
+		t.Errorf("eliminados = %d, want 1", service.deleted)
 	}
 }
 
-// TestContextoConUsuario conserva el usuario autenticado.
-func TestContextoConUsuario(t *testing.T) {
+// TestContextoWithUser conserva el usuario autenticado.
+func TestContextoWithUser(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.WithValue(t.Context(), claveUsuario{}, usuarioJorge)
+	ctx := context.WithValue(t.Context(), userContextKey{}, userJorge)
 
-	if usuario := UsuarioDe(ctx); usuario != usuarioJorge {
-		t.Errorf("UsuarioDe() = %q, want %q", usuario, usuarioJorge)
+	if user := UserFrom(ctx); user != userJorge {
+		t.Errorf("UsuarioDe() = %q, want %q", user, userJorge)
 	}
 }
 
-// TestNuevaSolicitudDevuelveHex comprueba el identificador normal.
-func TestNuevaSolicitudDevuelveHex(t *testing.T) {
+// TestNewRequestReturnsHex comprueba el identificador normal.
+func TestNewRequestReturnsHex(t *testing.T) {
 	t.Parallel()
 
-	solicitud := nuevaSolicitud()
-	if len(solicitud) != 16 {
-		t.Fatalf("nuevaSolicitud() = %q, want 16 caracteres hex", solicitud)
+	request := newRequestID()
+	if len(request) != 16 {
+		t.Fatalf("nuevaSolicitud() = %q, want 16 caracteres hex", request)
 	}
 
-	if _, err := hex.DecodeString(solicitud); err != nil {
-		t.Errorf("nuevaSolicitud() = %q, want hexadecimal válido: %v", solicitud, err)
+	if _, err := hex.DecodeString(request); err != nil {
+		t.Errorf("nuevaSolicitud() = %q, want hexadecimal válido: %v", request, err)
 	}
 }
 
-// lectorConFallo devuelve un error al leer el cuerpo.
-type lectorConFallo struct{}
+// failingReader devuelve un error al leer el cuerpo.
+type failingReader struct{}
 
 // Read siempre falla.
-func (lectorConFallo) Read([]byte) (int, error) { return 0, errors.New("cuerpo roto") }
+func (failingReader) Read([]byte) (int, error) { return 0, errors.New("cuerpo roto") }
 
 // Close no hace nada.
-func (lectorConFallo) Close() error { return nil }
+func (failingReader) Close() error { return nil }
 
-// TestMetodosNoPermitidosEnAcceso cubre el 405 de los recursos de la
+// TestMethodsNotPermitidosInAccess cubre el 405 de los recursos de la
 // consola y de los módulos sin método alternativo.
-func TestMetodosNoPermitidosEnAcceso(t *testing.T) {
+func TestMethodsNotPermitidosInAccess(t *testing.T) {
 	t.Parallel()
 
-	casos := []struct {
-		nombre  string
+	testCases := []struct {
+		name    string
 		handler http.HandlerFunc
-		ruta    string
+		path    string
 	}{
-		{"configurar", NuevoAuth(&stubConsola{}).Configurar, "/api/auth/setup"},
-		{"entrar", NuevoAuth(&stubConsola{}).Entrar, rutaAuthLogin},
-		{"unidades", NuevoSystemd(&stubSystemd{}).Unidades, rutaUnidadesPrueba},
-		{"usuario", NuevoUsuarios(&stubUsuarios{}).Usuario, rutaUsuarioJorge},
-		{"llave", NuevoUsuarios(&stubUsuarios{}).Llave, rutaUsuarioJorge + "/key"},
+		{"configurar", NewAuth(&stubConsole{}).Configure, "/api/auth/setup"},
+		{"entrar", NewAuth(&stubConsole{}).Login, pathAuthLogin},
+		{"unidades", NewSystemd(&stubSystemd{}).Units, pathUnitsTests},
+		{"usuario", NewUsers(&stubUsers{}).User, pathUserJorge},
+		{"llave", NewUsers(&stubUsers{}).Key, pathUserJorge + "/key"},
 	}
 
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			rec := ejecutarCaso(t, caso.handler, caso.ruta, casoPeticion{
-				nombre: caso.nombre, metodo: http.MethodPut,
+			rec := runTestCase(t, testCase.handler, testCase.path, testCaseRequest{
+				name: testCase.name, method: http.MethodPut,
 			})
 
 			if rec.Code != http.StatusMethodNotAllowed {
-				t.Errorf(msgCodigo, rec.Code, http.StatusMethodNotAllowed)
+				t.Errorf(msgCode, rec.Code, http.StatusMethodNotAllowed)
 			}
 		})
 	}
 }
 
-// TestEntrarConCredencialesInvalidas rechaza el cuerpo antes de consultar.
-func TestEntrarConCredencialesInvalidas(t *testing.T) {
+// TestLoginWithCredentialsInvalid rechaza el cuerpo antes de consultar.
+func TestLoginWithCredentialsInvalid(t *testing.T) {
 	t.Parallel()
 
-	rec := ejecutarCaso(t, NuevoAuth(&stubConsola{}).Entrar, rutaAuthLogin, casoPeticion{
-		nombre: "usuario inválido", metodo: http.MethodPost,
-		cuerpo: `{"usuario":"Jorge","password":"una-clave-larga"}`,
+	rec := runTestCase(t, NewAuth(&stubConsole{}).Login, pathAuthLogin, testCaseRequest{
+		name: "usuario inválido", method: http.MethodPost,
+		body: `{"usuario":"Jorge","password":"una-clave-larga"}`,
 	})
 
 	if rec.Code != http.StatusBadRequest {
-		t.Errorf(msgCodigo, rec.Code, http.StatusBadRequest)
+		t.Errorf(msgCode, rec.Code, http.StatusBadRequest)
 	}
 }
 
-// TestCambiarEstadoConCuerpoInvalido rechaza un JSON mal formado.
-func TestCambiarEstadoConCuerpoInvalido(t *testing.T) {
+// TestChangeStateWithBodyInvalid rechaza un JSON mal formado.
+func TestChangeStateWithBodyInvalid(t *testing.T) {
 	t.Parallel()
 
-	rec := ejecutarCasoConPath(t, NuevoSystemd(&stubSystemd{}).Unidad,
-		rutaUnidadesPrueba+"/"+unidadCatalogo, campoUnit, unidadCatalogo, casoPeticion{
-			nombre: "cuerpo inválido", metodo: http.MethodPatch, cuerpo: `{`,
+	rec := runTestCaseWithPath(t, NewSystemd(&stubSystemd{}).Unit,
+		pathUnitsTests+"/"+unitCatalogo, unitParam, unitCatalogo, testCaseRequest{
+			name: "cuerpo inválido", method: http.MethodPatch, body: `{`,
 		})
 
 	if rec.Code != http.StatusBadRequest {
-		t.Errorf(msgCodigo, rec.Code, http.StatusBadRequest)
+		t.Errorf(msgCode, rec.Code, http.StatusBadRequest)
 	}
 }
 
-// TestUsuarioConNombreInvalido rechaza el identificador de la ruta.
-func TestUsuarioConNombreInvalido(t *testing.T) {
+// TestUserWithNameInvalid rechaza el identificador de la ruta.
+func TestUserWithNameInvalid(t *testing.T) {
 	t.Parallel()
 
-	rec := ejecutarCasoConPath(t, NuevoUsuarios(&stubUsuarios{}).Usuario,
-		rutaUsuarioJorge, campoName, usuarioJorgeMayus, casoPeticion{
-			nombre: "nombre inválido", metodo: http.MethodGet,
+	rec := runTestCaseWithPath(t, NewUsers(&stubUsers{}).User,
+		pathUserJorge, nameParam, userJorgeMayus, testCaseRequest{
+			name: "nombre inválido", method: http.MethodGet,
 		})
 
 	if rec.Code != http.StatusBadRequest {
-		t.Errorf(msgCodigo, rec.Code, http.StatusBadRequest)
+		t.Errorf(msgCode, rec.Code, http.StatusBadRequest)
 	}
 
-	rec = ejecutarCasoConPath(t, NuevoUsuarios(&stubUsuarios{}).Llave,
-		rutaUsuarioJorge+"/key", campoName, usuarioJorgeMayus, casoPeticion{
-			nombre: "llave con nombre inválido", metodo: http.MethodGet,
+	rec = runTestCaseWithPath(t, NewUsers(&stubUsers{}).Key,
+		pathUserJorge+"/key", nameParam, userJorgeMayus, testCaseRequest{
+			name: "llave con nombre inválido", method: http.MethodGet,
 		})
 
 	if rec.Code != http.StatusBadRequest {
-		t.Errorf(msgCodigo, rec.Code, http.StatusBadRequest)
+		t.Errorf(msgCode, rec.Code, http.StatusBadRequest)
 	}
 }
 
-// TestLeerCuerpoConFalloDeLectura devuelve un mapa vacío.
-func TestLeerCuerpoConFalloDeLectura(t *testing.T) {
+// TestReadBodyWithFailureOfRead devuelve un mapa vacío.
+func TestReadBodyWithFailureOfRead(t *testing.T) {
 	t.Parallel()
 
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, rutaPaquetes, lectorConFallo{})
-	req.Header.Set(cabeceraContentType, tipoJSONPrueba)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, pathPackages, failingReader{})
+	req.Header.Set(headerContentType, kindJSONTests)
 
-	if datos := leerCuerpo(req); len(datos) != 0 {
-		t.Errorf("leerCuerpo() = %v, want vacío con un cuerpo ilegible", datos)
+	if data := readBody(req); len(data) != 0 {
+		t.Errorf("leerCuerpo() = %v, want vacío con un cuerpo ilegible", data)
 	}
 }
 
-// TestObservabilidadConRespuestaSinEstado supone 200 cuando el handler
+// TestObservabilityWithResponseWithoutState supone 200 cuando el handler
 // no escribe nada.
-func TestObservabilidadConRespuestaSinEstado(t *testing.T) {
+func TestObservabilityWithResponseWithoutState(t *testing.T) {
 	t.Parallel()
 
-	manejador := ConObservabilidad(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}),
+	handler := WithObservability(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}),
 		nil, slog.New(slog.NewTextHandler(&strings.Builder{}, nil)))
 
 	rec := httptest.NewRecorder()
-	manejador.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet,
-		rutaSesion, http.NoBody))
+	handler.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		pathSession, http.NoBody))
 
 	if rec.Code != http.StatusOK {
-		t.Errorf(msgCodigo, rec.Code, http.StatusOK)
+		t.Errorf(msgCode, rec.Code, http.StatusOK)
 	}
 }

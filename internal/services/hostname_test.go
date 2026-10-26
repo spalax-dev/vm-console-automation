@@ -12,277 +12,277 @@ import (
 	"consola-vm/internal/core/domain"
 )
 
-// nuevoHostnameDePrueba arma el servicio con una sesión falsa.
-func nuevoHostnameDePrueba(sesion *stubSession, err error) *Hostname {
-	return NuevoHostname(&stubAbridor{sesion: sesion, err: err})
+// newHostnameOfTests arma el servicio con una sesión falsa.
+func newHostnameOfTests(session *stubSession, err error) *Hostname {
+	return NewHostname(&stubOpener{session: session, err: err})
 }
 
-// TestHostnameObtener comprueba la lectura de nombre, IP y /etc/hosts.
-func TestHostnameObtener(t *testing.T) {
+// TestHostnameGet comprueba la lectura de nombre, IP y /etc/hosts.
+func TestHostnameGet(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{results: []domain.Result{
-		{Stdout: salidaHostname},
+	session := &stubSession{results: []domain.Result{
+		{Stdout: outputHostname},
 		{Stdout: "192.168.1.50 \n"},
-		{Stdout: "127.0.0.1\tlocalhost\n127.0.1.1\tdebian13\n"},
+		{Stdout: "127.0.0.1\tlocalhost\n127.0.1.1\tvm1\n"},
 	}}
 
-	hostname := nuevoHostnameDePrueba(sesion, nil)
+	hostname := newHostnameOfTests(session, nil)
 
-	config, err := hostname.Obtener(context.Background())
+	config, err := hostname.Get(context.Background())
 	if err != nil {
-		t.Fatalf(msgObtenerOK, err)
+		t.Fatalf(msgGetOK, err)
 	}
 
-	if config.Nombre != "debian13" {
-		t.Errorf("Nombre = %q, want debian13", config.Nombre)
+	if config.Name != "vm1" {
+		t.Errorf("Nombre = %q, want vm1", config.Name)
 	}
 
-	if config.IP != ipPrueba {
+	if config.IP != ipTests {
 		t.Errorf("IP = %q, want 192.168.1.50", config.IP)
 	}
 
-	if !config.ActualizarHosts {
+	if !config.UpdateHosts {
 		t.Error("ActualizarHosts = false, want true")
 	}
 }
 
-// TestHostnameObtenerSinEntrada comprueba que /etc/hosts sin el nombre
+// TestHostnameGetWithoutEntry comprueba que /etc/hosts sin el nombre
 // deja la casilla desactivada.
-func TestHostnameObtenerSinEntrada(t *testing.T) {
+func TestHostnameGetWithoutEntry(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{results: []domain.Result{
-		{Stdout: salidaHostname},
+	session := &stubSession{results: []domain.Result{
+		{Stdout: outputHostname},
 		{Stdout: "192.168.1.50 \n"},
 		{Stdout: "127.0.0.1\tlocalhost\n"},
 	}}
 
-	config, err := nuevoHostnameDePrueba(sesion, nil).Obtener(context.Background())
+	config, err := newHostnameOfTests(session, nil).Get(context.Background())
 	if err != nil {
-		t.Fatalf(msgObtenerOK, err)
+		t.Fatalf(msgGetOK, err)
 	}
 
-	if config.ActualizarHosts {
+	if config.UpdateHosts {
 		t.Error("ActualizarHosts = true, want false")
 	}
 }
 
-// TestHostnameObtenerSinIP comprueba el error cuando no hay IPv4.
-func TestHostnameObtenerSinIP(t *testing.T) {
+// TestHostnameGetWithoutIP comprueba el error cuando no hay IPv4.
+func TestHostnameGetWithoutIP(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{results: []domain.Result{
-		{Stdout: salidaHostname},
+	session := &stubSession{results: []domain.Result{
+		{Stdout: outputHostname},
 		{Stdout: "\n"},
 	}}
 
-	if _, err := nuevoHostnameDePrueba(sesion, nil).Obtener(context.Background()); err == nil {
+	if _, err := newHostnameOfTests(session, nil).Get(context.Background()); err == nil {
 		t.Fatal("Obtener() error = nil, want el error de IP desconocida")
 	}
 }
 
-// TestHostnameObtenerSinSesion comprueba que se propaga la ausencia de
+// TestHostnameGetWithoutSession comprueba que se propaga la ausencia de
 // sesión.
-func TestHostnameObtenerSinSesion(t *testing.T) {
+func TestHostnameGetWithoutSession(t *testing.T) {
 	t.Parallel()
 
-	hostname := nuevoHostnameDePrueba(nil, ErrSesionNoDisponible)
+	hostname := newHostnameOfTests(nil, ErrSessionUnavailable)
 
-	if _, err := hostname.Obtener(context.Background()); !errors.Is(err, ErrSesionNoDisponible) {
-		t.Fatalf(msgObtenerSinSesion, err)
+	if _, err := hostname.Get(context.Background()); !errors.Is(err, ErrSessionUnavailable) {
+		t.Fatalf(msgGetWithoutSession, err)
 	}
 }
 
-// TestHostnameEscribirActualizaHosts comprueba el cambio de nombre y la
+// TestHostnameWriteUpdatesHosts comprueba el cambio de nombre y la
 // actualización de /etc/hosts.
-func TestHostnameEscribirActualizaHosts(t *testing.T) {
+func TestHostnameWriteUpdatesHosts(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{results: []domain.Result{
+	session := &stubSession{results: []domain.Result{
 		{Stdout: "127.0.0.1\tlocalhost\n192.168.1.60\tnodo-01\n"},
 	}}
 
-	hostname := nuevoHostnameDePrueba(sesion, nil)
+	hostname := newHostnameOfTests(session, nil)
 
-	resultado, err := hostname.Escribir(context.Background(), ConfiguracionHostname{
-		Nombre:          nombreHostPrueba,
-		IP:              ipHostPrueba,
-		ActualizarHosts: true,
+	result, err := hostname.Write(context.Background(), HostnameConfig{
+		Name:        nameHostTests,
+		IP:          ipHostTests,
+		UpdateHosts: true,
 	})
 	if err != nil {
-		t.Fatalf(msgEscribirOK, err)
+		t.Fatalf(msgWriteOK, err)
 	}
 
-	if len(sesion.commands) != 2 {
-		t.Fatalf(msgOrdenDos, len(sesion.commands))
+	if len(session.commands) != 2 {
+		t.Fatalf(msgCommandDos, len(session.commands))
 	}
 
-	orden := sesion.commands[1].ShellLine()
-	if !strings.Contains(orden, "hostnamectl set-hostname") {
-		t.Errorf("orden = %q, want hostnamectl", orden)
+	command := session.commands[1].ShellLine()
+	if !strings.Contains(command, "hostnamectl set-hostname") {
+		t.Errorf("orden = %q, want hostnamectl", command)
 	}
 
-	if !strings.Contains(orden, "127.0.0.1") || !strings.Contains(orden, "192.168.1.60 nodo-01") {
-		t.Errorf("orden = %q, want /etc/hosts actualizado", orden)
+	if !strings.Contains(command, "127.0.0.1") || !strings.Contains(command, "192.168.1.60 nodo-01") {
+		t.Errorf("orden = %q, want /etc/hosts actualizado", command)
 	}
 
-	if !sesion.closed {
-		t.Error(msgSesionAbierta)
+	if !session.closed {
+		t.Error(msgSessionOpen)
 	}
 
-	if resultado.Codigo != 0 {
-		t.Errorf("Codigo = %d, want 0", resultado.Codigo)
+	if result.Code != 0 {
+		t.Errorf("Codigo = %d, want 0", result.Code)
 	}
 }
 
-// TestHostnameEscribirSinHosts comprueba que la casilla desactivada no
+// TestHostnameWriteWithoutHosts comprueba que la casilla desactivada no
 // toca /etc/hosts.
-func TestHostnameEscribirSinHosts(t *testing.T) {
+func TestHostnameWriteWithoutHosts(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{}
-	hostname := nuevoHostnameDePrueba(sesion, nil)
+	session := &stubSession{}
+	hostname := newHostnameOfTests(session, nil)
 
-	if _, err := hostname.Escribir(context.Background(), ConfiguracionHostname{
-		Nombre: nombreHostPrueba,
-		IP:     ipHostPrueba,
+	if _, err := hostname.Write(context.Background(), HostnameConfig{
+		Name: nameHostTests,
+		IP:   ipHostTests,
 	}); err != nil {
-		t.Fatalf(msgEscribirOK, err)
+		t.Fatalf(msgWriteOK, err)
 	}
 
-	if len(sesion.commands) != 1 {
-		t.Fatalf(msgOrdenUnica, len(sesion.commands))
+	if len(session.commands) != 1 {
+		t.Fatalf(msgCommandUnica, len(session.commands))
 	}
 
-	if orden := sesion.commands[0].ShellLine(); strings.Contains(orden, "/etc/hosts") {
-		t.Errorf("orden = %q, no debe tocar /etc/hosts", orden)
+	if command := session.commands[0].ShellLine(); strings.Contains(command, "/etc/hosts") {
+		t.Errorf("orden = %q, no debe tocar /etc/hosts", command)
 	}
 }
 
-// TestHostnameEscribirErrorDeOrden comprueba el fallo al cambiar el
+// TestHostnameWriteErrorOfCommand comprueba el fallo al cambiar el
 // nombre.
-func TestHostnameEscribirErrorDeOrden(t *testing.T) {
+func TestHostnameWriteErrorOfCommand(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{
+	session := &stubSession{
 		result: domain.Result{Stderr: "hostnamectl: not found", ExitCode: 127},
 		err:    &domain.ExitError{Code: 127, Command: "sh"},
 	}
 
-	resultado, err := nuevoHostnameDePrueba(sesion, nil).Escribir(context.Background(), ConfiguracionHostname{
-		Nombre: nombreHostPrueba,
-		IP:     ipHostPrueba,
+	result, err := newHostnameOfTests(session, nil).Write(context.Background(), HostnameConfig{
+		Name: nameHostTests,
+		IP:   ipHostTests,
 	})
 	if err == nil {
 		t.Fatal("Escribir() error = nil, want el error de hostnamectl")
 	}
 
-	if resultado.Codigo != 127 {
-		t.Errorf("Codigo = %d, want 127", resultado.Codigo)
+	if result.Code != 127 {
+		t.Errorf("Codigo = %d, want 127", result.Code)
 	}
 
-	if resultado.Stderr != "hostnamectl: not found" {
-		t.Errorf(msgStderrSesion, resultado.Stderr)
+	if result.Stderr != "hostnamectl: not found" {
+		t.Errorf(msgStderrSession, result.Stderr)
 	}
 }
 
-// TestContenidoHostsReemplazaEntrada comprueba el reemplazo de la línea
+// TestContentHostsReemplazaEntry comprueba el reemplazo de la línea
 // del nombre sin duplicarla.
-func TestContenidoHostsReemplazaEntrada(t *testing.T) {
+func TestContentHostsReemplazaEntry(t *testing.T) {
 	t.Parallel()
 
-	entrada := "127.0.0.1\tlocalhost\n192.168.1.60\tnodo-01\n::1 localhost\n"
+	entry := "127.0.0.1\tlocalhost\n192.168.1.60\tnodo-01\n::1 localhost\n"
 
-	obtenido := contenidoHosts(entrada, nombreHostPrueba, ipServidorPrueba)
-	esperado := "127.0.0.1\tlocalhost\n::1 localhost\n192.168.1.61 nodo-01\n"
+	obtained := hostsContent(entry, nameHostTests, ipServerTests)
+	expected := "127.0.0.1\tlocalhost\n::1 localhost\n192.168.1.61 nodo-01\n"
 
-	if obtenido != esperado {
-		t.Errorf("contenidoHosts() = %q, want %q", obtenido, esperado)
+	if obtained != expected {
+		t.Errorf("contenidoHosts() = %q, want %q", obtained, expected)
 	}
 }
 
-// TestHostnameObtenerErrorDeNombre comprueba el fallo al leer
+// TestHostnameGetErrorOfName comprueba el fallo al leer
 // /etc/hostname.
-func TestHostnameObtenerErrorDeNombre(t *testing.T) {
+func TestHostnameGetErrorOfName(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{errs: []error{&domain.ExitError{Code: 1, Command: comandoCat}}}
+	session := &stubSession{errs: []error{&domain.ExitError{Code: 1, Command: commandCat}}}
 
-	if _, err := nuevoHostnameDePrueba(sesion, nil).Obtener(context.Background()); err == nil {
+	if _, err := newHostnameOfTests(session, nil).Get(context.Background()); err == nil {
 		t.Fatal("Obtener() error = nil, want el error de lectura")
 	}
 }
 
-// TestHostnameObtenerErrorDeHosts comprueba el fallo al leer /etc/hosts.
-func TestHostnameObtenerErrorDeHosts(t *testing.T) {
+// TestHostnameGetErrorOfHosts comprueba el fallo al leer /etc/hosts.
+func TestHostnameGetErrorOfHosts(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{
-		results: []domain.Result{{Stdout: salidaHostname}, {Stdout: "192.168.1.50\n"}},
-		errs:    []error{nil, nil, &domain.ExitError{Code: 1, Command: comandoCat}},
+	session := &stubSession{
+		results: []domain.Result{{Stdout: outputHostname}, {Stdout: "192.168.1.50\n"}},
+		errs:    []error{nil, nil, &domain.ExitError{Code: 1, Command: commandCat}},
 	}
 
-	if _, err := nuevoHostnameDePrueba(sesion, nil).Obtener(context.Background()); err == nil {
+	if _, err := newHostnameOfTests(session, nil).Get(context.Background()); err == nil {
 		t.Fatal("Obtener() error = nil, want el error de /etc/hosts")
 	}
 }
 
-// TestHostnameObtenerErrorDeIP comprueba el fallo de hostname -I.
-func TestHostnameObtenerErrorDeIP(t *testing.T) {
+// TestHostnameGetErrorOfIP comprueba el fallo de hostname -I.
+func TestHostnameGetErrorOfIP(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{
-		results: []domain.Result{{Stdout: salidaHostname}},
+	session := &stubSession{
+		results: []domain.Result{{Stdout: outputHostname}},
 		errs:    []error{nil, &domain.ExitError{Code: 1, Command: "hostname"}},
 	}
 
-	if _, err := nuevoHostnameDePrueba(sesion, nil).Obtener(context.Background()); err == nil {
+	if _, err := newHostnameOfTests(session, nil).Get(context.Background()); err == nil {
 		t.Fatal("Obtener() error = nil, want el error de hostname -I")
 	}
 }
 
-// TestHostnameEscribirErrorDeLecturaHosts comprueba el fallo al leer
+// TestHostnameWriteErrorOfReadHosts comprueba el fallo al leer
 // /etc/hosts.
-func TestHostnameEscribirErrorDeLecturaHosts(t *testing.T) {
+func TestHostnameWriteErrorOfReadHosts(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{errs: []error{&domain.ExitError{Code: 1, Command: comandoCat}}}
+	session := &stubSession{errs: []error{&domain.ExitError{Code: 1, Command: commandCat}}}
 
-	hostname := nuevoHostnameDePrueba(sesion, nil)
+	hostname := newHostnameOfTests(session, nil)
 
-	_, err := hostname.Escribir(context.Background(), ConfiguracionHostname{
-		Nombre:          nombreHostPrueba,
-		IP:              ipHostPrueba,
-		ActualizarHosts: true,
+	_, err := hostname.Write(context.Background(), HostnameConfig{
+		Name:        nameHostTests,
+		IP:          ipHostTests,
+		UpdateHosts: true,
 	})
 	if err == nil {
 		t.Fatal("Escribir() error = nil, want el error al leer /etc/hosts")
 	}
 }
 
-// TestHostnameEscribirSinSesion comprueba que se propaga la ausencia de
+// TestHostnameWriteWithoutSession comprueba que se propaga la ausencia de
 // sesión al escribir.
-func TestHostnameEscribirSinSesion(t *testing.T) {
+func TestHostnameWriteWithoutSession(t *testing.T) {
 	t.Parallel()
 
-	hostname := nuevoHostnameDePrueba(nil, ErrSesionNoDisponible)
+	hostname := newHostnameOfTests(nil, ErrSessionUnavailable)
 
-	_, err := hostname.Escribir(context.Background(), ConfiguracionHostname{Nombre: nombreHostPrueba})
-	if !errors.Is(err, ErrSesionNoDisponible) {
+	_, err := hostname.Write(context.Background(), HostnameConfig{Name: nameHostTests})
+	if !errors.Is(err, ErrSessionUnavailable) {
 		t.Fatalf("Escribir() error = %v, want ErrSesionNoDisponible", err)
 	}
 }
 
-// TestContenidoHostsBordes comprueba que /etc/hosts se reescribe sin
+// TestContentHostsBordes comprueba que /etc/hosts se reescribe sin
 // duplicar el nombre, sin confundirlo con un prefijo y conservando el
 // resto de las líneas.
-func TestContenidoHostsBordes(t *testing.T) {
+func TestContentHostsBordes(t *testing.T) {
 	t.Parallel()
 
-	casos := []struct {
-		nombre   string
-		entrada  string
+	testCases := []struct {
+		name     string
+		entry    string
 		esperada string
 	}{
 		{
@@ -322,27 +322,27 @@ func TestContenidoHostsBordes(t *testing.T) {
 		},
 	}
 
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			obtenida := contenidoHosts(caso.entrada, "nodo", "10.0.0.5")
-			if obtenida != caso.esperada {
-				t.Errorf("contenidoHosts() = %q, want %q", obtenida, caso.esperada)
+			obtenida := hostsContent(testCase.entry, "nodo", "10.0.0.5")
+			if obtenida != testCase.esperada {
+				t.Errorf("contenidoHosts() = %q, want %q", obtenida, testCase.esperada)
 			}
 		})
 	}
 }
 
-// TestNombreEnHostsBordes exige que el nombre aparezca como destino y
+// TestNameInHostsBordes exige que el nombre aparezca como destino y
 // no como prefijo de otro nombre.
-func TestNombreEnHostsBordes(t *testing.T) {
+func TestNameInHostsBordes(t *testing.T) {
 	t.Parallel()
 
-	casos := []struct {
-		nombre    string
-		contenido string
-		esperado  bool
+	testCases := []struct {
+		name     string
+		content  string
+		expected bool
 	}{
 		{"vacío", "", false},
 		{"solo localhost", "127.0.0.1 localhost\n", false},
@@ -353,12 +353,12 @@ func TestNombreEnHostsBordes(t *testing.T) {
 		{"con tabuladores", "10.0.0.5\tnodo\n", true},
 	}
 
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			if obtenido := nombreEnHosts(caso.contenido, "nodo"); obtenido != caso.esperado {
-				t.Errorf("nombreEnHosts() = %v, want %v", obtenido, caso.esperado)
+			if obtained := nameInHosts(testCase.content, "nodo"); obtained != testCase.expected {
+				t.Errorf("nombreEnHosts() = %v, want %v", obtained, testCase.expected)
 			}
 		})
 	}

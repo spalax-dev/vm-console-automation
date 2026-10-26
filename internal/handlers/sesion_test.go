@@ -18,56 +18,56 @@ import (
 
 // Valores repetidos en las pruebas del handler de sesión.
 const (
-	rutaSesion      = "/api/session"
-	conectorSSH     = "ssh"
-	ipPrueba        = "192.168.1.50"
-	msgCodigo       = "código = %d, want %d"
-	msgJSONInvalido = "respuesta no es JSON válido: %v"
+	pathSession    = "/api/session"
+	connectorSSH   = "ssh"
+	ipTests        = "192.168.1.50"
+	msgCode        = "código = %d, want %d"
+	msgJSONInvalid = "respuesta no es JSON válido: %v"
 )
 
-// stubDescubridor es un descubridor falso que devuelve una sesión o un
+// stubDiscoverer es un descubridor falso que devuelve una sesión o un
 // error preprogramados.
-type stubDescubridor struct {
-	info services.InfoSesion
+type stubDiscoverer struct {
+	info services.SessionInfo
 	err  error
 }
 
-// Descubrir devuelve la información o el error preprogramados.
-func (s *stubDescubridor) Descubrir(context.Context) (services.InfoSesion, error) {
+// Discover devuelve la información o el error preprogramados.
+func (s *stubDiscoverer) Discover(context.Context) (services.SessionInfo, error) {
 	return s.info, s.err
 }
 
-// TestSesionHandlerRespondeJSON comprueba el contrato de GET
+// TestSessionHandlerRespondsJSON comprueba el contrato de GET
 // /api/session: conector, IP y estado en JSON.
-func TestSesionHandlerRespondeJSON(t *testing.T) {
+func TestSessionHandlerRespondsJSON(t *testing.T) {
 	t.Parallel()
 
-	desc := &stubDescubridor{info: services.InfoSesion{
-		Conector: conectorSSH,
-		IP:       netip.MustParseAddr(ipPrueba),
-		Estado:   domain.StateRunning,
+	desc := &stubDiscoverer{info: services.SessionInfo{
+		Connector: connectorSSH,
+		IP:        netip.MustParseAddr(ipTests),
+		State:     domain.StateRunning,
 	}}
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, rutaSesion, http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, pathSession, http.NoBody)
 	rec := httptest.NewRecorder()
 
-	NuevoSesion(desc).ServeHTTP(rec, req)
+	NewSession(desc).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+		t.Fatalf(msgCode, rec.Code, http.StatusOK)
 	}
 
 	var body map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
-		t.Fatalf(msgJSONInvalido, err)
+		t.Fatalf(msgJSONInvalid, err)
 	}
 
-	if body["conector"] != conectorSSH {
-		t.Errorf("conector = %v, want %q", body["conector"], conectorSSH)
+	if body["conector"] != connectorSSH {
+		t.Errorf("conector = %v, want %q", body["conector"], connectorSSH)
 	}
 
-	if body["ip"] != ipPrueba {
-		t.Errorf("ip = %v, want %q", body["ip"], ipPrueba)
+	if body["ip"] != ipTests {
+		t.Errorf("ip = %v, want %q", body["ip"], ipTests)
 	}
 
 	if body["estado"] != string(domain.StateRunning) {
@@ -75,25 +75,25 @@ func TestSesionHandlerRespondeJSON(t *testing.T) {
 	}
 }
 
-// TestSesionHandlerSinSesionResponde503 comprueba que la ausencia de
+// TestSessionHandlerWithoutSessionResponde503 comprueba que la ausencia de
 // conector se traduce en 503 con un mensaje comprensible.
-func TestSesionHandlerSinSesionResponde503(t *testing.T) {
+func TestSessionHandlerWithoutSessionResponde503(t *testing.T) {
 	t.Parallel()
 
-	desc := &stubDescubridor{err: services.ErrSesionNoDisponible}
+	desc := &stubDiscoverer{err: services.ErrSessionUnavailable}
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, rutaSesion, http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, pathSession, http.NoBody)
 	rec := httptest.NewRecorder()
 
-	NuevoSesion(desc).ServeHTTP(rec, req)
+	NewSession(desc).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusServiceUnavailable {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusServiceUnavailable)
+		t.Fatalf(msgCode, rec.Code, http.StatusServiceUnavailable)
 	}
 
 	var body map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
-		t.Fatalf(msgJSONInvalido, err)
+		t.Fatalf(msgJSONInvalid, err)
 	}
 
 	if body["ok"] != false {
@@ -105,69 +105,69 @@ func TestSesionHandlerSinSesionResponde503(t *testing.T) {
 	}
 }
 
-// TestSesionHandlerRechazaMetodosNoGET comprueba que solo se admite GET.
-func TestSesionHandlerRechazaMetodosNoGET(t *testing.T) {
+// TestSessionHandlerRejectsMethodsNotGET comprueba que solo se admite GET.
+func TestSessionHandlerRejectsMethodsNotGET(t *testing.T) {
 	t.Parallel()
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, rutaSesion, http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, pathSession, http.NoBody)
 	rec := httptest.NewRecorder()
 
-	NuevoSesion(&stubDescubridor{}).ServeHTTP(rec, req)
+	NewSession(&stubDiscoverer{}).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusMethodNotAllowed {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusMethodNotAllowed)
+		t.Fatalf(msgCode, rec.Code, http.StatusMethodNotAllowed)
 	}
 }
 
-// TestSesionHandlerErrorInternoResponde500 comprueba que un fallo del
+// TestSessionHandlerErrorInternalResponde500 comprueba que un fallo del
 // descubrimiento distinto de «sin sesión» se responde como 500.
-func TestSesionHandlerErrorInternoResponde500(t *testing.T) {
+func TestSessionHandlerErrorInternalResponde500(t *testing.T) {
 	t.Parallel()
 
-	desc := &stubDescubridor{err: errors.New("fallo inesperado")}
+	desc := &stubDiscoverer{err: errors.New("fallo inesperado")}
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, rutaSesion, http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, pathSession, http.NoBody)
 	rec := httptest.NewRecorder()
 
-	NuevoSesion(desc).ServeHTTP(rec, req)
+	NewSession(desc).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// stubRegistroSesion informa si la máquina está registrada.
-type stubRegistroSesion struct {
-	registrada bool
+// stubRegistrationSession informa si la máquina está registrada.
+type stubRegistrationSession struct {
+	registered bool
 }
 
-// Registrada devuelve el estado preprogramado.
-func (s *stubRegistroSesion) Registrada(string) bool {
-	return s.registrada
+// IsRegistered devuelve el estado preprogramado.
+func (s *stubRegistrationSession) IsRegistered(string) bool {
+	return s.registered
 }
 
-// TestSesionHandlerInformaRegistro comprueba el campo registrada.
-func TestSesionHandlerInformaRegistro(t *testing.T) {
+// TestSessionHandlerInformaRegistration comprueba el campo registrada.
+func TestSessionHandlerInformaRegistration(t *testing.T) {
 	t.Parallel()
 
-	desc := &stubDescubridor{info: services.InfoSesion{
-		Conector: conectorSSH,
-		IP:       netip.MustParseAddr(ipPrueba),
-		Estado:   domain.StateRunning,
+	desc := &stubDiscoverer{info: services.SessionInfo{
+		Connector: connectorSSH,
+		IP:        netip.MustParseAddr(ipTests),
+		State:     domain.StateRunning,
 	}}
 
-	handler := NuevoSesion(desc, ConRegistro(&stubRegistroSesion{registrada: true}))
+	handler := NewSession(desc, WithRegistration(&stubRegistrationSession{registered: true}))
 
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, rutaSesion, http.NoBody)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, pathSession, http.NoBody)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
-	var cuerpo map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &cuerpo); err != nil {
-		t.Fatalf(msgJSONInvalido, err)
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf(msgJSONInvalid, err)
 	}
 
-	if cuerpo["registrada"] != true {
-		t.Errorf("registrada = %v, want true", cuerpo["registrada"])
+	if body["registrada"] != true {
+		t.Errorf("registrada = %v, want true", body["registrada"])
 	}
 }

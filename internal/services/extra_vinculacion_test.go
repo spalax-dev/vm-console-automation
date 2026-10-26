@@ -11,14 +11,14 @@ import (
 	"consola-vm/internal/core/domain"
 )
 
-// TestAdministrableCubreLasRedes descarta los modos que el anfitrión no
+// TestAdministrableCoversNetworks descarta los modos que el anfitrión no
 // alcanza y las consultas fallidas.
-func TestAdministrableCubreLasRedes(t *testing.T) {
+func TestAdministrableCoversNetworks(t *testing.T) {
 	t.Parallel()
 
-	casos := []struct {
-		nombre  string
-		modo    domain.NetworkMode
+	testCases := []struct {
+		name    string
+		mode    domain.NetworkMode
 		visible bool
 	}{
 		{"internal", domain.NetworkInternal, false},
@@ -27,64 +27,64 @@ func TestAdministrableCubreLasRedes(t *testing.T) {
 		{"host-only", domain.NetworkHostOnly, true},
 	}
 
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			maquina := &stubGuestAdditions{
-				accesibles: map[string]bool{nombreUbuntu: true},
-				redes:      map[string]domain.NetworkMode{nombreUbuntu: caso.modo},
+			machine := &stubGuestAdditions{
+				accesibles: map[string]bool{nameUbuntu: true},
+				networks:   map[string]domain.NetworkMode{nameUbuntu: testCase.mode},
 			}
-			vinculacion := NuevoVinculacion(&ConfigVinculacion{
-				Inventario: &stubInventory{maquinas: []domain.VM{
-					{Name: nombreUbuntu, UUID: uuidUbuntu, State: domain.StatePoweredOff},
+			binding := NewBinding(&BindingConfig{
+				Inventory: &stubInventory{machines: []domain.VM{
+					{Name: nameUbuntu, UUID: uuidUbuntu, State: domain.StatePoweredOff},
 				}},
-				Seleccion: &stubSeleccion{},
-				Maquina:   maquina,
+				Selection: &stubSelection{},
+				Machine:   machine,
 			})
 
-			visibles, err := vinculacion.Listar(context.Background(), "")
+			visibles, err := binding.List(context.Background(), "")
 			if err != nil {
 				t.Fatalf("Listar() error = %v, want nil", err)
 			}
 
-			if visible := len(visibles) == 1; visible != caso.visible {
-				t.Errorf("visible = %v, want %v", visible, caso.visible)
+			if visible := len(visibles) == 1; visible != testCase.visible {
+				t.Errorf("visible = %v, want %v", visible, testCase.visible)
 			}
 		})
 	}
 }
 
-// TestAdministrableSinMaquina lista todo cuando no hay comprobación.
-func TestAdministrableSinMaquina(t *testing.T) {
+// TestAdministrableWithoutMachine lista todo cuando no hay comprobación.
+func TestAdministrableWithoutMachine(t *testing.T) {
 	t.Parallel()
 
-	vinculacion := NuevoVinculacion(&ConfigVinculacion{
-		Inventario: &stubInventory{maquinas: []domain.VM{
-			{Name: nombreDebian, UUID: uuidDebian, State: domain.StateRunning},
+	binding := NewBinding(&BindingConfig{
+		Inventory: &stubInventory{machines: []domain.VM{
+			{Name: testMachineName, UUID: uuidTest, State: domain.StateRunning},
 		}},
-		Seleccion: &stubSeleccion{},
+		Selection: &stubSelection{},
 	})
 
-	visibles, err := vinculacion.Listar(context.Background(), "")
+	visibles, err := binding.List(context.Background(), "")
 	if err != nil || len(visibles) != 1 {
 		t.Errorf("Listar() = %d, %v, want una máquina", len(visibles), err)
 	}
 }
 
-// TestAdministrableConRedIlegible oculta la máquina si la red falla.
-func TestAdministrableConRedIlegible(t *testing.T) {
+// TestAdministrableWithNetworkUnreadable oculta la máquina si la red falla.
+func TestAdministrableWithNetworkUnreadable(t *testing.T) {
 	t.Parallel()
 
-	vinculacion := NuevoVinculacion(&ConfigVinculacion{
-		Inventario: &stubInventory{maquinas: []domain.VM{
-			{Name: nombreDebian, UUID: uuidDebian, State: domain.StateRunning},
+	binding := NewBinding(&BindingConfig{
+		Inventory: &stubInventory{machines: []domain.VM{
+			{Name: testMachineName, UUID: uuidTest, State: domain.StateRunning},
 		}},
-		Seleccion: &stubSeleccion{},
-		Maquina:   &stubGuestAdditions{errRed: errors.New("sin red")},
+		Selection: &stubSelection{},
+		Machine:   &stubGuestAdditions{errNetwork: errors.New("sin red")},
 	})
 
-	visibles, err := vinculacion.Listar(context.Background(), "")
+	visibles, err := binding.List(context.Background(), "")
 	if err != nil {
 		t.Fatalf("Listar() error = %v, want nil", err)
 	}
@@ -94,35 +94,35 @@ func TestAdministrableConRedIlegible(t *testing.T) {
 	}
 }
 
-// TestVincularConInventarioCaido propaga el fallo de VirtualBox.
-func TestVincularConInventarioCaido(t *testing.T) {
+// TestBindWithInventoryCaido propaga el fallo de VirtualBox.
+func TestBindWithInventoryCaido(t *testing.T) {
 	t.Parallel()
 
-	vinculacion := NuevoVinculacion(&ConfigVinculacion{
-		Inventario: &stubInventory{err: errors.New("sin VBoxManage")},
-		Seleccion:  &stubSeleccion{},
+	binding := NewBinding(&BindingConfig{
+		Inventory: &stubInventory{err: errors.New("sin VBoxManage")},
+		Selection: &stubSelection{},
 	})
 
-	if _, err := vinculacion.Vincular(context.Background(), nombreDebian); err == nil {
+	if _, err := binding.Bind(context.Background(), testMachineName); err == nil {
 		t.Error("Vincular() error = nil, want el fallo del inventario")
 	}
 
-	if _, err := vinculacion.Encender(context.Background(), nombreDebian); err == nil {
+	if _, err := binding.PowerOn(context.Background(), testMachineName); err == nil {
 		t.Error("Encender() error = nil, want el fallo del inventario")
 	}
 }
 
-// TestGuardarActivaNoRompeLaVinculacion solo advierte del fallo.
-func TestGuardarActivaNoRompeLaVinculacion(t *testing.T) {
+// TestSaveActiveNotRompeBinding solo advierte del fallo.
+func TestSaveActiveNotRompeBinding(t *testing.T) {
 	t.Parallel()
 
-	vinculacion := NuevoVinculacion(&ConfigVinculacion{
-		Inventario:   inventarioDePrueba(),
-		Seleccion:    &stubSeleccion{},
-		Persistencia: &stubPersistencia{err: errors.New("base caída")},
+	binding := NewBinding(&BindingConfig{
+		Inventory:   inventoryOfTests(),
+		Selection:   &stubSelection{},
+		Persistence: &stubPersistence{err: errors.New("base caída")},
 	})
 
-	if _, err := vinculacion.Vincular(context.Background(), nombreDebian); err != nil {
+	if _, err := binding.Bind(context.Background(), testMachineName); err != nil {
 		t.Errorf("Vincular() error = %v, want nil", err)
 	}
 }

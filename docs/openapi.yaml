@@ -5,7 +5,7 @@ info:
   license:
     name: Apache-2.0
     identifier: Apache-2.0
-  summary: Contrato REST entre la interfaz web y la consola de administración de VM Debian.
+  summary: Contrato REST entre la interfaz web y la consola de administración de máquinas virtuales con distribuciones basadas en Debian.
   description: |
     Contrato REST entre el frontend (`web/`) y la API de `vmcons`.
 
@@ -117,7 +117,7 @@ paths:
         Verifica que la VM esté encendida, descubre su dirección si hace
         falta y elige el conector en orden de preferencia (`ssh` y luego
         `guest-additions`). No abre una sesión persistente.
-      operationId: obtenerSesion
+      operationId: getSession
       responses:
         '200':
           description: Sesión resuelta.
@@ -128,7 +128,7 @@ paths:
               examples:
                 ssh:
                   value:
-                    vm: debian-1
+                    vm: vm-1
                     conector: ssh
                     ip: 192.168.1.50
                     estado: running
@@ -146,7 +146,7 @@ paths:
         definió `VMCONS_VM`. No exige que la máquina esté encendida:
         vincular una máquina apagada es válido y solo impide abrir sesión
         con ella hasta que se encienda.
-      operationId: vincularMaquina
+      operationId: bindMachine
       requestBody:
         required: true
         content:
@@ -178,7 +178,7 @@ paths:
         arranque; al terminar, la máquina queda en estado `running`.
         No apaga ninguna máquina: el apagado se hace desde el
         hipervisor para no interrumpir servicios en ejecución.
-      operationId: encenderMaquina
+      operationId: powerOnMachine
       parameters:
         - $ref: '#/components/parameters/VM'
       responses:
@@ -217,7 +217,7 @@ paths:
         La contraseña se guarda en SQLite (`data/vmcons.db`) cifrada con
         AES-256-GCM; la clave local (`data/credenciales.key`) y la base
         tienen permisos 0600.
-      operationId: registrarMaquina
+      operationId: registerMachine
       requestBody:
         required: true
         content:
@@ -248,7 +248,7 @@ paths:
     delete:
       tags: [session]
       summary: Eliminar el registro de la máquina vinculada
-      operationId: olvidarRegistro
+      operationId: forgetRegistration
       responses:
         '204':
           description: Registro y credenciales eliminados.
@@ -270,7 +270,7 @@ paths:
         red, dirección, versión y nivel de Guest Additions, usuarios con
         sesión iniciada y si el puerto SSH responde. Devuelve problemas y
         sugerencias concretas.
-      operationId: diagnosticarMaquina
+      operationId: diagnoseMachine
       responses:
         '200':
           description: Diagnóstico de la máquina vinculada.
@@ -291,7 +291,7 @@ paths:
     get:
       tags: [packages]
       summary: Listar los paquetes instalados
-      operationId: listarPaquetes
+      operationId: listPackages
       responses:
         '200':
           description: Paquetes instalados en la máquina.
@@ -306,7 +306,7 @@ paths:
     post:
       tags: [packages]
       summary: Instalar un paquete
-      operationId: instalarPaquete
+      operationId: installPackage
       requestBody:
         required: true
         content:
@@ -336,7 +336,7 @@ paths:
     delete:
       tags: [packages]
       summary: Eliminar un paquete
-      operationId: eliminarPaquete
+      operationId: removePackage
       parameters:
         - $ref: '#/components/parameters/PackageName'
       responses:
@@ -358,7 +358,7 @@ paths:
       description: |
         Entrega la llave privada como archivo adjunto. La llave nunca
         viaja en el cuerpo JSON ni se escribe en los logs.
-      operationId: descargarLlaveRoot
+      operationId: downloadRootKey
       responses:
         '200':
           description: Archivo de llave privada.
@@ -385,7 +385,7 @@ paths:
         Genera el par en el anfitrión, instala la llave pública en
         `authorized_keys`, deshabilita el acceso por contraseña y deja la
         llave privada disponible para descarga.
-      operationId: generarLlaveRoot
+      operationId: generateRootKey
       responses:
         '201':
           description: Par de llaves generado.
@@ -413,7 +413,7 @@ paths:
     get:
       tags: [system]
       summary: Consultar la configuración de /etc/issue
-      operationId: obtenerIssue
+      operationId: getIssue
       responses:
         '200':
           description: Configuración actual del banner.
@@ -428,7 +428,7 @@ paths:
     put:
       tags: [system]
       summary: Reemplazar la configuración de /etc/issue
-      operationId: reemplazarIssue
+      operationId: replaceIssue
       requestBody:
         required: true
         content:
@@ -449,7 +449,7 @@ paths:
     get:
       tags: [system]
       summary: Consultar el nombre de host
-      operationId: obtenerHostname
+      operationId: getHostname
       responses:
         '200':
           description: Nombre de host y dirección registrada.
@@ -464,7 +464,7 @@ paths:
     put:
       tags: [system]
       summary: Reemplazar el nombre de host y /etc/hosts
-      operationId: reemplazarHostname
+      operationId: replaceHostname
       requestBody:
         required: true
         content:
@@ -485,7 +485,7 @@ paths:
     get:
       tags: [users]
       summary: Listar los usuarios
-      operationId: listarUsuarios
+      operationId: listUsers
       responses:
         '200':
           description: Cuentas locales de la máquina.
@@ -504,7 +504,7 @@ paths:
         Crea la cuenta; si `sudo` es verdadero la agrega al grupo `sudo`.
         Si `llaves` es verdadero genera un par, instala la pública y deja
         la privada disponible para descarga.
-      operationId: crearUsuario
+      operationId: createUser
       requestBody:
         required: true
         content:
@@ -540,7 +540,7 @@ paths:
     get:
       tags: [users]
       summary: Consultar un usuario
-      operationId: obtenerUsuario
+      operationId: getUser
       parameters:
         - $ref: '#/components/parameters/UserName'
       responses:
@@ -561,7 +561,7 @@ paths:
     delete:
       tags: [users]
       summary: Eliminar un usuario
-      operationId: eliminarUsuario
+      operationId: deleteUser
       parameters:
         - $ref: '#/components/parameters/UserName'
         - name: files
@@ -587,7 +587,7 @@ paths:
     get:
       tags: [users]
       summary: Descargar la llave privada de un usuario
-      operationId: descargarLlaveUsuario
+      operationId: downloadUserKey
       parameters:
         - $ref: '#/components/parameters/UserName'
       responses:
@@ -616,7 +616,7 @@ paths:
     get:
       tags: [systemd]
       summary: Listar las unidades administradas
-      operationId: listarUnidades
+      operationId: listUnits
       responses:
         '200':
           description: Unidades conocidas por la consola.
@@ -633,7 +633,7 @@ paths:
     get:
       tags: [systemd]
       summary: Consultar el estado de una unidad
-      operationId: obtenerUnidad
+      operationId: getUnit
       parameters:
         - $ref: '#/components/parameters/Unit'
       responses:
@@ -654,7 +654,7 @@ paths:
     put:
       tags: [systemd]
       summary: Desplegar o reemplazar una unidad y sus archivos
-      operationId: desplegarUnidad
+      operationId: deployUnit
       parameters:
         - $ref: '#/components/parameters/Unit'
       requestBody:
@@ -680,7 +680,7 @@ paths:
         sistema (`habilitado`). El cuerpo debe indicar exactamente una de
         las dos propiedades. Para reiniciar se usa el subrecurso
         `restarts`.
-      operationId: cambiarEstadoUnidad
+      operationId: changeUnitState
       parameters:
         - $ref: '#/components/parameters/Unit'
       requestBody:
@@ -712,7 +712,7 @@ paths:
       description: |
         Crea una operación de reinicio sobre la unidad. Es un `POST`
         porque reiniciar no es idempotente.
-      operationId: reiniciarUnidad
+      operationId: restartUnit
       parameters:
         - $ref: '#/components/parameters/Unit'
       responses:
@@ -739,7 +739,7 @@ paths:
         Devuelve las operaciones registradas, de la más reciente a la más
         antigua. Los filtros se combinan con AND; las fechas y horas se
         interpretan sobre la marca UTC almacenada.
-      operationId: listarHistorial
+      operationId: listHistory
       parameters:
         - name: q
           in: query
@@ -813,7 +813,7 @@ paths:
     get:
       tags: [haproxy]
       summary: Listar los servidores del back-end
-      operationId: listarServidores
+      operationId: listServers
       responses:
         '200':
           description: Servidores configurados en el back-end.
@@ -828,7 +828,7 @@ paths:
     post:
       tags: [haproxy]
       summary: Agregar un servidor al back-end
-      operationId: agregarServidor
+      operationId: addServer
       requestBody:
         required: true
         content:
@@ -858,7 +858,7 @@ paths:
     delete:
       tags: [haproxy]
       summary: Eliminar un servidor del back-end
-      operationId: eliminarServidor
+      operationId: deleteServer
       parameters:
         - $ref: '#/components/parameters/Server'
       responses:
@@ -886,7 +886,7 @@ paths:
         aparecen con `registrada: false`. El filtro `q`
         compara, sin distinguir mayúsculas, contra el nombre y el UUID.
         Es la fuente del selector de la barra superior.
-      operationId: listarMaquinas
+      operationId: listMachines
       parameters:
         - name: q
           in: query
@@ -914,7 +914,7 @@ paths:
         trae una cookie válida. No exige autenticación: es la consulta con
         la que la interfaz decide entre el formulario de creación, el de
         acceso y el armazón.
-      operationId: estadoAutenticacion
+      operationId: authState
       security: []
       responses:
         '200':
@@ -940,7 +940,7 @@ paths:
         Crea la primera cuenta de la consola y deja la sesión iniciada.
         Solo funciona mientras no exista ninguna cuenta; después responde
         `409`.
-      operationId: crearCuentaConsola
+      operationId: createConsoleAccount
       security: []
       requestBody:
         required: true
@@ -970,7 +970,7 @@ paths:
     post:
       tags: [auth]
       summary: Iniciar sesión en la consola
-      operationId: iniciarSesionConsola
+      operationId: loginConsole
       security: []
       requestBody:
         required: true
@@ -996,7 +996,7 @@ paths:
     post:
       tags: [auth]
       summary: Cerrar la sesión de la consola
-      operationId: cerrarSesionConsola
+      operationId: logoutConsole
       responses:
         '204':
           description: Sesión cerrada y cookie vencida.
@@ -1114,7 +1114,7 @@ components:
               value:
                 ok: false
                 mensaje: 'No hay una sesión disponible con la máquina: enciéndela o revisa la red.'
-                tecnico: 'no hay una sesión disponible con la máquina: la máquina "debian13" está en estado "poweroff"'
+                tecnico: 'no hay una sesión disponible con la máquina: la máquina "vm1" está en estado "poweroff"'
     ErrorInterno:
       description: Fallo inesperado de la consola.
       content:
@@ -1289,7 +1289,7 @@ components:
       maxLength: 63
       pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
       description: Nombre de host según RFC 1123.
-      examples: [debian13, nodo-web-01]
+      examples: [vm1, nodo-web-01]
 
     NombreUnidad:
       type: string
@@ -1629,7 +1629,7 @@ components:
         nombre:
           type: string
           description: Nombre con el que VirtualBox registra la máquina.
-          examples: [debian-1]
+          examples: [vm-1]
         uuid:
           type: string
           description: Identificador único de la máquina en el hipervisor.
@@ -1663,4 +1663,4 @@ components:
           description: |
             Nombre o UUID de la máquina que se vincula. Debe existir en el
             inventario del hipervisor.
-          examples: [debian-1]
+          examples: [vm-1]

@@ -12,93 +12,93 @@ import (
 	"consola-vm/internal/services"
 )
 
-// ServicioAcceso registra una máquina en la consola.
-type ServicioAcceso interface {
-	// Registrar guarda las credenciales y prepara SSH.
-	Registrar(ctx context.Context, usuario, password string) (services.Resultado, error)
-	// Olvidar elimina el registro y las credenciales.
-	Olvidar() error
+// AccessService registra una máquina en la consola.
+type AccessService interface {
+	// Register guarda las credenciales y prepara SSH.
+	Register(ctx context.Context, user, password string) (services.Outcome, error)
+	// Forget elimina el registro y las credenciales.
+	Forget() error
 }
 
-// Acceso expone POST y DELETE /api/session/register: registra la máquina
+// Access expone POST y DELETE /api/session/register: registra la máquina
 // vinculada o elimina su registro.
-type Acceso struct {
-	servicio ServicioAcceso
+type Access struct {
+	service AccessService
 }
 
-// NuevoAcceso construye el handler de credenciales.
-func NuevoAcceso(servicio ServicioAcceso) *Acceso {
-	return &Acceso{servicio: servicio}
+// NewAccess construye el handler de credenciales.
+func NewAccess(service AccessService) *Access {
+	return &Access{service: service}
 }
 
-// solicitudAcceso es el cuerpo de POST /api/session/login.
-type solicitudAcceso struct {
-	Usuario  string `json:"usuario"`
+// accessRequest es el cuerpo de POST /api/session/login.
+type accessRequest struct {
+	User     string `json:"usuario"`
 	Password string `json:"password"`
 }
 
 // ServeHTTP implementa http.Handler.
-func (h *Acceso) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !exigirMetodo(w, r, http.MethodPost, http.MethodDelete) {
+func (h *Access) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodPost, http.MethodDelete) {
 		return
 	}
 
 	if r.Method == http.MethodDelete {
-		h.olvidar(w)
+		h.forget(w)
 
 		return
 	}
 
-	h.registrar(w, r)
+	h.register(w, r)
 }
 
-// registrar valida y registra la máquina.
-func (h *Acceso) registrar(w http.ResponseWriter, r *http.Request) {
-	var solicitud solicitudAcceso
-	if err := decodificarJSON(w, r, &solicitud); err != nil {
-		responderValidacion(w, err)
+// register valida y registra la máquina.
+func (h *Access) register(w http.ResponseWriter, r *http.Request) {
+	var request accessRequest
+	if err := decodeJSON(w, r, &request); err != nil {
+		respondValidacion(w, err)
 
 		return
 	}
 
-	solicitud.Usuario = strings.TrimSpace(solicitud.Usuario)
+	request.User = strings.TrimSpace(request.User)
 
-	if err := validarUsuario(campoUsuario, solicitud.Usuario); err != nil {
-		responderValidacion(w, err)
+	if err := validateUser(userField, request.User); err != nil {
+		respondValidacion(w, err)
 
 		return
 	}
 
-	resultado, err := h.servicio.Registrar(r.Context(), solicitud.Usuario, solicitud.Password)
+	result, err := h.service.Register(r.Context(), request.User, request.Password)
 	switch {
-	case errors.Is(err, services.ErrSinMaquina):
-		escribirJSON(w, http.StatusConflict,
-			respuestaDeError(resultado, "Primero elige una máquina virtual.", err))
-	case errors.Is(err, services.ErrCredencialesInvalidas):
-		escribirJSON(w, http.StatusUnauthorized, respuestaDeError(resultado,
+	case errors.Is(err, services.ErrNoMachine):
+		writeJSON(w, http.StatusConflict,
+			responseFromError(result, "Primero elige una máquina virtual.", err))
+	case errors.Is(err, services.ErrInvalidCredentials):
+		writeJSON(w, http.StatusUnauthorized, responseFromError(result,
 			"Guest Additions rechazó las credenciales o no pudo ejecutar la orden.", err))
-	case errors.Is(err, services.ErrSesionNoDisponible):
-		escribirJSON(w, http.StatusServiceUnavailable, respuestaDeError(resultado,
+	case errors.Is(err, services.ErrSessionUnavailable):
+		writeJSON(w, http.StatusServiceUnavailable, responseFromError(result,
 			"La máquina no está encendida o no publica Guest Additions.", err))
 	case err != nil:
-		escribirJSON(w, http.StatusInternalServerError, respuestaDeError(resultado,
+		writeJSON(w, http.StatusInternalServerError, responseFromError(result,
 			"No fue posible guardar o verificar las credenciales.", err))
 	default:
-		escribirResultado(w, http.StatusCreated, resultado)
+		writeResult(w, http.StatusCreated, result)
 	}
 }
 
-// olvidar elimina las credenciales de la máquina activa.
-func (h *Acceso) olvidar(w http.ResponseWriter) {
-	if err := h.servicio.Olvidar(); err != nil {
-		codigo := http.StatusInternalServerError
-		if errors.Is(err, services.ErrSinMaquina) {
-			codigo = http.StatusConflict
+// forget elimina las credenciales de la máquina activa.
+func (h *Access) forget(w http.ResponseWriter) {
+	if err := h.service.Forget(); err != nil {
+		code := http.StatusInternalServerError
+		if errors.Is(err, services.ErrNoMachine) {
+			code = http.StatusConflict
 		}
 
-		escribirJSON(w, codigo, respuestaError{
-			Mensaje: "No fue posible olvidar las credenciales.",
-			Tecnico: err.Error(),
+		writeJSON(w, code, errorResponse{
+			Message:   "No fue posible olvidar las credenciales.",
+			Technical: err.Error(),
 		})
 
 		return
@@ -107,8 +107,8 @@ func (h *Acceso) olvidar(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// campoUsuario es el nombre del campo de usuario del cuerpo.
-const campoUsuario = "usuario"
+// userField es el nombre del campo de usuario del cuerpo.
+const userField = "usuario"
 
-// campoPassword es el nombre del campo de contraseña del cuerpo.
-const campoPassword = "password"
+// passwordField es el nombre del campo de contraseña del cuerpo.
+const passwordField = "password"

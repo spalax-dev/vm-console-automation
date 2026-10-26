@@ -11,62 +11,71 @@ import (
 	"time"
 )
 
-// Operacion es una entrada del historial de la consola.
-type Operacion struct {
+// Operation es una entrada del historial de la consola.
+type Operation struct {
 	// ID es el identificador incremental.
 	ID int64
-	// FechaHora es la marca temporal en RFC 3339 (UTC).
-	FechaHora string
+	// DateHour es la marca temporal en RFC 3339 (UTC).
+	DateHour string
 	// VM es la máquina sobre la que se actuó.
 	VM string
-	// Modulo identifica el módulo (paquetes, usuarios, systemd, etc.).
-	Modulo string
-	// Operacion es el método y la ruta ejecutados.
-	Operacion string
-	// Descripcion es el resumen legible de la operación.
-	Descripcion string
-	// Resultado es «ok» o «error».
-	Resultado string
-	// Detalle conserva información técnica breve.
-	Detalle string
+	// Module identifica el módulo (paquetes, usuarios, systemd, etc.).
+	Module string
+	// Operation es el método y la ruta ejecutados.
+	Operation string
+	// Description es el resumen legible de la operación.
+	Description string
+	// Outcome es «ok» o «error».
+	Outcome string
+	// Detail conserva información técnica breve.
+	Detail string
 }
 
-// FiltroHistorial reúne los filtros de la consulta del historial.
-type FiltroHistorial struct {
-	Texto     string
-	VM        string
-	Modulo    string
-	Desde     string
-	Hasta     string
-	HoraDesde string
-	HoraHasta string
-	Limite    int
+// HistoryFilter reúne los filtros de la consulta del historial.
+type HistoryFilter struct {
+	// Text busca en la máquina, el módulo, la operación, la descripción y
+	// el detalle.
+	Text string
+	// VM filtra por el nombre de la máquina.
+	VM string
+	// Module filtra por el módulo que originó la operación.
+	Module string
+	// From acota por la fecha inicial (AAAA-MM-DD), inclusive.
+	From string
+	// To acota por la fecha final (AAAA-MM-DD), inclusive.
+	To string
+	// HourFrom acota por la hora inicial del día (HH:MM), inclusive.
+	HourFrom string
+	// HourTo acota por la hora final del día (HH:MM), inclusive.
+	HourTo string
+	// Limit es el máximo de filas; cero usa el límite por omisión.
+	Limit int
 }
 
-// limiteHistorial es el número máximo de filas por consulta.
-const limiteHistorial = 200
+// limitHistory es el número máximo de filas por consulta.
+const limitHistory = 200
 
-// Historial registra las operaciones y las consulta desde SQLite.
-type Historial struct {
+// History registra las operaciones y las consulta desde SQLite.
+type History struct {
 	db *sql.DB
 }
 
-// NuevoHistorial construye el historial sobre la base de la consola.
-func NuevoHistorial(almacen *Almacen) *Historial {
-	return &Historial{db: almacen.db}
+// NewHistory construye el historial sobre la base de la consola.
+func NewHistory(store *Store) *History {
+	return &History{db: store.db}
 }
 
-// Registrar agrega una operación al historial.
-func (h *Historial) Registrar(ctx context.Context, operacion *Operacion) error {
-	if operacion.FechaHora == "" {
-		operacion.FechaHora = time.Now().UTC().Format(time.RFC3339)
+// Register agrega una operación al historial.
+func (h *History) Register(ctx context.Context, operation *Operation) error {
+	if operation.DateHour == "" {
+		operation.DateHour = time.Now().UTC().Format(time.RFC3339)
 	}
 
 	_, err := h.db.ExecContext(ctx, `
 		INSERT INTO operaciones (fecha_hora, vm, modulo, operacion, descripcion, resultado, detalle)
 		VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		operacion.FechaHora, operacion.VM, operacion.Modulo, operacion.Operacion,
-		operacion.Descripcion, operacion.Resultado, operacion.Detalle,
+		operation.DateHour, operation.VM, operation.Module, operation.Operation,
+		operation.Description, operation.Outcome, operation.Detail,
 	)
 	if err != nil {
 		return fmt.Errorf("registrar la operación: %w", err)
@@ -75,16 +84,16 @@ func (h *Historial) Registrar(ctx context.Context, operacion *Operacion) error {
 	return nil
 }
 
-// Listar devuelve las operaciones que cumplen el filtro, de la más
+// List devuelve las operaciones que cumplen el filtro, de la más
 // reciente a la más antigua.
-func (h *Historial) Listar(ctx context.Context, filtro *FiltroHistorial) ([]Operacion, error) {
-	if filtro == nil {
-		filtro = &FiltroHistorial{}
+func (h *History) List(ctx context.Context, filter *HistoryFilter) ([]Operation, error) {
+	if filter == nil {
+		filter = &HistoryFilter{}
 	}
 
-	consulta, argumentos := consultaHistorial(filtro)
+	consulta, arguments := consultaHistory(filter)
 
-	filas, err := h.db.QueryContext(ctx, consulta, argumentos...)
+	rows, err := h.db.QueryContext(ctx, consulta, arguments...)
 	if err != nil {
 		return nil, fmt.Errorf("consultar el historial: %w", err)
 	}
@@ -92,110 +101,110 @@ func (h *Historial) Listar(ctx context.Context, filtro *FiltroHistorial) ([]Oper
 	defer func() {
 		// El cierre tras recorrer las filas no aporta información: el error
 		// del recorrido ya se devolvió arriba.
-		_ = filas.Close() //nolint:errcheck // el cierre no cambia el resultado.
+		_ = rows.Close() //nolint:errcheck // el cierre no cambia el resultado.
 	}()
 
-	operaciones := []Operacion{}
+	operations := []Operation{}
 
-	for filas.Next() {
-		var operacion Operacion
+	for rows.Next() {
+		var operation Operation
 
-		if err := filas.Scan(
-			&operacion.ID, &operacion.FechaHora, &operacion.VM, &operacion.Modulo,
-			&operacion.Operacion, &operacion.Descripcion, &operacion.Resultado, &operacion.Detalle,
+		if err := rows.Scan(
+			&operation.ID, &operation.DateHour, &operation.VM, &operation.Module,
+			&operation.Operation, &operation.Description, &operation.Outcome, &operation.Detail,
 		); err != nil {
 			return nil, fmt.Errorf("leer una operación: %w", err)
 		}
 
-		operaciones = append(operaciones, operacion)
+		operations = append(operations, operation)
 	}
 
-	if err := filas.Err(); err != nil {
+	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("recorrer el historial: %w", err)
 	}
 
-	return operaciones, nil
+	return operations, nil
 }
 
-// consultaHistorial arma el SQL y los argumentos según los filtros.
-func consultaHistorial(filtro *FiltroHistorial) (consulta string, argumentos []any) {
+// consultaHistory arma el SQL y los argumentos según los filtros.
+func consultaHistory(filter *HistoryFilter) (consulta string, arguments []any) {
 	consulta = `SELECT id, fecha_hora, vm, modulo, operacion, descripcion, resultado, detalle FROM operaciones WHERE 1 = 1`
-	argumentos = []any{}
+	arguments = []any{}
 
-	if filtro.Texto != "" {
+	if filter.Text != "" {
 		consulta += ` AND (vm LIKE ? OR modulo LIKE ? OR operacion LIKE ? OR descripcion LIKE ? OR detalle LIKE ?)`
-		like := "%" + filtro.Texto + "%"
-		argumentos = append(argumentos, like, like, like, like, like)
+		like := "%" + filter.Text + "%"
+		arguments = append(arguments, like, like, like, like, like)
 	}
 
-	if filtro.VM != "" {
+	if filter.VM != "" {
 		consulta += ` AND vm = ?`
 
-		argumentos = append(argumentos, filtro.VM)
+		arguments = append(arguments, filter.VM)
 	}
 
-	if filtro.Modulo != "" {
+	if filter.Module != "" {
 		consulta += ` AND modulo = ?`
 
-		argumentos = append(argumentos, filtro.Modulo)
+		arguments = append(arguments, filter.Module)
 	}
 
-	if filtro.Desde != "" {
+	if filter.From != "" {
 		consulta += ` AND substr(fecha_hora, 1, 10) >= ?`
 
-		argumentos = append(argumentos, filtro.Desde)
+		arguments = append(arguments, filter.From)
 	}
 
-	if filtro.Hasta != "" {
+	if filter.To != "" {
 		consulta += ` AND substr(fecha_hora, 1, 10) <= ?`
 
-		argumentos = append(argumentos, filtro.Hasta)
+		arguments = append(arguments, filter.To)
 	}
 
-	if filtro.HoraDesde != "" {
+	if filter.HourFrom != "" {
 		consulta += ` AND substr(fecha_hora, 12, 5) >= ?`
 
-		argumentos = append(argumentos, filtro.HoraDesde)
+		arguments = append(arguments, filter.HourFrom)
 	}
 
-	if filtro.HoraHasta != "" {
+	if filter.HourTo != "" {
 		consulta += ` AND substr(fecha_hora, 12, 5) <= ?`
 
-		argumentos = append(argumentos, filtro.HoraHasta)
+		arguments = append(arguments, filter.HourTo)
 	}
 
-	limite := filtro.Limite
-	if limite <= 0 || limite > 1000 {
-		limite = limiteHistorial
+	limit := filter.Limit
+	if limit <= 0 || limit > 1000 {
+		limit = limitHistory
 	}
 
 	consulta += ` ORDER BY id DESC LIMIT ?`
 
-	argumentos = append(argumentos, limite)
+	arguments = append(arguments, limit)
 
-	return consulta, argumentos
+	return consulta, arguments
 }
 
-// ModuloDe ruta devuelve el nombre del módulo a partir de la ruta HTTP.
-func ModuloDe(ruta string) string {
+// ModuleOf ruta devuelve el nombre del módulo a partir de la ruta HTTP.
+func ModuleOf(path string) string {
 	switch {
-	case strings.HasPrefix(ruta, "/api/packages"):
+	case strings.HasPrefix(path, "/api/packages"):
 		return "paquetes"
-	case strings.HasPrefix(ruta, "/api/keys"):
+	case strings.HasPrefix(path, "/api/keys"):
 		return "llaves"
-	case strings.HasPrefix(ruta, rutaIssue):
+	case strings.HasPrefix(path, pathIssue):
 		return "issue"
-	case strings.HasPrefix(ruta, "/api/hostname"):
+	case strings.HasPrefix(path, "/api/hostname"):
 		return "hostname"
-	case strings.HasPrefix(ruta, "/api/users"):
+	case strings.HasPrefix(path, "/api/users"):
 		return "usuarios"
-	case strings.HasPrefix(ruta, "/api/units"):
+	case strings.HasPrefix(path, "/api/units"):
 		return "systemd"
-	case strings.HasPrefix(ruta, "/api/haproxy"):
+	case strings.HasPrefix(path, "/api/haproxy"):
 		return "haproxy"
-	case strings.HasPrefix(ruta, "/api/session"):
+	case strings.HasPrefix(path, "/api/session"):
 		return "sesion"
-	case strings.HasPrefix(ruta, "/api/vms"):
+	case strings.HasPrefix(path, "/api/vms"):
 		return "maquinas"
 	default:
 		return ""

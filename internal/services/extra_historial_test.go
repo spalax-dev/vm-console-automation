@@ -11,87 +11,87 @@ import (
 	"testing"
 )
 
-// TestHistorialFiltraPorMaquina comprueba el filtro por VM del historial.
-func TestHistorialFiltraPorMaquina(t *testing.T) {
+// TestHistoryFiltraByMachine comprueba el filtro por VM del historial.
+func TestHistoryFiltraByMachine(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
-	historial := NuevoHistorial(almacen)
+	store, _, _ := newTestDB(t)
+	history := NewHistory(store)
 	ctx := context.Background()
 
-	operaciones := []Operacion{
-		{VM: "debian-1", Modulo: "paquetes", Operacion: "POST /api/packages", Resultado: "ok"},
-		{VM: "debian-2", Modulo: "usuarios", Operacion: "POST /api/users", Resultado: "ok"},
+	operations := []Operation{
+		{VM: "vm-1", Module: "paquetes", Operation: "POST /api/packages", Outcome: "ok"},
+		{VM: "vm-2", Module: "usuarios", Operation: "POST /api/users", Outcome: "ok"},
 	}
 
-	for i := range operaciones {
-		if err := historial.Registrar(ctx, &operaciones[i]); err != nil {
+	for i := range operations {
+		if err := history.Register(ctx, &operations[i]); err != nil {
 			t.Fatalf("Registrar() error = %v, want nil", err)
 		}
 	}
 
-	if operaciones[0].FechaHora == "" {
+	if operations[0].DateHour == "" {
 		t.Error("Registrar() no fijó la fecha y la hora")
 	}
 
-	lista, err := historial.Listar(ctx, &FiltroHistorial{VM: "debian-1"})
+	lists, err := history.List(ctx, &HistoryFilter{VM: "vm-1"})
 	if err != nil {
 		t.Fatalf("Listar() error = %v, want nil", err)
 	}
 
-	if len(lista) != 1 || lista[0].VM != "debian-1" {
-		t.Errorf("Listar() = %+v, want una operación de debian-1", lista)
+	if len(lists) != 1 || lists[0].VM != "vm-1" {
+		t.Errorf("Listar() = %+v, want una operación de vm-1", lists)
 	}
 }
 
-// TestHistorialSinFiltro lista todas las operaciones.
-func TestHistorialSinFiltro(t *testing.T) {
+// TestHistoryWithoutFilter lista todas las operaciones.
+func TestHistoryWithoutFilter(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
-	historial := NuevoHistorial(almacen)
+	store, _, _ := newTestDB(t)
+	history := NewHistory(store)
 	ctx := context.Background()
 
-	if err := historial.Registrar(ctx, &Operacion{VM: "debian-1", Modulo: "paquetes"}); err != nil {
+	if err := history.Register(ctx, &Operation{VM: "vm-1", Module: "paquetes"}); err != nil {
 		t.Fatalf("Registrar() error = %v, want nil", err)
 	}
 
-	lista, err := historial.Listar(ctx, nil)
+	lists, err := history.List(ctx, nil)
 	if err != nil {
 		t.Fatalf("Listar() error = %v, want nil", err)
 	}
 
-	if len(lista) != 1 {
-		t.Errorf("Listar() = %d operaciones, want 1", len(lista))
+	if len(lists) != 1 {
+		t.Errorf("Listar() = %d operaciones, want 1", len(lists))
 	}
 }
 
-// TestHistorialConBaseCerrada propaga los errores de SQLite.
-func TestHistorialConBaseCerrada(t *testing.T) {
+// TestHistoryWithBaseClosed propaga los errores de SQLite.
+func TestHistoryWithBaseClosed(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
-	historial := NuevoHistorial(almacen)
+	store, _, _ := newTestDB(t)
+	history := NewHistory(store)
 	ctx := context.Background()
 
-	if err := almacen.db.Close(); err != nil {
+	if err := store.db.Close(); err != nil {
 		t.Fatalf("cerrar la base: %v", err)
 	}
 
-	if err := historial.Registrar(ctx, &Operacion{}); err == nil {
+	if err := history.Register(ctx, &Operation{}); err == nil {
 		t.Error("Registrar() error = nil, want el fallo de SQLite")
 	}
 
-	if _, err := historial.Listar(ctx, nil); err == nil {
+	if _, err := history.List(ctx, nil); err == nil {
 		t.Error("Listar() error = nil, want el fallo de SQLite")
 	}
 }
 
-// TestModuloDeRutas reconoce todos los módulos y descarta el resto.
-func TestModuloDeRutas(t *testing.T) {
+// TestModuleOfRutas reconoce todos los módulos y descarta el resto.
+func TestModuleOfRutas(t *testing.T) {
 	t.Parallel()
 
-	casos := map[string]string{
+	testCases := map[string]string{
 		"/api/issue":       "issue",
 		"/api/hostname":    "hostname",
 		"/api/packages":    "paquetes",
@@ -100,36 +100,36 @@ func TestModuloDeRutas(t *testing.T) {
 		"/otra/ruta":       "",
 	}
 
-	for ruta, esperado := range casos {
-		if modulo := ModuloDe(ruta); modulo != esperado {
-			t.Errorf("ModuloDe(%q) = %q, want %q", ruta, modulo, esperado)
+	for path, expected := range testCases {
+		if module := ModuleOf(path); module != expected {
+			t.Errorf("ModuloDe(%q) = %q, want %q", path, module, expected)
 		}
 	}
 }
 
-// TestHistorialConFilasRotas cubre los errores al recorrer las filas.
-func TestHistorialConFilasRotas(t *testing.T) {
+// TestHistoryWithRowsRotas cubre los errores al recorrer las filas.
+func TestHistoryWithRowsRotas(t *testing.T) {
 	t.Parallel()
 
-	casos := []struct {
-		nombre      string
-		filas       func() driver.Rows
-		quiereError bool
+	testCases := []struct {
+		name       string
+		rows       func() driver.Rows
+		wantsError bool
 	}{
-		{"recorrido", func() driver.Rows { return filasConError{err: errors.New("fallo")} }, true},
-		{"cierre", func() driver.Rows { return filasQueNoCierran{} }, true},
-		{"lectura", func() driver.Rows { return &filasConValores{} }, true},
+		{"recorrido", func() driver.Rows { return errorRows{err: errors.New("fallo")} }, true},
+		{"cierre", func() driver.Rows { return unclosedRows{} }, true},
+		{"lectura", func() driver.Rows { return &valueRows{} }, true},
 	}
 
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			nombre := registrarControladorUnico(t, &driverConector{
-				conector: conectorDeFilas{filas: caso.filas()},
+			name := registerControladorUnico(t, &testDriver{
+				connector: rowsConnector{rows: testCase.rows()},
 			})
 
-			db, err := sql.Open(nombre, "")
+			db, err := sql.Open(name, "")
 			if err != nil {
 				t.Fatalf("abrir la base de prueba: %v", err)
 			}
@@ -140,13 +140,13 @@ func TestHistorialConFilasRotas(t *testing.T) {
 				}
 			})
 
-			operaciones, err := (&Historial{db: db}).Listar(context.Background(), nil)
-			if (err != nil) != caso.quiereError {
-				t.Fatalf("Listar() error = %v, want error=%v", err, caso.quiereError)
+			operations, err := (&History{db: db}).List(context.Background(), nil)
+			if (err != nil) != testCase.wantsError {
+				t.Fatalf("Listar() error = %v, want error=%v", err, testCase.wantsError)
 			}
 
-			if !caso.quiereError && len(operaciones) != 0 {
-				t.Errorf("Listar() devolvió %d operaciones, want 0", len(operaciones))
+			if !testCase.wantsError && len(operations) != 0 {
+				t.Errorf("Listar() devolvió %d operaciones, want 0", len(operations))
 			}
 		})
 	}

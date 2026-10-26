@@ -13,7 +13,8 @@ import (
 	"net/netip"
 )
 
-// Result contiene el resultado de la ejecución de una orden.
+// Result reúne la salida estándar, la salida de error y el código de
+// salida de una orden ejecutada.
 type Result struct {
 	// Stdout es la salida estándar capturada.
 	Stdout string
@@ -43,11 +44,16 @@ type MachineState string
 
 // Estados de encendido de una máquina virtual.
 const (
-	StateRunning    MachineState = "running"
+	// StateRunning indica que la máquina está encendida.
+	StateRunning MachineState = "running"
+	// StatePoweredOff indica que la máquina está apagada.
 	StatePoweredOff MachineState = "poweroff"
-	StatePaused     MachineState = "paused"
-	StateSaved      MachineState = "saved"
-	StateUnknown    MachineState = "unknown"
+	// StatePaused indica que la máquina está pausada.
+	StatePaused MachineState = "paused"
+	// StateSaved indica que la máquina está guardada en disco.
+	StateSaved MachineState = "saved"
+	// StateUnknown indica que el estado no se pudo determinar.
+	StateUnknown MachineState = "unknown"
 )
 
 // GuestAdditions describe lo que la máquina informa sobre Guest
@@ -67,19 +73,28 @@ type NetworkMode string
 
 // Modos de red que la consola distingue.
 const (
-	NetworkBridged  NetworkMode = "bridged"
-	NetworkNAT      NetworkMode = "nat"
+	// NetworkBridged indica una interfaz en modo puente.
+	NetworkBridged NetworkMode = "bridged"
+	// NetworkNAT indica una interfaz con traducción de direcciones.
+	NetworkNAT NetworkMode = "nat"
+	// NetworkHostOnly indica una red privada entre el anfitrión y la máquina.
 	NetworkHostOnly NetworkMode = "hostonly"
+	// NetworkInternal indica una red interna entre máquinas virtuales.
 	NetworkInternal NetworkMode = "internal"
-	NetworkNone     NetworkMode = "none"
-	NetworkUnknown  NetworkMode = "unknown"
+	// NetworkNone indica que la interfaz no tiene red.
+	NetworkNone NetworkMode = "none"
+	// NetworkUnknown indica que el modo de red no se pudo determinar.
+	NetworkUnknown NetworkMode = "unknown"
 )
 
 // Target identifica la máquina administrada. El identificador es opaco
 // para el núcleo: cada adaptador sabe cómo interpretarlo. La dirección
 // se descubre antes de usarla; si es la dirección cero, es desconocida.
 type Target struct {
-	ID      string
+	// ID es el nombre o UUID con el que el hipervisor identifica la máquina.
+	ID string
+	// Address es la dirección descubierta; su valor cero indica que aún se
+	// desconoce.
 	Address netip.Addr
 }
 

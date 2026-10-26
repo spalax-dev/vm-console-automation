@@ -14,229 +14,229 @@ import (
 	"consola-vm/internal/services"
 )
 
-// errFallo simula un error genérico sin comando asociado.
-var errFallo = errors.New("fallo interno")
+// errFailure simula un error genérico sin comando asociado.
+var errFailure = errors.New("fallo interno")
 
 // Órdenes usadas en las pruebas del cuerpo de error.
 const (
-	operacionCrearJorge   = "useradd -m jorge"
-	operacionGuestControl = "VBoxManage guestcontrol ejecutar"
+	operationCreateJorge  = "useradd -m jorge"
+	operationGuestControl = "VBoxManage guestcontrol ejecutar"
 )
 
-// cuerpoDeRespuesta decodifica el cuerpo JSON de una respuesta grabada.
-func cuerpoDeRespuesta(t *testing.T, rec *httptest.ResponseRecorder) map[string]any {
+// bodyOfResponse decodifica el cuerpo JSON de una respuesta grabada.
+func bodyOfResponse(t *testing.T, rec *httptest.ResponseRecorder) map[string]any {
 	t.Helper()
 
-	var cuerpo map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &cuerpo); err != nil {
-		t.Fatalf(msgJSONInvalido, err)
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf(msgJSONInvalid, err)
 	}
 
-	return cuerpo
+	return body
 }
 
-// comprobarSinClaves verifica que el cuerpo JSON no incluya las claves
+// checkWithoutKeys verifica que el cuerpo JSON no incluya las claves
 // dadas, para que un error no emita datos de una operación que no ocurrió.
-func comprobarSinClaves(t *testing.T, cuerpo map[string]any, claves ...string) {
+func checkWithoutKeys(t *testing.T, body map[string]any, keys ...string) {
 	t.Helper()
 
-	for _, clave := range claves {
-		if valor, existe := cuerpo[clave]; existe {
-			t.Errorf("la respuesta no debe incluir %q y vale %v", clave, valor)
+	for _, key := range keys {
+		if value, exists := body[key]; exists {
+			t.Errorf("la respuesta no debe incluir %q y vale %v", key, value)
 		}
 	}
 }
 
-// TestRespuestaValidacionOmiteDatosDeOperacion comprueba que un 400 de
+// TestResponseValidacionOmiteDataOfOperation comprueba que un 400 de
 // validación nombre el campo rechazado y no invente datos de operación.
-func TestRespuestaValidacionOmiteDatosDeOperacion(t *testing.T) {
+func TestResponseValidacionOmiteDataOfOperation(t *testing.T) {
 	t.Parallel()
 
-	rec := ejecutarCaso(t, NuevoUsuarios(&stubUsuarios{}).Coleccion, rutaUsuarios, casoPeticion{
-		nombre: "nombre inválido", metodo: http.MethodPost,
-		cuerpo: `{"nombre":"-mal-","sudo":false,"llaves":false}`,
+	rec := runTestCase(t, NewUsers(&stubUsers{}).Collection, pathUsers, testCaseRequest{
+		name: "nombre inválido", method: http.MethodPost,
+		body: `{"nombre":"-mal-","sudo":false,"llaves":false}`,
 	})
 
 	if rec.Code != http.StatusBadRequest {
-		t.Fatalf(msgCodigoCuerpo, rec.Code, http.StatusBadRequest, rec.Body.String())
+		t.Fatalf(msgCodeBody, rec.Code, http.StatusBadRequest, rec.Body.String())
 	}
 
-	cuerpo := cuerpoDeRespuesta(t, rec)
+	body := bodyOfResponse(t, rec)
 
-	if cuerpo["campo"] != campoNombre {
-		t.Errorf("campo = %v, want %q", cuerpo["campo"], campoNombre)
+	if body["campo"] != nameField {
+		t.Errorf("campo = %v, want %q", body["campo"], nameField)
 	}
 
-	comprobarSinClaves(t, cuerpo, "operacion", "codigo", "salida", "stderr")
+	checkWithoutKeys(t, body, "operacion", "codigo", "salida", "stderr")
 }
 
-// TestRespuestaAutenticacionSinCodigo comprueba que los rechazos de la
+// TestResponseAutenticacionWithoutCode comprueba que los rechazos de la
 // autenticación no emitan un código de salida inventado.
-func TestRespuestaAutenticacionSinCodigo(t *testing.T) {
+func TestResponseAutenticacionWithoutCode(t *testing.T) {
 	t.Parallel()
 
-	casos := []struct {
-		nombre    string
-		servicio  *stubConsola
-		manejador func(*Auth) http.HandlerFunc
-		esperado  int
+	testCases := []struct {
+		name     string
+		service  *stubConsole
+		handler  func(*Auth) http.HandlerFunc
+		expected int
 	}{
 		{
-			nombre:    "credenciales incorrectas",
-			servicio:  &stubConsola{autenticado: false},
-			manejador: func(a *Auth) http.HandlerFunc { return a.Entrar },
-			esperado:  http.StatusUnauthorized,
+			name:     "credenciales incorrectas",
+			service:  &stubConsole{autenticado: false},
+			handler:  func(a *Auth) http.HandlerFunc { return a.Login },
+			expected: http.StatusUnauthorized,
 		},
 		{
-			nombre:    "cuenta existente",
-			servicio:  &stubConsola{configurarErr: services.ErrConsolaConfigurada},
-			manejador: func(a *Auth) http.HandlerFunc { return a.Configurar },
-			esperado:  http.StatusConflict,
+			name:     "cuenta existente",
+			service:  &stubConsole{configureErr: services.ErrConsoleConfigured},
+			handler:  func(a *Auth) http.HandlerFunc { return a.Configure },
+			expected: http.StatusConflict,
 		},
 	}
 
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			rec := ejecutarCaso(t, caso.manejador(NuevoAuth(caso.servicio)), rutaAuthLogin, casoPeticion{
-				nombre: caso.nombre, metodo: http.MethodPost, cuerpo: cuerpoCredenciales,
+			rec := runTestCase(t, testCase.handler(NewAuth(testCase.service)), pathAuthLogin, testCaseRequest{
+				name: testCase.name, method: http.MethodPost, body: bodyCredentials,
 			})
 
-			if rec.Code != caso.esperado {
-				t.Fatalf(msgCodigoCuerpo, rec.Code, caso.esperado, rec.Body.String())
+			if rec.Code != testCase.expected {
+				t.Fatalf(msgCodeBody, rec.Code, testCase.expected, rec.Body.String())
 			}
 
-			cuerpo := cuerpoDeRespuesta(t, rec)
+			body := bodyOfResponse(t, rec)
 
-			if cuerpo["ok"] != false {
-				t.Errorf("ok = %v, want false", cuerpo["ok"])
+			if body["ok"] != false {
+				t.Errorf("ok = %v, want false", body["ok"])
 			}
 
-			if cuerpo["mensaje"] == "" || cuerpo["mensaje"] == nil {
+			if body["mensaje"] == "" || body["mensaje"] == nil {
 				t.Errorf("la respuesta debe incluir un mensaje")
 			}
 
-			comprobarSinClaves(t, cuerpo, "codigo", "operacion", "salida", "stderr")
+			checkWithoutKeys(t, body, "codigo", "operacion", "salida", "stderr")
 		})
 	}
 }
 
-// TestRespuestaErrorDeOperacionConservaLaOrden comprueba que el fallo de un
+// TestResponseErrorOfOperationKeepsCommand comprueba que el fallo de un
 // comando conserve la operación, el código, la salida y el detalle técnico.
-func TestRespuestaErrorDeOperacionConservaLaOrden(t *testing.T) {
+func TestResponseErrorOfOperationKeepsCommand(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubUsuarios{
-		resultado: services.Resultado{
-			Operacion: operacionCrearJorge,
-			Codigo:    9,
-			Salida:    "creando la cuenta",
+	service := &stubUsers{
+		result: services.Outcome{
+			Operation: operationCreateJorge,
+			Code:      9,
+			Output:    "creando la cuenta",
 			Stderr:    "useradd: el usuario ya existe",
 		},
-		err: &domain.ExitError{Code: 9, Command: operacionCrearJorge},
+		err: &domain.ExitError{Code: 9, Command: operationCreateJorge},
 	}
 
-	rec := ejecutarCaso(t, NuevoUsuarios(servicio).Coleccion, rutaUsuarios, casoPeticion{
-		nombre: "fallo de useradd", metodo: http.MethodPost,
-		cuerpo: `{"nombre":"jorge","sudo":true,"llaves":false}`,
+	rec := runTestCase(t, NewUsers(service).Collection, pathUsers, testCaseRequest{
+		name: "fallo de useradd", method: http.MethodPost,
+		body: `{"nombre":"jorge","sudo":true,"llaves":false}`,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigoCuerpo, rec.Code, http.StatusInternalServerError, rec.Body.String())
+		t.Fatalf(msgCodeBody, rec.Code, http.StatusInternalServerError, rec.Body.String())
 	}
 
-	cuerpo := cuerpoDeRespuesta(t, rec)
+	body := bodyOfResponse(t, rec)
 
-	if cuerpo["ok"] != false {
-		t.Errorf("ok = %v, want false", cuerpo["ok"])
+	if body["ok"] != false {
+		t.Errorf("ok = %v, want false", body["ok"])
 	}
 
-	if cuerpo["mensaje"] != "No fue posible completar la operación." {
-		t.Errorf("mensaje = %v, want el mensaje genérico de la operación", cuerpo["mensaje"])
+	if body["mensaje"] != "No fue posible completar la operación." {
+		t.Errorf("mensaje = %v, want el mensaje genérico de la operación", body["mensaje"])
 	}
 
-	if cuerpo["operacion"] != operacionCrearJorge {
-		t.Errorf("operacion = %v, want %q", cuerpo["operacion"], operacionCrearJorge)
+	if body["operacion"] != operationCreateJorge {
+		t.Errorf("operacion = %v, want %q", body["operacion"], operationCreateJorge)
 	}
 
-	if cuerpo["codigo"] != float64(9) {
-		t.Errorf("codigo = %v, want 9", cuerpo["codigo"])
+	if body["codigo"] != float64(9) {
+		t.Errorf("codigo = %v, want 9", body["codigo"])
 	}
 
-	if cuerpo["salida"] != "creando la cuenta" {
-		t.Errorf("salida = %v, want la salida del comando", cuerpo["salida"])
+	if body["salida"] != "creando la cuenta" {
+		t.Errorf("salida = %v, want la salida del comando", body["salida"])
 	}
 
-	if cuerpo["stderr"] != "useradd: el usuario ya existe" {
-		t.Errorf("stderr = %v, want el stderr del comando", cuerpo["stderr"])
+	if body["stderr"] != "useradd: el usuario ya existe" {
+		t.Errorf("stderr = %v, want el stderr del comando", body["stderr"])
 	}
 
-	if tecnico, ok := cuerpo["tecnico"].(string); !ok || tecnico == "" {
-		t.Errorf("la respuesta debe incluir el detalle técnico, tecnico = %v", cuerpo["tecnico"])
+	if technical, ok := body["tecnico"].(string); !ok || technical == "" {
+		t.Errorf("la respuesta debe incluir el detalle técnico, tecnico = %v", body["tecnico"])
 	}
 
-	comprobarSinClaves(t, cuerpo, "campo")
+	checkWithoutKeys(t, body, "campo")
 }
 
-// TestRespuestaCredencialesInvalidasConservaElCodigo comprueba que un 401
+// TestResponseCredentialsInvalidKeepsCode comprueba que un 401
 // con un comando ejecutado sí incluya su código de salida.
-func TestRespuestaCredencialesInvalidasConservaElCodigo(t *testing.T) {
+func TestResponseCredentialsInvalidKeepsCode(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubAcceso{
-		resultado: services.Resultado{
-			Operacion: operacionGuestControl,
-			Codigo:    5,
+	service := &stubAccess{
+		result: services.Outcome{
+			Operation: operationGuestControl,
+			Code:      5,
 			Stderr:    "VBoxManage: error",
 		},
-		err: services.ErrCredencialesInvalidas,
+		err: services.ErrInvalidCredentials,
 	}
 
-	rec := ejecutarCaso(t, NuevoAcceso(servicio).ServeHTTP, rutaRegistro, casoPeticion{
-		nombre: "credenciales rechazadas", metodo: http.MethodPost,
-		cuerpo: `{"usuario":"root","password":"secreto"}`,
+	rec := runTestCase(t, NewAccess(service).ServeHTTP, pathRegistration, testCaseRequest{
+		name: "credenciales rechazadas", method: http.MethodPost,
+		body: `{"usuario":"root","password":"secreto"}`,
 	})
 
 	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf(msgCodigoCuerpo, rec.Code, http.StatusUnauthorized, rec.Body.String())
+		t.Fatalf(msgCodeBody, rec.Code, http.StatusUnauthorized, rec.Body.String())
 	}
 
-	cuerpo := cuerpoDeRespuesta(t, rec)
+	body := bodyOfResponse(t, rec)
 
-	if cuerpo["operacion"] != operacionGuestControl {
-		t.Errorf("operacion = %v, want %q", cuerpo["operacion"], operacionGuestControl)
+	if body["operacion"] != operationGuestControl {
+		t.Errorf("operacion = %v, want %q", body["operacion"], operationGuestControl)
 	}
 
-	if cuerpo["codigo"] != float64(5) {
-		t.Errorf("codigo = %v, want 5", cuerpo["codigo"])
+	if body["codigo"] != float64(5) {
+		t.Errorf("codigo = %v, want 5", body["codigo"])
 	}
 
-	if cuerpo["stderr"] != "VBoxManage: error" {
-		t.Errorf("stderr = %v, want el stderr del comando", cuerpo["stderr"])
+	if body["stderr"] != "VBoxManage: error" {
+		t.Errorf("stderr = %v, want el stderr del comando", body["stderr"])
 	}
 }
 
-// TestRespuestaDeErrorOmiteLaOperacionVacia comprueba que un resultado sin
+// TestResponseOfErrorOmiteOperationEmpty comprueba que un resultado sin
 // comando no aporte campos a la respuesta.
-func TestRespuestaDeErrorOmiteLaOperacionVacia(t *testing.T) {
+func TestResponseOfErrorOmiteOperationEmpty(t *testing.T) {
 	t.Parallel()
 
-	cuerpo := respuestaDeError(services.Resultado{}, "no fue posible", errFallo)
+	body := responseFromError(services.Outcome{}, "no fue posible", errFailure)
 
-	if cuerpo.OK {
+	if body.OK {
 		t.Errorf("OK = true, want false")
 	}
 
-	if cuerpo.Mensaje != "no fue posible" {
-		t.Errorf("Mensaje = %q, want %q", cuerpo.Mensaje, "no fue posible")
+	if body.Message != "no fue posible" {
+		t.Errorf("Mensaje = %q, want %q", body.Message, "no fue posible")
 	}
 
-	if cuerpo.Tecnico != errFallo.Error() {
-		t.Errorf("Tecnico = %q, want %q", cuerpo.Tecnico, errFallo.Error())
+	if body.Technical != errFailure.Error() {
+		t.Errorf("Tecnico = %q, want %q", body.Technical, errFailure.Error())
 	}
 
-	if cuerpo.Operacion != "" || cuerpo.Codigo != 0 || cuerpo.Salida != "" || cuerpo.Stderr != "" {
-		t.Errorf("el resultado vacío no debe aportar datos de la operación: %+v", cuerpo)
+	if body.Operation != "" || body.Code != 0 || body.Output != "" || body.Stderr != "" {
+		t.Errorf("el resultado vacío no debe aportar datos de la operación: %+v", body)
 	}
 }

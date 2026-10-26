@@ -1,3 +1,10 @@
+## Nombres y documentación
+
+- Los identificadores de Go —paquetes, tipos, funciones, métodos, variables, campos y constantes— se escriben en inglés.
+- Los comentarios, la documentación y los mensajes al usuario se escriben en español.
+- Los nombres del contrato JSON y de las rutas de la API se mantienen en español; los tipos de Go usan nombres en inglés con la etiqueta `json` correspondiente.
+- Las pruebas usan nombres y datos auxiliares en inglés. No se usa el nombre de una distribución como sinónimo de máquina virtual: se dice «máquina virtual» o «distribución basada en Debian».
+
 Trabajar siempre en este orden: docs, luego tests y por último implementación.
 Antes de escribir código, escribir o actualizar primero la documentación correspondiente en docs/.
 Antes de implementar una funcionalidad, escribir primero sus pruebas.

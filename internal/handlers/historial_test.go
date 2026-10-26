@@ -15,299 +15,299 @@ import (
 	"consola-vm/internal/services"
 )
 
-// descripcionPaqueteNano es el resumen esperado al instalar nano.
-const descripcionPaqueteNano = "Instalar el paquete «nano»"
+// descriptionPkgNano es el resumen esperado al instalar nano.
+const descriptionPkgNano = "Instalar el paquete «nano»"
 
-// tipoJSONPrueba es el tipo de contenido de las peticiones de prueba.
-const tipoJSONPrueba = "application/json"
+// kindJSONTests es el tipo de contenido de las peticiones de prueba.
+const kindJSONTests = "application/json"
 
-// msgRegistrarLlamadas es el formato para comprobar las llamadas a Registrar.
-const msgRegistrarLlamadas = "Registrar() se llamó %d veces, want 1"
+// msgRegisterLlamadas es el formato para comprobar las llamadas a Register.
+const msgRegisterLlamadas = "Registrar() se llamó %d veces, want 1"
 
-// stubHistorial es un historial falso con resultados preprogramados.
-type stubHistorial struct {
-	lista       []services.Operacion
+// stubHistory es un historial falso con resultados preprogramados.
+type stubHistory struct {
+	lists       []services.Operation
 	err         error
-	filtro      services.FiltroHistorial
-	registradas []services.Operacion
+	filter      services.HistoryFilter
+	registradas []services.Operation
 }
 
-// Listar devuelve la lista preprogramada.
-func (s *stubHistorial) Listar(_ context.Context, filtro *services.FiltroHistorial) ([]services.Operacion, error) {
-	s.filtro = *filtro
+// List devuelve la lista preprogramada.
+func (s *stubHistory) List(_ context.Context, filter *services.HistoryFilter) ([]services.Operation, error) {
+	s.filter = *filter
 
-	return s.lista, s.err
+	return s.lists, s.err
 }
 
-// Registrar acumula las operaciones registradas.
-func (s *stubHistorial) Registrar(_ context.Context, operacion *services.Operacion) error {
-	s.registradas = append(s.registradas, *operacion)
+// Register acumula las operaciones registradas.
+func (s *stubHistory) Register(_ context.Context, operation *services.Operation) error {
+	s.registradas = append(s.registradas, *operation)
 
 	return s.err
 }
 
-// TestHistorialListar cubre la consulta y los filtros.
-func TestHistorialListar(t *testing.T) {
+// TestHistoryList cubre la consulta y los filtros.
+func TestHistoryList(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubHistorial{lista: []services.Operacion{
-		{ID: 1, FechaHora: "2026-10-25T10:00:00Z", VM: maquinaDebian, Modulo: "paquetes", Operacion: "POST /api/packages", Descripcion: descripcionPaqueteNano, Resultado: "ok"},
+	service := &stubHistory{lists: []services.Operation{
+		{ID: 1, DateHour: "2026-10-25T10:00:00Z", VM: testMachine, Module: "paquetes", Operation: "POST /api/packages", Description: descriptionPkgNano, Outcome: "ok"},
 	}}
 
-	ruta := "/api/historial?q=nano&vm=debian-1&modulo=paquetes&desde=2026-10-25&hasta=2026-10-26&hora_desde=08:00&hora_hasta=18:00&limite=50"
+	path := "/api/historial?q=nano&vm=vm-1&modulo=paquetes&desde=2026-10-25&hasta=2026-10-26&hora_desde=08:00&hora_hasta=18:00&limite=50"
 
-	rec := ejecutarCaso(t, NuevoHistorial(servicio).ServeHTTP, ruta, casoPeticion{
-		nombre: casoListar, metodo: http.MethodGet,
+	rec := runTestCase(t, NewHistory(service).ServeHTTP, path, testCaseRequest{
+		name: testCaseList, method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+		t.Fatalf(msgCode, rec.Code, http.StatusOK)
 	}
 
-	if servicio.filtro.Texto != "nano" || servicio.filtro.VM != maquinaDebian || servicio.filtro.Limite != 50 {
-		t.Errorf("filtro = %+v, want los parámetros de la query", servicio.filtro)
+	if service.filter.Text != "nano" || service.filter.VM != testMachine || service.filter.Limit != 50 {
+		t.Errorf("filtro = %+v, want los parámetros de la query", service.filter)
 	}
 
-	var cuerpo listaHistorial
-	if err := json.Unmarshal(rec.Body.Bytes(), &cuerpo); err != nil {
-		t.Fatalf(msgJSONInvalido, err)
+	var body historyList
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf(msgJSONInvalid, err)
 	}
 
-	if len(cuerpo.Operaciones) != 1 || cuerpo.Operaciones[0].VM != maquinaDebian {
-		t.Errorf("operaciones = %+v, want debian-1", cuerpo.Operaciones)
+	if len(body.Operations) != 1 || body.Operations[0].VM != testMachine {
+		t.Errorf("operaciones = %+v, want vm-1", body.Operations)
 	}
 
-	if cuerpo.Operaciones[0].Descripcion != descripcionPaqueteNano {
-		t.Errorf("descripcion = %q, want el resumen del historial", cuerpo.Operaciones[0].Descripcion)
+	if body.Operations[0].Description != descriptionPkgNano {
+		t.Errorf("descripcion = %q, want el resumen del historial", body.Operations[0].Description)
 	}
 }
 
-// TestHistorialValidacion cubre fechas, horas, límite y método.
-func TestHistorialValidacion(t *testing.T) {
+// TestHistoryValidacion cubre fechas, horas, límite y método.
+func TestHistoryValidacion(t *testing.T) {
 	t.Parallel()
 
-	handler := NuevoHistorial(&stubHistorial{}).ServeHTTP
+	handler := NewHistory(&stubHistory{}).ServeHTTP
 
-	casos := []struct {
-		casoPeticion
-		ruta string
+	testCases := []struct {
+		testCaseRequest
+		path string
 	}{
-		{casoPeticion{nombre: "fecha inválida", metodo: http.MethodGet, codigo: http.StatusBadRequest, campo: "desde"}, "/api/historial?desde=25-10-2026"},
-		{casoPeticion{nombre: "hora inválida", metodo: http.MethodGet, codigo: http.StatusBadRequest, campo: "hora_hasta"}, "/api/historial?hora_hasta=25:00"},
-		{casoPeticion{nombre: "límite inválido", metodo: http.MethodGet, codigo: http.StatusBadRequest, campo: "limite"}, "/api/historial?limite=0"},
-		{casoPeticion{nombre: casoMetodoNoPermitido, metodo: http.MethodPost, codigo: http.StatusMethodNotAllowed}, "/api/historial"},
+		{testCaseRequest{name: "fecha inválida", method: http.MethodGet, code: http.StatusBadRequest, field: "desde"}, "/api/historial?desde=25-10-2026"},
+		{testCaseRequest{name: "hora inválida", method: http.MethodGet, code: http.StatusBadRequest, field: "hora_hasta"}, "/api/historial?hora_hasta=25:00"},
+		{testCaseRequest{name: "límite inválido", method: http.MethodGet, code: http.StatusBadRequest, field: "limite"}, "/api/historial?limite=0"},
+		{testCaseRequest{name: testCaseMethodNotPermitido, method: http.MethodPost, code: http.StatusMethodNotAllowed}, "/api/historial"},
 	}
 
-	for _, caso := range casos {
-		rec := ejecutarCaso(t, handler, caso.ruta, caso.casoPeticion)
-		comprobarCaso(t, rec, caso.casoPeticion)
+	for _, testCase := range testCases {
+		rec := runTestCase(t, handler, testCase.path, testCase.testCaseRequest)
+		checkTestCase(t, rec, testCase.testCaseRequest)
 	}
 }
 
-// TestConHistorialRegistraMutaciones comprueba que solo se registran las
+// TestWithHistoryRegistersMutaciones comprueba que solo se registran las
 // operaciones que no son GET.
-func TestConHistorialRegistraMutaciones(t *testing.T) {
+func TestWithHistoryRegistersMutaciones(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubHistorial{}
-	handler := ConHistorial(
+	service := &stubHistory{}
+	handler := WithHistory(
 		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusCreated)
 		}),
-		servicio,
-		func() string { return maquinaDebian },
+		service,
+		func() string { return testMachine },
 	)
 
-	post := httptest.NewRequestWithContext(t.Context(), http.MethodPost, rutaPaquetes, http.NoBody)
+	post := httptest.NewRequestWithContext(t.Context(), http.MethodPost, pathPackages, http.NoBody)
 	postRec := httptest.NewRecorder()
 	handler.ServeHTTP(postRec, post)
 
-	if len(servicio.registradas) != 1 {
-		t.Fatalf(msgRegistrarLlamadas, len(servicio.registradas))
+	if len(service.registradas) != 1 {
+		t.Fatalf(msgRegisterLlamadas, len(service.registradas))
 	}
 
-	if servicio.registradas[0].Resultado != "ok" || servicio.registradas[0].VM != maquinaDebian {
-		t.Errorf("operación = %+v, want ok en debian-1", servicio.registradas[0])
+	if service.registradas[0].Outcome != "ok" || service.registradas[0].VM != testMachine {
+		t.Errorf("operación = %+v, want ok en vm-1", service.registradas[0])
 	}
 
-	get := httptest.NewRequestWithContext(t.Context(), http.MethodGet, rutaPaquetes, http.NoBody)
+	get := httptest.NewRequestWithContext(t.Context(), http.MethodGet, pathPackages, http.NoBody)
 	getRec := httptest.NewRecorder()
 	handler.ServeHTTP(getRec, get)
 
-	if len(servicio.registradas) != 1 {
+	if len(service.registradas) != 1 {
 		t.Errorf("una consulta GET se registró en el historial")
 	}
 }
 
-// TestConHistorialDescribeYRestauraElCuerpo comprueba que el resumen usa
+// TestWithHistoryDescribeYRestoresBody comprueba que el resumen usa
 // el cuerpo sin consumirlo para el handler ni guardar secretos.
-func TestConHistorialDescribeYRestauraElCuerpo(t *testing.T) {
+func TestWithHistoryDescribeYRestoresBody(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubHistorial{}
-	recibido := map[string]any{}
+	service := &stubHistory{}
+	received := map[string]any{}
 
-	handler := ConHistorial(
+	handler := WithHistory(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			cuerpo, err := io.ReadAll(r.Body)
+			body, err := io.ReadAll(r.Body)
 			if err != nil {
 				t.Errorf("leer el cuerpo restaurado: %v", err)
 			}
 
-			if err := json.Unmarshal(cuerpo, &recibido); err != nil {
+			if err := json.Unmarshal(body, &received); err != nil {
 				t.Errorf("decodificar el cuerpo restaurado: %v", err)
 			}
 
 			w.WriteHeader(http.StatusCreated)
 		}),
-		servicio,
-		func() string { return maquinaDebian },
+		service,
+		func() string { return testMachine },
 	)
 
-	peticion := httptest.NewRequestWithContext(t.Context(), http.MethodPost, rutaPaquetes,
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, pathPackages,
 		strings.NewReader(`{"nombre":"nano","password":"secreto"}`))
-	peticion.Header.Set(cabeceraContentType, tipoJSONPrueba)
+	request.Header.Set(headerContentType, kindJSONTests)
 
 	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, peticion)
+	handler.ServeHTTP(rec, request)
 
-	if recibido["nombre"] != "nano" {
-		t.Errorf("el handler recibió %+v, want el cuerpo restaurado", recibido)
+	if received["nombre"] != "nano" {
+		t.Errorf("el handler recibió %+v, want el cuerpo restaurado", received)
 	}
 
-	if len(servicio.registradas) != 1 {
-		t.Fatalf(msgRegistrarLlamadas, len(servicio.registradas))
+	if len(service.registradas) != 1 {
+		t.Fatalf(msgRegisterLlamadas, len(service.registradas))
 	}
 
-	operacion := servicio.registradas[0]
-	if operacion.Descripcion != descripcionPaqueteNano {
-		t.Errorf("Descripcion = %q, want el resumen del paquete", operacion.Descripcion)
+	operation := service.registradas[0]
+	if operation.Description != descriptionPkgNano {
+		t.Errorf("Descripcion = %q, want el resumen del paquete", operation.Description)
 	}
 
-	if strings.Contains(operacion.Descripcion, "secreto") || strings.Contains(operacion.Operacion, "secreto") {
+	if strings.Contains(operation.Description, "secreto") || strings.Contains(operation.Operation, "secreto") {
 		t.Error("el historial guardó la contraseña")
 	}
 }
 
-// TestConHistorialUsaLaMaquinaObjetivo comprueba que las operaciones de
+// TestWithHistoryUsesMachineTarget comprueba que las operaciones de
 // sesión y de encendido se atribuyen a la máquina solicitada.
-func TestConHistorialUsaLaMaquinaObjetivo(t *testing.T) {
+func TestWithHistoryUsesMachineTarget(t *testing.T) {
 	t.Parallel()
 
-	casos := []struct {
-		nombre   string
-		metodo   string
-		ruta     string
-		cuerpo   string
+	testCases := []struct {
+		name     string
+		method   string
+		path     string
+		body     string
 		esperada string
 	}{
 		{
-			nombre:   "registro",
-			metodo:   http.MethodPost,
-			ruta:     "/api/session/register",
-			cuerpo:   `{"vm":"ubuntu-lab","usuario":"jorge"}`,
+			name:     "registro",
+			method:   http.MethodPost,
+			path:     "/api/session/register",
+			body:     `{"vm":"ubuntu-lab","usuario":"jorge"}`,
 			esperada: "ubuntu-lab",
 		},
 		{
-			nombre:   "encendido",
-			metodo:   http.MethodPost,
-			ruta:     "/api/vms/ubuntu-lab/poweron",
+			name:     "encendido",
+			method:   http.MethodPost,
+			path:     "/api/vms/ubuntu-lab/poweron",
 			esperada: "ubuntu-lab",
 		},
 	}
 
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			servicio := &stubHistorial{}
-			handler := ConHistorial(
+			service := &stubHistory{}
+			handler := WithHistory(
 				http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					w.WriteHeader(http.StatusAccepted)
 				}),
-				servicio,
-				func() string { return maquinaDebian },
+				service,
+				func() string { return testMachine },
 			)
 
-			var cuerpo io.Reader = http.NoBody
-			if caso.cuerpo != "" {
-				cuerpo = io.NopCloser(strings.NewReader(caso.cuerpo))
+			var body io.Reader = http.NoBody
+			if testCase.body != "" {
+				body = io.NopCloser(strings.NewReader(testCase.body))
 			}
 
-			peticion := httptest.NewRequestWithContext(t.Context(), caso.metodo, caso.ruta, cuerpo)
-			if caso.cuerpo != "" {
-				peticion.Header.Set(cabeceraContentType, tipoJSONPrueba)
+			request := httptest.NewRequestWithContext(t.Context(), testCase.method, testCase.path, body)
+			if testCase.body != "" {
+				request.Header.Set(headerContentType, kindJSONTests)
 			}
 
 			rec := httptest.NewRecorder()
-			handler.ServeHTTP(rec, peticion)
+			handler.ServeHTTP(rec, request)
 
-			if len(servicio.registradas) != 1 {
-				t.Fatalf(msgRegistrarLlamadas, len(servicio.registradas))
+			if len(service.registradas) != 1 {
+				t.Fatalf(msgRegisterLlamadas, len(service.registradas))
 			}
 
-			if obtenida := servicio.registradas[0].VM; obtenida != caso.esperada {
-				t.Errorf("VM = %q, want %q", obtenida, caso.esperada)
+			if obtenida := service.registradas[0].VM; obtenida != testCase.esperada {
+				t.Errorf("VM = %q, want %q", obtenida, testCase.esperada)
 			}
 		})
 	}
 }
 
-// TestConHistorialCuerpoNulo comprueba que un JSON null no rompe el
+// TestWithHistoryBodyNulo comprueba que un JSON null no rompe el
 // middleware ni el resumen.
-func TestConHistorialCuerpoNulo(t *testing.T) {
+func TestWithHistoryBodyNulo(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubHistorial{}
-	handler := ConHistorial(
+	service := &stubHistory{}
+	handler := WithHistory(
 		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusCreated)
 		}),
-		servicio,
-		func() string { return maquinaDebian },
+		service,
+		func() string { return testMachine },
 	)
 
-	peticion := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
-		rutaPaquetes+"?files=true", strings.NewReader("null"))
-	peticion.Header.Set(cabeceraContentType, tipoJSONPrueba)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		pathPackages+"?files=true", strings.NewReader("null"))
+	request.Header.Set(headerContentType, kindJSONTests)
 
 	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, peticion)
+	handler.ServeHTTP(rec, request)
 
-	if len(servicio.registradas) != 1 {
-		t.Fatalf(msgRegistrarLlamadas, len(servicio.registradas))
+	if len(service.registradas) != 1 {
+		t.Fatalf(msgRegisterLlamadas, len(service.registradas))
 	}
 
-	if obtenido := servicio.registradas[0].Descripcion; obtenido != "Instalar un paquete" {
-		t.Errorf("Descripcion = %q, want el resumen genérico", obtenido)
+	if obtained := service.registradas[0].Description; obtained != "Instalar un paquete" {
+		t.Errorf("Descripcion = %q, want el resumen genérico", obtained)
 	}
 }
 
-// TestConHistorialDescribeElBorradoConArchivos comprueba que la opción
+// TestWithHistoryDescribeBorradoWithFiles comprueba que la opción
 // files de la query se refleja en el resumen.
-func TestConHistorialDescribeElBorradoConArchivos(t *testing.T) {
+func TestWithHistoryDescribeBorradoWithFiles(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubHistorial{}
-	handler := ConHistorial(
+	service := &stubHistory{}
+	handler := WithHistory(
 		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusNoContent)
 		}),
-		servicio,
-		func() string { return maquinaDebian },
+		service,
+		func() string { return testMachine },
 	)
 
-	peticion := httptest.NewRequestWithContext(t.Context(), http.MethodDelete,
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodDelete,
 		"/api/users/jorge?files=true", http.NoBody)
 
 	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, peticion)
+	handler.ServeHTTP(rec, request)
 
-	if len(servicio.registradas) != 1 {
-		t.Fatalf(msgRegistrarLlamadas, len(servicio.registradas))
+	if len(service.registradas) != 1 {
+		t.Fatalf(msgRegisterLlamadas, len(service.registradas))
 	}
 
-	if obtenido := servicio.registradas[0].Descripcion; obtenido != "Eliminar el usuario «jorge» y sus archivos" {
-		t.Errorf("Descripcion = %q, want el borrado con archivos", obtenido)
+	if obtained := service.registradas[0].Description; obtained != "Eliminar el usuario «jorge» y sus archivos" {
+		t.Errorf("Descripcion = %q, want el borrado con archivos", obtained)
 	}
 }

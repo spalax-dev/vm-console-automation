@@ -10,13 +10,13 @@ import (
 	"testing"
 )
 
-// TestHandlerFormateaAPI comprueba la línea compacta de una petición.
-func TestHandlerFormateaAPI(t *testing.T) {
+// TestHandlerFormatsAPI comprueba la línea compacta de una petición.
+func TestHandlerFormatsAPI(t *testing.T) {
 	t.Parallel()
 
-	var salida bytes.Buffer
+	var output bytes.Buffer
 
-	logger := slog.New(nuevoHandlerConsola(&salida, slog.LevelDebug, false))
+	logger := slog.New(newConsoleHandler(&output, slog.LevelDebug, false))
 	logger.Info("api",
 		"solicitud", "abc123",
 		"metodo", "GET",
@@ -28,33 +28,33 @@ func TestHandlerFormateaAPI(t *testing.T) {
 		"vm", "base",
 	)
 
-	linea := salida.String()
-	for _, esperado := range []string{
+	line := output.String()
+	for _, expected := range []string{
 		"API", "GET /api/session", "503", "128ms",
 		"Consultar el estado de la sesión", `motivo="No hay una sesión disponible"`,
 		"vm=base", "req=abc123",
 	} {
-		if !strings.Contains(linea, esperado) {
-			t.Errorf("log = %q, want %q", linea, esperado)
+		if !strings.Contains(line, expected) {
+			t.Errorf("log = %q, want %q", line, expected)
 		}
 	}
 }
 
-// TestHandlerFormateaError comprueba el formato de un error general.
-func TestHandlerFormateaError(t *testing.T) {
+// TestHandlerFormatsError comprueba el formato de un error general.
+func TestHandlerFormatsError(t *testing.T) {
 	t.Parallel()
 
-	var salida bytes.Buffer
+	var output bytes.Buffer
 
-	logger := slog.New(nuevoHandlerConsola(&salida, slog.LevelDebug, false))
+	logger := slog.New(newConsoleHandler(&output, slog.LevelDebug, false))
 	logger.Error("registrar la máquina", "vm", "mint", "error", "sin acceso")
 
-	linea := salida.String()
-	if !strings.Contains(linea, "ERROR") || !strings.Contains(linea, "registrar la máquina") {
-		t.Errorf("log = %q, want nivel y mensaje", linea)
+	line := output.String()
+	if !strings.Contains(line, "ERROR") || !strings.Contains(line, "registrar la máquina") {
+		t.Errorf("log = %q, want nivel y mensaje", line)
 	}
 
-	if !strings.Contains(linea, `error="sin acceso"`) {
-		t.Errorf("log = %q, want el atributo entre comillas", linea)
+	if !strings.Contains(line, `error="sin acceso"`) {
+		t.Errorf("log = %q, want el atributo entre comillas", line)
 	}
 }

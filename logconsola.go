@@ -21,73 +21,73 @@ const (
 	ansiVerde    = "\x1b[32m"
 	ansiCian     = "\x1b[36m"
 	ansiGris     = "\x1b[90m"
-	ansiFin      = "\x1b[0m"
+	ansiEnd      = "\x1b[0m"
 )
 
-// handlerConsola escribe logs compactos y, si la salida es una terminal,
+// consoleHandler escribe logs compactos y, si la salida es una terminal,
 // colorea el nivel y el estado HTTP.
-type handlerConsola struct {
-	mu      *sync.Mutex
-	destino io.Writer
-	nivel   slog.Level
-	color   bool
-	attrs   []slog.Attr
+type consoleHandler struct {
+	mu          *sync.Mutex
+	destination io.Writer
+	level       slog.Level
+	color       bool
+	attrs       []slog.Attr
 }
 
-// nuevoHandlerConsola construye el handler.
-func nuevoHandlerConsola(destino io.Writer, nivel slog.Level, color bool) slog.Handler {
-	return &handlerConsola{mu: &sync.Mutex{}, destino: destino, nivel: nivel, color: color}
+// newConsoleHandler construye el handler.
+func newConsoleHandler(destination io.Writer, level slog.Level, color bool) slog.Handler {
+	return &consoleHandler{mu: &sync.Mutex{}, destination: destination, level: level, color: color}
 }
 
 // Enabled implementa slog.Handler.
-func (h *handlerConsola) Enabled(_ context.Context, nivel slog.Level) bool {
-	return nivel >= h.nivel
+func (h *consoleHandler) Enabled(_ context.Context, level slog.Level) bool {
+	return level >= h.level
 }
 
 // Handle implementa slog.Handler.
 //
 //nolint:gocritic // slog.Handler exige el valor de slog.Record.
-func (h *handlerConsola) Handle(_ context.Context, registro slog.Record) error {
+func (h *consoleHandler) Handle(_ context.Context, registration slog.Record) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	var linea strings.Builder
+	var line strings.Builder
 
-	linea.WriteString(h.pintar(ansiGris, registro.Time.Format("15:04:05")))
-	linea.WriteByte(' ')
-	linea.WriteString(h.nivelTexto(registro.Level))
-	linea.WriteByte(' ')
+	line.WriteString(h.colorize(ansiGris, registration.Time.Format("15:04:05")))
+	line.WriteByte(' ')
+	line.WriteString(h.levelLabel(registration.Level))
+	line.WriteByte(' ')
 
 	atributos := map[string]string{}
 	for _, attr := range h.attrs {
 		atributos[attr.Key] = attr.Value.String()
 	}
 
-	registro.Attrs(func(attr slog.Attr) bool {
+	registration.Attrs(func(attr slog.Attr) bool {
 		atributos[attr.Key] = attr.Value.String()
 
 		return true
 	})
 
-	if registro.Message == "api" {
-		h.escribirAPI(&linea, atributos)
+	if registration.Message == "api" {
+		h.writeAPI(&line, atributos)
 	} else {
-		linea.WriteString(registro.Message)
+		line.WriteString(registration.Message)
 
 		for _, attr := range h.attrs {
-			h.escribirAtributo(&linea, attr)
+			h.writeAttribute(&line, attr)
 		}
 
-		registro.Attrs(func(attr slog.Attr) bool {
-			h.escribirAtributo(&linea, attr)
+		registration.Attrs(func(attr slog.Attr) bool {
+			h.writeAttribute(&line, attr)
 
 			return true
 		})
 	}
 
-	linea.WriteByte('\n')
+	line.WriteByte('\n')
 
-	if _, err := io.WriteString(h.destino, linea.String()); err != nil {
+	if _, err := io.WriteString(h.destination, line.String()); err != nil {
 		return fmt.Errorf("escribir el log: %w", err)
 	}
 
@@ -95,118 +95,118 @@ func (h *handlerConsola) Handle(_ context.Context, registro slog.Record) error {
 }
 
 // WithAttrs implementa slog.Handler.
-func (h *handlerConsola) WithAttrs(attrs []slog.Attr) slog.Handler {
-	copia := *h
-	copia.attrs = append(append([]slog.Attr{}, h.attrs...), attrs...)
+func (h *consoleHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	duplicate := *h
+	duplicate.attrs = append(append([]slog.Attr{}, h.attrs...), attrs...)
 
-	return &copia
+	return &duplicate
 }
 
 // WithGroup implementa slog.Handler; el formato plano no usa grupos.
-func (h *handlerConsola) WithGroup(string) slog.Handler {
+func (h *consoleHandler) WithGroup(string) slog.Handler {
 	return h
 }
 
-// escribirAPI formatea una petición HTTP.
-func (h *handlerConsola) escribirAPI(linea *strings.Builder, atributos map[string]string) {
-	estado, err := strconv.Atoi(atributos["estado"])
+// writeAPI formatea una petición HTTP.
+func (h *consoleHandler) writeAPI(line *strings.Builder, atributos map[string]string) {
+	state, err := strconv.Atoi(atributos["estado"])
 	if err != nil {
-		estado = 0
+		state = 0
 	}
 
-	linea.WriteString(h.pintar(ansiCian, "API"))
-	linea.WriteString("  ")
-	linea.WriteString(atributos["metodo"])
-	linea.WriteByte(' ')
-	linea.WriteString(atributos["ruta"])
-	linea.WriteByte(' ')
-	linea.WriteString(h.colorEstado(estado, atributos["estado"]))
-	linea.WriteString("  ")
-	linea.WriteString(atributos["duracion_ms"])
-	linea.WriteString("ms")
+	line.WriteString(h.colorize(ansiCian, "API"))
+	line.WriteString("  ")
+	line.WriteString(atributos["metodo"])
+	line.WriteByte(' ')
+	line.WriteString(atributos["ruta"])
+	line.WriteByte(' ')
+	line.WriteString(h.stateColor(state, atributos["estado"]))
+	line.WriteString("  ")
+	line.WriteString(atributos["duracion_ms"])
+	line.WriteString("ms")
 
-	if descripcion := atributos["descripcion"]; descripcion != "" {
-		linea.WriteString("  ")
-		linea.WriteString(descripcion)
+	if description := atributos["descripcion"]; description != "" {
+		line.WriteString("  ")
+		line.WriteString(description)
 	}
 
-	if motivo := atributos["motivo"]; motivo != "" {
-		linea.WriteString("  motivo=")
-		linea.WriteString(strconv.Quote(motivo))
+	if reason := atributos["motivo"]; reason != "" {
+		line.WriteString("  motivo=")
+		line.WriteString(strconv.Quote(reason))
 	}
 
 	if vm := atributos["vm"]; vm != "" {
-		linea.WriteString("  vm=")
-		linea.WriteString(vm)
+		line.WriteString("  vm=")
+		line.WriteString(vm)
 	}
 
-	if solicitud := atributos["solicitud"]; solicitud != "" {
-		linea.WriteString("  req=")
-		linea.WriteString(solicitud)
+	if request := atributos["solicitud"]; request != "" {
+		line.WriteString("  req=")
+		line.WriteString(request)
 	}
 }
 
-// escribirAtributo agrega «clave=valor» al log general.
-func (h *handlerConsola) escribirAtributo(linea *strings.Builder, attr slog.Attr) {
-	valor := attr.Value.String()
-	if strings.ContainsAny(valor, " \t\"") {
-		valor = strconv.Quote(valor)
+// writeAttribute agrega «clave=valor» al log general.
+func (h *consoleHandler) writeAttribute(line *strings.Builder, attr slog.Attr) {
+	value := attr.Value.String()
+	if strings.ContainsAny(value, " \t\"") {
+		value = strconv.Quote(value)
 	}
 
-	linea.WriteByte(' ')
-	linea.WriteString(attr.Key)
-	linea.WriteByte('=')
-	linea.WriteString(valor)
+	line.WriteByte(' ')
+	line.WriteString(attr.Key)
+	line.WriteByte('=')
+	line.WriteString(value)
 }
 
-// nivelTexto pinta y alinea el nivel.
-func (h *handlerConsola) nivelTexto(nivel slog.Level) string {
+// levelLabel pinta y alinea el nivel.
+func (h *consoleHandler) levelLabel(level slog.Level) string {
 	switch {
-	case nivel >= slog.LevelError:
-		return h.pintar(ansiRojo, "ERROR")
-	case nivel >= slog.LevelWarn:
-		return h.pintar(ansiAmarillo, "WARN ")
-	case nivel >= slog.LevelInfo:
-		return h.pintar(ansiVerde, "INFO ")
+	case level >= slog.LevelError:
+		return h.colorize(ansiRojo, "ERROR")
+	case level >= slog.LevelWarn:
+		return h.colorize(ansiAmarillo, "WARN ")
+	case level >= slog.LevelInfo:
+		return h.colorize(ansiVerde, "INFO ")
 	default:
-		return h.pintar(ansiGris, "DEBUG")
+		return h.colorize(ansiGris, "DEBUG")
 	}
 }
 
-// colorEstado pinta el código HTTP según su familia.
-func (h *handlerConsola) colorEstado(codigo int, texto string) string {
+// stateColor pinta el código HTTP según su familia.
+func (h *consoleHandler) stateColor(code int, text string) string {
 	switch {
-	case codigo >= 500:
-		return h.pintar(ansiRojo, texto)
-	case codigo >= 400:
-		return h.pintar(ansiAmarillo, texto)
+	case code >= 500:
+		return h.colorize(ansiRojo, text)
+	case code >= 400:
+		return h.colorize(ansiAmarillo, text)
 	default:
-		return h.pintar(ansiVerde, texto)
+		return h.colorize(ansiVerde, text)
 	}
 }
 
-// pintar aplica el color solo si está habilitado.
-func (h *handlerConsola) pintar(color, texto string) string {
+// colorize aplica el color solo si está habilitado.
+func (h *consoleHandler) colorize(color, text string) string {
 	if !h.color {
-		return texto
+		return text
 	}
 
-	return color + texto + ansiFin
+	return color + text + ansiEnd
 }
 
-// colorEn indica si el escritor es una terminal y NO_COLOR no está
+// colorEnabledFor indica si el escritor es una terminal y NO_COLOR no está
 // definido.
-func colorEn(destino io.Writer) bool {
+func colorEnabledFor(destination io.Writer) bool {
 	if _, desactivado := os.LookupEnv("NO_COLOR"); desactivado {
 		return false
 	}
 
-	archivo, ok := destino.(*os.File)
+	file, ok := destination.(*os.File)
 	if !ok {
 		return false
 	}
 
-	info, err := archivo.Stat()
+	info, err := file.Stat()
 	if err != nil {
 		return false
 	}

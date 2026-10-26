@@ -14,254 +14,254 @@ import (
 	"consola-vm/internal/core/domain"
 )
 
-// accesoCon arma un servicio de registro con las piezas indicadas.
-func accesoCon(
-	t *testing.T, almacen *Almacen, maquina *stubMachine, guest *stubConnector,
-	sshConector *stubConnector, sshPassword *stubPasswordConnector, rutaLlave string,
-) *Acceso {
+// accessWith arma un servicio de registro con las piezas indicadas.
+func accessWith(
+	t *testing.T, store *Store, machine *stubMachine, guest *stubConnector,
+	sshConnector *stubConnector, sshPassword *stubPasswordConnector, sshKeyPath string,
+) *Access {
 	t.Helper()
 
-	return NuevoAcceso(&ConfigAcceso{
-		Almacen:     almacen,
-		Maquina:     maquina,
-		Guest:       guest,
-		SSH:         sshConector,
-		SSHPassword: sshPassword,
-		Ejecutor:    &stubExecutor{},
-		RutaLlave:   rutaLlave,
-		Objetivo:    func() domain.Target { return domain.Target{ID: nombreDebian} },
+	return NewAccess(&AccessConfig{
+		Store:         store,
+		Machine:       machine,
+		Guest:         guest,
+		SSH:           sshConnector,
+		SSHPassword:   sshPassword,
+		Ejecutor:      &stubExecutor{},
+		PathSSHKey:    sshKeyPath,
+		CurrentTarget: func() domain.Target { return domain.Target{ID: testMachineName} },
 	})
 }
 
-// TestAccesoGuardarCredencialesFalla propaga el fallo de SQLite.
-func TestAccesoGuardarCredencialesFalla(t *testing.T) {
+// TestAccessSaveCredentialsFails propaga el fallo de SQLite.
+func TestAccessSaveCredentialsFails(t *testing.T) {
 	t.Parallel()
 
-	almacen := conBaseCerrada(t)
-	acceso := accesoCon(t, almacen, &stubMachine{addr: netip.MustParseAddr(ipPrueba), state: domain.StateRunning},
-		&stubConnector{}, &stubConnector{}, nil, nuevaLlaveDePrueba(t))
+	store := withClosedDB(t)
+	access := accessWith(t, store, &stubMachine{addr: netip.MustParseAddr(ipTests), state: domain.StateRunning},
+		&stubConnector{}, &stubConnector{}, nil, newSSHKeyOfTests(t))
 
-	if _, err := acceso.Registrar(context.Background(), usuarioRoot, passwordPrueba); err == nil {
+	if _, err := access.Register(context.Background(), userRoot, passwordTests); err == nil {
 		t.Error("Registrar() error = nil, want el fallo al guardar")
 	}
 }
 
-// TestAccesoGuardarRegistroFinalFalla propaga el fallo al marcar el
+// TestAccessSaveRegistrationFinalFails propaga el fallo al marcar el
 // registro.
-func TestAccesoGuardarRegistroFinalFalla(t *testing.T) {
+func TestAccessSaveRegistrationFinalFails(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
+	store, _, _ := newTestDB(t)
 
-	if _, err := almacen.db.ExecContext(context.Background(),
+	if _, err := store.db.ExecContext(context.Background(),
 		`CREATE TRIGGER bloquear_update BEFORE UPDATE ON credenciales
 		 BEGIN SELECT RAISE(ABORT, 'sin escritura'); END;`); err != nil {
 		t.Fatalf("crear el disparador: %v", err)
 	}
 
-	acceso := accesoCon(t, almacen, &stubMachine{addr: netip.MustParseAddr(ipPrueba), state: domain.StateRunning},
-		&stubConnector{session: &stubSession{}}, &stubConnector{}, nil, nuevaLlaveDePrueba(t))
+	access := accessWith(t, store, &stubMachine{addr: netip.MustParseAddr(ipTests), state: domain.StateRunning},
+		&stubConnector{session: &stubSession{}}, &stubConnector{}, nil, newSSHKeyOfTests(t))
 
-	if _, err := acceso.Registrar(context.Background(), usuarioRoot, passwordPrueba); err == nil {
+	if _, err := access.Register(context.Background(), userRoot, passwordTests); err == nil {
 		t.Error("Registrar() error = nil, want el fallo al marcar el registro")
 	}
 
-	if _, ok := almacen.Obtener(nombreDebian); ok {
+	if _, ok := store.Get(testMachineName); ok {
 		t.Error("Obtener() encontró credenciales de un registro fallido")
 	}
 }
 
-// TestAccesoResolverErrores propaga los fallos de VirtualBox.
-func TestAccesoResolverErrores(t *testing.T) {
+// TestAccessResolveErrors propaga los fallos de VirtualBox.
+func TestAccessResolveErrors(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
+	store, _, _ := newTestDB(t)
 
-	sinEstado := accesoCon(t, almacen, &stubMachine{stateErr: errors.New("sin VBoxManage")},
-		&stubConnector{}, &stubConnector{}, nil, nuevaLlaveDePrueba(t))
+	withoutState := accessWith(t, store, &stubMachine{stateErr: errors.New("sin VBoxManage")},
+		&stubConnector{}, &stubConnector{}, nil, newSSHKeyOfTests(t))
 
-	if _, err := sinEstado.Registrar(context.Background(), usuarioRoot, passwordPrueba); err == nil {
+	if _, err := withoutState.Register(context.Background(), userRoot, passwordTests); err == nil {
 		t.Error("Registrar() error = nil, want el fallo del estado")
 	}
 
-	sinDireccion := accesoCon(t, almacen, &stubMachine{state: domain.StateRunning, addrErr: errors.New("sin IP")},
-		&stubConnector{}, &stubConnector{}, nil, nuevaLlaveDePrueba(t))
+	withoutAddress := accessWith(t, store, &stubMachine{state: domain.StateRunning, addrErr: errors.New("sin IP")},
+		&stubConnector{}, &stubConnector{}, nil, newSSHKeyOfTests(t))
 
-	if _, err := sinDireccion.Registrar(context.Background(), usuarioRoot, passwordPrueba); err == nil {
+	if _, err := withoutAddress.Register(context.Background(), userRoot, passwordTests); err == nil {
 		t.Error("Registrar() error = nil, want el fallo de la dirección")
 	}
 }
 
-// TestAccesoGuestAdditionsNoConecta propaga el fallo del conector.
-func TestAccesoGuestAdditionsNoConecta(t *testing.T) {
+// TestAccessGuestAdditionsNotConecta propaga el fallo del conector.
+func TestAccessGuestAdditionsNotConecta(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
+	store, _, _ := newTestDB(t)
 	guest := &stubConnector{connect: errors.New("sin Guest Additions")}
 
-	acceso := accesoCon(t, almacen, &stubMachine{addr: netip.MustParseAddr(ipPrueba), state: domain.StateRunning},
-		guest, &stubConnector{}, nil, nuevaLlaveDePrueba(t))
+	access := accessWith(t, store, &stubMachine{addr: netip.MustParseAddr(ipTests), state: domain.StateRunning},
+		guest, &stubConnector{}, nil, newSSHKeyOfTests(t))
 
-	if _, err := acceso.Registrar(context.Background(), usuarioRoot, passwordPrueba); err == nil {
+	if _, err := access.Register(context.Background(), userRoot, passwordTests); err == nil {
 		t.Error("Registrar() error = nil, want el fallo del conector")
 	}
 }
 
-// TestAccesoRespaldoSSHFalla cubre el respaldo por contraseña cuando la
+// TestAccessRespaldoSSHFails cubre el respaldo por contraseña cuando la
 // llave no está disponible o el conector falla.
-func TestAccesoRespaldoSSHFalla(t *testing.T) {
+func TestAccessRespaldoSSHFails(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
+	store, _, _ := newTestDB(t)
 	guest := &stubConnector{session: &stubSession{err: &domain.ExitError{Code: 1, Command: "id"}}}
 
 	// La llave vive bajo un archivo: comprobar su estado falla antes de
 	// intentar el respaldo por contraseña.
-	rutaImposible := filepath.Join(archivoConTexto(t), "id_ed25519")
-	acceso := accesoCon(t, almacen, &stubMachine{addr: netip.MustParseAddr(ipPrueba), state: domain.StateRunning},
-		guest, &stubConnector{}, &stubPasswordConnector{}, rutaImposible)
+	pathImpossible := filepath.Join(fileWithText(t), "id_ed25519")
+	access := accessWith(t, store, &stubMachine{addr: netip.MustParseAddr(ipTests), state: domain.StateRunning},
+		guest, &stubConnector{}, &stubPasswordConnector{}, pathImpossible)
 
-	if _, err := acceso.Registrar(context.Background(), usuarioRoot, passwordPrueba); err == nil {
+	if _, err := access.Register(context.Background(), userRoot, passwordTests); err == nil {
 		t.Error("Registrar() error = nil, want el fallo al comprobar la llave")
 	}
 
-	if _, err := acceso.prepararSSHPassword(context.Background(),
-		domain.Target{ID: nombreDebian}, netip.MustParseAddr(ipPrueba), usuarioRoot, passwordPrueba,
+	if _, err := access.prepareSSHPassword(context.Background(),
+		domain.Target{ID: testMachineName}, netip.MustParseAddr(ipTests), userRoot, passwordTests,
 	); err == nil {
 		t.Error("prepararSSHPassword() error = nil, want el fallo al comprobar la llave")
 	}
 
 	// El conector de contraseña falla al abrir la sesión.
-	otroAlmacen, _, _ := nuevaBaseDePrueba(t)
-	conError := accesoCon(t, otroAlmacen, &stubMachine{addr: netip.MustParseAddr(ipPrueba), state: domain.StateRunning},
-		guest, &stubConnector{}, &stubPasswordConnector{err: errors.New("sin sshpass")}, nuevaLlaveDePrueba(t))
+	otherStore, _, _ := newTestDB(t)
+	withError := accessWith(t, otherStore, &stubMachine{addr: netip.MustParseAddr(ipTests), state: domain.StateRunning},
+		guest, &stubConnector{}, &stubPasswordConnector{err: errors.New("sin sshpass")}, newSSHKeyOfTests(t))
 
-	if _, err := conError.Registrar(context.Background(), usuarioRoot, passwordPrueba); !errors.Is(err, ErrCredencialesInvalidas) {
+	if _, err := withError.Register(context.Background(), userRoot, passwordTests); !errors.Is(err, ErrInvalidCredentials) {
 		t.Errorf("Registrar() error = %v, want ErrCredencialesInvalidas", err)
 	}
 
 	// La sesión por contraseña rechaza la orden de verificación.
-	tercerAlmacen, _, _ := nuevaBaseDePrueba(t)
-	sesionRota := &stubSession{err: &domain.ExitError{Code: 1, Command: "id"}}
-	conSesionRota := accesoCon(t, tercerAlmacen, &stubMachine{addr: netip.MustParseAddr(ipPrueba), state: domain.StateRunning},
-		guest, &stubConnector{}, &stubPasswordConnector{sesion: sesionRota}, nuevaLlaveDePrueba(t))
+	tercerStore, _, _ := newTestDB(t)
+	sessionRota := &stubSession{err: &domain.ExitError{Code: 1, Command: "id"}}
+	withSessionRota := accessWith(t, tercerStore, &stubMachine{addr: netip.MustParseAddr(ipTests), state: domain.StateRunning},
+		guest, &stubConnector{}, &stubPasswordConnector{session: sessionRota}, newSSHKeyOfTests(t))
 
-	if _, err := conSesionRota.Registrar(context.Background(), usuarioRoot, passwordPrueba); !errors.Is(err, ErrCredencialesInvalidas) {
+	if _, err := withSessionRota.Register(context.Background(), userRoot, passwordTests); !errors.Is(err, ErrInvalidCredentials) {
 		t.Errorf("Registrar() error = %v, want ErrCredencialesInvalidas", err)
 	}
 }
 
-// TestAccesoInstalacionFalla propaga el fallo al preparar SSH.
-func TestAccesoInstalacionFalla(t *testing.T) {
+// TestAccessInstallationFails propaga el fallo al preparar SSH.
+func TestAccessInstallationFails(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
-	sesion := &stubSession{errs: []error{nil, errors.New("sin espacio")}}
+	store, _, _ := newTestDB(t)
+	session := &stubSession{errs: []error{nil, errors.New("sin espacio")}}
 
-	acceso := accesoCon(t, almacen, &stubMachine{addr: netip.MustParseAddr(ipPrueba), state: domain.StateRunning},
-		&stubConnector{session: sesion}, &stubConnector{}, nil, nuevaLlaveDePrueba(t))
+	access := accessWith(t, store, &stubMachine{addr: netip.MustParseAddr(ipTests), state: domain.StateRunning},
+		&stubConnector{session: session}, &stubConnector{}, nil, newSSHKeyOfTests(t))
 
-	if _, err := acceso.Registrar(context.Background(), usuarioRoot, passwordPrueba); err == nil {
+	if _, err := access.Register(context.Background(), userRoot, passwordTests); err == nil {
 		t.Error("Registrar() error = nil, want el fallo de la instalación")
 	}
 
-	if _, ok := almacen.Obtener(nombreDebian); ok {
+	if _, ok := store.Get(testMachineName); ok {
 		t.Error("Obtener() encontró credenciales tras fallar la instalación")
 	}
 }
 
-// TestAccesoRegistrarFallidoRestauraCredencialesAnteriores comprueba que
+// TestAccessRegisterFailedRestoresCredentialsPrevious comprueba que
 // un registro fallido no pisa las credenciales que ya funcionaban.
-func TestAccesoRegistrarFallidoRestauraCredencialesAnteriores(t *testing.T) {
+func TestAccessRegisterFailedRestoresCredentialsPrevious(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
+	store, _, _ := newTestDB(t)
 
-	anteriores := Credenciales{
-		Usuario: "jorge", Password: "anterior", Puerto: 2222, Direccion: "10.0.0.9", Registrada: true,
+	previous := Credentials{
+		User: "jorge", Password: "anterior", Port: 2222, Address: "10.0.0.9", IsRegistered: true,
 	}
-	if err := almacen.Guardar(nombreDebian, anteriores); err != nil {
+	if err := store.Save(testMachineName, previous); err != nil {
 		t.Fatalf("Guardar() error = %v, want nil", err)
 	}
 
 	guest := &stubConnector{session: &stubSession{err: &domain.ExitError{Code: 1, Command: "id"}}}
-	acceso := accesoCon(t, almacen, &stubMachine{addr: netip.MustParseAddr(ipPrueba), state: domain.StateRunning},
-		guest, &stubConnector{}, &stubPasswordConnector{err: errors.New("sin sshpass")}, nuevaLlaveDePrueba(t))
+	access := accessWith(t, store, &stubMachine{addr: netip.MustParseAddr(ipTests), state: domain.StateRunning},
+		guest, &stubConnector{}, &stubPasswordConnector{err: errors.New("sin sshpass")}, newSSHKeyOfTests(t))
 
-	if _, err := acceso.Registrar(context.Background(), usuarioRoot, passwordPrueba); !errors.Is(err, ErrCredencialesInvalidas) {
+	if _, err := access.Register(context.Background(), userRoot, passwordTests); !errors.Is(err, ErrInvalidCredentials) {
 		t.Fatalf("Registrar() error = %v, want ErrCredencialesInvalidas", err)
 	}
 
-	guardadas, ok := almacen.Obtener(nombreDebian)
+	guardadas, ok := store.Get(testMachineName)
 	if !ok {
 		t.Fatal("Obtener() no encontró las credenciales anteriores")
 	}
 
-	if guardadas != anteriores {
-		t.Errorf("Obtener() = %+v, want %+v", guardadas, anteriores)
+	if guardadas != previous {
+		t.Errorf("Obtener() = %+v, want %+v", guardadas, previous)
 	}
 }
 
-// TestAccesoOlvidarErrores cubre la ausencia de máquina y el fallo de
+// TestAccessForgetErrors cubre la ausencia de máquina y el fallo de
 // SQLite.
-func TestAccesoOlvidarErrores(t *testing.T) {
+func TestAccessForgetErrors(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
-	sinMaquina := NuevoAcceso(&ConfigAcceso{
-		Almacen:  almacen,
-		Objetivo: func() domain.Target { return domain.Target{} },
+	store, _, _ := newTestDB(t)
+	withoutMachine := NewAccess(&AccessConfig{
+		Store:         store,
+		CurrentTarget: func() domain.Target { return domain.Target{} },
 	})
 
-	if err := sinMaquina.Olvidar(); !errors.Is(err, ErrSinMaquina) {
+	if err := withoutMachine.Forget(); !errors.Is(err, ErrNoMachine) {
 		t.Errorf("Olvidar() error = %v, want ErrSinMaquina", err)
 	}
 
-	acceso := accesoCon(t, conBaseCerrada(t), &stubMachine{}, &stubConnector{}, &stubConnector{}, nil, "")
+	access := accessWith(t, withClosedDB(t), &stubMachine{}, &stubConnector{}, &stubConnector{}, nil, "")
 
-	if err := acceso.Olvidar(); err == nil {
+	if err := access.Forget(); err == nil {
 		t.Error("Olvidar() error = nil, want el fallo de SQLite")
 	}
 }
 
-// TestAsegurarLlaveErrores cubre los fallos al preparar la llave.
-func TestAsegurarLlaveErrores(t *testing.T) {
+// TestEnsureSSHKeyErrors cubre los fallos al preparar la llave.
+func TestEnsureSSHKeyErrors(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
+	store, _, _ := newTestDB(t)
 
-	rutaImposible := filepath.Join(archivoConTexto(t), "id_ed25519")
-	if _, err := accesoCon(t, almacen, &stubMachine{}, &stubConnector{}, &stubConnector{}, nil,
-		rutaImposible).asegurarLlave(context.Background()); err == nil {
+	pathImpossible := filepath.Join(fileWithText(t), "id_ed25519")
+	if _, err := accessWith(t, store, &stubMachine{}, &stubConnector{}, &stubConnector{}, nil,
+		pathImpossible).ensureSSHKey(context.Background()); err == nil {
 		t.Error("asegurarLlave() error = nil, want el fallo de comprobación")
 	}
 
-	rutaBajoArchivo := filepath.Join(archivoConTexto(t), "sub", "id_ed25519")
-	if _, err := accesoCon(t, almacen, &stubMachine{}, &stubConnector{}, &stubConnector{}, nil,
-		rutaBajoArchivo).asegurarLlave(context.Background()); err == nil {
+	pathLowFile := filepath.Join(fileWithText(t), "sub", "id_ed25519")
+	if _, err := accessWith(t, store, &stubMachine{}, &stubConnector{}, &stubConnector{}, nil,
+		pathLowFile).ensureSSHKey(context.Background()); err == nil {
 		t.Error("asegurarLlave() error = nil, want el fallo del directorio")
 	}
 
-	acceso := accesoCon(t, almacen, &stubMachine{}, &stubConnector{}, &stubConnector{}, nil,
+	access := accessWith(t, store, &stubMachine{}, &stubConnector{}, &stubConnector{}, nil,
 		filepath.Join(t.TempDir(), "id_ed25519"))
-	acceso.ejecutor = &stubExecutor{err: errors.New("sin ssh-keygen")}
+	access.ejecutor = &stubExecutor{err: errors.New("sin ssh-keygen")}
 
-	if _, err := acceso.asegurarLlave(context.Background()); err == nil {
+	if _, err := access.ensureSSHKey(context.Background()); err == nil {
 		t.Error("asegurarLlave() error = nil, want el fallo del generador")
 	}
 
 	// El generador crea la llave pública: el camino correcto la devuelve.
-	ruta := filepath.Join(t.TempDir(), nombreLlave)
+	path := filepath.Join(t.TempDir(), nameSSHKey)
 	generador := &stubExecutor{onExecute: func() {
-		if err := os.WriteFile(ruta+".pub", []byte(clavePublica+"\n"), 0o600); err != nil {
+		if err := os.WriteFile(path+".pub", []byte(keyPublic+"\n"), 0o600); err != nil {
 			t.Errorf("escribir la pública: %v", err)
 		}
 	}}
-	completo := accesoCon(t, almacen, &stubMachine{}, &stubConnector{}, &stubConnector{}, nil, ruta)
+	completo := accessWith(t, store, &stubMachine{}, &stubConnector{}, &stubConnector{}, nil, path)
 	completo.ejecutor = generador
 
-	clave, err := completo.asegurarLlave(context.Background())
-	if err != nil || clave != clavePublica {
-		t.Errorf("asegurarLlave() = %q, %v, want la clave pública", clave, err)
+	key, err := completo.ensureSSHKey(context.Background())
+	if err != nil || key != keyPublic {
+		t.Errorf("asegurarLlave() = %q, %v, want la clave pública", key, err)
 	}
 }

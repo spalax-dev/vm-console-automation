@@ -15,146 +15,146 @@ import (
 // docs/diseno-solucion.md §5).
 var (
 	// rePaquete acepta nombres de paquete APT.
-	rePaquete = regexp.MustCompile(`^[a-z0-9][a-z0-9+.-]*$`)
+	rePkg = regexp.MustCompile(`^[a-z0-9][a-z0-9+.-]*$`)
 	// reUsuario acepta nombres de usuario POSIX.
-	reUsuario = regexp.MustCompile(`^[a-z_][a-z0-9_-]{0,31}$`)
+	reUser = regexp.MustCompile(`^[a-z_][a-z0-9_-]{0,31}$`)
 	// reHostname acepta nombres de host RFC 1123.
 	reHostname = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 	// reUnidad acepta unidades systemd con extensión .service.
-	reUnidad = regexp.MustCompile(`^[A-Za-z0-9_.@-]+\.service$`)
+	reUnit = regexp.MustCompile(`^[A-Za-z0-9_.@-]+\.service$`)
 	// reModo acepta permisos en octal.
-	reModo = regexp.MustCompile(`^[0-7]{3,4}$`)
+	reMode = regexp.MustCompile(`^[0-7]{3,4}$`)
 )
 
 // Nombres de los campos del contrato, usados en los errores de
 // validación. Los parámetros de ruta usan su nombre en inglés y los
 // cuerpos JSON conservan los nombres del frontend.
 const (
-	campoActivo     = "activo"
-	campoArchivos   = "archivos"
-	campoDestino    = "destino"
-	campoDireccion  = "direccion"
-	campoFiles      = "files"
-	campoHabilitado = "habilitado"
-	campoIP         = "ip"
-	campoMensaje    = "mensaje"
-	campoModo       = "modo"
-	campoName       = "name"
-	campoNombre     = "nombre"
-	campoOrigen     = "origen"
-	campoPuerto     = "puerto"
-	campoServer     = "server"
-	campoUnit       = "unit"
+	activeField      = "activo"
+	filesField       = "archivos"
+	destinationField = "destino"
+	addressField     = "direccion"
+	filesParam       = "files"
+	enabledField     = "habilitado"
+	ipField          = "ip"
+	messageField     = "mensaje"
+	modeField        = "modo"
+	nameParam        = "name"
+	nameField        = "nombre"
+	sourceField      = "origen"
+	portField        = "puerto"
+	serverParam      = "server"
+	unitParam        = "unit"
 )
 
-// maxMensajeIssue es la longitud máxima del mensaje de /etc/issue.
-const maxMensajeIssue = 512
+// maxMessageIssue es la longitud máxima del mensaje de /etc/issue.
+const maxMessageIssue = 512
 
-// validarPaquete comprueba que el nombre sea un paquete APT válido.
-func validarPaquete(campo, paquete string) error {
-	if !rePaquete.MatchString(paquete) {
-		return campoInvalido(campo, "debe ser un nombre de paquete APT válido (letras, dígitos, +, . y -)")
+// validatePkg comprueba que el nombre sea un paquete APT válido.
+func validatePkg(field, pkg string) error {
+	if !rePkg.MatchString(pkg) {
+		return invalidField(field, "debe ser un nombre de paquete APT válido (letras, dígitos, +, . y -)")
 	}
 
 	return nil
 }
 
-// validarUsuario comprueba que el nombre sea un usuario POSIX válido.
-func validarUsuario(campo, nombre string) error {
-	if !reUsuario.MatchString(nombre) {
-		return campoInvalido(campo, "debe iniciar con minúscula o guion bajo y usar solo minúsculas, dígitos, - y _")
+// validateUser comprueba que el nombre sea un usuario POSIX válido.
+func validateUser(field, name string) error {
+	if !reUser.MatchString(name) {
+		return invalidField(field, "debe iniciar con minúscula o guion bajo y usar solo minúsculas, dígitos, - y _")
 	}
 
 	return nil
 }
 
-// validarHostname comprueba que el nombre cumpla RFC 1123.
-func validarHostname(nombre string) error {
-	if !reHostname.MatchString(nombre) {
-		return campoInvalido(campoNombre, "debe ser un nombre de host RFC 1123 (minúsculas, dígitos y guiones, sin empezar ni terminar en guion)")
+// validateHostname comprueba que el nombre cumpla RFC 1123.
+func validateHostname(name string) error {
+	if !reHostname.MatchString(name) {
+		return invalidField(nameField, "debe ser un nombre de host RFC 1123 (minúsculas, dígitos y guiones, sin empezar ni terminar en guion)")
 	}
 
 	return nil
 }
 
-// validarUnidad comprueba que la unidad systemd tenga extensión .service.
-func validarUnidad(unidad string) error {
-	if !reUnidad.MatchString(unidad) {
-		return campoInvalido(campoUnit, "debe ser una unidad systemd terminada en .service")
+// validateUnit comprueba que la unidad systemd tenga extensión .service.
+func validateUnit(unit string) error {
+	if !reUnit.MatchString(unit) {
+		return invalidField(unitParam, "debe ser una unidad systemd terminada en .service")
 	}
 
 	return nil
 }
 
-// validarServidor comprueba un identificador «direccion:puerto» con IPv4
+// validateServer comprueba un identificador «direccion:puerto» con IPv4
 // y puerto en el rango 1–65535, y devuelve el destino ya interpretado.
-func validarServidor(campo, servidor string) (netip.AddrPort, error) {
-	direccion, err := netip.ParseAddrPort(servidor)
-	if err != nil || !direccion.Addr().Is4() || direccion.Port() == 0 {
+func validateServer(field, server string) (netip.AddrPort, error) {
+	address, err := netip.ParseAddrPort(server)
+	if err != nil || !address.Addr().Is4() || address.Port() == 0 {
 		return netip.AddrPort{},
-			campoInvalido(campo, "debe tener el formato direccion:puerto con IPv4 y puerto entre 1 y 65535")
+			invalidField(field, "debe tener el formato direccion:puerto con IPv4 y puerto entre 1 y 65535")
 	}
 
-	return direccion, nil
+	return address, nil
 }
 
-// validarRuta comprueba que la ruta sea absoluta, sin traversal ni
+// validatePath comprueba que la ruta sea absoluta, sin traversal ni
 // comodines de shell.
-func validarRuta(campo, ruta string) error {
+func validatePath(field, path string) error {
 	switch {
-	case ruta == "":
-		return campoInvalido(campo, "no puede estar vacío")
-	case !strings.HasPrefix(ruta, "/"):
-		return campoInvalido(campo, "debe ser una ruta absoluta")
-	case strings.Contains(ruta, ".."):
-		return campoInvalido(campo, "no puede contener «..»")
-	case strings.ContainsAny(ruta, "*?[]{}"):
-		return campoInvalido(campo, "no puede contener comodines de shell")
-	case strings.ContainsRune(ruta, 0):
-		return campoInvalido(campo, "no puede contener el carácter NUL")
+	case path == "":
+		return invalidField(field, "no puede estar vacío")
+	case !strings.HasPrefix(path, "/"):
+		return invalidField(field, "debe ser una ruta absoluta")
+	case strings.Contains(path, ".."):
+		return invalidField(field, "no puede contener «..»")
+	case strings.ContainsAny(path, "*?[]{}"):
+		return invalidField(field, "no puede contener comodines de shell")
+	case strings.ContainsRune(path, 0):
+		return invalidField(field, "no puede contener el carácter NUL")
 	default:
 		return nil
 	}
 }
 
-// validarMensajeIssue comprueba el límite de longitud y la ausencia de
+// validateMessageIssue comprueba el límite de longitud y la ausencia de
 // NUL en el mensaje de /etc/issue.
-func validarMensajeIssue(mensaje string) error {
+func validateMessageIssue(message string) error {
 	switch {
-	case utf8.RuneCountInString(mensaje) > maxMensajeIssue:
-		return campoInvalido(campoMensaje, "no puede superar los 512 caracteres")
-	case strings.ContainsRune(mensaje, 0):
-		return campoInvalido(campoMensaje, "no puede contener el carácter NUL")
-	case strings.ContainsAny(mensaje, "\r\n"):
-		return campoInvalido(campoMensaje, "no puede contener saltos de línea")
+	case utf8.RuneCountInString(message) > maxMessageIssue:
+		return invalidField(messageField, "no puede superar los 512 caracteres")
+	case strings.ContainsRune(message, 0):
+		return invalidField(messageField, "no puede contener el carácter NUL")
+	case strings.ContainsAny(message, "\r\n"):
+		return invalidField(messageField, "no puede contener saltos de línea")
 	default:
 		return nil
 	}
 }
 
-// validarIPv4 comprueba que el valor sea una dirección IPv4 válida.
-func validarIPv4(campo, valor string) error {
-	direccion, err := netip.ParseAddr(valor)
-	if err != nil || !direccion.Is4() {
-		return campoInvalido(campo, "debe ser una dirección IPv4 válida")
+// validateIPv4 comprueba que el valor sea una dirección IPv4 válida.
+func validateIPv4(field, value string) error {
+	address, err := netip.ParseAddr(value)
+	if err != nil || !address.Is4() {
+		return invalidField(field, "debe ser una dirección IPv4 válida")
 	}
 
 	return nil
 }
 
-// validarPuerto comprueba que el puerto esté en el rango 1–65535.
-func validarPuerto(puerto int) error {
-	if puerto < 1 || puerto > 65535 {
-		return campoInvalido(campoPuerto, "debe estar entre 1 y 65535")
+// validatePort comprueba que el puerto esté en el rango 1–65535.
+func validatePort(port int) error {
+	if port < 1 || port > 65535 {
+		return invalidField(portField, "debe estar entre 1 y 65535")
 	}
 
 	return nil
 }
 
-// validarModo comprueba que los permisos estén en octal.
-func validarModo(campo, modo string) error {
-	if !reModo.MatchString(modo) {
-		return campoInvalido(campo, "debe ser un modo octal de 3 o 4 dígitos")
+// validateMode comprueba que los permisos estén en octal.
+func validateMode(field, mode string) error {
+	if !reMode.MatchString(mode) {
+		return invalidField(field, "debe ser un modo octal de 3 o 4 dígitos")
 	}
 
 	return nil
@@ -162,13 +162,13 @@ func validarModo(campo, modo string) error {
 
 // booleanoQuery lee un parámetro booleano de la query; vacío equivale a
 // false.
-func booleanoQuery(r *http.Request, nombre string) (bool, error) {
-	switch valor := r.URL.Query().Get(nombre); valor {
+func booleanoQuery(r *http.Request, name string) (bool, error) {
+	switch value := r.URL.Query().Get(name); value {
 	case "", "false":
 		return false, nil
 	case "true":
 		return true, nil
 	default:
-		return false, campoInvalido(nombre, "debe ser true o false")
+		return false, invalidField(name, "debe ser true o false")
 	}
 }

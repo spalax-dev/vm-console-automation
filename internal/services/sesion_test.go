@@ -17,48 +17,48 @@ import (
 
 // Nombres de los conectores y mensajes repetidos en las pruebas.
 const (
-	conectorSSH         = "ssh"
-	conectorGuest       = "guest-additions"
-	msgDescubrirOK      = "Descubrir() error = %v, want nil"
-	msgSesionAbierta    = "la sesión no se cerró"
-	msgCodigoCero       = "Codigo = %d, want 0"
-	msgEscribirOK       = "Escribir() error = %v, want nil"
-	msgOrdenUnica       = "la sesión ejecutó %d órdenes, want 1"
-	msgStderrSesion     = "Stderr = %q, want el stderr de la sesión"
-	nombreHostPrueba    = "nodo-01"
-	ipHostPrueba        = "192.168.1.60"
-	salidaHostname      = "debian13\n"
-	comandoCat          = "cat"
-	msgAbrirUna         = "Abrir() se llamó %d veces, want 1"
-	msgListarOK         = "Listar() error = %v, want nil"
-	msgEscribirPub      = "escribir la llave pública: %v"
-	nombreJorge         = "jorge"
-	archivoJorge        = "jorge_ed25519"
-	msgCrearDir         = "crear el directorio: %v"
-	lineaJorge          = "jorge:x:1000:1000::/home/jorge:/bin/bash\n"
-	msgListarSinSesion  = "Listar() error = %v, want ErrSesionNoDisponible"
-	msgObtenerSinSesion = "Obtener() error = %v, want ErrSesionNoDisponible"
-	estadoInactivo      = "inactive"
-	duenoPrueba         = "catalogo"
-	ipPrueba            = "192.168.1.50"
-	ipServidorPrueba    = "192.168.1.61"
-	ipServidorNuevo     = "192.168.1.62"
-	msgEliminarOK       = "Eliminar() error = %v, want nil"
-	msgResultadoTecnico = "resultado = %+v, want código y stderr"
-	msgOrdenDos         = "la sesión ejecutó %d órdenes, want 2"
+	connectorSSH          = "ssh"
+	connectorGuest        = "guest-additions"
+	msgDiscoverOK         = "Descubrir() error = %v, want nil"
+	msgSessionOpen        = "la sesión no se cerró"
+	msgCodeCero           = "Codigo = %d, want 0"
+	msgWriteOK            = "Escribir() error = %v, want nil"
+	msgCommandUnica       = "la sesión ejecutó %d órdenes, want 1"
+	msgStderrSession      = "Stderr = %q, want el stderr de la sesión"
+	nameHostTests         = "nodo-01"
+	ipHostTests           = "192.168.1.60"
+	outputHostname        = "vm1\n"
+	commandCat            = "cat"
+	msgOpen               = "Abrir() se llamó %d veces, want 1"
+	msgListOK             = "Listar() error = %v, want nil"
+	msgWritePub           = "escribir la llave pública: %v"
+	nameJorge             = "jorge"
+	fileJorge             = "jorge_ed25519"
+	msgCreateDir          = "crear el directorio: %v"
+	lineJorge             = "jorge:x:1000:1000::/home/jorge:/bin/bash\n"
+	msgListWithoutSession = "Listar() error = %v, want ErrSesionNoDisponible"
+	msgGetWithoutSession  = "Obtener() error = %v, want ErrSesionNoDisponible"
+	stateInactive         = "inactive"
+	duenoTests            = "catalogo"
+	ipTests               = "192.168.1.50"
+	ipServerTests         = "192.168.1.61"
+	ipServerNew           = "192.168.1.62"
+	msgDeleteOK           = "Eliminar() error = %v, want nil"
+	msgResultTechnical    = "resultado = %+v, want código y stderr"
+	msgCommandDos         = "la sesión ejecutó %d órdenes, want 2"
 	// #nosec G101 -- usuario de prueba, no una credencial real.
-	usuarioRoot           = "root"
-	passwordPrueba        = "secreto"
-	vmPrueba              = "vm1"
-	archivoClave          = "credenciales.key"
-	moduloSystemd         = "systemd"
-	msgAlmacenOK          = "NuevoAlmacen() error = %v"
-	msgDescubrirSinSesion = "Descubrir() error = %v, want ErrSesionNoDisponible"
-	msgGuardarOK          = "Guardar() error = %v, want nil"
-	msgPrepararArchivo    = "preparar el archivo: %v"
+	userRoot                  = "root"
+	passwordTests             = "secreto"
+	vmTests                   = "vm1"
+	fileKey                   = "credenciales.key"
+	moduleSystemd             = "systemd"
+	msgStoreOK                = "NuevoAlmacen() error = %v"
+	msgDiscoverWithoutSession = "Descubrir() error = %v, want ErrSesionNoDisponible"
+	msgSaveOK                 = "Guardar() error = %v, want nil"
+	msgPrepareFile            = "preparar el archivo: %v"
 	// #nosec G101 -- nombre de archivo de prueba, no una credencial.
-	archivoCredenciales = "credenciales.json"
-	msgIP               = "IP = %s, want %s"
+	fileCredentials = "credenciales.json"
+	msgIP           = "IP = %s, want %s"
 )
 
 // stubMachine es una implementación falsa de ports.Machine que devuelve
@@ -120,10 +120,10 @@ type stubSession struct {
 func (s *stubSession) Run(_ context.Context, cmd *domain.Command) (domain.Result, error) {
 	s.commands = append(s.commands, cmd)
 
-	resultado := s.result
+	result := s.result
 
 	if len(s.results) > 0 {
-		resultado = s.results[0]
+		result = s.results[0]
 		s.results = s.results[1:]
 	}
 
@@ -131,15 +131,15 @@ func (s *stubSession) Run(_ context.Context, cmd *domain.Command) (domain.Result
 		err := s.errs[0]
 		s.errs = s.errs[1:]
 
-		return resultado, err
+		return result, err
 	}
 
-	return resultado, s.err
+	return result, s.err
 }
 
 // Put registra la transferencia y siempre termina bien.
-func (s *stubSession) Put(_ context.Context, origen, destino string) error {
-	s.puts = append(s.puts, [2]string{origen, destino})
+func (s *stubSession) Put(_ context.Context, source, destination string) error {
+	s.puts = append(s.puts, [2]string{source, destination})
 
 	return s.putErr
 }
@@ -184,60 +184,60 @@ func (c *stubConnector) Connect(context.Context, domain.Target) (ports.Session, 
 	return &stubSession{}, nil
 }
 
-// stubAbridor es un abridor de sesiones falso con sesión o error
+// stubOpener es un abridor de sesiones falso con sesión o error
 // preprogramados.
-type stubAbridor struct {
-	sesion   ports.Session
-	err      error
-	abiertas int
+type stubOpener struct {
+	session ports.Session
+	err     error
+	open    int
 }
 
-// Abrir devuelve la sesión preprogramada o el error configurado.
-func (a *stubAbridor) Abrir(context.Context) (ports.Session, error) {
-	a.abiertas++
+// Open devuelve la sesión preprogramada o el error configurado.
+func (a *stubOpener) Open(context.Context) (ports.Session, error) {
+	a.open++
 
 	if a.err != nil {
 		return nil, a.err
 	}
 
-	return a.sesion, nil
+	return a.session, nil
 }
 
-// nuevoDescubridor arma un Descubridor de prueba con una máquina y dos
+// newDiscoverer arma un Discoverer de prueba con una máquina y dos
 // conectores falsos.
-func nuevoDescubridor(m *stubMachine, conectores ...ports.Connector) *Descubridor {
-	return NuevoDescubridor(&ConfigDescubridor{
-		Maquina:    m,
-		Objetivo:   domain.Target{ID: vmPrueba},
-		Conectores: conectores,
+func newDiscoverer(m *stubMachine, connectors ...ports.Connector) *Discoverer {
+	return NewDiscoverer(&DiscovererConfig{
+		Machine:       m,
+		CurrentTarget: domain.Target{ID: vmTests},
+		Connectors:    connectors,
 	})
 }
 
-// TestDescubridorSeleccionaSSH comprueba que se prefiere el conector SSH
+// TestDiscovererSeleccionaSSH comprueba que se prefiere el conector SSH
 // cuando su sondeo tiene éxito.
-func TestDescubridorSeleccionaSSH(t *testing.T) {
+func TestDiscovererSeleccionaSSH(t *testing.T) {
 	t.Parallel()
 
-	ip := netip.MustParseAddr(ipPrueba)
+	ip := netip.MustParseAddr(ipTests)
 	m := &stubMachine{addr: ip, state: domain.StateRunning}
-	sshConn := &stubConnector{name: conectorSSH}
-	gaConn := &stubConnector{name: conectorGuest}
+	sshConn := &stubConnector{name: connectorSSH}
+	gaConn := &stubConnector{name: connectorGuest}
 
-	info, err := nuevoDescubridor(m, sshConn, gaConn).Descubrir(context.Background())
+	info, err := newDiscoverer(m, sshConn, gaConn).Discover(context.Background())
 	if err != nil {
-		t.Fatalf(msgDescubrirOK, err)
+		t.Fatalf(msgDiscoverOK, err)
 	}
 
-	if info.Conector != conectorSSH {
-		t.Errorf("Conector = %q, want %q", info.Conector, conectorSSH)
+	if info.Connector != connectorSSH {
+		t.Errorf("Conector = %q, want %q", info.Connector, connectorSSH)
 	}
 
 	if info.IP.String() != ip.String() {
 		t.Errorf(msgIP, info.IP.String(), ip.String())
 	}
 
-	if info.Estado != domain.StateRunning {
-		t.Errorf("Estado = %q, want %q", info.Estado, domain.StateRunning)
+	if info.State != domain.StateRunning {
+		t.Errorf("Estado = %q, want %q", info.State, domain.StateRunning)
 	}
 
 	if gaConn.probed != 0 {
@@ -245,45 +245,45 @@ func TestDescubridorSeleccionaSSH(t *testing.T) {
 	}
 }
 
-// TestDescubridorUsaGuestAdditionsSinSSH comprueba que se usa Guest
+// TestDiscovererUsesGuestAdditionsWithoutSSH comprueba que se usa Guest
 // Additions cuando el conector SSH no puede atender la máquina.
-func TestDescubridorUsaGuestAdditionsSinSSH(t *testing.T) {
+func TestDiscovererUsesGuestAdditionsWithoutSSH(t *testing.T) {
 	t.Parallel()
 
 	ip := netip.MustParseAddr("192.168.1.51")
 	m := &stubMachine{addr: ip, state: domain.StateRunning}
-	sshConn := &stubConnector{name: conectorSSH, probe: errors.New("sin llave")}
-	gaConn := &stubConnector{name: conectorGuest}
+	sshConn := &stubConnector{name: connectorSSH, probe: errors.New("sin llave")}
+	gaConn := &stubConnector{name: connectorGuest}
 
-	info, err := nuevoDescubridor(m, sshConn, gaConn).Descubrir(context.Background())
+	info, err := newDiscoverer(m, sshConn, gaConn).Discover(context.Background())
 	if err != nil {
-		t.Fatalf(msgDescubrirOK, err)
+		t.Fatalf(msgDiscoverOK, err)
 	}
 
-	if info.Conector != conectorGuest {
-		t.Errorf("Conector = %q, want %q", info.Conector, conectorGuest)
+	if info.Connector != connectorGuest {
+		t.Errorf("Conector = %q, want %q", info.Connector, connectorGuest)
 	}
 }
 
-// TestDescubridorRegistradaNoUsaGuestAdditions comprueba que una
+// TestDiscovererRegisteredNotUsesGuestAdditions comprueba que una
 // máquina registrada no vuelve al canal de Guest Additions si SSH falla.
-func TestDescubridorRegistradaNoUsaGuestAdditions(t *testing.T) {
+func TestDiscovererRegisteredNotUsesGuestAdditions(t *testing.T) {
 	t.Parallel()
 
 	m := &stubMachine{addr: netip.MustParseAddr("192.168.1.56"), state: domain.StateRunning}
-	sshConn := &stubConnector{name: conectorSSH, probe: errors.New("ssh no responde")}
-	gaConn := &stubConnector{name: conectorGuest}
+	sshConn := &stubConnector{name: connectorSSH, probe: errors.New("ssh no responde")}
+	gaConn := &stubConnector{name: connectorGuest}
 
-	desc := NuevoDescubridor(&ConfigDescubridor{
-		Maquina:    m,
-		Objetivo:   domain.Target{ID: vmPrueba},
-		Conectores: []ports.Connector{sshConn, gaConn},
-		Registro:   &stubRegistro{registradas: map[string]bool{vmPrueba: true}},
+	desc := NewDiscoverer(&DiscovererConfig{
+		Machine:       m,
+		CurrentTarget: domain.Target{ID: vmTests},
+		Connectors:    []ports.Connector{sshConn, gaConn},
+		Registration:  &stubRegistration{registradas: map[string]bool{vmTests: true}},
 	})
 
-	_, err := desc.Descubrir(context.Background())
-	if !errors.Is(err, ErrSesionNoDisponible) {
-		t.Fatalf(msgDescubrirSinSesion, err)
+	_, err := desc.Discover(context.Background())
+	if !errors.Is(err, ErrSessionUnavailable) {
+		t.Fatalf(msgDiscoverWithoutSession, err)
 	}
 
 	if gaConn.probed != 0 {
@@ -291,45 +291,45 @@ func TestDescubridorRegistradaNoUsaGuestAdditions(t *testing.T) {
 	}
 }
 
-// TestDescubridorFallaSiMaquinaApagada comprueba que no se elige ningún
+// TestDiscovererFailsIfMachineOff comprueba que no se elige ningún
 // conector cuando la máquina no está en ejecución.
-func TestDescubridorFallaSiMaquinaApagada(t *testing.T) {
+func TestDiscovererFailsIfMachineOff(t *testing.T) {
 	t.Parallel()
 
 	m := &stubMachine{state: domain.StatePoweredOff}
 
-	_, err := nuevoDescubridor(m, &stubConnector{name: conectorSSH}).Descubrir(context.Background())
-	if !errors.Is(err, ErrSesionNoDisponible) {
-		t.Fatalf(msgDescubrirSinSesion, err)
+	_, err := newDiscoverer(m, &stubConnector{name: connectorSSH}).Discover(context.Background())
+	if !errors.Is(err, ErrSessionUnavailable) {
+		t.Fatalf(msgDiscoverWithoutSession, err)
 	}
 }
 
-// TestDescubridorFallaSinConectores comprueba que se devuelve
-// ErrSesionNoDisponible cuando ningún conector supera el sondeo.
-func TestDescubridorFallaSinConectores(t *testing.T) {
+// TestDiscovererFailsWithoutConnectors comprueba que se devuelve
+// ErrSessionUnavailable cuando ningún conector supera el sondeo.
+func TestDiscovererFailsWithoutConnectors(t *testing.T) {
 	t.Parallel()
 
 	m := &stubMachine{addr: netip.MustParseAddr("192.168.1.52"), state: domain.StateRunning}
-	sshConn := &stubConnector{name: conectorSSH, probe: errors.New("sin llave")}
-	gaConn := &stubConnector{name: conectorGuest, probe: errors.New("sin guest additions")}
+	sshConn := &stubConnector{name: connectorSSH, probe: errors.New("sin llave")}
+	gaConn := &stubConnector{name: connectorGuest, probe: errors.New("sin guest additions")}
 
-	_, err := nuevoDescubridor(m, sshConn, gaConn).Descubrir(context.Background())
-	if !errors.Is(err, ErrSesionNoDisponible) {
-		t.Fatalf(msgDescubrirSinSesion, err)
+	_, err := newDiscoverer(m, sshConn, gaConn).Discover(context.Background())
+	if !errors.Is(err, ErrSessionUnavailable) {
+		t.Fatalf(msgDiscoverWithoutSession, err)
 	}
 }
 
-// TestDescubridorDescubreDireccion comprueba que se consulta la máquina
+// TestDiscovererDiscoversAddress comprueba que se consulta la máquina
 // cuando el objetivo no trae dirección.
-func TestDescubridorDescubreDireccion(t *testing.T) {
+func TestDiscovererDiscoversAddress(t *testing.T) {
 	t.Parallel()
 
 	ip := netip.MustParseAddr("192.168.1.53")
 	m := &stubMachine{addr: ip, state: domain.StateRunning}
 
-	info, err := nuevoDescubridor(m, &stubConnector{name: conectorSSH}).Descubrir(context.Background())
+	info, err := newDiscoverer(m, &stubConnector{name: connectorSSH}).Discover(context.Background())
 	if err != nil {
-		t.Fatalf(msgDescubrirOK, err)
+		t.Fatalf(msgDiscoverOK, err)
 	}
 
 	if m.calls != 1 {
@@ -341,53 +341,53 @@ func TestDescubridorDescubreDireccion(t *testing.T) {
 	}
 }
 
-// TestDescubridorErrorAlConsultarEstado comprueba que un fallo del
+// TestDiscovererErrorToGetState comprueba que un fallo del
 // puerto Machine al leer el estado se propaga envuelto.
-func TestDescubridorErrorAlConsultarEstado(t *testing.T) {
+func TestDiscovererErrorToGetState(t *testing.T) {
 	t.Parallel()
 
 	m := &stubMachine{stateErr: errors.New("VBoxManage no responde")}
 
-	_, err := nuevoDescubridor(m, &stubConnector{name: conectorSSH}).Descubrir(context.Background())
+	_, err := newDiscoverer(m, &stubConnector{name: connectorSSH}).Discover(context.Background())
 	if err == nil {
 		t.Fatal("Descubrir() error = nil, want el error del puerto Machine")
 	}
 
-	if errors.Is(err, ErrSesionNoDisponible) {
+	if errors.Is(err, ErrSessionUnavailable) {
 		t.Errorf("Descubrir() error = %v, no debe ser ErrSesionNoDisponible", err)
 	}
 }
 
-// TestDescubridorErrorAlDescubrirDireccion comprueba que un fallo al
+// TestDiscovererErrorToDiscoverAddress comprueba que un fallo al
 // descubrir la dirección se propaga envuelto.
-func TestDescubridorErrorAlDescubrirDireccion(t *testing.T) {
+func TestDiscovererErrorToDiscoverAddress(t *testing.T) {
 	t.Parallel()
 
 	m := &stubMachine{state: domain.StateRunning, addrErr: errors.New("sin Guest Additions")}
 
-	_, err := nuevoDescubridor(m, &stubConnector{name: conectorSSH}).Descubrir(context.Background())
-	if !errors.Is(err, ErrSesionNoDisponible) {
-		t.Fatalf(msgDescubrirSinSesion, err)
+	_, err := newDiscoverer(m, &stubConnector{name: connectorSSH}).Discover(context.Background())
+	if !errors.Is(err, ErrSessionUnavailable) {
+		t.Fatalf(msgDiscoverWithoutSession, err)
 	}
 }
 
-// TestDescubridorUsaDireccionDelObjetivo comprueba que no se consulta la
+// TestDiscovererUsesAddressOfTarget comprueba que no se consulta la
 // máquina si el objetivo ya trae una dirección válida.
-func TestDescubridorUsaDireccionDelObjetivo(t *testing.T) {
+func TestDiscovererUsesAddressOfTarget(t *testing.T) {
 	t.Parallel()
 
 	ip := netip.MustParseAddr("192.168.1.54")
 	m := &stubMachine{state: domain.StateRunning}
 
-	desc := NuevoDescubridor(&ConfigDescubridor{
-		Maquina:    m,
-		Objetivo:   domain.Target{ID: vmPrueba, Address: ip},
-		Conectores: []ports.Connector{&stubConnector{name: conectorSSH}},
+	desc := NewDiscoverer(&DiscovererConfig{
+		Machine:       m,
+		CurrentTarget: domain.Target{ID: vmTests, Address: ip},
+		Connectors:    []ports.Connector{&stubConnector{name: connectorSSH}},
 	})
 
-	info, err := desc.Descubrir(context.Background())
+	info, err := desc.Discover(context.Background())
 	if err != nil {
-		t.Fatalf(msgDescubrirOK, err)
+		t.Fatalf(msgDiscoverOK, err)
 	}
 
 	if m.calls != 0 {
@@ -399,25 +399,25 @@ func TestDescubridorUsaDireccionDelObjetivo(t *testing.T) {
 	}
 }
 
-// TestAbrirDevuelveSesionDelConectorElegido comprueba que Abrir conecta
+// TestOpenReturnsSessionOfConnectorChosen comprueba que Open conecta
 // con el primer conector disponible.
-func TestAbrirDevuelveSesionDelConectorElegido(t *testing.T) {
+func TestOpenReturnsSessionOfConnectorChosen(t *testing.T) {
 	t.Parallel()
 
 	ip := netip.MustParseAddr("192.168.1.55")
 	m := &stubMachine{addr: ip, state: domain.StateRunning}
-	sesion := &stubSession{}
-	sshConn := &stubConnector{name: conectorSSH, session: sesion}
-	gaConn := &stubConnector{name: conectorGuest}
+	session := &stubSession{}
+	sshConn := &stubConnector{name: connectorSSH, session: session}
+	gaConn := &stubConnector{name: connectorGuest}
 
-	desc := nuevoDescubridor(m, sshConn, gaConn)
+	desc := newDiscoverer(m, sshConn, gaConn)
 
-	obtenida, err := desc.Abrir(context.Background())
+	obtenida, err := desc.Open(context.Background())
 	if err != nil {
 		t.Fatalf("Abrir() error = %v, want nil", err)
 	}
 
-	if obtenida != sesion {
+	if obtenida != session {
 		t.Error("Abrir() no devolvió la sesión del conector SSH")
 	}
 
@@ -426,43 +426,43 @@ func TestAbrirDevuelveSesionDelConectorElegido(t *testing.T) {
 	}
 }
 
-// TestAbrirFallaSinSesion comprueba que Abrir propaga
-// ErrSesionNoDisponible cuando la máquina no puede atenderse.
-func TestAbrirFallaSinSesion(t *testing.T) {
+// TestOpenFailsWithoutSession comprueba que Open propaga
+// ErrSessionUnavailable cuando la máquina no puede atenderse.
+func TestOpenFailsWithoutSession(t *testing.T) {
 	t.Parallel()
 
 	m := &stubMachine{state: domain.StatePoweredOff}
 
-	_, err := nuevoDescubridor(m, &stubConnector{name: conectorSSH}).Abrir(context.Background())
-	if !errors.Is(err, ErrSesionNoDisponible) {
+	_, err := newDiscoverer(m, &stubConnector{name: connectorSSH}).Open(context.Background())
+	if !errors.Is(err, ErrSessionUnavailable) {
 		t.Fatalf("Abrir() error = %v, want ErrSesionNoDisponible", err)
 	}
 }
 
-// TestAbrirPropagaErrorDeConexion comprueba que el fallo del conector al
+// TestOpenPropagatesErrorOfConnection comprueba que el fallo del conector al
 // conectar se propaga envuelto.
-func TestAbrirPropagaErrorDeConexion(t *testing.T) {
+func TestOpenPropagatesErrorOfConnection(t *testing.T) {
 	t.Parallel()
 
 	ip := netip.MustParseAddr("192.168.1.56")
 	m := &stubMachine{addr: ip, state: domain.StateRunning}
-	sshConn := &stubConnector{name: conectorSSH, connect: errors.New("ssh rechazó la llave")}
+	sshConn := &stubConnector{name: connectorSSH, connect: errors.New("ssh rechazó la llave")}
 
-	_, err := nuevoDescubridor(m, sshConn).Abrir(context.Background())
+	_, err := newDiscoverer(m, sshConn).Open(context.Background())
 	if err == nil {
 		t.Fatal("Abrir() error = nil, want el error de conexión")
 	}
 }
 
-// TestDescubridorAccesoConcurrente ejercita el cambio de objetivo desde
+// TestDiscovererAccessConcurrente ejercita el cambio de objetivo desde
 // varias goroutines. Con -race detecta si se elimina la protección de
 // mu, que los handlers necesitan para consultar y vincular en paralelo.
-func TestDescubridorAccesoConcurrente(t *testing.T) {
+func TestDiscovererAccessConcurrente(t *testing.T) {
 	t.Parallel()
 
-	descubridor := NuevoDescubridor(&ConfigDescubridor{
-		Maquina:  &stubMachine{},
-		Objetivo: domain.Target{ID: vmPrueba},
+	discoverer := NewDiscoverer(&DiscovererConfig{
+		Machine:       &stubMachine{},
+		CurrentTarget: domain.Target{ID: vmTests},
 	})
 
 	var espera sync.WaitGroup
@@ -470,22 +470,22 @@ func TestDescubridorAccesoConcurrente(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		espera.Add(2)
 
-		go func(numero int) {
+		go func(number int) {
 			defer espera.Done()
 
-			descubridor.Establecer(fmt.Sprintf("vm-%d", numero))
+			discoverer.Set(fmt.Sprintf("vm-%d", number))
 		}(i)
 
 		go func() {
 			defer espera.Done()
 
-			_ = descubridor.Objetivo()
+			_ = discoverer.CurrentTarget()
 		}()
 	}
 
 	espera.Wait()
 
-	if objetivo := descubridor.Objetivo(); objetivo.ID == "" {
+	if target := discoverer.CurrentTarget(); target.ID == "" {
 		t.Error("Objetivo().ID = vacío tras las vinculaciones concurrentes")
 	}
 }

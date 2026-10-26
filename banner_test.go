@@ -11,13 +11,13 @@ import (
 )
 
 // Valores repetidos en las pruebas del arranque.
-const paginaPrueba = "<html>ok</html>"
+const paginaTests = "<html>ok</html>"
 
-// TestURLConsola comprueba la dirección que se anuncia al arrancar.
-func TestURLConsola(t *testing.T) {
+// TestURLConsole comprueba la dirección que se anuncia al arrancar.
+func TestURLConsole(t *testing.T) {
 	t.Parallel()
 
-	casos := map[string]string{
+	testCases := map[string]string{
 		":8080":           "http://localhost:8080",
 		"0.0.0.0:8080":    "http://localhost:8080",
 		"127.0.0.1:9000":  "http://127.0.0.1:9000",
@@ -26,55 +26,55 @@ func TestURLConsola(t *testing.T) {
 		"localhost:3000":  "http://localhost:3000",
 	}
 
-	for entrada, esperado := range casos {
-		if obtenido := urlConsola(entrada); obtenido != esperado {
-			t.Errorf("urlConsola(%q) = %q, want %q", entrada, obtenido, esperado)
+	for entry, expected := range testCases {
+		if obtained := consoleURL(entry); obtained != expected {
+			t.Errorf("urlConsola(%q) = %q, want %q", entry, obtained, expected)
 		}
 	}
 }
 
-// TestInterfazWebDesdeElEntorno comprueba que VMCONS_WEB manda sobre la
+// TestInterfazWebFromEntorno comprueba que VMCONS_WEB manda sobre la
 // copia embebida.
-func TestInterfazWebDesdeElEntorno(t *testing.T) {
+func TestInterfazWebFromEntorno(t *testing.T) {
 	dir := t.TempDir()
 
-	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte(paginaPrueba), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte(paginaTests), 0o600); err != nil {
 		t.Fatalf("preparar el index.html: %v", err)
 	}
 
 	t.Setenv(envWeb, dir)
 
-	interfaz, err := interfazWeb()
+	interfaz, err := webInterface()
 	if err != nil {
 		t.Fatalf("interfazWeb() error = %v, want nil", err)
 	}
 
-	contenido, err := fs.ReadFile(interfaz, "index.html")
+	content, err := fs.ReadFile(interfaz, "index.html")
 	if err != nil {
 		t.Fatalf("leer index.html: %v", err)
 	}
 
-	if string(contenido) != paginaPrueba {
-		t.Errorf("index.html = %q, want %q", contenido, paginaPrueba)
+	if string(content) != paginaTests {
+		t.Errorf("index.html = %q, want %q", content, paginaTests)
 	}
 }
 
-// TestInterfazWebRechazaUnaRutaInexistente evita arrancar con una
+// TestInterfazWebRejectsPathInexistente evita arrancar con una
 // interfaz que no existe.
-func TestInterfazWebRechazaUnaRutaInexistente(t *testing.T) {
+func TestInterfazWebRejectsPathInexistente(t *testing.T) {
 	t.Setenv(envWeb, filepath.Join(t.TempDir(), "no-existe"))
 
-	if _, err := interfazWeb(); err == nil {
+	if _, err := webInterface(); err == nil {
 		t.Fatal("interfazWeb() error = nil, want error")
 	}
 }
 
-// TestInterfazWebRechazaUnDirectorioSinIndex exige que la ruta apunte a
+// TestInterfazWebRejectsDirectoryWithoutIndex exige que la ruta apunte a
 // una aplicación compilada.
-func TestInterfazWebRechazaUnDirectorioSinIndex(t *testing.T) {
+func TestInterfazWebRejectsDirectoryWithoutIndex(t *testing.T) {
 	t.Setenv(envWeb, t.TempDir())
 
-	if _, err := interfazWeb(); err == nil {
+	if _, err := webInterface(); err == nil {
 		t.Fatal("interfazWeb() error = nil, want error")
 	}
 }

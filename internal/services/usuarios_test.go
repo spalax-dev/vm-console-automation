@@ -14,177 +14,177 @@ import (
 	"consola-vm/internal/core/domain"
 )
 
-// salidaPasswd simula getent passwd con cuentas del sistema y regulares.
-const salidaPasswd = "root:x:0:0:root:/root:/bin/bash\n" +
+// outputPasswd simula getent passwd con cuentas del sistema y regulares.
+const outputPasswd = "root:x:0:0:root:/root:/bin/bash\n" +
 	"jorge:x:1000:1000:Jorge:/home/jorge:/bin/bash\n" +
 	"systemd-network:x:998:998::/:/usr/sbin/nologin\n" +
 	"andrey:x:1001:1001::/home/andrey:/bin/bash\n"
 
-// salidaSudo simula getent group sudo.
-const salidaSudo = "sudo:x:27:jorge\n"
+// outputSudo simula getent group sudo.
+const outputSudo = "sudo:x:27:jorge\n"
 
-// nuevoUsuariosDePrueba arma el servicio con sesión y ejecutor falsos.
-func nuevoUsuariosDePrueba(t *testing.T, ejecutor *stubExecutor, sesion *stubSession, err error) (*Usuarios, *stubAbridor, string) {
+// newUsersForTest arma el servicio con sesión y ejecutor falsos.
+func newUsersForTest(t *testing.T, ejecutor *stubExecutor, session *stubSession, err error) (*Users, *stubOpener, string) {
 	t.Helper()
 
-	directorio := t.TempDir()
-	abridor := &stubAbridor{sesion: sesion, err: err}
+	directory := t.TempDir()
+	opener := &stubOpener{session: session, err: err}
 
-	return NuevoUsuarios(ConfigUsuarios{
-		Sesiones:   abridor,
-		Ejecutor:   ejecutor,
-		Directorio: directorio,
-	}), abridor, directorio
+	return NewUsers(UsersConfig{
+		Sessions:  opener,
+		Ejecutor:  ejecutor,
+		Directory: directory,
+	}), opener, directory
 }
 
-// TestUsuariosListarFiltraCuentasRegulares comprueba el listado y las
+// TestUsersListFiltraAccountsRegulares comprueba el listado y las
 // marcas de sudo y llaves.
-func TestUsuariosListarFiltraCuentasRegulares(t *testing.T) {
+func TestUsersListFiltraAccountsRegulares(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{results: []domain.Result{
-		{Stdout: salidaPasswd},
-		{Stdout: salidaSudo},
+	session := &stubSession{results: []domain.Result{
+		{Stdout: outputPasswd},
+		{Stdout: outputSudo},
 	}}
 
-	usuarios, _, directorio := nuevoUsuariosDePrueba(t, &stubExecutor{}, sesion, nil)
+	users, _, directory := newUsersForTest(t, &stubExecutor{}, session, nil)
 
-	if err := os.WriteFile(filepath.Join(directorio, "andrey_ed25519"), []byte(contenidoPrivado), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(directory, "andrey_ed25519"), []byte(contentPrivate), 0o600); err != nil {
 		t.Fatalf("crear la llave de andrey: %v", err)
 	}
 
-	lista, err := usuarios.Listar(context.Background())
+	lists, err := users.List(context.Background())
 	if err != nil {
-		t.Fatalf(msgListarOK, err)
+		t.Fatalf(msgListOK, err)
 	}
 
-	if len(lista) != 2 {
-		t.Fatalf("Listar() devolvió %d usuarios, want 2", len(lista))
+	if len(lists) != 2 {
+		t.Fatalf("Listar() devolvió %d usuarios, want 2", len(lists))
 	}
 
-	if lista[0].Nombre != nombreJorge || !lista[0].Sudo || lista[0].UID != 1000 {
-		t.Errorf("primer usuario = %+v, want jorge con sudo y UID 1000", lista[0])
+	if lists[0].Name != nameJorge || !lists[0].Sudo || lists[0].UID != 1000 {
+		t.Errorf("primer usuario = %+v, want jorge con sudo y UID 1000", lists[0])
 	}
 
-	if lista[1].Nombre != usuarioAndrey || !lista[1].Llaves {
-		t.Errorf("segundo usuario = %+v, want andrey con llaves", lista[1])
+	if lists[1].Name != userAndrey || !lists[1].Keys {
+		t.Errorf("segundo usuario = %+v, want andrey con llaves", lists[1])
 	}
 }
 
-// TestUsuariosObtener comprueba la consulta de una cuenta.
-func TestUsuariosObtener(t *testing.T) {
+// TestUsersGet comprueba la consulta de una cuenta.
+func TestUsersGet(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{results: []domain.Result{
+	session := &stubSession{results: []domain.Result{
 		{Stdout: "jorge:x:1000:1000:Jorge:/home/jorge:/bin/bash\n"},
-		{Stdout: salidaSudo},
+		{Stdout: outputSudo},
 	}}
 
-	usuarios, _, _ := nuevoUsuariosDePrueba(t, &stubExecutor{}, sesion, nil)
+	users, _, _ := newUsersForTest(t, &stubExecutor{}, session, nil)
 
-	usuario, err := usuarios.Obtener(context.Background(), nombreJorge)
+	user, err := users.Get(context.Background(), nameJorge)
 	if err != nil {
-		t.Fatalf(msgObtenerOK, err)
+		t.Fatalf(msgGetOK, err)
 	}
 
-	if usuario.Nombre != nombreJorge || !usuario.Sudo || usuario.Home != "/home/jorge" {
-		t.Errorf("usuario = %+v, want jorge con sudo y home", usuario)
+	if user.Name != nameJorge || !user.Sudo || user.Home != "/home/jorge" {
+		t.Errorf("usuario = %+v, want jorge con sudo y home", user)
 	}
 }
 
-// TestUsuariosObtenerInexistente comprueba el error de una cuenta que no
+// TestUsersGetInexistente comprueba el error de una cuenta que no
 // existe.
-func TestUsuariosObtenerInexistente(t *testing.T) {
+func TestUsersGetInexistente(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{results: []domain.Result{{Stdout: ""}}}
+	session := &stubSession{results: []domain.Result{{Stdout: ""}}}
 
-	usuarios, _, _ := nuevoUsuariosDePrueba(t, &stubExecutor{}, sesion, nil)
+	users, _, _ := newUsersForTest(t, &stubExecutor{}, session, nil)
 
-	if _, err := usuarios.Obtener(context.Background(), nombreJorge); !errors.Is(err, ErrUsuarioNoEncontrado) {
+	if _, err := users.Get(context.Background(), nameJorge); !errors.Is(err, ErrUserNotFound) {
 		t.Fatalf("Obtener() error = %v, want ErrUsuarioNoEncontrado", err)
 	}
 }
 
-// TestUsuariosCrearConLlaves comprueba la creación con sudo y llaves.
-func TestUsuariosCrearConLlaves(t *testing.T) {
+// TestUsersCreateWithKeys comprueba la creación con sudo y llaves.
+func TestUsersCreateWithKeys(t *testing.T) {
 	t.Parallel()
 
 	ejecutor := &stubExecutor{}
-	sesion := &stubSession{}
+	session := &stubSession{}
 
-	usuarios, abridor, directorio := nuevoUsuariosDePrueba(t, ejecutor, sesion, nil)
+	users, opener, directory := newUsersForTest(t, ejecutor, session, nil)
 	ejecutor.onExecute = func() {
-		if err := os.WriteFile(filepath.Join(directorio, "jorge_ed25519.pub"), []byte(clavePublica+"\n"), 0o600); err != nil {
-			t.Fatalf(msgEscribirPub, err)
+		if err := os.WriteFile(filepath.Join(directory, "jorge_ed25519.pub"), []byte(keyPublic+"\n"), 0o600); err != nil {
+			t.Fatalf(msgWritePub, err)
 		}
 	}
 
-	resultado, err := usuarios.Crear(context.Background(), nombreJorge, true, true)
+	result, err := users.Create(context.Background(), nameJorge, true, true)
 	if err != nil {
 		t.Fatalf("Crear() error = %v, want nil", err)
 	}
 
-	if abridor.abiertas != 1 {
-		t.Errorf(msgAbrirUna, abridor.abiertas)
+	if opener.open != 1 {
+		t.Errorf(msgOpen, opener.open)
 	}
 
-	if len(sesion.commands) != 3 {
-		t.Fatalf("la sesión ejecutó %d órdenes, want 3", len(sesion.commands))
+	if len(session.commands) != 3 {
+		t.Fatalf("la sesión ejecutó %d órdenes, want 3", len(session.commands))
 	}
 
-	creacion := sesion.commands[1].ShellLine()
-	for _, esperado := range []string{binUseradd, "-aG sudo", binPasswd + " -l"} {
-		if !strings.Contains(creacion, esperado) {
-			t.Errorf("orden de creación = %q, want %q", creacion, esperado)
+	creacion := session.commands[1].ShellLine()
+	for _, expected := range []string{binUseradd, "-aG sudo", binPasswd + " -l"} {
+		if !strings.Contains(creacion, expected) {
+			t.Errorf("orden de creación = %q, want %q", creacion, expected)
 		}
 	}
 
-	instalacion := sesion.commands[2].ShellLine()
-	if !strings.Contains(instalacion, "authorized_keys") || !strings.Contains(instalacion, clavePublica) {
-		t.Errorf("orden de llaves = %q, want authorized_keys con la pública", instalacion)
+	installation := session.commands[2].ShellLine()
+	if !strings.Contains(installation, "authorized_keys") || !strings.Contains(installation, keyPublic) {
+		t.Errorf("orden de llaves = %q, want authorized_keys con la pública", installation)
 	}
 
-	if !sesion.closed {
-		t.Error(msgSesionAbierta)
+	if !session.closed {
+		t.Error(msgSessionOpen)
 	}
 
-	if resultado.Codigo != 0 {
-		t.Errorf(msgCodigoCero, resultado.Codigo)
+	if result.Code != 0 {
+		t.Errorf(msgCodeCero, result.Code)
 	}
 }
 
-// TestUsuariosCrearExistente comprueba el conflicto de una cuenta
+// TestUsersCreateExisting comprueba el conflicto de una cuenta
 // existente.
-func TestUsuariosCrearExistente(t *testing.T) {
+func TestUsersCreateExisting(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{results: []domain.Result{
-		{Stdout: lineaJorge},
+	session := &stubSession{results: []domain.Result{
+		{Stdout: lineJorge},
 	}}
 
-	usuarios, _, _ := nuevoUsuariosDePrueba(t, &stubExecutor{}, sesion, nil)
+	users, _, _ := newUsersForTest(t, &stubExecutor{}, session, nil)
 
-	if _, err := usuarios.Crear(context.Background(), nombreJorge, false, false); !errors.Is(err, ErrUsuarioExistente) {
+	if _, err := users.Create(context.Background(), nameJorge, false, false); !errors.Is(err, ErrUserExists) {
 		t.Fatalf("Crear() error = %v, want ErrUsuarioExistente", err)
 	}
 
-	if len(sesion.commands) != 1 {
-		t.Errorf("la sesión ejecutó %d órdenes, want solo la consulta", len(sesion.commands))
+	if len(session.commands) != 1 {
+		t.Errorf("la sesión ejecutó %d órdenes, want solo la consulta", len(session.commands))
 	}
 }
 
-// TestUsuariosCrearSinLlaves comprueba que sin llaves no se genera el
+// TestUsersCreateWithoutKeys comprueba que sin llaves no se genera el
 // par ni se bloquea la contraseña.
-func TestUsuariosCrearSinLlaves(t *testing.T) {
+func TestUsersCreateWithoutKeys(t *testing.T) {
 	t.Parallel()
 
 	ejecutor := &stubExecutor{}
-	sesion := &stubSession{}
+	session := &stubSession{}
 
-	usuarios, _, _ := nuevoUsuariosDePrueba(t, ejecutor, sesion, nil)
+	users, _, _ := newUsersForTest(t, ejecutor, session, nil)
 
-	if _, err := usuarios.Crear(context.Background(), usuarioAndrey, false, false); err != nil {
+	if _, err := users.Create(context.Background(), userAndrey, false, false); err != nil {
 		t.Fatalf("Crear() error = %v, want nil", err)
 	}
 
@@ -192,308 +192,308 @@ func TestUsuariosCrearSinLlaves(t *testing.T) {
 		t.Error("ssh-keygen se ejecutó sin llaves")
 	}
 
-	if len(sesion.commands) != 2 {
-		t.Fatalf(msgOrdenDos, len(sesion.commands))
+	if len(session.commands) != 2 {
+		t.Fatalf(msgCommandDos, len(session.commands))
 	}
 
-	if orden := sesion.commands[1].ShellLine(); strings.Contains(orden, "passwd -l") {
-		t.Errorf("orden = %q, no debe bloquear la contraseña", orden)
+	if command := session.commands[1].ShellLine(); strings.Contains(command, "passwd -l") {
+		t.Errorf("orden = %q, no debe bloquear la contraseña", command)
 	}
 }
 
-// TestUsuariosEliminarConArchivos comprueba userdel -r y el borrado de
+// TestUsersDeleteWithFiles comprueba userdel -r y el borrado de
 // las llaves del anfitrión.
-func TestUsuariosEliminarConArchivos(t *testing.T) {
+func TestUsersDeleteWithFiles(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{results: []domain.Result{
-		{Stdout: lineaJorge},
+	session := &stubSession{results: []domain.Result{
+		{Stdout: lineJorge},
 		{},
 	}}
 
-	usuarios, _, directorio := nuevoUsuariosDePrueba(t, &stubExecutor{}, sesion, nil)
-	ruta := filepath.Join(directorio, archivoJorge)
+	users, _, directory := newUsersForTest(t, &stubExecutor{}, session, nil)
+	path := filepath.Join(directory, fileJorge)
 
-	for _, archivo := range []string{ruta, ruta + ".pub"} {
-		if err := os.WriteFile(archivo, []byte(contenidoPrivado), 0o600); err != nil {
-			t.Fatalf("crear %s: %v", archivo, err)
+	for _, file := range []string{path, path + ".pub"} {
+		if err := os.WriteFile(file, []byte(contentPrivate), 0o600); err != nil {
+			t.Fatalf("crear %s: %v", file, err)
 		}
 	}
 
-	if _, err := usuarios.Eliminar(context.Background(), nombreJorge, true); err != nil {
-		t.Fatalf(msgEliminarOK, err)
+	if _, err := users.Delete(context.Background(), nameJorge, true); err != nil {
+		t.Fatalf(msgDeleteOK, err)
 	}
 
-	if orden := sesion.commands[1].ShellLine(); !strings.Contains(orden, "userdel -r") {
-		t.Errorf("orden = %q, want userdel -r", orden)
+	if command := session.commands[1].ShellLine(); !strings.Contains(command, "userdel -r") {
+		t.Errorf("orden = %q, want userdel -r", command)
 	}
 
-	for _, archivo := range []string{ruta, ruta + ".pub"} {
-		if _, err := os.Stat(archivo); !errors.Is(err, os.ErrNotExist) {
-			t.Errorf("la llave %s no se borró", archivo)
+	for _, file := range []string{path, path + ".pub"} {
+		if _, err := os.Stat(file); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("la llave %s no se borró", file)
 		}
 	}
 }
 
-// TestUsuariosEliminarInexistente comprueba el error de una cuenta que
+// TestUsersDeleteInexistente comprueba el error de una cuenta que
 // no existe.
-func TestUsuariosEliminarInexistente(t *testing.T) {
+func TestUsersDeleteInexistente(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{results: []domain.Result{{Stdout: ""}}}
+	session := &stubSession{results: []domain.Result{{Stdout: ""}}}
 
-	usuarios, _, _ := nuevoUsuariosDePrueba(t, &stubExecutor{}, sesion, nil)
+	users, _, _ := newUsersForTest(t, &stubExecutor{}, session, nil)
 
-	if _, err := usuarios.Eliminar(context.Background(), nombreJorge, false); !errors.Is(err, ErrUsuarioNoEncontrado) {
+	if _, err := users.Delete(context.Background(), nameJorge, false); !errors.Is(err, ErrUserNotFound) {
 		t.Fatalf("Eliminar() error = %v, want ErrUsuarioNoEncontrado", err)
 	}
 }
 
-// TestUsuariosDescargarLlave devuelve la llave privada del usuario.
-func TestUsuariosDescargarLlave(t *testing.T) {
+// TestUsersDownloadSSHKey devuelve la llave privada del usuario.
+func TestUsersDownloadSSHKey(t *testing.T) {
 	t.Parallel()
 
-	usuarios, _, directorio := nuevoUsuariosDePrueba(t, &stubExecutor{}, &stubSession{}, nil)
-	ruta := filepath.Join(directorio, archivoJorge)
+	users, _, directory := newUsersForTest(t, &stubExecutor{}, &stubSession{}, nil)
+	path := filepath.Join(directory, fileJorge)
 
-	if err := os.WriteFile(ruta, []byte(contenidoPrivado), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(contentPrivate), 0o600); err != nil {
 		t.Fatalf("crear la llave: %v", err)
 	}
 
-	nombre, contenido, err := usuarios.DescargarLlave(nombreJorge)
+	name, content, err := users.DownloadKey(nameJorge)
 	if err != nil {
 		t.Fatalf("DescargarLlave() error = %v, want nil", err)
 	}
 
-	if nombre != archivoJorge || string(contenido) != contenidoPrivado {
-		t.Errorf("llave = %q %q, want el contenido de jorge", nombre, string(contenido))
+	if name != fileJorge || string(content) != contentPrivate {
+		t.Errorf("llave = %q %q, want el contenido de jorge", name, string(content))
 	}
 }
 
-// TestUsuariosDescargarLlaveInexistente devuelve
-// ErrLlaveUsuarioNoEncontrada.
-func TestUsuariosDescargarLlaveInexistente(t *testing.T) {
+// TestUsersDownloadSSHKeyInexistente devuelve
+// ErrUserKeyNotFound.
+func TestUsersDownloadSSHKeyInexistente(t *testing.T) {
 	t.Parallel()
 
-	usuarios, _, _ := nuevoUsuariosDePrueba(t, &stubExecutor{}, &stubSession{}, nil)
+	users, _, _ := newUsersForTest(t, &stubExecutor{}, &stubSession{}, nil)
 
-	if _, _, err := usuarios.DescargarLlave(nombreJorge); !errors.Is(err, ErrLlaveUsuarioNoEncontrada) {
+	if _, _, err := users.DownloadKey(nameJorge); !errors.Is(err, ErrUserKeyNotFound) {
 		t.Fatalf("DescargarLlave() error = %v, want ErrLlaveUsuarioNoEncontrada", err)
 	}
 }
 
-// TestUsuariosCrearErrorDeOrden comprueba el fallo de useradd con su
+// TestUsersCreateErrorOfCommand comprueba el fallo de useradd con su
 // detalle técnico.
-func TestUsuariosCrearErrorDeOrden(t *testing.T) {
+func TestUsersCreateErrorOfCommand(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{
+	session := &stubSession{
 		results: []domain.Result{{Stdout: ""}},
 		result:  domain.Result{Stderr: "useradd: cannot lock /etc/passwd", ExitCode: 1},
 		errs:    []error{nil, &domain.ExitError{Code: 1, Command: "useradd"}},
 	}
 
-	usuarios, _, _ := nuevoUsuariosDePrueba(t, &stubExecutor{}, sesion, nil)
+	users, _, _ := newUsersForTest(t, &stubExecutor{}, session, nil)
 
-	resultado, err := usuarios.Crear(context.Background(), nombreJorge, false, false)
+	result, err := users.Create(context.Background(), nameJorge, false, false)
 	if err == nil {
 		t.Fatal("Crear() error = nil, want el error de useradd")
 	}
 
-	if resultado.Codigo != 1 || resultado.Stderr == "" {
-		t.Errorf(msgResultadoTecnico, resultado)
+	if result.Code != 1 || result.Stderr == "" {
+		t.Errorf(msgResultTechnical, result)
 	}
 }
 
-// TestUsuariosListarSinSesion comprueba que se propaga la ausencia de
+// TestUsersListWithoutSession comprueba que se propaga la ausencia de
 // sesión.
-func TestUsuariosListarSinSesion(t *testing.T) {
+func TestUsersListWithoutSession(t *testing.T) {
 	t.Parallel()
 
-	usuarios, _, _ := nuevoUsuariosDePrueba(t, &stubExecutor{}, nil, ErrSesionNoDisponible)
+	users, _, _ := newUsersForTest(t, &stubExecutor{}, nil, ErrSessionUnavailable)
 
-	if _, err := usuarios.Listar(context.Background()); !errors.Is(err, ErrSesionNoDisponible) {
-		t.Fatalf(msgListarSinSesion, err)
+	if _, err := users.List(context.Background()); !errors.Is(err, ErrSessionUnavailable) {
+		t.Fatalf(msgListWithoutSession, err)
 	}
 }
 
-// TestUsuariosListarError comprueba el fallo al listar las cuentas.
-func TestUsuariosListarError(t *testing.T) {
+// TestUsersListError comprueba el fallo al listar las cuentas.
+func TestUsersListError(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{err: &domain.ExitError{Code: 1, Command: binGetent}}
-	usuarios, _, _ := nuevoUsuariosDePrueba(t, &stubExecutor{}, sesion, nil)
+	session := &stubSession{err: &domain.ExitError{Code: 1, Command: binGetent}}
+	users, _, _ := newUsersForTest(t, &stubExecutor{}, session, nil)
 
-	if _, err := usuarios.Listar(context.Background()); err == nil {
+	if _, err := users.List(context.Background()); err == nil {
 		t.Fatal("Listar() error = nil, want el error de getent")
 	}
 }
 
-// TestUsuariosObtenerError comprueba un fallo inesperado al consultar.
-func TestUsuariosObtenerError(t *testing.T) {
+// TestUsersGetError comprueba un fallo inesperado al consultar.
+func TestUsersGetError(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{errs: []error{&domain.ExitError{Code: 1, Command: binGetent}}}
-	usuarios, _, _ := nuevoUsuariosDePrueba(t, &stubExecutor{}, sesion, nil)
+	session := &stubSession{errs: []error{&domain.ExitError{Code: 1, Command: binGetent}}}
+	users, _, _ := newUsersForTest(t, &stubExecutor{}, session, nil)
 
-	if _, err := usuarios.Obtener(context.Background(), nombreJorge); err == nil {
+	if _, err := users.Get(context.Background(), nameJorge); err == nil {
 		t.Fatal("Obtener() error = nil, want el error de getent")
 	}
 }
 
-// TestUsuariosObtenerGetentSinCuenta comprueba el código 2 de getent.
-func TestUsuariosObtenerGetentSinCuenta(t *testing.T) {
+// TestUsersGetGetentWithoutAccount comprueba el código 2 de getent.
+func TestUsersGetGetentWithoutAccount(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{errs: []error{&domain.ExitError{Code: 2, Command: binGetent}}}
-	usuarios, _, _ := nuevoUsuariosDePrueba(t, &stubExecutor{}, sesion, nil)
+	session := &stubSession{errs: []error{&domain.ExitError{Code: 2, Command: binGetent}}}
+	users, _, _ := newUsersForTest(t, &stubExecutor{}, session, nil)
 
-	if _, err := usuarios.Obtener(context.Background(), nombreJorge); !errors.Is(err, ErrUsuarioNoEncontrado) {
+	if _, err := users.Get(context.Background(), nameJorge); !errors.Is(err, ErrUserNotFound) {
 		t.Fatalf("Obtener() error = %v, want ErrUsuarioNoEncontrado", err)
 	}
 }
 
-// TestUsuariosCrearSinSesion comprueba la ausencia de sesión al crear.
-func TestUsuariosCrearSinSesion(t *testing.T) {
+// TestUsersCreateWithoutSession comprueba la ausencia de sesión al crear.
+func TestUsersCreateWithoutSession(t *testing.T) {
 	t.Parallel()
 
-	usuarios, _, _ := nuevoUsuariosDePrueba(t, &stubExecutor{}, nil, ErrSesionNoDisponible)
+	users, _, _ := newUsersForTest(t, &stubExecutor{}, nil, ErrSessionUnavailable)
 
-	if _, err := usuarios.Crear(context.Background(), nombreJorge, false, false); !errors.Is(err, ErrSesionNoDisponible) {
+	if _, err := users.Create(context.Background(), nameJorge, false, false); !errors.Is(err, ErrSessionUnavailable) {
 		t.Fatalf("Crear() error = %v, want ErrSesionNoDisponible", err)
 	}
 }
 
-// TestUsuariosCrearSinPublica comprueba el fallo al leer la llave
+// TestUsersCreateWithoutPublic comprueba el fallo al leer la llave
 // pública generada.
-func TestUsuariosCrearSinPublica(t *testing.T) {
+func TestUsersCreateWithoutPublic(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{}
-	usuarios, _, _ := nuevoUsuariosDePrueba(t, &stubExecutor{}, sesion, nil)
+	session := &stubSession{}
+	users, _, _ := newUsersForTest(t, &stubExecutor{}, session, nil)
 
-	if _, err := usuarios.Crear(context.Background(), nombreJorge, false, true); err == nil {
+	if _, err := users.Create(context.Background(), nameJorge, false, true); err == nil {
 		t.Fatal("Crear() error = nil, want el error de la llave pública")
 	}
 }
 
-// TestUsuariosCrearErrorDeInstalacion comprueba el fallo al instalar la
+// TestUsersCreateErrorOfInstallation comprueba el fallo al instalar la
 // llave pública en la máquina.
-func TestUsuariosCrearErrorDeInstalacion(t *testing.T) {
+func TestUsersCreateErrorOfInstallation(t *testing.T) {
 	t.Parallel()
 
 	ejecutor := &stubExecutor{}
-	sesion := &stubSession{errs: []error{nil, nil, &domain.ExitError{Code: 1, Command: binSh}}}
+	session := &stubSession{errs: []error{nil, nil, &domain.ExitError{Code: 1, Command: binSh}}}
 
-	usuarios, _, directorio := nuevoUsuariosDePrueba(t, ejecutor, sesion, nil)
+	users, _, directory := newUsersForTest(t, ejecutor, session, nil)
 	ejecutor.onExecute = func() {
-		if err := os.WriteFile(filepath.Join(directorio, nombreJorge+"_ed25519.pub"), []byte(clavePublica+"\n"), 0o600); err != nil {
-			t.Fatalf(msgEscribirPub, err)
+		if err := os.WriteFile(filepath.Join(directory, nameJorge+"_ed25519.pub"), []byte(keyPublic+"\n"), 0o600); err != nil {
+			t.Fatalf(msgWritePub, err)
 		}
 	}
 
-	if _, err := usuarios.Crear(context.Background(), nombreJorge, false, true); err == nil {
+	if _, err := users.Create(context.Background(), nameJorge, false, true); err == nil {
 		t.Fatal("Crear() error = nil, want el error de instalación")
 	}
 }
 
-// TestUsuariosEliminarErrorDeOrden comprueba el fallo de userdel.
-func TestUsuariosEliminarErrorDeOrden(t *testing.T) {
+// TestUsersDeleteErrorOfCommand comprueba el fallo de userdel.
+func TestUsersDeleteErrorOfCommand(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{
-		results: []domain.Result{{Stdout: lineaJorge}},
+	session := &stubSession{
+		results: []domain.Result{{Stdout: lineJorge}},
 		errs:    []error{nil, &domain.ExitError{Code: 1, Command: binUserdel}},
 	}
 
-	usuarios, _, _ := nuevoUsuariosDePrueba(t, &stubExecutor{}, sesion, nil)
+	users, _, _ := newUsersForTest(t, &stubExecutor{}, session, nil)
 
-	if _, err := usuarios.Eliminar(context.Background(), nombreJorge, false); err == nil {
+	if _, err := users.Delete(context.Background(), nameJorge, false); err == nil {
 		t.Fatal("Eliminar() error = nil, want el error de userdel")
 	}
 }
 
-// TestUsuariosDescargarLlaveError comprueba un fallo de lectura de la
+// TestUsersDownloadSSHKeyError comprueba un fallo de lectura de la
 // llave.
-func TestUsuariosDescargarLlaveError(t *testing.T) {
+func TestUsersDownloadSSHKeyError(t *testing.T) {
 	t.Parallel()
 
-	usuarios, _, directorio := nuevoUsuariosDePrueba(t, &stubExecutor{}, &stubSession{}, nil)
+	users, _, directory := newUsersForTest(t, &stubExecutor{}, &stubSession{}, nil)
 
-	if err := os.Mkdir(filepath.Join(directorio, nombreJorge+"_ed25519"), 0o700); err != nil {
-		t.Fatalf(msgCrearDir, err)
+	if err := os.Mkdir(filepath.Join(directory, nameJorge+"_ed25519"), 0o700); err != nil {
+		t.Fatalf(msgCreateDir, err)
 	}
 
-	if _, _, err := usuarios.DescargarLlave(nombreJorge); err == nil {
+	if _, _, err := users.DownloadKey(nameJorge); err == nil {
 		t.Fatal("DescargarLlave() error = nil, want el error de lectura")
 	}
 }
 
-// TestParsearUsuarioInvalido comprueba una línea de passwd incompleta.
-func TestParsearUsuarioInvalido(t *testing.T) {
+// TestParseUserInvalid comprueba una línea de passwd incompleta.
+func TestParseUserInvalid(t *testing.T) {
 	t.Parallel()
 
-	if usuario := parsearUsuario("invalido"); usuario.Nombre != "" {
-		t.Errorf("parsearUsuario() = %+v, want un usuario vacío", usuario)
+	if user := parseUser("invalido"); user.Name != "" {
+		t.Errorf("parsearUsuario() = %+v, want un usuario vacío", user)
 	}
 }
 
-// TestUsuariosListarErrorDeGrupo comprueba el fallo al consultar sudo.
-func TestUsuariosListarErrorDeGrupo(t *testing.T) {
+// TestUsersListErrorOfGroup comprueba el fallo al consultar sudo.
+func TestUsersListErrorOfGroup(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{
-		results: []domain.Result{{Stdout: salidaPasswd}},
+	session := &stubSession{
+		results: []domain.Result{{Stdout: outputPasswd}},
 		errs:    []error{nil, &domain.ExitError{Code: 1, Command: binGetent}},
 	}
-	usuarios, _, _ := nuevoUsuariosDePrueba(t, &stubExecutor{}, sesion, nil)
+	users, _, _ := newUsersForTest(t, &stubExecutor{}, session, nil)
 
-	if _, err := usuarios.Listar(context.Background()); err == nil {
+	if _, err := users.List(context.Background()); err == nil {
 		t.Fatal("Listar() error = nil, want el error del grupo sudo")
 	}
 }
 
-// TestUsuariosObtenerErrorDeGrupo comprueba el fallo al consultar sudo
+// TestUsersGetErrorOfGroup comprueba el fallo al consultar sudo
 // al obtener una cuenta.
-func TestUsuariosObtenerErrorDeGrupo(t *testing.T) {
+func TestUsersGetErrorOfGroup(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{
-		results: []domain.Result{{Stdout: lineaJorge}},
+	session := &stubSession{
+		results: []domain.Result{{Stdout: lineJorge}},
 		errs:    []error{nil, &domain.ExitError{Code: 1, Command: binGetent}},
 	}
-	usuarios, _, _ := nuevoUsuariosDePrueba(t, &stubExecutor{}, sesion, nil)
+	users, _, _ := newUsersForTest(t, &stubExecutor{}, session, nil)
 
-	if _, err := usuarios.Obtener(context.Background(), nombreJorge); err == nil {
+	if _, err := users.Get(context.Background(), nameJorge); err == nil {
 		t.Fatal("Obtener() error = nil, want el error del grupo sudo")
 	}
 }
 
-// TestUsuariosCrearErrorDeDirectorio comprueba el fallo al crear el
+// TestUsersCreateErrorOfDirectory comprueba el fallo al crear el
 // directorio de llaves.
-func TestUsuariosCrearErrorDeDirectorio(t *testing.T) {
+func TestUsersCreateErrorOfDirectory(t *testing.T) {
 	t.Parallel()
 
-	archivo := filepath.Join(t.TempDir(), "archivo")
-	if err := os.WriteFile(archivo, []byte("x"), 0o600); err != nil {
-		t.Fatalf(msgPrepararArchivo, err)
+	file := filepath.Join(t.TempDir(), "archivo")
+	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
+		t.Fatalf(msgPrepareFile, err)
 	}
 
-	usuarios := NuevoUsuarios(ConfigUsuarios{
-		Sesiones:   &stubAbridor{sesion: &stubSession{}},
-		Ejecutor:   &stubExecutor{},
-		Directorio: archivo,
+	users := NewUsers(UsersConfig{
+		Sessions:  &stubOpener{session: &stubSession{}},
+		Ejecutor:  &stubExecutor{},
+		Directory: file,
 	})
 
-	if _, err := usuarios.Crear(context.Background(), nombreJorge, false, true); err == nil {
+	if _, err := users.Create(context.Background(), nameJorge, false, true); err == nil {
 		t.Fatal("Crear() error = nil, want el error del directorio")
 	}
 }
 
-// TestUsuariosListarLimitesDeUID comprueba los extremos del rango de
+// TestUsersListLimitesOfUID comprueba los extremos del rango de
 // cuentas regulares (1000–65533) y descarta las líneas mal formadas o
 // con UTF-8 en el nombre.
-func TestUsuariosListarLimitesDeUID(t *testing.T) {
+func TestUsersListLimitesOfUID(t *testing.T) {
 	t.Parallel()
 
 	passwd := "root:x:0:0:root:/root:/bin/bash\n" +
@@ -506,34 +506,34 @@ func TestUsuariosListarLimitesDeUID(t *testing.T) {
 		"incompleta:x:1001:1001\n" +
 		"josé:x:1002:1002::/home/josé:/bin/bash\n"
 
-	sesion := &stubSession{results: []domain.Result{
+	session := &stubSession{results: []domain.Result{
 		{Stdout: passwd},
 		{Stdout: ""},
 	}}
 
-	usuarios, _, _ := nuevoUsuariosDePrueba(t, &stubExecutor{}, sesion, nil)
+	users, _, _ := newUsersForTest(t, &stubExecutor{}, session, nil)
 
-	lista, err := usuarios.Listar(context.Background())
+	lists, err := users.List(context.Background())
 	if err != nil {
-		t.Fatalf(msgListarOK, err)
+		t.Fatalf(msgListOK, err)
 	}
 
-	esperados := []struct {
-		nombre string
-		uid    int
+	expected := []struct {
+		name string
+		uid  int
 	}{
 		{"borde-inferior", 1000},
 		{"borde-superior", 65533},
 		{"josé", 1002},
 	}
 
-	if len(lista) != len(esperados) {
-		t.Fatalf("Listar() devolvió %d usuarios (%+v), want %d", len(lista), lista, len(esperados))
+	if len(lists) != len(expected) {
+		t.Fatalf("Listar() devolvió %d usuarios (%+v), want %d", len(lists), lists, len(expected))
 	}
 
-	for i, esperado := range esperados {
-		if lista[i].Nombre != esperado.nombre || lista[i].UID != esperado.uid {
-			t.Errorf("usuario[%d] = %+v, want %q con UID %d", i, lista[i], esperado.nombre, esperado.uid)
+	for i, expected := range expected {
+		if lists[i].Name != expected.name || lists[i].UID != expected.uid {
+			t.Errorf("usuario[%d] = %+v, want %q con UID %d", i, lists[i], expected.name, expected.uid)
 		}
 	}
 }

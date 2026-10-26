@@ -3,18 +3,18 @@
 
 package services
 
-// Rutas absolutas de los programas del sistema que ejecutan los
-// servicios dentro de la máquina.
-// claveErrorLog es la clave de los mensajes de error en el log.
-const claveErrorLog = "error"
+// logErrorKey es la clave de los mensajes de error en el log.
+const logErrorKey = "error"
 
-// msgCrearDirLlaves es el contexto de error al crear el directorio de
+// msgCreateKeyDir es el contexto de error al crear el directorio de
 // llaves.
-const msgCrearDirLlaves = "crear el directorio de llaves: %w"
+const msgCreateKeyDir = "crear el directorio de llaves: %w"
 
-// msgEstadoMaquina es el contexto de error al consultar el estado.
-const msgEstadoMaquina = "consultar el estado de la máquina: %w"
+// msgStateMachine es el contexto de error al consultar el estado.
+const msgStateMachine = "consultar el estado de la máquina: %w"
 
+// Rutas absolutas de los programas del sistema que ejecutan los servicios
+// dentro de la máquina.
 const (
 	binCat     = "/bin/cat"
 	binSh      = "/bin/sh"

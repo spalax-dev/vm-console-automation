@@ -42,18 +42,18 @@ El conector activo se expone en `GET /api/session` para que la interfaz lo muest
 
 ### 2.1 Algoritmo de selección
 
-El servicio `Descubridor` (`internal/services/sesion.go`) resuelve el conector sin que
+El servicio `Discoverer` (`internal/services/sesion.go`) resuelve el conector sin que
 el núcleo conozca los adaptadores:
 
 1. Consulta el estado con `ports.Machine.State`. Si la máquina no está en ejecución,
-   termina con `ErrSesionNoDisponible` (HTTP 503).
+   termina con `ErrSessionUnavailable` (HTTP 503).
 2. Si el `domain.Target` no trae dirección, la descubre con `ports.Machine.Address`.
 3. Recorre los conectores **en orden de preferencia** (`ssh` primero,
    `guest-additions` después) y se queda con el primero cuyo `Probe` termine sin error.
    Si la máquina ya está registrada, solo prueba SSH: Guest Additions queda
    reservado para la preparación inicial y no se usa como respaldo.
-4. Si ninguno supera el sondeo, termina con `ErrSesionNoDisponible`.
-5. Devuelve `InfoSesion{Conector, IP, Estado}`. No deja sesiones abiertas: cada
+4. Si ninguno supera el sondeo, termina con `ErrSessionUnavailable`.
+5. Devuelve `SessionInfo{Connector, IP, State}`. No deja sesiones abiertas: cada
    operación abre la suya a partir del conector elegido.
 
 El orden de preferencia lo fija `main.go` al inyectar la lista, no el servicio: así se
@@ -76,7 +76,7 @@ llaves.
 
 ### 2.2 Servicio de paquetes APT
 
-El servicio `Paquetes` (`internal/services/paquetes.go`) implementa el recurso
+El servicio `Packages` (`internal/services/paquetes.go`) implementa el recurso
 `/api/packages` sobre una sesión abierta por el descubridor:
 
 | Operación | Orden remota | Respuesta |
@@ -89,7 +89,7 @@ Las órdenes se ejecutan con `DEBIAN_FRONTEND=noninteractive` para que APT no
 solicite confirmaciones. El servicio abre una sesión por operación, la cierra
 siempre al terminar y traduce el resultado del dominio:
 
-- código de salida `0` → `Resultado` con `salida` y mensaje de éxito;
+- código de salida `0` → `Outcome` con `salida` y mensaje de éxito;
 - código distinto de `0` → se conserva `domain.ExitError`, el `stderr` y la orden
   ejecutada para diagnóstico;
 - fallo de conexión → se propaga el error de sesión (`503` en el *handler*).
@@ -107,7 +107,7 @@ por SSH con autenticación de llaves:
 | `POST /api/keys/root` | genera el par en el anfitrión e instala la pública | `201`; `409` si la llave ya existe |
 | `GET /api/keys/root` | descarga la llave privada | `200` como archivo adjunto; `404` si no existe |
 
-El servicio `Llaves` (`internal/services/llaves.go`) ejecuta esta secuencia:
+El servicio `Keys` (`internal/services/llaves.go`) ejecuta esta secuencia:
 
 1. Comprueba que la llave privada no exista en el anfitrión; si existe,
    responde `409` para no sobrescribirla en silencio.
@@ -158,7 +158,7 @@ IP: \4
 Solo se incluyen las líneas de las opciones activas. Al leer, el servicio
 reconoce esas líneas para reconstruir las casillas y trata el resto como
 mensaje personalizado; si el archivo no tiene el formato de la consola (por
-ejemplo, el `/etc/issue` original de Debian), todo el contenido se devuelve
+ejemplo, el `/etc/issue` original de una instalación recién creada), todo el contenido se devuelve
 como mensaje y las opciones quedan desactivadas.
 
 La escritura se hace con `printf` en una sola orden POSIX y deja permisos
@@ -200,7 +200,7 @@ El recurso `/api/users` administra las cuentas locales de la máquina:
 | `DELETE /api/users/{name}` | elimina la cuenta; `files=true` borra sus archivos | `204`; `404` si no existe |
 | `GET /api/users/{name}/key` | descarga la llave privada | `200` como adjunto; `404` si no existe |
 
-El servicio `Usuarios` (`internal/services/usuarios.go`) abre una sesión por
+El servicio `Users` (`internal/services/usuarios.go`) abre una sesión por
 operación y traduce el resultado del dominio. Para crear:
 
 1. comprueba que la cuenta no exista (`getent passwd`);
@@ -302,7 +302,7 @@ HAProxy usa como back-end:
 | `POST /api/haproxy/backend/servers` | agrega `direccion:puerto` | `201`; `409` si ya existe |
 | `DELETE /api/haproxy/backend/servers/{server}` | elimina `direccion:puerto` | `204`; `404` si no existe |
 
-El servicio `Haproxy` (`internal/services/haproxy.go`) lee y reescribe
+El servicio `HAProxy` (`internal/services/haproxy.go`) lee y reescribe
 `/etc/haproxy/haproxy.cfg`. Toma el **primer** bloque `backend` de la
 configuración y opera sobre sus líneas `server`:
 
@@ -325,7 +325,7 @@ socket no responde o `socat` no está instalado, la consola no falla: devuelve
 los servidores con estado `unknown`, porque el listado debe seguir siendo
 útil aunque la consulta de estado no esté disponible. El socket se configura
 en el bloque `global` de `haproxy.cfg`; la configuración por omisión de
-Debian ya define `stats socket /run/haproxy/admin.sock mode 660 level admin`.
+Debian y sus derivados suelen definir `stats socket /run/haproxy/admin.sock mode 660 level admin`.
 
 ### 2.7 Vinculación de la máquina virtual
 

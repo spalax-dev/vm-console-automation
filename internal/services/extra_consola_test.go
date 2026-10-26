@@ -9,126 +9,126 @@ import (
 	"testing"
 )
 
-// conBaseCerrada devuelve un almacén cuya base ya no responde.
-func conBaseCerrada(t *testing.T) *Almacen {
+// withClosedDB devuelve un almacén cuya base ya no responde.
+func withClosedDB(t *testing.T) *Store {
 	t.Helper()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
+	store, _, _ := newTestDB(t)
 
-	if err := almacen.db.Close(); err != nil {
+	if err := store.db.Close(); err != nil {
 		t.Fatalf("cerrar la base: %v", err)
 	}
 
-	return almacen
+	return store
 }
 
-// TestConsolaConBaseCerrada propaga los errores de SQLite.
-func TestConsolaConBaseCerrada(t *testing.T) {
+// TestConsoleWithBaseClosed propaga los errores de SQLite.
+func TestConsoleWithBaseClosed(t *testing.T) {
 	t.Parallel()
 
-	almacen := conBaseCerrada(t)
-	consola := NuevoConsola(almacen)
+	store := withClosedDB(t)
+	console := NewConsole(store)
 	ctx := context.Background()
 
-	if _, err := consola.Configurada(); err == nil {
+	if _, err := console.IsConfigured(); err == nil {
 		t.Error("Configurada() error = nil, want el fallo de SQLite")
 	}
 
-	if err := consola.Configurar(ctx, usuarioConsola, passwordConsola); err == nil {
+	if err := console.Configure(ctx, userConsole, passwordConsole); err == nil {
 		t.Error("Configurar() error = nil, want el fallo de SQLite")
 	}
 
-	if _, err := consola.Autenticar(ctx, usuarioConsola, passwordConsola); err == nil {
+	if _, err := console.Authenticate(ctx, userConsole, passwordConsole); err == nil {
 		t.Error("Autenticar() error = nil, want el fallo de SQLite")
 	}
 
-	if _, err := consola.AbrirSesion(usuarioConsola); err == nil {
+	if _, err := console.OpenSession(userConsole); err == nil {
 		t.Error("AbrirSesion() error = nil, want el fallo de SQLite")
 	}
 
-	if _, ok := consola.Validar("jorge|9999999999|firma"); ok {
+	if _, ok := console.Validate("jorge|9999999999|firma"); ok {
 		t.Error("Validar() = true, want false sin secreto disponible")
 	}
 }
 
-// TestConsolaSecretoCorrupto detecta un secreto que no es base64.
-func TestConsolaSecretoCorrupto(t *testing.T) {
+// TestConsoleSecretCorrupto detecta un secreto que no es base64.
+func TestConsoleSecretCorrupto(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
+	store, _, _ := newTestDB(t)
 
-	if _, err := almacen.db.ExecContext(context.Background(),
+	if _, err := store.db.ExecContext(context.Background(),
 		`INSERT INTO configuracion (clave, valor) VALUES (?, ?)`,
-		claveSecretoConsola, "no-es-base64"); err != nil {
+		consoleSecretKey, "no-es-base64"); err != nil {
 		t.Fatalf("guardar el secreto: %v", err)
 	}
 
-	if _, err := almacen.secretoConsola(); err == nil {
+	if _, err := store.consoleSecret(); err == nil {
 		t.Error("secretoConsola() error = nil, want el fallo de decodificación")
 	}
 
-	if _, err := NuevoConsola(almacen).AbrirSesion(usuarioConsola); err == nil {
+	if _, err := NewConsole(store).OpenSession(userConsole); err == nil {
 		t.Error("AbrirSesion() error = nil, want el fallo de decodificación")
 	}
 }
 
-// TestSecretoNoSeGuardaSinBase comprueba el fallo al insertar el secreto.
-func TestSecretoNoSeGuardaSinBase(t *testing.T) {
+// TestSecretNotSeSavesWithoutBase comprueba el fallo al insertar el secreto.
+func TestSecretNotSeSavesWithoutBase(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
+	store, _, _ := newTestDB(t)
 
-	if err := almacen.db.Close(); err != nil {
+	if err := store.db.Close(); err != nil {
 		t.Fatalf("cerrar la base: %v", err)
 	}
 
-	if _, err := almacen.secretoConsola(); err == nil {
+	if _, err := store.consoleSecret(); err == nil {
 		t.Error("secretoConsola() error = nil, want el fallo al guardar")
 	}
 }
 
-// TestSecretoSeReutiliza usa el mismo secreto en llamadas sucesivas.
-func TestSecretoSeReutiliza(t *testing.T) {
+// TestSecretSeReutiliza usa el mismo secreto en llamadas sucesivas.
+func TestSecretSeReutiliza(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
+	store, _, _ := newTestDB(t)
 
-	primero, err := almacen.secretoConsola()
+	first, err := store.consoleSecret()
 	if err != nil {
 		t.Fatalf("secretoConsola() error = %v, want nil", err)
 	}
 
-	segundo, err := almacen.secretoConsola()
-	if err != nil || base64.StdEncoding.EncodeToString(primero) != base64.StdEncoding.EncodeToString(segundo) {
+	second, err := store.consoleSecret()
+	if err != nil || base64.StdEncoding.EncodeToString(first) != base64.StdEncoding.EncodeToString(second) {
 		t.Errorf("secretoConsola() no reutiliza el secreto: %v", err)
 	}
 }
 
-// TestConsolaConInsercionBloqueada cubre los fallos al guardar la cuenta
+// TestConsoleWithInsercionBloqueada cubre los fallos al guardar la cuenta
 // y el secreto.
-func TestConsolaConInsercionBloqueada(t *testing.T) {
+func TestConsoleWithInsercionBloqueada(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
+	store, _, _ := newTestDB(t)
 	ctx := context.Background()
 
-	if _, err := almacen.db.ExecContext(ctx,
+	if _, err := store.db.ExecContext(ctx,
 		`CREATE TRIGGER bloquear_cuenta BEFORE INSERT ON usuarios_consola
 		 BEGIN SELECT RAISE(ABORT, 'sin escritura'); END;`); err != nil {
 		t.Fatalf("crear el disparador de cuentas: %v", err)
 	}
 
-	if err := NuevoConsola(almacen).Configurar(ctx, usuarioConsola, passwordConsola); err == nil {
+	if err := NewConsole(store).Configure(ctx, userConsole, passwordConsole); err == nil {
 		t.Error("Configurar() error = nil, want el fallo al guardar la cuenta")
 	}
 
-	if _, err := almacen.db.ExecContext(ctx,
+	if _, err := store.db.ExecContext(ctx,
 		`CREATE TRIGGER bloquear_secreto BEFORE INSERT ON configuracion
 		 BEGIN SELECT RAISE(ABORT, 'sin escritura'); END;`); err != nil {
 		t.Fatalf("crear el disparador de configuración: %v", err)
 	}
 
-	if _, err := almacen.secretoConsola(); err == nil {
+	if _, err := store.consoleSecret(); err == nil {
 		t.Error("secretoConsola() error = nil, want el fallo al guardar el secreto")
 	}
 }

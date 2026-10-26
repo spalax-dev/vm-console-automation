@@ -13,179 +13,179 @@ import (
 	"consola-vm/internal/services"
 )
 
-// TestDecodificarJSONRechazaCuerposInvalidos comprueba que la validación
+// TestDecodeJSONRejectsBodiesInvalid comprueba que la validación
 // del cuerpo ocurre antes de llamar al servicio y que la respuesta es
 // JSON incluso en los errores.
-func TestDecodificarJSONRechazaCuerposInvalidos(t *testing.T) {
+func TestDecodeJSONRejectsBodiesInvalid(t *testing.T) {
 	t.Parallel()
 
-	casos := []struct {
-		nombre string
-		cuerpo string
+	testCases := []struct {
+		name string
+		body string
 	}{
 		{"campo desconocido", `{"nombre":"jorge","inesperado":true}`},
 		{"cuerpo vacío", ""},
 		{"cuerpo mal formado", `{`},
 		{"tipo incorrecto", `{"nombre":123}`},
-		{"cuerpo demasiado grande", `{"nombre":"` + strings.Repeat("a", maxCuerpo) + `"}`},
+		{"cuerpo demasiado grande", `{"nombre":"` + strings.Repeat("a", maxBody) + `"}`},
 	}
 
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			servicio := &stubUsuarios{}
+			service := &stubUsers{}
 
-			rec := ejecutarCaso(t, NuevoUsuarios(servicio).Coleccion, rutaUsuarios, casoPeticion{
-				nombre: caso.nombre, metodo: http.MethodPost, cuerpo: caso.cuerpo,
+			rec := runTestCase(t, NewUsers(service).Collection, pathUsers, testCaseRequest{
+				name: testCase.name, method: http.MethodPost, body: testCase.body,
 			})
 
 			if rec.Code != http.StatusBadRequest {
-				t.Fatalf(msgCodigoCuerpo, rec.Code, http.StatusBadRequest, rec.Body.String())
+				t.Fatalf(msgCodeBody, rec.Code, http.StatusBadRequest, rec.Body.String())
 			}
 
-			if servicio.creados != 0 {
-				t.Errorf("Crear() se llamó %d veces, want 0 con un cuerpo inválido", servicio.creados)
+			if service.created != 0 {
+				t.Errorf("Crear() se llamó %d veces, want 0 con un cuerpo inválido", service.created)
 			}
 
-			if tipo := rec.Header().Get(cabeceraContentType); tipo != "application/json; charset=utf-8" {
-				t.Errorf("%s = %q, want JSON", cabeceraContentType, tipo)
+			if kind := rec.Header().Get(headerContentType); kind != "application/json; charset=utf-8" {
+				t.Errorf("%s = %q, want JSON", headerContentType, kind)
 			}
 		})
 	}
 
-	servicio := &stubUsuarios{}
-	rec := ejecutarCaso(t, NuevoUsuarios(servicio).Coleccion, rutaUsuarios, casoPeticion{
-		nombre: "cuerpo válido", metodo: http.MethodPost,
-		cuerpo: `{"nombre":"jorge","sudo":true,"llaves":false}`,
+	service := &stubUsers{}
+	rec := runTestCase(t, NewUsers(service).Collection, pathUsers, testCaseRequest{
+		name: "cuerpo válido", method: http.MethodPost,
+		body: `{"nombre":"jorge","sudo":true,"llaves":false}`,
 	})
 
 	if rec.Code != http.StatusCreated {
-		t.Fatalf(msgCodigoCuerpo, rec.Code, http.StatusCreated, rec.Body.String())
+		t.Fatalf(msgCodeBody, rec.Code, http.StatusCreated, rec.Body.String())
 	}
 
-	if servicio.creados != 1 {
-		t.Errorf("Crear() se llamó %d veces, want 1 con un cuerpo válido", servicio.creados)
+	if service.created != 1 {
+		t.Errorf("Crear() se llamó %d veces, want 1 con un cuerpo válido", service.created)
 	}
 }
 
-// TestColeccionesVaciasDevuelvenArreglo protege el contrato del frontend:
+// TestColeccionesVaciasDevuelvenArray protege el contrato del frontend:
 // una lista sin elementos debe serializarse como [] y no como null.
-func TestColeccionesVaciasDevuelvenArreglo(t *testing.T) {
+func TestColeccionesVaciasDevuelvenArray(t *testing.T) {
 	t.Parallel()
 
-	sistema := NuevoSistema(&stubPaquetes{}, &stubLlaves{}, &stubIssue{}, &stubHostname{})
+	system := NewSystem(&stubPackages{}, &stubKeys{}, &stubIssue{}, &stubHostname{})
 
-	casos := []struct {
-		nombre  string
+	testCases := []struct {
+		name    string
 		handler http.Handler
-		ruta    string
-		campo   string
+		path    string
+		field   string
 	}{
-		{"máquinas", NuevoMaquinas(&stubMaquinas{}), rutaMaquinas, "maquinas"},
-		{"paquetes", http.HandlerFunc(sistema.Paquetes), rutaPaquetes, "paquetes"},
-		{"usuarios", http.HandlerFunc(NuevoUsuarios(&stubUsuarios{}).Coleccion), rutaUsuarios, "usuarios"},
-		{"unidades", http.HandlerFunc(NuevoSystemd(&stubSystemd{}).Unidades), rutaUnidadesPrueba, "unidades"},
-		{"servidores", http.HandlerFunc(NuevoHaproxy(&stubHaproxy{}).Servidores), rutaServidores, "servidores"},
-		{"historial", NuevoHistorial(&stubHistorial{}), rutaHistorialPrueba, "operaciones"},
+		{"máquinas", NewMachines(&stubMachines{}), pathMachines, "maquinas"},
+		{"paquetes", http.HandlerFunc(system.Packages), pathPackages, "paquetes"},
+		{"usuarios", http.HandlerFunc(NewUsers(&stubUsers{}).Collection), pathUsers, "usuarios"},
+		{"unidades", http.HandlerFunc(NewSystemd(&stubSystemd{}).Units), pathUnitsTests, "unidades"},
+		{"servidores", http.HandlerFunc(NewHAProxy(&stubHAProxy{}).Servers), pathServers, "servidores"},
+		{"historial", NewHistory(&stubHistory{}), pathHistoryTests, "operaciones"},
 	}
 
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
 			rec := httptest.NewRecorder()
-			caso.handler.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(),
-				http.MethodGet, caso.ruta, http.NoBody))
+			testCase.handler.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(),
+				http.MethodGet, testCase.path, http.NoBody))
 
 			if rec.Code != http.StatusOK {
-				t.Fatalf(msgCodigoCuerpo, rec.Code, http.StatusOK, rec.Body.String())
+				t.Fatalf(msgCodeBody, rec.Code, http.StatusOK, rec.Body.String())
 			}
 
-			if tipo := rec.Header().Get(cabeceraContentType); tipo != "application/json; charset=utf-8" {
-				t.Errorf("%s = %q, want JSON", cabeceraContentType, tipo)
+			if kind := rec.Header().Get(headerContentType); kind != "application/json; charset=utf-8" {
+				t.Errorf("%s = %q, want JSON", headerContentType, kind)
 			}
 
-			var cuerpo map[string]json.RawMessage
-			if err := json.Unmarshal(rec.Body.Bytes(), &cuerpo); err != nil {
-				t.Fatalf(msgJSONInvalido, err)
+			var body map[string]json.RawMessage
+			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+				t.Fatalf(msgJSONInvalid, err)
 			}
 
-			if obtenido := string(cuerpo[caso.campo]); obtenido != "[]" {
-				t.Errorf("%s = %s, want []", caso.campo, obtenido)
+			if obtained := string(body[testCase.field]); obtained != "[]" {
+				t.Errorf("%s = %s, want []", testCase.field, obtained)
 			}
 		})
 	}
 }
 
-// TestMetodoNoPermitidoDeclaraAllow comprueba que un 405 incluye los
+// TestMethodNotPermitidoDeclaraAllow comprueba que un 405 incluye los
 // métodos admitidos, que es lo que usa el frontend para explicar el error.
-func TestMetodoNoPermitidoDeclaraAllow(t *testing.T) {
+func TestMethodNotPermitidoDeclaraAllow(t *testing.T) {
 	t.Parallel()
 
-	sistema := NuevoSistema(&stubPaquetes{}, &stubLlaves{}, &stubIssue{}, &stubHostname{})
+	system := NewSystem(&stubPackages{}, &stubKeys{}, &stubIssue{}, &stubHostname{})
 
-	casos := []struct {
-		nombre  string
+	testCases := []struct {
+		name    string
 		handler http.Handler
-		ruta    string
-		metodo  string
+		path    string
+		method  string
 		allow   string
 	}{
-		{"paquetes", http.HandlerFunc(sistema.Paquetes), rutaPaquetes, http.MethodPut, "GET, POST"},
-		{"paquete", http.HandlerFunc(sistema.Paquete), rutaPaqueteNano, http.MethodGet, "DELETE"},
-		{"usuarios", http.HandlerFunc(NuevoUsuarios(&stubUsuarios{}).Coleccion), rutaUsuarios, http.MethodDelete, "GET, POST"},
-		{"usuario", http.HandlerFunc(NuevoUsuarios(&stubUsuarios{}).Usuario), rutaUsuarioJorge, http.MethodPut, "GET, DELETE"},
-		{"máquinas", NuevoMaquinas(&stubMaquinas{}), rutaMaquinas, http.MethodPost, "GET"},
-		{"unidades", http.HandlerFunc(NuevoSystemd(&stubSystemd{}).Unidades), rutaUnidadesPrueba, http.MethodPost, "GET"},
-		{"unidad", http.HandlerFunc(NuevoSystemd(&stubSystemd{}).Unidad), rutaUnidad, http.MethodDelete, "GET, PUT, PATCH"},
-		{"servidores", http.HandlerFunc(NuevoHaproxy(&stubHaproxy{}).Servidores), rutaServidores, http.MethodPut, "GET, POST"},
-		{"servidor", http.HandlerFunc(NuevoHaproxy(&stubHaproxy{}).Servidor), rutaServidor, http.MethodGet, "DELETE"},
-		{"historial", NuevoHistorial(&stubHistorial{}), rutaHistorialPrueba, http.MethodPost, "GET"},
-		{"diagnóstico", NuevoDiagnostico(&stubDiagnostico{}), rutaDiagnostico, http.MethodPost, "GET"},
-		{"autenticación", http.HandlerFunc(NuevoAuth(&stubConsola{}).Estado), rutaAuthEstado, http.MethodPost, "GET"},
-		{"acceso", NuevoAcceso(&stubAcceso{}), rutaRegistro, http.MethodGet, "POST, DELETE"},
-		{"sesión", NuevoSesion(&stubDescubridor{}), rutaSesion, http.MethodPost, "GET, PUT"},
+		{"paquetes", http.HandlerFunc(system.Packages), pathPackages, http.MethodPut, "GET, POST"},
+		{"paquete", http.HandlerFunc(system.Package), pathPkgNano, http.MethodGet, "DELETE"},
+		{"usuarios", http.HandlerFunc(NewUsers(&stubUsers{}).Collection), pathUsers, http.MethodDelete, "GET, POST"},
+		{"usuario", http.HandlerFunc(NewUsers(&stubUsers{}).User), pathUserJorge, http.MethodPut, "GET, DELETE"},
+		{"máquinas", NewMachines(&stubMachines{}), pathMachines, http.MethodPost, "GET"},
+		{"unidades", http.HandlerFunc(NewSystemd(&stubSystemd{}).Units), pathUnitsTests, http.MethodPost, "GET"},
+		{"unidad", http.HandlerFunc(NewSystemd(&stubSystemd{}).Unit), pathUnit, http.MethodDelete, "GET, PUT, PATCH"},
+		{"servidores", http.HandlerFunc(NewHAProxy(&stubHAProxy{}).Servers), pathServers, http.MethodPut, "GET, POST"},
+		{"servidor", http.HandlerFunc(NewHAProxy(&stubHAProxy{}).Server), pathServer, http.MethodGet, "DELETE"},
+		{"historial", NewHistory(&stubHistory{}), pathHistoryTests, http.MethodPost, "GET"},
+		{"diagnóstico", NewDiagnostics(&stubDiagnostics{}), pathDiagnostics, http.MethodPost, "GET"},
+		{"autenticación", http.HandlerFunc(NewAuth(&stubConsole{}).State), pathAuthState, http.MethodPost, "GET"},
+		{"acceso", NewAccess(&stubAccess{}), pathRegistration, http.MethodGet, "POST, DELETE"},
+		{"sesión", NewSession(&stubDiscoverer{}), pathSession, http.MethodPost, "GET, PUT"},
 	}
 
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			rec := ejecutarCaso(t, caso.handler.ServeHTTP, caso.ruta, casoPeticion{
-				nombre: caso.nombre, metodo: caso.metodo,
+			rec := runTestCase(t, testCase.handler.ServeHTTP, testCase.path, testCaseRequest{
+				name: testCase.name, method: testCase.method,
 			})
 
 			if rec.Code != http.StatusMethodNotAllowed {
-				t.Fatalf(msgCodigoCuerpo, rec.Code, http.StatusMethodNotAllowed, rec.Body.String())
+				t.Fatalf(msgCodeBody, rec.Code, http.StatusMethodNotAllowed, rec.Body.String())
 			}
 
-			if allow := rec.Header().Get("Allow"); allow != caso.allow {
-				t.Errorf("Allow = %q, want %q", allow, caso.allow)
+			if allow := rec.Header().Get("Allow"); allow != testCase.allow {
+				t.Errorf("Allow = %q, want %q", allow, testCase.allow)
 			}
 		})
 	}
 }
 
-// TestCookieDeSesionTieneAtributosDeSeguridad comprueba que la cookie no
+// TestCookieOfSessionTieneAtributosOfSeguridad comprueba que la cookie no
 // es accesible desde JavaScript, dura lo que la sesión y se vence al
 // salir.
-func TestCookieDeSesionTieneAtributosDeSeguridad(t *testing.T) {
+func TestCookieOfSessionTieneAtributosOfSeguridad(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubConsola{autenticado: true, token: tokenPrueba}
-	auth := NuevoAuth(servicio)
+	service := &stubConsole{autenticado: true, token: tokenTests}
+	auth := NewAuth(service)
 
 	rec := httptest.NewRecorder()
-	auth.Entrar(rec, peticionConCookie(http.MethodPost, rutaAuthLogin, cuerpoCredenciales, ""))
+	auth.Login(rec, requestWithCookie(http.MethodPost, pathAuthLogin, bodyCredentials, ""))
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("Entrar() estado = %d, want 200: %s", rec.Code, rec.Body.String())
 	}
 
-	cookie := cookieDe(t, rec, nombreCookieSesion)
-	if cookie.Value != tokenPrueba {
-		t.Errorf("cookie.Value = %q, want %q", cookie.Value, tokenPrueba)
+	cookie := cookieOf(t, rec, sessionCookieName)
+	if cookie.Value != tokenTests {
+		t.Errorf("cookie.Value = %q, want %q", cookie.Value, tokenTests)
 	}
 
 	if !cookie.HttpOnly {
@@ -200,14 +200,14 @@ func TestCookieDeSesionTieneAtributosDeSeguridad(t *testing.T) {
 		t.Errorf("cookie.Path = %q, want /", cookie.Path)
 	}
 
-	if cookie.MaxAge != int(services.VigenciaSesionConsola.Seconds()) {
-		t.Errorf("cookie.MaxAge = %d, want %d", cookie.MaxAge, int(services.VigenciaSesionConsola.Seconds()))
+	if cookie.MaxAge != int(services.SessionLifetime.Seconds()) {
+		t.Errorf("cookie.MaxAge = %d, want %d", cookie.MaxAge, int(services.SessionLifetime.Seconds()))
 	}
 
-	salida := httptest.NewRecorder()
-	auth.Salir(salida, peticionConCookie(http.MethodPost, "/api/auth/logout", "", tokenPrueba))
+	output := httptest.NewRecorder()
+	auth.Logout(output, requestWithCookie(http.MethodPost, "/api/auth/logout", "", tokenTests))
 
-	cookie = cookieDe(t, salida, nombreCookieSesion)
+	cookie = cookieOf(t, output, sessionCookieName)
 	if cookie.MaxAge >= 0 {
 		t.Errorf("cookie.MaxAge al salir = %d, want vencida", cookie.MaxAge)
 	}
@@ -217,17 +217,17 @@ func TestCookieDeSesionTieneAtributosDeSeguridad(t *testing.T) {
 	}
 }
 
-// cookieDe devuelve la cookie indicada de una respuesta grabada.
-func cookieDe(t *testing.T, rec *httptest.ResponseRecorder, nombre string) *http.Cookie {
+// cookieOf devuelve la cookie indicada de una respuesta grabada.
+func cookieOf(t *testing.T, rec *httptest.ResponseRecorder, name string) *http.Cookie {
 	t.Helper()
 
 	for _, cookie := range rec.Result().Cookies() {
-		if cookie.Name == nombre {
+		if cookie.Name == name {
 			return cookie
 		}
 	}
 
-	t.Fatalf("la respuesta no incluyó la cookie %q", nombre)
+	t.Fatalf("la respuesta no incluyó la cookie %q", name)
 
 	return nil
 }

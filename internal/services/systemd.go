@@ -15,270 +15,270 @@ import (
 
 // Valores de systemctl usados en varias órdenes.
 const (
-	flagNoPager  = "--no-pager"
-	estadoActivo = "active"
+	flagNotPager = "--no-pager"
+	stateActive  = "active"
 )
 
-// ErrUnidadNoEncontrada indica que la unidad no existe en la máquina.
-var ErrUnidadNoEncontrada = errors.New("la unidad no existe")
+// ErrUnitNotFound indica que la unidad no existe en la máquina.
+var ErrUnitNotFound = errors.New("la unidad no existe")
 
-// ArchivoDespliegue describe un archivo que se transfiere a la máquina.
-type ArchivoDespliegue struct {
-	// Origen es la ruta del archivo en el anfitrión.
-	Origen string
-	// Destino es la ruta absoluta en la máquina.
-	Destino string
-	// Modo son los permisos en octal.
-	Modo string
+// DeploymentFile describe un archivo que se transfiere a la máquina.
+type DeploymentFile struct {
+	// Source es la ruta del archivo en el anfitrión.
+	Source string
+	// Destination es la ruta absoluta en la máquina.
+	Destination string
+	// Mode son los permisos en octal.
+	Mode string
 }
 
-// EstadoUnidad describe una unidad de systemd.
-type EstadoUnidad struct {
-	// Unidad es el nombre de la unidad, con extensión .service.
-	Unidad string
-	// Activo indica si está en ejecución.
-	Activo bool
-	// Habilitado indica si arranca con el sistema.
-	Habilitado bool
-	// Estado es active, inactive, failed o unknown.
-	Estado string
-	// Detalle es el subestado informado por systemd.
-	Detalle string
+// UnitState describe una unidad de systemd.
+type UnitState struct {
+	// Unit es el nombre de la unidad, con extensión .service.
+	Unit string
+	// Active indica si está en ejecución.
+	Active bool
+	// Enabled indica si arranca con el sistema.
+	Enabled bool
+	// State es active, inactive, failed o unknown.
+	State string
+	// Detail es el subestado informado por systemd.
+	Detail string
 }
 
 // Systemd implementa el caso de uso de gestión de unidades.
 type Systemd struct {
-	sesiones AbridorSesion
+	sessions SessionOpener
 }
 
-// NuevoSystemd construye el servicio con el abridor de sesiones dado.
-func NuevoSystemd(sesiones AbridorSesion) *Systemd {
-	return &Systemd{sesiones: sesiones}
+// NewSystemd construye el servicio con el abridor de sesiones dado.
+func NewSystemd(sessions SessionOpener) *Systemd {
+	return &Systemd{sessions: sessions}
 }
 
-// Listar devuelve las unidades de servicio con su estado.
-func (s *Systemd) Listar(ctx context.Context) ([]EstadoUnidad, error) {
-	sesion, err := s.sesiones.Abrir(ctx)
+// List devuelve las unidades de servicio con su estado.
+func (s *Systemd) List(ctx context.Context) ([]UnitState, error) {
+	session, err := s.sessions.Open(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("abrir la sesión para listar unidades: %w", err)
 	}
 
-	defer cerrarSesion(sesion)
+	defer closeSession(session)
 
-	unidades, err := ejecutarSalida(ctx, sesion, binSystemctl,
-		"list-units", "--type=service", "--all", "--no-legend", "--plain", flagNoPager)
+	units, err := runOutput(ctx, session, binSystemctl,
+		"list-units", "--type=service", "--all", "--no-legend", "--plain", flagNotPager)
 	if err != nil {
 		return nil, fmt.Errorf("listar las unidades: %w", err)
 	}
 
-	archivos, err := ejecutarSalida(ctx, sesion, binSystemctl,
-		"list-unit-files", "--type=service", "--no-legend", flagNoPager)
+	files, err := runOutput(ctx, session, binSystemctl,
+		"list-unit-files", "--type=service", "--no-legend", flagNotPager)
 	if err != nil {
 		return nil, fmt.Errorf("consultar la habilitación de las unidades: %w", err)
 	}
 
-	habilitadas := mapaHabilitacion(archivos)
-	lista := []EstadoUnidad{}
+	habilitadas := enabledMap(files)
+	lists := []UnitState{}
 
-	for _, linea := range strings.Split(unidades, "\n") {
-		campos := strings.Fields(linea)
-		if len(campos) > 0 && campos[0] == "●" {
-			campos = campos[1:]
+	for _, line := range strings.Split(units, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) > 0 && fields[0] == "●" {
+			fields = fields[1:]
 		}
 
-		if len(campos) < 4 || !strings.HasSuffix(campos[0], ".service") {
+		if len(fields) < 4 || !strings.HasSuffix(fields[0], ".service") {
 			continue
 		}
 
-		activo := campos[2]
-		lista = append(lista, EstadoUnidad{
-			Unidad:     campos[0],
-			Activo:     activo == estadoActivo,
-			Habilitado: habilitadas[campos[0]],
-			Estado:     mapearEstado(activo),
-			Detalle:    campos[3],
+		active := fields[2]
+		lists = append(lists, UnitState{
+			Unit:    fields[0],
+			Active:  active == stateActive,
+			Enabled: habilitadas[fields[0]],
+			State:   mapState(active),
+			Detail:  fields[3],
 		})
 	}
 
-	return lista, nil
+	return lists, nil
 }
 
-// Obtener devuelve el estado de una unidad.
-func (s *Systemd) Obtener(ctx context.Context, unidad string) (EstadoUnidad, error) {
-	sesion, err := s.sesiones.Abrir(ctx)
+// Get devuelve el estado de una unidad.
+func (s *Systemd) Get(ctx context.Context, unit string) (UnitState, error) {
+	session, err := s.sessions.Open(ctx)
 	if err != nil {
-		return EstadoUnidad{}, fmt.Errorf("abrir la sesión para consultar la unidad: %w", err)
+		return UnitState{}, fmt.Errorf("abrir la sesión para consultar la unidad: %w", err)
 	}
 
-	defer cerrarSesion(sesion)
+	defer closeSession(session)
 
-	salida, err := ejecutarSalida(ctx, sesion, binSystemctl, "show", unidad,
-		"--property=LoadState,ActiveState,UnitFileState,SubState", flagNoPager)
+	output, err := runOutput(ctx, session, binSystemctl, "show", unit,
+		"--property=LoadState,ActiveState,UnitFileState,SubState", flagNotPager)
 	if err != nil {
 		var exitErr *domain.ExitError
 		if errors.As(err, &exitErr) && exitErr.Code == 4 {
-			return EstadoUnidad{}, ErrUnidadNoEncontrada
+			return UnitState{}, ErrUnitNotFound
 		}
 
-		return EstadoUnidad{}, fmt.Errorf("consultar la unidad %q: %w", unidad, err)
+		return UnitState{}, fmt.Errorf("consultar la unidad %q: %w", unit, err)
 	}
 
-	propiedades := parsearPropiedades(salida)
-	if propiedades["LoadState"] == "not-found" {
-		return EstadoUnidad{}, ErrUnidadNoEncontrada
+	properties := parseProperties(output)
+	if properties["LoadState"] == "not-found" {
+		return UnitState{}, ErrUnitNotFound
 	}
 
-	return EstadoUnidad{
-		Unidad:     unidad,
-		Activo:     propiedades["ActiveState"] == estadoActivo,
-		Habilitado: propiedades["UnitFileState"] == "enabled",
-		Estado:     mapearEstado(propiedades["ActiveState"]),
-		Detalle:    propiedades["SubState"],
+	return UnitState{
+		Unit:    unit,
+		Active:  properties["ActiveState"] == stateActive,
+		Enabled: properties["UnitFileState"] == "enabled",
+		State:   mapState(properties["ActiveState"]),
+		Detail:  properties["SubState"],
 	}, nil
 }
 
-// Desplegar transfiere los archivos de una unidad, ajusta permisos y
+// Deploy transfiere los archivos de una unidad, ajusta permisos y
 // recarga systemd.
-func (s *Systemd) Desplegar(
-	ctx context.Context, unidad string, archivos []ArchivoDespliegue, usuario, grupo string,
-) (Resultado, error) {
-	sesion, err := s.sesiones.Abrir(ctx)
+func (s *Systemd) Deploy(
+	ctx context.Context, unit string, files []DeploymentFile, user, group string,
+) (Outcome, error) {
+	session, err := s.sessions.Open(ctx)
 	if err != nil {
-		return Resultado{}, fmt.Errorf("abrir la sesión para desplegar la unidad: %w", err)
+		return Outcome{}, fmt.Errorf("abrir la sesión para desplegar la unidad: %w", err)
 	}
 
-	defer cerrarSesion(sesion)
+	defer closeSession(session)
 
-	for _, archivo := range archivos {
-		if err := sesion.Put(ctx, archivo.Origen, archivo.Destino); err != nil {
-			return Resultado{}, fmt.Errorf("transferir %q: %w", archivo.Origen, err)
+	for _, file := range files {
+		if err := session.Put(ctx, file.Source, file.Destination); err != nil {
+			return Outcome{}, fmt.Errorf("transferir %q: %w", file.Source, err)
 		}
 
-		if _, err := sesion.Run(ctx, &domain.Command{
+		if _, err := session.Run(ctx, &domain.Command{
 			Path: binChmod,
-			Args: []string{archivo.Modo, archivo.Destino},
+			Args: []string{file.Mode, file.Destination},
 		}); err != nil {
-			return Resultado{}, fmt.Errorf("ajustar permisos de %q: %w", archivo.Destino, err)
+			return Outcome{}, fmt.Errorf("ajustar permisos de %q: %w", file.Destination, err)
 		}
 
-		if usuario != "" {
-			dueno := usuario
-			if grupo != "" {
-				dueno += ":" + grupo
+		if user != "" {
+			dueno := user
+			if group != "" {
+				dueno += ":" + group
 			}
 
-			if _, err := sesion.Run(ctx, &domain.Command{
+			if _, err := session.Run(ctx, &domain.Command{
 				Path: binChown,
-				Args: []string{dueno, archivo.Destino},
+				Args: []string{dueno, file.Destination},
 			}); err != nil {
-				return Resultado{}, fmt.Errorf("ajustar propietario de %q: %w", archivo.Destino, err)
+				return Outcome{}, fmt.Errorf("ajustar propietario de %q: %w", file.Destination, err)
 			}
 		}
 	}
 
-	return s.ejecutar(ctx, sesion, "Unidad «"+unidad+"» desplegada.", "daemon-reload")
+	return s.run(ctx, session, "Unidad «"+unit+"» desplegada.", "daemon-reload")
 }
 
-// CambiarEstado activa o desactiva la unidad, o su arranque con el
+// ChangeState activa o desactiva la unidad, o su arranque con el
 // sistema.
-func (s *Systemd) CambiarEstado(
-	ctx context.Context, unidad string, activo, habilitado *bool,
-) (Resultado, error) {
+func (s *Systemd) ChangeState(
+	ctx context.Context, unit string, active, enabled *bool,
+) (Outcome, error) {
 	var args []string
 
 	switch {
-	case activo != nil && *activo:
-		args = []string{"start", unidad}
-	case activo != nil:
-		args = []string{"stop", unidad}
-	case habilitado != nil && *habilitado:
-		args = []string{"enable", unidad}
-	case habilitado != nil:
-		args = []string{"disable", unidad}
+	case active != nil && *active:
+		args = []string{"start", unit}
+	case active != nil:
+		args = []string{"stop", unit}
+	case enabled != nil && *enabled:
+		args = []string{"enable", unit}
+	case enabled != nil:
+		args = []string{"disable", unit}
 	default:
-		return Resultado{}, fmt.Errorf("no se indicó un cambio de estado para %q", unidad)
+		return Outcome{}, fmt.Errorf("no se indicó un cambio de estado para %q", unit)
 	}
 
-	sesion, err := s.sesiones.Abrir(ctx)
+	session, err := s.sessions.Open(ctx)
 	if err != nil {
-		return Resultado{}, fmt.Errorf("abrir la sesión para cambiar la unidad: %w", err)
+		return Outcome{}, fmt.Errorf("abrir la sesión para cambiar la unidad: %w", err)
 	}
 
-	defer cerrarSesion(sesion)
+	defer closeSession(session)
 
-	return s.ejecutar(ctx, sesion, "Unidad «"+unidad+"» actualizada.", args...)
+	return s.run(ctx, session, "Unidad «"+unit+"» actualizada.", args...)
 }
 
-// Reiniciar reinicia una unidad.
-func (s *Systemd) Reiniciar(ctx context.Context, unidad string) (Resultado, error) {
-	sesion, err := s.sesiones.Abrir(ctx)
+// Restart reinicia una unidad.
+func (s *Systemd) Restart(ctx context.Context, unit string) (Outcome, error) {
+	session, err := s.sessions.Open(ctx)
 	if err != nil {
-		return Resultado{}, fmt.Errorf("abrir la sesión para reiniciar la unidad: %w", err)
+		return Outcome{}, fmt.Errorf("abrir la sesión para reiniciar la unidad: %w", err)
 	}
 
-	defer cerrarSesion(sesion)
+	defer closeSession(session)
 
-	return s.ejecutar(ctx, sesion, "Unidad «"+unidad+"» reiniciada.", "restart", unidad)
+	return s.run(ctx, session, "Unidad «"+unit+"» reiniciada.", "restart", unit)
 }
 
-// ejecutar corre systemctl en la sesión y arma el resultado.
-func (s *Systemd) ejecutar(
-	ctx context.Context, sesion ports.Session, mensaje string, args ...string,
-) (Resultado, error) {
+// run corre systemctl en la sesión y arma el resultado.
+func (s *Systemd) run(
+	ctx context.Context, session ports.Session, message string, args ...string,
+) (Outcome, error) {
 	cmd := &domain.Command{Path: binSystemctl, Args: args}
 
-	resultado, err := sesion.Run(ctx, cmd)
+	result, err := session.Run(ctx, cmd)
 
-	salida := Resultado{
-		Mensaje:   mensaje,
-		Operacion: cmd.ShellLine(),
-		Salida:    resultado.Stdout,
-		Stderr:    resultado.Stderr,
-		Codigo:    resultado.ExitCode,
+	output := Outcome{
+		Message:   message,
+		Operation: cmd.ShellLine(),
+		Output:    result.Stdout,
+		Stderr:    result.Stderr,
+		Code:      result.ExitCode,
 	}
 
 	if err != nil {
-		return salida, fmt.Errorf("ejecutar systemctl %s: %w", strings.Join(args, " "), err)
+		return output, fmt.Errorf("ejecutar systemctl %s: %w", strings.Join(args, " "), err)
 	}
 
-	return salida, nil
+	return output, nil
 }
 
-// mapaHabilitacion interpreta «systemctl list-unit-files».
-func mapaHabilitacion(salida string) map[string]bool {
+// enabledMap interpreta «systemctl list-unit-files».
+func enabledMap(output string) map[string]bool {
 	habilitadas := map[string]bool{}
 
-	for _, linea := range strings.Split(salida, "\n") {
-		campos := strings.Fields(linea)
-		if len(campos) < 2 || !strings.HasSuffix(campos[0], ".service") {
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 2 || !strings.HasSuffix(fields[0], ".service") {
 			continue
 		}
 
-		habilitadas[campos[0]] = campos[1] == "enabled"
+		habilitadas[fields[0]] = fields[1] == "enabled"
 	}
 
 	return habilitadas
 }
 
-// parsearPropiedades interpreta la salida «clave=valor» de systemctl.
-func parsearPropiedades(salida string) map[string]string {
-	propiedades := map[string]string{}
+// parseProperties interpreta la salida «clave=valor» de systemctl.
+func parseProperties(output string) map[string]string {
+	properties := map[string]string{}
 
-	for _, linea := range strings.Split(salida, "\n") {
-		clave, valor, encontrado := strings.Cut(strings.TrimSpace(linea), "=")
-		if encontrado {
-			propiedades[clave] = valor
+	for _, line := range strings.Split(output, "\n") {
+		key, value, found := strings.Cut(strings.TrimSpace(line), "=")
+		if found {
+			properties[key] = value
 		}
 	}
 
-	return propiedades
+	return properties
 }
 
-// mapearEstado traduce el estado de systemd al del contrato.
-func mapearEstado(active string) string {
+// mapState traduce el estado de systemd al del contrato.
+func mapState(active string) string {
 	switch active {
-	case estadoActivo:
-		return estadoActivo
+	case stateActive:
+		return stateActive
 	case "inactive":
 		return "inactive"
 	case "failed":

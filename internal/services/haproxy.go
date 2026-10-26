@@ -16,134 +16,135 @@ import (
 	"consola-vm/internal/core/ports"
 )
 
-// rutaHaproxy es la configuración de HAProxy en la máquina.
-const rutaHaproxy = "/etc/haproxy/haproxy.cfg"
+// haproxyConfigPath es la configuración de HAProxy en la máquina.
+const haproxyConfigPath = "/etc/haproxy/haproxy.cfg"
 
-// rutaSocketHaproxy es el socket de estadísticas del balanceador; la
-// configuración por omisión de Debian lo define en el bloque global.
-const rutaSocketHaproxy = "/run/haproxy/admin.sock"
+// haproxySocketPath es el socket de estadísticas del balanceador; la
+// configuración por omisión de Debian y sus derivados suele definirlo en el
+// bloque global.
+const haproxySocketPath = "/run/haproxy/admin.sock"
 
 // binSocat consulta el socket de estadísticas dentro de la máquina.
 const binSocat = "/usr/bin/socat"
 
-// ordenShowStat pide la tabla de estadísticas por el socket.
-const ordenShowStat = `printf 'show stat\n' | ` + binSocat + ` - UNIX-CONNECT:` + rutaSocketHaproxy
+// showStatCommand pide la tabla de estadísticas por el socket.
+const showStatCommand = `printf 'show stat\n' | ` + binSocat + ` - UNIX-CONNECT:` + haproxySocketPath
 
-// msgLeerConfig es el contexto de error al leer la configuración.
-const msgLeerConfig = "leer la configuración de HAProxy: %w"
+// msgReadConfig es el contexto de error al leer la configuración.
+const msgReadConfig = "leer la configuración de HAProxy: %w"
 
-// ErrBackendNoEncontrado indica que la configuración no tiene un bloque
+// ErrBackendNotFound indica que la configuración no tiene un bloque
 // backend.
-var ErrBackendNoEncontrado = errors.New("no se encontró un back-end en la configuración")
+var ErrBackendNotFound = errors.New("no se encontró un back-end en la configuración")
 
-// ErrServidorExistente indica que el servidor ya está en el back-end.
-var ErrServidorExistente = errors.New("el servidor ya está en el back-end")
+// ErrServerExists indica que el servidor ya está en el back-end.
+var ErrServerExists = errors.New("el servidor ya está en el back-end")
 
-// ErrServidorNoEncontrado indica que el servidor no está en el back-end.
-var ErrServidorNoEncontrado = errors.New("el servidor no está en el back-end")
+// ErrServerNotFound indica que el servidor no está en el back-end.
+var ErrServerNotFound = errors.New("el servidor no está en el back-end")
 
-// Servidor describe un servidor del back-end de HAProxy.
-type Servidor struct {
-	// Direccion es la dirección IPv4 del servidor.
-	Direccion string
-	// Puerto es el puerto TCP.
-	Puerto int
-	// Estado es el estado informado por HAProxy: up, down o unknown
+// Server describe un servidor del back-end de HAProxy.
+type Server struct {
+	// Address es la dirección IPv4 del servidor.
+	Address string
+	// Port es el puerto TCP.
+	Port int
+	// State es el estado informado por HAProxy: up, down o unknown
 	// cuando el socket de estadísticas no responde.
-	Estado string
-	// nombre es el identificador del servidor en la configuración, que
+	State string
+	// name es el identificador del servidor en la configuración, que
 	// usa la tabla de estadísticas para informar su estado.
-	nombre string
+	name string
 }
 
-// Haproxy implementa el caso de uso del back-end de HAProxy.
-type Haproxy struct {
-	sesiones AbridorSesion
+// HAProxy implementa el caso de uso del back-end de HAProxy.
+type HAProxy struct {
+	sessions SessionOpener
 }
 
-// NuevoHaproxy construye el servicio con el abridor de sesiones dado.
-func NuevoHaproxy(sesiones AbridorSesion) *Haproxy {
-	return &Haproxy{sesiones: sesiones}
+// NewHAProxy construye el servicio con el abridor de sesiones dado.
+func NewHAProxy(sessions SessionOpener) *HAProxy {
+	return &HAProxy{sessions: sessions}
 }
 
-// Listar devuelve los servidores del primer bloque backend.
-func (h *Haproxy) Listar(ctx context.Context) ([]Servidor, error) {
-	sesion, err := h.sesiones.Abrir(ctx)
+// List devuelve los servidores del primer bloque backend.
+func (h *HAProxy) List(ctx context.Context) ([]Server, error) {
+	session, err := h.sessions.Open(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("abrir la sesión para listar el back-end: %w", err)
 	}
 
-	defer cerrarSesion(sesion)
+	defer closeSession(session)
 
-	config, err := ejecutarSalida(ctx, sesion, binCat, rutaHaproxy)
+	config, err := runOutput(ctx, session, binCat, haproxyConfigPath)
 	if err != nil {
-		return nil, fmt.Errorf(msgLeerConfig, err)
+		return nil, fmt.Errorf(msgReadConfig, err)
 	}
 
-	servidores, encontrado := parsearServidores(config)
-	if !encontrado {
-		return nil, ErrBackendNoEncontrado
+	servers, found := parseServers(config)
+	if !found {
+		return nil, ErrBackendNotFound
 	}
 
 	// El estado de cada servidor se toma del socket de estadísticas. Si la
 	// consulta falla, el listado sigue siendo válido con estado unknown.
-	if len(servidores) > 0 {
-		estados := estadosDeBackend(ctx, sesion)
+	if len(servers) > 0 {
+		states := backendStates(ctx, session)
 
-		for i := range servidores {
-			if estado, ok := estados[servidores[i].nombre]; ok {
-				servidores[i].Estado = estado
+		for i := range servers {
+			if state, ok := states[servers[i].name]; ok {
+				servers[i].State = state
 			}
 		}
 	}
 
-	return servidores, nil
+	return servers, nil
 }
 
-// estadosDeBackend consulta el socket de estadísticas y devuelve el estado
+// backendStates consulta el socket de estadísticas y devuelve el estado
 // de cada servidor por su nombre en la configuración. Un error de la
 // consulta no interrumpe el listado: se devuelve un mapa vacío y los
 // servidores conservan el estado unknown.
-func estadosDeBackend(ctx context.Context, sesion ports.Session) map[string]string {
-	cmd := &domain.Command{Path: binSh, Args: []string{"-c", ordenShowStat}}
+func backendStates(ctx context.Context, session ports.Session) map[string]string {
+	cmd := &domain.Command{Path: binSh, Args: []string{"-c", showStatCommand}}
 
-	resultado, err := sesion.Run(ctx, cmd)
+	result, err := session.Run(ctx, cmd)
 	if err != nil {
 		return map[string]string{}
 	}
 
-	return parsearEstados(resultado.Stdout)
+	return parseStates(result.Stdout)
 }
 
-// parsearEstados traduce el campo status de la salida CSV del socket de
+// parseStates traduce el campo status de la salida CSV del socket de
 // estadísticas a up, down o unknown. Las filas incompletas o con estados
 // que la consola no distingue se ignoran.
-func parsearEstados(salida string) map[string]string {
-	estados := make(map[string]string)
+func parseStates(output string) map[string]string {
+	states := make(map[string]string)
 
-	for _, linea := range strings.Split(salida, "\n") {
-		if linea == "" || strings.HasPrefix(linea, "#") {
+	for _, line := range strings.Split(output, "\n") {
+		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
 
-		campos := strings.Split(linea, ",")
-		if len(campos) < 18 {
+		fields := strings.Split(line, ",")
+		if len(fields) < 18 {
 			continue
 		}
 
-		if estado, ok := estadoHaproxy(campos[17]); ok {
-			estados[campos[1]] = estado
+		if state, ok := haproxyState(fields[17]); ok {
+			states[fields[1]] = state
 		}
 	}
 
-	return estados
+	return states
 }
 
-// estadoHaproxy traduce el estado de HAProxy al vocabulario del contrato.
+// haproxyState traduce el estado de HAProxy al vocabulario del contrato.
 // Los estados de mantenimiento y de drenaje se informan como down porque
 // el servidor no recibe tráfico nuevo.
-func estadoHaproxy(estado string) (string, bool) {
-	switch estado {
+func haproxyState(state string) (string, bool) {
+	switch state {
 	case "UP":
 		return "up", true
 	case "DOWN", "MAINT", "DRAIN", "NOLB":
@@ -153,219 +154,219 @@ func estadoHaproxy(estado string) (string, bool) {
 	}
 }
 
-// Agregar agrega un servidor al back-end y recarga HAProxy.
-func (h *Haproxy) Agregar(ctx context.Context, direccion string, puerto int) (Resultado, error) {
-	sesion, err := h.sesiones.Abrir(ctx)
+// Add agrega un servidor al back-end y recarga HAProxy.
+func (h *HAProxy) Add(ctx context.Context, address string, port int) (Outcome, error) {
+	session, err := h.sessions.Open(ctx)
 	if err != nil {
-		return Resultado{}, fmt.Errorf("abrir la sesión para agregar el servidor: %w", err)
+		return Outcome{}, fmt.Errorf("abrir la sesión para agregar el servidor: %w", err)
 	}
 
-	defer cerrarSesion(sesion)
+	defer closeSession(session)
 
-	config, err := ejecutarSalida(ctx, sesion, binCat, rutaHaproxy)
+	config, err := runOutput(ctx, session, binCat, haproxyConfigPath)
 	if err != nil {
-		return Resultado{}, fmt.Errorf(msgLeerConfig, err)
+		return Outcome{}, fmt.Errorf(msgReadConfig, err)
 	}
 
-	nuevo, err := agregarServidor(config, direccion, puerto)
+	updated, err := addServer(config, address, port)
 	if err != nil {
-		return Resultado{}, err
+		return Outcome{}, err
 	}
 
-	return h.escribir(ctx, sesion, nuevo, "Servidor agregado al back-end.")
+	return h.write(ctx, session, updated, "Servidor agregado al back-end.")
 }
 
-// Eliminar elimina un servidor del back-end y recarga HAProxy.
-func (h *Haproxy) Eliminar(ctx context.Context, direccion string, puerto int) (Resultado, error) {
-	sesion, err := h.sesiones.Abrir(ctx)
+// Delete elimina un servidor del back-end y recarga HAProxy.
+func (h *HAProxy) Delete(ctx context.Context, address string, port int) (Outcome, error) {
+	session, err := h.sessions.Open(ctx)
 	if err != nil {
-		return Resultado{}, fmt.Errorf("abrir la sesión para eliminar el servidor: %w", err)
+		return Outcome{}, fmt.Errorf("abrir la sesión para eliminar el servidor: %w", err)
 	}
 
-	defer cerrarSesion(sesion)
+	defer closeSession(session)
 
-	config, err := ejecutarSalida(ctx, sesion, binCat, rutaHaproxy)
+	config, err := runOutput(ctx, session, binCat, haproxyConfigPath)
 	if err != nil {
-		return Resultado{}, fmt.Errorf(msgLeerConfig, err)
+		return Outcome{}, fmt.Errorf(msgReadConfig, err)
 	}
 
-	nuevo, err := quitarServidor(config, direccion, puerto)
+	updated, err := removeServer(config, address, port)
 	if err != nil {
-		return Resultado{}, err
+		return Outcome{}, err
 	}
 
-	return h.escribir(ctx, sesion, nuevo, "Servidor eliminado del back-end.")
+	return h.write(ctx, session, updated, "Servidor eliminado del back-end.")
 }
 
-// escribir valida la configuración propuesta y, solo si es correcta, la
+// write valida la configuración propuesta y, solo si es correcta, la
 // instala y recarga HAProxy.
-func (h *Haproxy) escribir(
-	ctx context.Context, sesion ports.Session, config, mensaje string,
-) (Resultado, error) {
+func (h *HAProxy) write(
+	ctx context.Context, session ports.Session, config, message string,
+) (Outcome, error) {
 	b64 := base64.StdEncoding.EncodeToString([]byte(config))
 	guion := "printf '%s' " + domain.Quote(b64) + " | base64 -d > /tmp/haproxy.cfg.vmcons && " +
 		binHaproxy + " -c -f /tmp/haproxy.cfg.vmcons && " +
-		"mv /tmp/haproxy.cfg.vmcons " + rutaHaproxy + " && " +
+		"mv /tmp/haproxy.cfg.vmcons " + haproxyConfigPath + " && " +
 		binSystemctl + " reload haproxy"
 
 	cmd := &domain.Command{Path: binSh, Args: []string{"-c", guion}}
 
-	resultado, err := sesion.Run(ctx, cmd)
+	result, err := session.Run(ctx, cmd)
 
-	salida := Resultado{
-		Mensaje:   mensaje,
-		Operacion: cmd.ShellLine(),
-		Salida:    resultado.Stdout,
-		Stderr:    resultado.Stderr,
-		Codigo:    resultado.ExitCode,
+	output := Outcome{
+		Message:   message,
+		Operation: cmd.ShellLine(),
+		Output:    result.Stdout,
+		Stderr:    result.Stderr,
+		Code:      result.ExitCode,
 	}
 
 	if err != nil {
-		return salida, fmt.Errorf("validar y recargar HAProxy: %w", err)
+		return output, fmt.Errorf("validar y recargar HAProxy: %w", err)
 	}
 
-	return salida, nil
+	return output, nil
 }
 
-// parsearServidores extrae los servidores del primer bloque backend.
-func parsearServidores(config string) (servidores []Servidor, encontrado bool) {
-	servidores = []Servidor{}
+// parseServers extrae los servidores del primer bloque backend.
+func parseServers(config string) (servers []Server, found bool) {
+	servers = []Server{}
 
-	inicio, fin := limitesBackend(strings.Split(config, "\n"))
-	if inicio < 0 {
-		return servidores, false
+	start, end := backendLimits(strings.Split(config, "\n"))
+	if start < 0 {
+		return servers, false
 	}
 
-	for _, linea := range strings.Split(config, "\n")[inicio+1 : fin] {
-		campos := strings.Fields(linea)
-		if len(campos) < 3 || campos[0] != "server" {
+	for _, line := range strings.Split(config, "\n")[start+1 : end] {
+		fields := strings.Fields(line)
+		if len(fields) < 3 || fields[0] != "server" {
 			continue
 		}
 
-		destino, err := netip.ParseAddrPort(campos[2])
+		destination, err := netip.ParseAddrPort(fields[2])
 		if err != nil {
 			continue
 		}
 
-		servidores = append(servidores, Servidor{
-			Direccion: destino.Addr().String(),
-			Puerto:    int(destino.Port()),
-			Estado:    "unknown",
-			nombre:    campos[1],
+		servers = append(servers, Server{
+			Address: destination.Addr().String(),
+			Port:    int(destination.Port()),
+			State:   "unknown",
+			name:    fields[1],
 		})
 	}
 
-	return servidores, true
+	return servers, true
 }
 
-// agregarServidor inserta la línea del servidor al final del primer
+// addServer inserta la línea del servidor al final del primer
 // bloque backend.
-func agregarServidor(config, direccion string, puerto int) (string, error) {
-	lineas := strings.Split(config, "\n")
+func addServer(config, address string, port int) (string, error) {
+	lines := strings.Split(config, "\n")
 
-	inicio, fin := limitesBackend(lineas)
-	if inicio < 0 {
-		return "", ErrBackendNoEncontrado
+	start, end := backendLimits(lines)
+	if start < 0 {
+		return "", ErrBackendNotFound
 	}
 
-	for _, linea := range lineas[inicio+1 : fin] {
-		if servidorCoincide(linea, direccion, puerto) {
-			return "", ErrServidorExistente
+	for _, line := range lines[start+1 : end] {
+		if serverMatches(line, address, port) {
+			return "", ErrServerExists
 		}
 	}
 
-	nombre := "srv_" + strings.NewReplacer(".", "_", ":", "_").Replace(direccion) + "_" + strconv.Itoa(puerto)
-	nueva := "    server " + nombre + " " + direccion + ":" + strconv.Itoa(puerto) + " check"
+	name := "srv_" + strings.NewReplacer(".", "_", ":", "_").Replace(address) + "_" + strconv.Itoa(port)
+	serverLine := "    server " + name + " " + address + ":" + strconv.Itoa(port) + " check"
 
-	nuevas := make([]string, 0, len(lineas)+1)
-	nuevas = append(nuevas, lineas[:fin]...)
-	nuevas = append(nuevas, nueva)
-	nuevas = append(nuevas, lineas[fin:]...)
+	updated := make([]string, 0, len(lines)+1)
+	updated = append(updated, lines[:end]...)
+	updated = append(updated, serverLine)
+	updated = append(updated, lines[end:]...)
 
-	return strings.Join(nuevas, "\n"), nil
+	return strings.Join(updated, "\n"), nil
 }
 
-// quitarServidor elimina la línea del servidor del primer bloque
+// removeServer elimina la línea del servidor del primer bloque
 // backend.
-func quitarServidor(config, direccion string, puerto int) (string, error) {
-	lineas := strings.Split(config, "\n")
+func removeServer(config, address string, port int) (string, error) {
+	lines := strings.Split(config, "\n")
 
-	inicio, fin := limitesBackend(lineas)
-	if inicio < 0 {
-		return "", ErrBackendNoEncontrado
+	start, end := backendLimits(lines)
+	if start < 0 {
+		return "", ErrBackendNotFound
 	}
 
-	nuevas := make([]string, 0, len(lineas))
-	nuevas = append(nuevas, lineas[:inicio+1]...)
-	encontrado := false
+	updated := make([]string, 0, len(lines))
+	updated = append(updated, lines[:start+1]...)
+	found := false
 
-	for _, linea := range lineas[inicio+1 : fin] {
-		if servidorCoincide(linea, direccion, puerto) {
-			encontrado = true
+	for _, line := range lines[start+1 : end] {
+		if serverMatches(line, address, port) {
+			found = true
 
 			continue
 		}
 
-		nuevas = append(nuevas, linea)
+		updated = append(updated, line)
 	}
 
-	if !encontrado {
-		return "", ErrServidorNoEncontrado
+	if !found {
+		return "", ErrServerNotFound
 	}
 
-	nuevas = append(nuevas, lineas[fin:]...)
+	updated = append(updated, lines[end:]...)
 
-	return strings.Join(nuevas, "\n"), nil
+	return strings.Join(updated, "\n"), nil
 }
 
-// servidorCoincide informa si la línea es un servidor con el destino
+// serverMatches informa si la línea es un servidor con el destino
 // indicado.
-func servidorCoincide(linea, direccion string, puerto int) bool {
-	campos := strings.Fields(linea)
-	if len(campos) < 3 || campos[0] != "server" {
+func serverMatches(line, address string, port int) bool {
+	fields := strings.Fields(line)
+	if len(fields) < 3 || fields[0] != "server" {
 		return false
 	}
 
-	destino, err := netip.ParseAddrPort(campos[2])
+	destination, err := netip.ParseAddrPort(fields[2])
 	if err != nil {
 		return false
 	}
 
-	return destino.Addr().String() == direccion && int(destino.Port()) == puerto
+	return destination.Addr().String() == address && int(destination.Port()) == port
 }
 
-// limitesBackend devuelve el inicio y el fin del primer bloque backend.
-func limitesBackend(lineas []string) (inicio, fin int) {
-	inicio = -1
+// backendLimits devuelve el inicio y el fin del primer bloque backend.
+func backendLimits(lines []string) (start, end int) {
+	start = -1
 
-	for i, linea := range lineas {
-		limpia := strings.TrimSpace(linea)
+	for i, line := range lines {
+		limpia := strings.TrimSpace(line)
 		if limpia == "" || strings.HasPrefix(limpia, "#") {
 			continue
 		}
 
-		if strings.HasPrefix(linea, " ") || strings.HasPrefix(linea, "\t") {
+		if strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") {
 			continue
 		}
 
-		campos := strings.Fields(limpia)
-		if campos[0] == "backend" {
-			if inicio == -1 {
-				inicio = i
+		fields := strings.Fields(limpia)
+		if fields[0] == "backend" {
+			if start == -1 {
+				start = i
 			} else {
-				return inicio, i
+				return start, i
 			}
 
 			continue
 		}
 
-		if inicio != -1 {
-			return inicio, i
+		if start != -1 {
+			return start, i
 		}
 	}
 
-	if inicio != -1 {
-		return inicio, len(lineas)
+	if start != -1 {
+		return start, len(lines)
 	}
 
 	return -1, -1

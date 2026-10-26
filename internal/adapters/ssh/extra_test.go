@@ -16,134 +16,134 @@ import (
 	"consola-vm/internal/core/domain"
 )
 
-// archivoFalso simula un archivo temporal con fallos preprogramados.
-type archivoFalso struct {
+// fileFake simula un archivo temporal con fallos preprogramados.
+type fileFake struct {
 	chmodErr error
 	writeErr error
 	closeErr error
-	nombre   string
+	name     string
 }
 
 // Chmod devuelve el error preprogramado.
-func (a *archivoFalso) Chmod(fs.FileMode) error { return a.chmodErr }
+func (a *fileFake) Chmod(fs.FileMode) error { return a.chmodErr }
 
 // WriteString devuelve el error preprogramado.
-func (a *archivoFalso) WriteString(string) (int, error) { return 0, a.writeErr }
+func (a *fileFake) WriteString(string) (int, error) { return 0, a.writeErr }
 
 // Name devuelve la ruta asociada.
-func (a *archivoFalso) Name() string { return a.nombre }
+func (a *fileFake) Name() string { return a.name }
 
 // Close devuelve el error preprogramado.
-func (a *archivoFalso) Close() error { return a.closeErr }
+func (a *fileFake) Close() error { return a.closeErr }
 
-// archivoEnBlanco devuelve la ruta de un archivo temporal del test.
-func archivoEnBlanco(t *testing.T) string {
+// blankFile devuelve la ruta de un archivo temporal del test.
+func blankFile(t *testing.T) string {
 	t.Helper()
 
-	ruta := filepath.Join(t.TempDir(), "pass")
-	if err := os.WriteFile(ruta, nil, 0o600); err != nil {
+	path := filepath.Join(t.TempDir(), "pass")
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
 		t.Fatalf("crear el archivo temporal: %v", err)
 	}
 
-	return ruta
+	return path
 }
 
-// TestPrepararTemporalErrores deja el sistema limpio ante cada fallo.
-func TestPrepararTemporalErrores(t *testing.T) {
+// TestPrepareTempErrors deja el sistema limpio ante cada fallo.
+func TestPrepareTempErrors(t *testing.T) {
 	t.Parallel()
 
-	casos := []struct {
-		nombre  string
-		archivo *archivoFalso
-		mensaje string
+	testCases := []struct {
+		name    string
+		file    *fileFake
+		message string
 	}{
 		{
 			"chmod",
-			&archivoFalso{chmodErr: errors.New("permisos"), nombre: archivoEnBlanco(t)},
+			&fileFake{chmodErr: errors.New("permisos"), name: blankFile(t)},
 			"proteger",
 		},
 		{
 			"escritura",
-			&archivoFalso{writeErr: errors.New("disco lleno"), nombre: archivoEnBlanco(t)},
+			&fileFake{writeErr: errors.New("disco lleno"), name: blankFile(t)},
 			"guardar",
 		},
 		{
 			"cierre",
-			&archivoFalso{closeErr: errors.New("cerrado"), nombre: archivoEnBlanco(t)},
+			&fileFake{closeErr: errors.New("cerrado"), name: blankFile(t)},
 			"cerrar",
 		},
 	}
 
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := prepararTemporal(caso.archivo, "secreto")
-			if err == nil || !strings.Contains(err.Error(), caso.mensaje) {
-				t.Fatalf("prepararTemporal() error = %v, want el fallo de %s", err, caso.mensaje)
+			err := prepareTempFile(testCase.file, "secreto")
+			if err == nil || !strings.Contains(err.Error(), testCase.message) {
+				t.Fatalf("prepararTemporal() error = %v, want el fallo de %s", err, testCase.message)
 			}
 
-			if _, err := os.Stat(caso.archivo.nombre); !errors.Is(err, fs.ErrNotExist) {
-				t.Errorf("el archivo temporal %q quedó en disco", caso.archivo.nombre)
+			if _, err := os.Stat(testCase.file.name); !errors.Is(err, fs.ErrNotExist) {
+				t.Errorf("el archivo temporal %q quedó en disco", testCase.file.name)
 			}
 		})
 	}
 }
 
-// TestPrepararTemporalGuardaLaContraseña escribe el archivo con la clave.
-func TestPrepararTemporalGuardaLaContraseña(t *testing.T) {
+// TestPrepareTempSavesPassword escribe el archivo con la clave.
+func TestPrepareTempSavesPassword(t *testing.T) {
 	t.Parallel()
 
-	archivo, err := os.CreateTemp(t.TempDir(), "pass-*")
+	file, err := os.CreateTemp(t.TempDir(), "pass-*")
 	if err != nil {
 		t.Fatalf("crear el archivo temporal: %v", err)
 	}
 
-	if err := prepararTemporal(archivo, "secreto"); err != nil {
+	if err := prepareTempFile(file, "secreto"); err != nil {
 		t.Fatalf("prepararTemporal() error = %v, want nil", err)
 	}
 
-	contenido, err := os.ReadFile(archivo.Name())
-	if err != nil || string(contenido) != "secreto" {
-		t.Errorf("contenido = %q, %v, want secreto", contenido, err)
+	content, err := os.ReadFile(file.Name())
+	if err != nil || string(content) != "secreto" {
+		t.Errorf("contenido = %q, %v, want secreto", content, err)
 	}
 
-	info, err := os.Stat(archivo.Name())
+	info, err := os.Stat(file.Name())
 	if err != nil || info.Mode().Perm() != 0o600 {
 		t.Errorf("permisos = %v, %v, want 0600", info.Mode().Perm(), err)
 	}
 }
 
-// TestConnectPasswordSinArchivoTemporal propaga el fallo de creación.
-func TestConnectPasswordSinArchivoTemporal(t *testing.T) {
-	original := crearTemporal
+// TestConnectPasswordWithoutFileTemp propaga el fallo de creación.
+func TestConnectPasswordWithoutFileTemp(t *testing.T) {
+	original := createTempFile
 
-	t.Cleanup(func() { crearTemporal = original })
+	t.Cleanup(func() { createTempFile = original })
 
-	crearTemporal = func() (*os.File, error) {
+	createTempFile = func() (*os.File, error) {
 		return nil, errors.New("sin espacio")
 	}
 
-	conector := New(newFakeExecutor())
+	connector := New(newFakeExecutor())
 
-	if _, err := conector.ConnectPassword(context.Background(), runningTarget(), "jorge", "x"); err == nil {
+	if _, err := connector.ConnectPassword(context.Background(), runningTarget(), "jorge", "x"); err == nil {
 		t.Error("ConnectPassword() error = nil, want el fallo del archivo temporal")
 	}
 }
 
-// TestConnectPasswordCreaYProtegeElArchivo abre una sesión con sshpass y
+// TestConnectPasswordCreatesYProtegeFile abre una sesión con sshpass y
 // borra la contraseña al cerrar.
-func TestConnectPasswordCreaYProtegeElArchivo(t *testing.T) {
+func TestConnectPasswordCreatesYProtegeFile(t *testing.T) {
 	t.Parallel()
 
-	sesion, err := New(newFakeExecutor()).ConnectPassword(context.Background(), runningTarget(), "jorge", "secreto")
+	session, err := New(newFakeExecutor()).ConnectPassword(context.Background(), runningTarget(), "jorge", "secreto")
 	if err != nil {
 		t.Fatalf("ConnectPassword() error = %v, want nil", err)
 	}
 
-	concreta, ok := sesion.(*Session)
+	concreta, ok := session.(*Session)
 	if !ok {
-		t.Fatalf("ConnectPassword() = %T, want *Session", sesion)
+		t.Fatalf("ConnectPassword() = %T, want *Session", session)
 	}
 
 	info, err := os.Stat(concreta.passwordFile)
@@ -151,7 +151,7 @@ func TestConnectPasswordCreaYProtegeElArchivo(t *testing.T) {
 		t.Errorf("permisos del temporal = %v, %v, want 0600", info.Mode().Perm(), err)
 	}
 
-	if err := sesion.Close(); err != nil {
+	if err := session.Close(); err != nil {
 		t.Fatalf("Close() error = %v, want nil", err)
 	}
 
@@ -160,95 +160,95 @@ func TestConnectPasswordCreaYProtegeElArchivo(t *testing.T) {
 	}
 }
 
-// TestCerrarTemporalConFalloDeCierre elimina el archivo igualmente.
-func TestCerrarTemporalConFalloDeCierre(t *testing.T) {
+// TestCloseTempWithFailureOfCierre elimina el archivo igualmente.
+func TestCloseTempWithFailureOfCierre(t *testing.T) {
 	t.Parallel()
 
-	ruta := archivoEnBlanco(t)
-	cerrarTemporal(&archivoFalso{closeErr: errors.New("cerrado"), nombre: ruta})
+	path := blankFile(t)
+	closeTempFile(&fileFake{closeErr: errors.New("cerrado"), name: path})
 
-	if _, err := os.Stat(ruta); !errors.Is(err, fs.ErrNotExist) {
-		t.Errorf("el archivo temporal %q no se eliminó", ruta)
+	if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("el archivo temporal %q no se eliminó", path)
 	}
 }
 
-// TestEliminarTemporalIgnoraLaAusencia no falla si el archivo ya no está.
-func TestEliminarTemporalIgnoraLaAusencia(t *testing.T) {
+// TestDeleteTempIgnoresAbsence no falla si el archivo ya no está.
+func TestDeleteTempIgnoresAbsence(t *testing.T) {
 	t.Parallel()
 
-	ruta := filepath.Join(t.TempDir(), "inexistente")
-	eliminarTemporal(ruta)
+	path := filepath.Join(t.TempDir(), "inexistente")
+	removeTempFile(path)
 
-	if _, err := os.Stat(ruta); !errors.Is(err, fs.ErrNotExist) {
-		t.Errorf("Stat(%q) error = %v, want la ausencia del archivo", ruta, err)
+	if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("Stat(%q) error = %v, want la ausencia del archivo", path, err)
 	}
 }
 
-// TestProbeConEjecutorCaido propaga el fallo de autenticación.
-func TestProbeConEjecutorCaido(t *testing.T) {
+// TestProbeWithEjecutorCaido propaga el fallo de autenticación.
+func TestProbeWithEjecutorCaido(t *testing.T) {
 	t.Parallel()
 
 	fake := newFakeExecutor()
 	fake.errs = map[string]error{binarySSH: errors.New("sin conexión")}
 
-	conector := New(fake, WithKey(writeTempKey(t)))
+	connector := New(fake, WithKey(writeTempKey(t)))
 
-	if err := conector.Probe(context.Background(), runningTarget()); err == nil {
+	if err := connector.Probe(context.Background(), runningTarget()); err == nil {
 		t.Error("Probe() error = nil, want el fallo de ssh")
 	}
 }
 
-// TestConnectConProbeFallido no abre sesión sin autenticación.
-func TestConnectConProbeFallido(t *testing.T) {
+// TestConnectWithProbeFailed no abre sesión sin autenticación.
+func TestConnectWithProbeFailed(t *testing.T) {
 	t.Parallel()
 
-	conector := New(newFakeExecutor(), WithKey(writeTempKey(t)))
+	connector := New(newFakeExecutor(), WithKey(writeTempKey(t)))
 
-	if _, err := conector.Connect(context.Background(), domain.Target{ID: "debian13"}); err == nil {
+	if _, err := connector.Connect(context.Background(), domain.Target{ID: "vm1"}); err == nil {
 		t.Error("Connect() error = nil, want el fallo de Probe")
 	}
 }
 
-// TestConnectAbreLaSesion con una llave disponible.
-func TestConnectAbreLaSesion(t *testing.T) {
+// TestConnectOpensSession con una llave disponible.
+func TestConnectOpensSession(t *testing.T) {
 	t.Parallel()
 
-	conector := New(newFakeExecutor(), WithKey(writeTempKey(t)))
+	connector := New(newFakeExecutor(), WithKey(writeTempKey(t)))
 
-	sesion, err := conector.Connect(context.Background(), runningTarget())
+	session, err := connector.Connect(context.Background(), runningTarget())
 	if err != nil {
 		t.Fatalf(msgConnectFail, err)
 	}
 
-	if sesion == nil {
+	if session == nil {
 		t.Fatal("Connect() = nil, want una sesión")
 	}
 }
 
-// TestPutPropagaElFalloDeSCP devuelve el error de la transferencia.
-func TestPutPropagaElFalloDeSCP(t *testing.T) {
+// TestPutPropagatesFailureOfSCP devuelve el error de la transferencia.
+func TestPutPropagatesFailureOfSCP(t *testing.T) {
 	t.Parallel()
 
 	fake := newFakeExecutor()
 	fake.errs = map[string]error{binarySCP: &domain.ExitError{Code: 1, Command: "scp"}}
 
-	sesion, err := New(fake, WithKey(writeTempKey(t))).Connect(context.Background(), runningTarget())
+	session, err := New(fake, WithKey(writeTempKey(t))).Connect(context.Background(), runningTarget())
 	if err != nil {
 		t.Fatalf(msgConnectFail, err)
 	}
 
-	if err := sesion.Put(context.Background(), "/tmp/a", "/tmp/b"); err == nil {
+	if err := session.Put(context.Background(), "/tmp/a", "/tmp/b"); err == nil {
 		t.Error("Put() error = nil, want el fallo de scp")
 	}
 }
 
 // fakeConFalloAutentica la primera vez y falla en las siguientes órdenes.
-type fakeConFallo struct {
+type fakeWithFailure struct {
 	llamadas int
 }
 
 // Execute autentica la primera orden ssh y falla en las posteriores.
-func (f *fakeConFallo) Execute(_ context.Context, program string, _ ...string) (domain.Result, error) {
+func (f *fakeWithFailure) Execute(_ context.Context, program string, _ ...string) (domain.Result, error) {
 	if program != binarySSH {
 		return domain.Result{}, nil
 	}
@@ -261,22 +261,22 @@ func (f *fakeConFallo) Execute(_ context.Context, program string, _ ...string) (
 	return domain.Result{}, &domain.ExitError{Code: 1, Command: binarySSH}
 }
 
-// TestPutPropagaElFalloDeChmod devuelve el error al ajustar los permisos.
-func TestPutPropagaElFalloDeChmod(t *testing.T) {
+// TestPutPropagatesFailureOfChmod devuelve el error al ajustar los permisos.
+func TestPutPropagatesFailureOfChmod(t *testing.T) {
 	t.Parallel()
 
-	sesion, err := New(&fakeConFallo{}, WithKey(writeTempKey(t))).Connect(context.Background(), runningTarget())
+	session, err := New(&fakeWithFailure{}, WithKey(writeTempKey(t))).Connect(context.Background(), runningTarget())
 	if err != nil {
 		t.Fatalf(msgConnectFail, err)
 	}
 
-	if err := sesion.Put(context.Background(), "/tmp/a", "/tmp/b"); err == nil {
+	if err := session.Put(context.Background(), "/tmp/a", "/tmp/b"); err == nil {
 		t.Error("Put() error = nil, want el fallo de chmod")
 	}
 }
 
-// TestCloseSinArchivoTemporal no hace nada en una sesión con llave.
-func TestCloseSinArchivoTemporal(t *testing.T) {
+// TestCloseWithoutFileTemp no hace nada en una sesión con llave.
+func TestCloseWithoutFileTemp(t *testing.T) {
 	t.Parallel()
 
 	if err := (&Session{}).Close(); err != nil {
@@ -284,61 +284,61 @@ func TestCloseSinArchivoTemporal(t *testing.T) {
 	}
 }
 
-// TestCloseConArchivoAusente devuelve el error al eliminar.
-func TestCloseConArchivoAusente(t *testing.T) {
+// TestCloseWithFileAusente devuelve el error al eliminar.
+func TestCloseWithFileAusente(t *testing.T) {
 	t.Parallel()
 
-	sesion := &Session{passwordFile: filepath.Join(t.TempDir(), "inexistente")}
+	session := &Session{passwordFile: filepath.Join(t.TempDir(), "inexistente")}
 
-	if err := sesion.Close(); err == nil {
+	if err := session.Close(); err == nil {
 		t.Error("Close() error = nil, want el fallo al eliminar")
 	}
 }
 
-// TestErrorSanitizadoConservaLosDemasErrores deja intacto un error que no
+// TestErrorSanitizedKeepsOtherErrors deja intacto un error que no
 // proviene de un código de salida.
-func TestErrorSanitizadoConservaLosDemasErrores(t *testing.T) {
+func TestErrorSanitizedKeepsOtherErrors(t *testing.T) {
 	t.Parallel()
 
 	original := errors.New("sin conexión")
 
-	if err := errorSanitizado(original, "ssh root@10.0.2.15"); !errors.Is(err, original) {
+	if err := sanitizeError(original, "ssh root@10.0.2.15"); !errors.Is(err, original) {
 		t.Errorf("errorSanitizado() = %v, want el error original", err)
 	}
 }
 
-// TestProbeConDireccionValidaYLLave comprueba el camino correcto.
-func TestProbeConDireccionValidaYLLave(t *testing.T) {
+// TestProbeWithAddressValidatesYLLave comprueba el camino correcto.
+func TestProbeWithAddressValidatesYLLave(t *testing.T) {
 	t.Parallel()
 
-	conector := New(newFakeExecutor(), WithKey(writeTempKey(t)))
+	connector := New(newFakeExecutor(), WithKey(writeTempKey(t)))
 
-	if err := conector.Probe(context.Background(), domain.Target{
-		ID:      "debian13",
+	if err := connector.Probe(context.Background(), domain.Target{
+		ID:      "vm1",
 		Address: netip.MustParseAddr("10.0.2.15"),
 	}); err != nil {
 		t.Errorf("Probe() error = %v, want nil", err)
 	}
 }
 
-// TestConnectPasswordConArchivoNoEscribible propaga el fallo al guardar la
+// TestConnectPasswordWithFileNotEscribible propaga el fallo al guardar la
 // contraseña.
-func TestConnectPasswordConArchivoNoEscribible(t *testing.T) {
-	original := crearTemporal
+func TestConnectPasswordWithFileNotEscribible(t *testing.T) {
+	original := createTempFile
 
-	t.Cleanup(func() { crearTemporal = original })
+	t.Cleanup(func() { createTempFile = original })
 
-	ruta := filepath.Join(t.TempDir(), "pass")
-	if err := os.WriteFile(ruta, nil, 0o600); err != nil {
+	path := filepath.Join(t.TempDir(), "pass")
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
 		t.Fatalf("crear el archivo: %v", err)
 	}
 
-	if err := os.Chmod(ruta, 0o400); err != nil {
+	if err := os.Chmod(path, 0o400); err != nil {
 		t.Fatalf("quitar la escritura: %v", err)
 	}
 
-	crearTemporal = func() (*os.File, error) {
-		return os.Open(ruta) // #nosec G304 -- ruta de la prueba.
+	createTempFile = func() (*os.File, error) {
+		return os.Open(path) // #nosec G304 -- ruta de la prueba.
 	}
 
 	if _, err := New(newFakeExecutor()).ConnectPassword(
@@ -348,26 +348,26 @@ func TestConnectPasswordConArchivoNoEscribible(t *testing.T) {
 	}
 }
 
-// TestEliminarTemporalConFalloDeBorrado conserva el archivo cuando el
+// TestDeleteTempWithFailureOfBorrado conserva el archivo cuando el
 // sistema no permite eliminarlo, sin interrumpir el flujo.
-func TestEliminarTemporalConFalloDeBorrado(t *testing.T) {
+func TestDeleteTempWithFailureOfBorrado(t *testing.T) {
 	t.Parallel()
 
-	ruta := filepath.Join(t.TempDir(), "pass")
+	path := filepath.Join(t.TempDir(), "pass")
 
 	// Un directorio no vacío hace que os.Remove falle de forma
 	// determinista, aunque la prueba se ejecute como root.
-	if err := os.MkdirAll(filepath.Join(ruta, "contenido"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(path, "contenido"), 0o700); err != nil {
 		t.Fatalf("crear el directorio: %v", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(ruta, "contenido", "archivo"), []byte("x"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(path, "contenido", "archivo"), []byte("x"), 0o600); err != nil {
 		t.Fatalf("crear el archivo interno: %v", err)
 	}
 
-	eliminarTemporal(ruta)
+	removeTempFile(path)
 
-	if _, err := os.Stat(ruta); err != nil {
+	if _, err := os.Stat(path); err != nil {
 		t.Errorf("el archivo que no se pudo borrar desapareció: %v", err)
 	}
 }

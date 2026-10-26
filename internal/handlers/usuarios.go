@@ -12,188 +12,188 @@ import (
 	"consola-vm/internal/services"
 )
 
-// ServicioUsuarios ejecuta las operaciones sobre las cuentas locales.
-type ServicioUsuarios interface {
-	// Listar devuelve las cuentas regulares de la máquina.
-	Listar(ctx context.Context) ([]services.Usuario, error)
-	// Obtener devuelve una cuenta.
-	Obtener(ctx context.Context, nombre string) (services.Usuario, error)
-	// Crear crea la cuenta con sudo y llaves opcionales.
-	Crear(ctx context.Context, nombre string, sudo, llaves bool) (services.Resultado, error)
-	// Eliminar elimina la cuenta y, si se pide, sus archivos.
-	Eliminar(ctx context.Context, nombre string, archivos bool) (services.Resultado, error)
-	// DescargarLlave devuelve la llave privada de la cuenta.
-	DescargarLlave(nombre string) (archivo string, contenido []byte, err error)
+// UsersService ejecuta las operaciones sobre las cuentas locales.
+type UsersService interface {
+	// List devuelve las cuentas regulares de la máquina.
+	List(ctx context.Context) ([]services.User, error)
+	// Get devuelve una cuenta.
+	Get(ctx context.Context, name string) (services.User, error)
+	// Create crea la cuenta con sudo y llaves opcionales.
+	Create(ctx context.Context, name string, sudo, keys bool) (services.Outcome, error)
+	// Delete elimina la cuenta y, si se pide, sus archivos.
+	Delete(ctx context.Context, name string, files bool) (services.Outcome, error)
+	// DownloadKey devuelve la llave privada de la cuenta.
+	DownloadKey(name string) (file string, content []byte, err error)
 }
 
-// Usuarios agrupa los recursos de gestión de usuarios (numeral 3.2).
-type Usuarios struct {
-	servicio ServicioUsuarios
+// Users agrupa los recursos de gestión de usuarios (numeral 3.2).
+type Users struct {
+	service UsersService
 }
 
-// NuevoUsuarios construye el handler de gestión de usuarios.
-func NuevoUsuarios(servicio ServicioUsuarios) *Usuarios {
-	return &Usuarios{servicio: servicio}
+// NewUsers construye el handler de gestión de usuarios.
+func NewUsers(service UsersService) *Users {
+	return &Users{service: service}
 }
 
-// solicitudUsuario es el cuerpo de POST /api/users.
-type solicitudUsuario struct {
-	Nombre string `json:"nombre"`
-	Sudo   bool   `json:"sudo"`
-	Llaves bool   `json:"llaves"`
+// userRequest es el cuerpo de POST /api/users.
+type userRequest struct {
+	Name string `json:"nombre"`
+	Sudo bool   `json:"sudo"`
+	Keys bool   `json:"llaves"`
 }
 
-// usuarioRespuesta es una cuenta en la respuesta JSON.
-type usuarioRespuesta struct {
-	Nombre string `json:"nombre"`
-	Sudo   bool   `json:"sudo"`
-	Llaves bool   `json:"llaves"`
-	UID    int    `json:"uid,omitempty"`
-	Home   string `json:"home,omitempty"`
+// userResponse es una cuenta en la respuesta JSON.
+type userResponse struct {
+	Name string `json:"nombre"`
+	Sudo bool   `json:"sudo"`
+	Keys bool   `json:"llaves"`
+	UID  int    `json:"uid,omitempty"`
+	Home string `json:"home,omitempty"`
 }
 
-// listaUsuarios es el cuerpo de GET /api/users.
-type listaUsuarios struct {
-	Usuarios []usuarioRespuesta `json:"usuarios"`
+// userList es el cuerpo de GET /api/users.
+type userList struct {
+	Users []userResponse `json:"usuarios"`
 }
 
-// Coleccion atiende GET y POST /api/users: lista los usuarios o crea
+// Collection atiende GET y POST /api/users: lista los usuarios o crea
 // uno nuevo.
-func (h *Usuarios) Coleccion(w http.ResponseWriter, r *http.Request) {
-	if !exigirMetodo(w, r, http.MethodGet, http.MethodPost) {
+func (h *Users) Collection(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet, http.MethodPost) {
 		return
 	}
 
 	if r.Method == http.MethodGet {
-		h.listar(w, r)
+		h.list(w, r)
 
 		return
 	}
 
-	var solicitud solicitudUsuario
-	if err := decodificarJSON(w, r, &solicitud); err != nil {
-		responderValidacion(w, err)
+	var request userRequest
+	if err := decodeJSON(w, r, &request); err != nil {
+		respondValidacion(w, err)
 
 		return
 	}
 
-	if err := validarUsuario(campoNombre, solicitud.Nombre); err != nil {
-		responderValidacion(w, err)
+	if err := validateUser(nameField, request.Name); err != nil {
+		respondValidacion(w, err)
 
 		return
 	}
 
-	if solicitud.Nombre == "root" {
-		responderValidacion(w, campoInvalido(campoNombre, "ya existe; use otro nombre de usuario"))
+	if request.Name == "root" {
+		respondValidacion(w, invalidField(nameField, "ya existe; use otro nombre de usuario"))
 
 		return
 	}
 
-	resultado, err := h.servicio.Crear(r.Context(), solicitud.Nombre, solicitud.Sudo, solicitud.Llaves)
-	if errors.Is(err, services.ErrUsuarioExistente) {
-		escribirJSON(w, http.StatusConflict,
-			respuestaDeError(resultado, "El usuario «"+solicitud.Nombre+"» ya existe.", err))
+	result, err := h.service.Create(r.Context(), request.Name, request.Sudo, request.Keys)
+	if errors.Is(err, services.ErrUserExists) {
+		writeJSON(w, http.StatusConflict,
+			responseFromError(result, "El usuario «"+request.Name+"» ya existe.", err))
 
 		return
 	}
 
 	if err != nil {
-		responderErrorOperacion(w, resultado, err)
+		respondErrorOperation(w, result, err)
 
 		return
 	}
 
-	w.Header().Set(cabeceraLocation, "/api/users/"+solicitud.Nombre)
-	escribirResultado(w, http.StatusCreated, resultado)
+	w.Header().Set(headerLocation, "/api/users/"+request.Name)
+	writeResult(w, http.StatusCreated, result)
 }
 
-// listar responde la colección de usuarios.
-func (h *Usuarios) listar(w http.ResponseWriter, r *http.Request) {
-	usuarios, err := h.servicio.Listar(r.Context())
+// list responde la colección de usuarios.
+func (h *Users) list(w http.ResponseWriter, r *http.Request) {
+	users, err := h.service.List(r.Context())
 	if err != nil {
-		responderErrorOperacion(w, services.Resultado{}, err)
+		respondErrorOperation(w, services.Outcome{}, err)
 
 		return
 	}
 
-	respuesta := listaUsuarios{Usuarios: make([]usuarioRespuesta, 0, len(usuarios))}
-	for _, usuario := range usuarios {
-		respuesta.Usuarios = append(respuesta.Usuarios, usuarioRespuesta{
-			Nombre: usuario.Nombre,
-			Sudo:   usuario.Sudo,
-			Llaves: usuario.Llaves,
-			UID:    usuario.UID,
-			Home:   usuario.Home,
+	response := userList{Users: make([]userResponse, 0, len(users))}
+	for _, user := range users {
+		response.Users = append(response.Users, userResponse{
+			Name: user.Name,
+			Sudo: user.Sudo,
+			Keys: user.Keys,
+			UID:  user.UID,
+			Home: user.Home,
 		})
 	}
 
-	escribirJSON(w, http.StatusOK, respuesta)
+	writeJSON(w, http.StatusOK, response)
 }
 
-// Usuario atiende GET y DELETE /api/users/{name}: consulta o elimina la
+// User atiende GET y DELETE /api/users/{name}: consulta o elimina la
 // cuenta indicada en la ruta.
-func (h *Usuarios) Usuario(w http.ResponseWriter, r *http.Request) {
-	if !exigirMetodo(w, r, http.MethodGet, http.MethodDelete) {
+func (h *Users) User(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet, http.MethodDelete) {
 		return
 	}
 
-	nombre := r.PathValue(campoName)
-	if err := validarUsuario(campoName, nombre); err != nil {
-		responderValidacion(w, err)
+	name := r.PathValue(nameParam)
+	if err := validateUser(nameParam, name); err != nil {
+		respondValidacion(w, err)
 
 		return
 	}
 
 	if r.Method == http.MethodDelete {
-		h.eliminar(w, r, nombre)
+		h.delete(w, r, name)
 
 		return
 	}
 
-	usuario, err := h.servicio.Obtener(r.Context(), nombre)
-	if errors.Is(err, services.ErrUsuarioNoEncontrado) {
-		escribirJSON(w, http.StatusNotFound, respuestaError{
-			Mensaje: "El usuario «" + nombre + "» no existe.",
-			Tecnico: err.Error(),
+	user, err := h.service.Get(r.Context(), name)
+	if errors.Is(err, services.ErrUserNotFound) {
+		writeJSON(w, http.StatusNotFound, errorResponse{
+			Message:   "El usuario «" + name + "» no existe.",
+			Technical: err.Error(),
 		})
 
 		return
 	}
 
 	if err != nil {
-		responderErrorOperacion(w, services.Resultado{}, err)
+		respondErrorOperation(w, services.Outcome{}, err)
 
 		return
 	}
 
-	escribirJSON(w, http.StatusOK, usuarioRespuesta{
-		Nombre: usuario.Nombre,
-		Sudo:   usuario.Sudo,
-		Llaves: usuario.Llaves,
-		UID:    usuario.UID,
-		Home:   usuario.Home,
+	writeJSON(w, http.StatusOK, userResponse{
+		Name: user.Name,
+		Sudo: user.Sudo,
+		Keys: user.Keys,
+		UID:  user.UID,
+		Home: user.Home,
 	})
 }
 
-// eliminar valida la opción de archivos y elimina la cuenta.
-func (h *Usuarios) eliminar(w http.ResponseWriter, r *http.Request, nombre string) {
-	archivos, err := booleanoQuery(r, campoFiles)
+// delete valida la opción de archivos y elimina la cuenta.
+func (h *Users) delete(w http.ResponseWriter, r *http.Request, name string) {
+	files, err := booleanoQuery(r, filesParam)
 	if err != nil {
-		responderValidacion(w, err)
+		respondValidacion(w, err)
 
 		return
 	}
 
-	resultado, err := h.servicio.Eliminar(r.Context(), nombre, archivos)
-	if errors.Is(err, services.ErrUsuarioNoEncontrado) {
-		escribirJSON(w, http.StatusNotFound,
-			respuestaDeError(resultado, "El usuario «"+nombre+"» no existe.", err))
+	result, err := h.service.Delete(r.Context(), name, files)
+	if errors.Is(err, services.ErrUserNotFound) {
+		writeJSON(w, http.StatusNotFound,
+			responseFromError(result, "El usuario «"+name+"» no existe.", err))
 
 		return
 	}
 
 	if err != nil {
-		responderErrorOperacion(w, resultado, err)
+		respondErrorOperation(w, result, err)
 
 		return
 	}
@@ -201,47 +201,47 @@ func (h *Usuarios) eliminar(w http.ResponseWriter, r *http.Request, nombre strin
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// Llave atiende GET /api/users/{name}/key: entrega la llave privada
+// Key atiende GET /api/users/{name}/key: entrega la llave privada
 // generada para el usuario.
-func (h *Usuarios) Llave(w http.ResponseWriter, r *http.Request) {
-	if !exigirMetodo(w, r, http.MethodGet) {
+func (h *Users) Key(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
 
-	nombre := r.PathValue(campoName)
-	if err := validarUsuario(campoName, nombre); err != nil {
-		responderValidacion(w, err)
+	name := r.PathValue(nameParam)
+	if err := validateUser(nameParam, name); err != nil {
+		respondValidacion(w, err)
 
 		return
 	}
 
-	archivo, contenido, err := h.servicio.DescargarLlave(nombre)
-	if errors.Is(err, services.ErrLlaveUsuarioNoEncontrada) {
-		escribirJSON(w, http.StatusNotFound, respuestaError{
-			Mensaje: "No hay una llave generada para el usuario «" + nombre + "».",
-			Tecnico: err.Error(),
+	file, content, err := h.service.DownloadKey(name)
+	if errors.Is(err, services.ErrUserKeyNotFound) {
+		writeJSON(w, http.StatusNotFound, errorResponse{
+			Message:   "No hay una llave generada para el usuario «" + name + "».",
+			Technical: err.Error(),
 		})
 
 		return
 	}
 
 	if err != nil {
-		slog.Error("descargar la llave del usuario", claveError, err)
-		escribirJSON(w, http.StatusInternalServerError, respuestaError{
-			Mensaje: "No fue posible leer la llave del usuario.",
-			Tecnico: err.Error(),
+		slog.Error("descargar la llave del usuario", errorKey, err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{
+			Message:   "No fue posible leer la llave del usuario.",
+			Technical: err.Error(),
 		})
 
 		return
 	}
 
-	w.Header().Set(cabeceraContentType, "application/octet-stream")
-	w.Header().Set("Content-Disposition", `attachment; filename="`+archivo+`"`)
+	w.Header().Set(headerContentType, "application/octet-stream")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+file+`"`)
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
 
 	// #nosec G705 -- es la descarga binaria de una llave, no HTML.
-	if _, err := w.Write(contenido); err != nil {
-		slog.Error("escribir la llave del usuario", claveError, err)
+	if _, err := w.Write(content); err != nil {
+		slog.Error("escribir la llave del usuario", errorKey, err)
 	}
 }

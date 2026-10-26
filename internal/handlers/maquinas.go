@@ -13,117 +13,117 @@ import (
 	"consola-vm/internal/services"
 )
 
-// ServicioMaquinas es el caso de uso del inventario de máquinas
+// MachinesService es el caso de uso del inventario de máquinas
 // virtuales: buscar en el hipervisor y vincular una con la consola.
-type ServicioMaquinas interface {
-	// Listar devuelve las máquinas que coinciden con el filtro.
-	Listar(ctx context.Context, filtro string) ([]services.MaquinaVirtual, error)
-	// Vincular establece la máquina que administra la consola.
-	Vincular(ctx context.Context, identificador string) (services.MaquinaVirtual, error)
-	// Encender arranca la máquina indicada.
-	Encender(ctx context.Context, identificador string) (services.MaquinaVirtual, error)
+type MachinesService interface {
+	// List devuelve las máquinas que coinciden con el filtro.
+	List(ctx context.Context, filter string) ([]services.VirtualMachine, error)
+	// Bind establece la máquina que administra la consola.
+	Bind(ctx context.Context, identifier string) (services.VirtualMachine, error)
+	// PowerOn arranca la máquina indicada.
+	PowerOn(ctx context.Context, identifier string) (services.VirtualMachine, error)
 }
 
-// Maquinas expone GET /api/vms: el inventario que alimenta el selector
+// Machines expone GET /api/vms: el inventario que alimenta el selector
 // de la barra superior.
-type Maquinas struct {
-	servicio ServicioMaquinas
+type Machines struct {
+	service MachinesService
 }
 
-// NuevoMaquinas construye el handler del inventario.
-func NuevoMaquinas(servicio ServicioMaquinas) *Maquinas {
-	return &Maquinas{servicio: servicio}
+// NewMachines construye el handler del inventario.
+func NewMachines(service MachinesService) *Machines {
+	return &Machines{service: service}
 }
 
-// maquinaRespuesta es una máquina del inventario en la respuesta JSON.
-type maquinaRespuesta struct {
-	Nombre     string `json:"nombre"`
-	UUID       string `json:"uuid"`
-	Estado     string `json:"estado"`
-	Activa     bool   `json:"activa"`
-	Registrada bool   `json:"registrada"`
+// machineResponse es una máquina del inventario en la respuesta JSON.
+type machineResponse struct {
+	Name         string `json:"nombre"`
+	UUID         string `json:"uuid"`
+	State        string `json:"estado"`
+	Active       bool   `json:"activa"`
+	IsRegistered bool   `json:"registrada"`
 }
 
-// listaMaquinas es el cuerpo de GET /api/vms.
-type listaMaquinas struct {
-	Maquinas []maquinaRespuesta `json:"maquinas"`
+// machineList es el cuerpo de GET /api/vms.
+type machineList struct {
+	Machines []machineResponse `json:"maquinas"`
 }
 
-// nuevaMaquinaRespuesta traduce la máquina del servicio al contrato.
-func nuevaMaquinaRespuesta(maquina services.MaquinaVirtual) maquinaRespuesta {
-	return maquinaRespuesta{
-		Nombre:     maquina.Nombre,
-		UUID:       maquina.UUID,
-		Estado:     string(maquina.Estado),
-		Activa:     maquina.Activa,
-		Registrada: maquina.Registrada,
+// newMachineResponse traduce la máquina del servicio al contrato.
+func newMachineResponse(machine services.VirtualMachine) machineResponse {
+	return machineResponse{
+		Name:         machine.Name,
+		UUID:         machine.UUID,
+		State:        string(machine.State),
+		Active:       machine.Active,
+		IsRegistered: machine.IsRegistered,
 	}
 }
 
 // ServeHTTP implementa http.Handler: solo admite GET.
-func (h *Maquinas) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !exigirMetodo(w, r, http.MethodGet) {
+func (h *Machines) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
 
-	maquinas, err := h.servicio.Listar(r.Context(), r.URL.Query().Get("q"))
+	machines, err := h.service.List(r.Context(), r.URL.Query().Get("q"))
 	if err != nil {
-		slog.Error("listar las máquinas virtuales", claveError, err)
-		escribirJSON(w, http.StatusInternalServerError, respuestaError{
-			Mensaje: "No fue posible consultar las máquinas virtuales del hipervisor.",
-			Tecnico: err.Error(),
+		slog.Error("listar las máquinas virtuales", errorKey, err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{
+			Message:   "No fue posible consultar las máquinas virtuales del hipervisor.",
+			Technical: err.Error(),
 		})
 
 		return
 	}
 
-	cuerpo := listaMaquinas{Maquinas: make([]maquinaRespuesta, 0, len(maquinas))}
+	body := machineList{Machines: make([]machineResponse, 0, len(machines))}
 
-	for _, maquina := range maquinas {
-		cuerpo.Maquinas = append(cuerpo.Maquinas, nuevaMaquinaRespuesta(maquina))
+	for _, machine := range machines {
+		body.Machines = append(body.Machines, newMachineResponse(machine))
 	}
 
-	escribirJSON(w, http.StatusOK, cuerpo)
+	writeJSON(w, http.StatusOK, body)
 }
 
-// Encender atiende POST /api/vms/{vm}/poweron: arranca la máquina sin
+// PowerOn atiende POST /api/vms/{vm}/poweron: arranca la máquina sin
 // interfaz gráfica y devuelve su estado actualizado.
-func (h *Maquinas) Encender(w http.ResponseWriter, r *http.Request) {
-	if !exigirMetodo(w, r, http.MethodPost) {
+func (h *Machines) PowerOn(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodPost) {
 		return
 	}
 
-	identificador := r.PathValue("vm")
+	identifier := r.PathValue("vm")
 
-	if strings.TrimSpace(identificador) == "" {
-		responderValidacion(w, campoInvalido("vm", "es obligatorio"))
+	if strings.TrimSpace(identifier) == "" {
+		respondValidacion(w, invalidField("vm", "es obligatorio"))
 
 		return
 	}
 
-	maquina, err := h.servicio.Encender(r.Context(), identificador)
+	machine, err := h.service.PowerOn(r.Context(), identifier)
 	if err != nil {
 		switch {
-		case errors.Is(err, services.ErrMaquinaNoEncontrada):
-			escribirJSON(w, http.StatusNotFound, respuestaError{
-				Mensaje: "La máquina indicada no está registrada en el hipervisor.",
-				Tecnico: err.Error(),
+		case errors.Is(err, services.ErrMachineNotFound):
+			writeJSON(w, http.StatusNotFound, errorResponse{
+				Message:   "La máquina indicada no está registrada en el hipervisor.",
+				Technical: err.Error(),
 			})
-		case errors.Is(err, services.ErrMaquinaEncendida):
-			escribirJSON(w, http.StatusConflict, respuestaError{
-				Mensaje: "La máquina ya está en ejecución.",
-				Tecnico: err.Error(),
+		case errors.Is(err, services.ErrMachineRunning):
+			writeJSON(w, http.StatusConflict, errorResponse{
+				Message:   "La máquina ya está en ejecución.",
+				Technical: err.Error(),
 			})
 		default:
-			slog.Error("encender la máquina virtual", claveError, err)
-			escribirJSON(w, http.StatusInternalServerError, respuestaError{
-				Mensaje: "No fue posible encender la máquina virtual.",
-				Tecnico: err.Error(),
+			slog.Error("encender la máquina virtual", errorKey, err)
+			writeJSON(w, http.StatusInternalServerError, errorResponse{
+				Message:   "No fue posible encender la máquina virtual.",
+				Technical: err.Error(),
 			})
 		}
 
 		return
 	}
 
-	escribirJSON(w, http.StatusOK, nuevaMaquinaRespuesta(maquina))
+	writeJSON(w, http.StatusOK, newMachineResponse(machine))
 }

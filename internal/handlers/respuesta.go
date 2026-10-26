@@ -15,162 +15,162 @@ import (
 	"consola-vm/internal/services"
 )
 
-// maxCuerpo es el tamaño máximo aceptado para el cuerpo JSON de una
+// maxBody es el tamaño máximo aceptado para el cuerpo JSON de una
 // petición (1 MiB).
-const maxCuerpo = 1 << 20
+const maxBody = 1 << 20
 
-// claveError es la clave de los mensajes de error en el log.
-const claveError = "error"
+// errorKey es la clave de los mensajes de error en el log.
+const errorKey = "error"
 
 // Cabeceras HTTP usadas por los handlers.
 const (
-	cabeceraContentType = "Content-Type"
-	cabeceraLocation    = "Location"
+	headerContentType = "Content-Type"
+	headerLocation    = "Location"
 )
 
-// respuestaError es el cuerpo JSON común de todos los errores de la
+// errorResponse es el cuerpo JSON común de todos los errores de la
 // consola. OK siempre es false.
 //
-// Campo solo aparece en los errores de validación. Operacion, Codigo,
+// Campo solo aparece en los errores de validación. Operation, Codigo,
 // Salida y Stderr solo aparecen cuando el fallo ocurrió después de ejecutar
 // un comando, de modo que un 400 o un 401 no inventan un código de salida.
 // El código de la operación se omite cuando vale cero.
-type respuestaError struct {
+type errorResponse struct {
 	OK        bool   `json:"ok"`
-	Mensaje   string `json:"mensaje"`
-	Campo     string `json:"campo,omitempty"`
-	Operacion string `json:"operacion,omitempty"`
-	Codigo    int    `json:"codigo,omitempty"`
-	Salida    string `json:"salida,omitempty"`
+	Message   string `json:"mensaje"`
+	Field     string `json:"campo,omitempty"`
+	Operation string `json:"operacion,omitempty"`
+	Code      int    `json:"codigo,omitempty"`
+	Output    string `json:"salida,omitempty"`
 	Stderr    string `json:"stderr,omitempty"`
-	Tecnico   string `json:"tecnico,omitempty"`
+	Technical string `json:"tecnico,omitempty"`
 }
 
-// campoError describe un campo que no cumple una regla de validación.
-type campoError struct {
-	// Campo es el nombre del campo rechazado.
-	Campo string
-	// Motivo explica por qué no es válido.
-	Motivo string
+// fieldError describe un campo que no cumple una regla de validación.
+type fieldError struct {
+	// Field es el nombre del campo rechazado.
+	Field string
+	// Reason explica por qué no es válido.
+	Reason string
 }
 
 // Error implementa la interfaz error con un mensaje comprensible.
-func (e *campoError) Error() string {
-	return fmt.Sprintf("el campo %q %s", e.Campo, e.Motivo)
+func (e *fieldError) Error() string {
+	return fmt.Sprintf("el campo %q %s", e.Field, e.Reason)
 }
 
-// campoInvalido construye un campoError.
-func campoInvalido(campo, motivo string) error {
-	return &campoError{Campo: campo, Motivo: motivo}
+// invalidField construye un campoError.
+func invalidField(field, reason string) error {
+	return &fieldError{Field: field, Reason: reason}
 }
 
-// escribirJSON serializa cuerpo como JSON con el código de estado dado.
+// writeJSON serializa cuerpo como JSON con el código de estado dado.
 // Si la serialización falla, solo deja constancia en el log.
-func escribirJSON(w http.ResponseWriter, codigo int, cuerpo any) {
-	w.Header().Set(cabeceraContentType, "application/json; charset=utf-8")
-	w.WriteHeader(codigo)
+func writeJSON(w http.ResponseWriter, code int, body any) {
+	w.Header().Set(headerContentType, "application/json; charset=utf-8")
+	w.WriteHeader(code)
 
-	if err := json.NewEncoder(w).Encode(cuerpo); err != nil {
-		slog.Error("escribir la respuesta JSON", claveError, err)
+	if err := json.NewEncoder(w).Encode(body); err != nil {
+		slog.Error("escribir la respuesta JSON", errorKey, err)
 	}
 }
 
-// exigirMetodo comprueba que la petición use uno de los métodos dados.
+// requireMethod comprueba que la petición use uno de los métodos dados.
 // Si no, responde 405 con el encabezado Allow y devuelve false.
-func exigirMetodo(w http.ResponseWriter, r *http.Request, metodos ...string) bool {
-	for _, metodo := range metodos {
-		if r.Method == metodo {
+func requireMethod(w http.ResponseWriter, r *http.Request, methods ...string) bool {
+	for _, method := range methods {
+		if r.Method == method {
 			return true
 		}
 	}
 
-	w.Header().Set("Allow", strings.Join(metodos, ", "))
-	escribirJSON(w, http.StatusMethodNotAllowed, respuestaError{
-		Mensaje: "Método no permitido para este recurso.",
+	w.Header().Set("Allow", strings.Join(methods, ", "))
+	writeJSON(w, http.StatusMethodNotAllowed, errorResponse{
+		Message: "Método no permitido para este recurso.",
 	})
 
 	return false
 }
 
-// decodificarJSON lee el cuerpo JSON de la petición en destino, con
+// decodeJSON lee el cuerpo JSON de la petición en destino, con
 // límite de tamaño y sin admitir campos desconocidos.
-func decodificarJSON(w http.ResponseWriter, r *http.Request, destino any) error {
-	r.Body = http.MaxBytesReader(w, r.Body, maxCuerpo)
+func decodeJSON(w http.ResponseWriter, r *http.Request, destination any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 
 	decodificador := json.NewDecoder(r.Body)
 	decodificador.DisallowUnknownFields()
 
-	if err := decodificador.Decode(destino); err != nil {
+	if err := decodificador.Decode(destination); err != nil {
 		return fmt.Errorf("el cuerpo de la petición no es un JSON válido: %w", err)
 	}
 
 	return nil
 }
 
-// responderValidacion traduce un error de validación a 400, nombrando
+// respondValidacion traduce un error de validación a 400, nombrando
 // el campo rechazado cuando se conoce.
-func responderValidacion(w http.ResponseWriter, err error) {
-	var campo *campoError
+func respondValidacion(w http.ResponseWriter, err error) {
+	var field *fieldError
 
-	if errors.As(err, &campo) {
-		escribirJSON(w, http.StatusBadRequest, respuestaError{
-			Mensaje: campo.Error(),
-			Campo:   campo.Campo,
+	if errors.As(err, &field) {
+		writeJSON(w, http.StatusBadRequest, errorResponse{
+			Message: field.Error(),
+			Field:   field.Field,
 		})
 
 		return
 	}
 
-	escribirJSON(w, http.StatusBadRequest, respuestaError{Mensaje: err.Error()})
+	writeJSON(w, http.StatusBadRequest, errorResponse{Message: err.Error()})
 }
 
-// respuestaOperacion es el cuerpo JSON de una operación de módulo
+// successResponse es el cuerpo JSON de una operación de módulo
 // completada con éxito. Los errores usan respuestaError.
-type respuestaOperacion struct {
+type successResponse struct {
 	OK        bool   `json:"ok"`
-	Mensaje   string `json:"mensaje"`
-	Operacion string `json:"operacion,omitempty"`
-	Codigo    int    `json:"codigo"`
-	Salida    string `json:"salida,omitempty"`
+	Message   string `json:"mensaje"`
+	Operation string `json:"operacion,omitempty"`
+	Code      int    `json:"codigo"`
+	Output    string `json:"salida,omitempty"`
 	Stderr    string `json:"stderr,omitempty"`
-	Tecnico   string `json:"tecnico,omitempty"`
+	Technical string `json:"tecnico,omitempty"`
 }
 
-// respuestaDeError compone el cuerpo de un error a partir del resultado que
+// responseFromError compone el cuerpo de un error a partir del resultado que
 // devolvió el servicio y del error correspondiente. Solo el mensaje y el
 // detalle técnico son obligatorios: los datos de la operación se omiten si
 // el servicio no llegó a ejecutar ningún comando.
-func respuestaDeError(resultado services.Resultado, mensaje string, err error) respuestaError {
-	return respuestaError{
-		Mensaje:   mensaje,
-		Operacion: resultado.Operacion,
-		Codigo:    resultado.Codigo,
-		Salida:    resultado.Salida,
-		Stderr:    resultado.Stderr,
-		Tecnico:   err.Error(),
+func responseFromError(result services.Outcome, message string, err error) errorResponse {
+	return errorResponse{
+		Message:   message,
+		Operation: result.Operation,
+		Code:      result.Code,
+		Output:    result.Output,
+		Stderr:    result.Stderr,
+		Technical: err.Error(),
 	}
 }
 
-// escribirResultado escribe el resultado de una operación con el código
+// writeResult escribe el resultado de una operación con el código
 // HTTP indicado.
-func escribirResultado(w http.ResponseWriter, codigo int, resultado services.Resultado) {
-	escribirJSON(w, codigo, respuestaOperacion{
+func writeResult(w http.ResponseWriter, code int, result services.Outcome) {
+	writeJSON(w, code, successResponse{
 		OK:        true,
-		Mensaje:   resultado.Mensaje,
-		Operacion: resultado.Operacion,
-		Codigo:    resultado.Codigo,
-		Salida:    resultado.Salida,
-		Stderr:    resultado.Stderr,
+		Message:   result.Message,
+		Operation: result.Operation,
+		Code:      result.Code,
+		Output:    result.Output,
+		Stderr:    result.Stderr,
 	})
 }
 
-// responderErrorOperacion traduce el fallo de un caso de uso a la
+// respondErrorOperation traduce el fallo de un caso de uso a la
 // respuesta HTTP correspondiente, conservando el detalle técnico.
-func responderErrorOperacion(w http.ResponseWriter, resultado services.Resultado, err error) {
-	if errors.Is(err, services.ErrSesionNoDisponible) {
-		escribirJSON(w, http.StatusServiceUnavailable, respuestaError{
-			Mensaje: "No hay una sesión disponible con la máquina: enciéndela o revisa la red.",
-			Tecnico: err.Error(),
+func respondErrorOperation(w http.ResponseWriter, result services.Outcome, err error) {
+	if errors.Is(err, services.ErrSessionUnavailable) {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{
+			Message:   "No hay una sesión disponible con la máquina: enciéndela o revisa la red.",
+			Technical: err.Error(),
 		})
 
 		return
@@ -178,13 +178,13 @@ func responderErrorOperacion(w http.ResponseWriter, resultado services.Resultado
 
 	var exitErr *domain.ExitError
 	if errors.As(err, &exitErr) {
-		escribirJSON(w, http.StatusInternalServerError,
-			respuestaDeError(resultado, "No fue posible completar la operación.", err))
+		writeJSON(w, http.StatusInternalServerError,
+			responseFromError(result, "No fue posible completar la operación.", err))
 
 		return
 	}
 
-	slog.Error("ejecutar la operación", claveError, err)
-	escribirJSON(w, http.StatusInternalServerError,
-		respuestaDeError(resultado, "No fue posible completar la operación.", err))
+	slog.Error("ejecutar la operación", errorKey, err)
+	writeJSON(w, http.StatusInternalServerError,
+		responseFromError(result, "No fue posible completar la operación.", err))
 }

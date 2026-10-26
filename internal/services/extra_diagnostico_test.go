@@ -14,199 +14,199 @@ import (
 	"consola-vm/internal/core/domain"
 )
 
-// stubRegistroDiag informa si la máquina está registrada.
-type stubRegistroDiag struct{ registrada bool }
+// stubRegistrationDiag informa si la máquina está registrada.
+type stubRegistrationDiag struct{ registered bool }
 
-// Registrada devuelve el estado configurado.
-func (s *stubRegistroDiag) Registrada(string) bool { return s.registrada }
+// IsRegistered devuelve el estado configurado.
+func (s *stubRegistrationDiag) IsRegistered(string) bool { return s.registered }
 
-// nuevoDiagnostico arma el servicio con la máquina y el objetivo dados.
-func nuevoDiagnostico(maquina *stubMachine, registrada bool, objetivo string) *DiagnosticoServicio {
-	return NuevoDiagnostico(&ConfigDiagnostico{
-		Maquina:  maquina,
-		Registro: &stubRegistroDiag{registrada: registrada},
-		Objetivo: func() domain.Target { return domain.Target{ID: objetivo} },
+// newDiagnostics arma el servicio con la máquina y el objetivo dados.
+func newDiagnostics(machine *stubMachine, registered bool, target string) *DiagnosticsService {
+	return NewDiagnostics(&DiagnosticsConfig{
+		Machine:       machine,
+		Registration:  &stubRegistrationDiag{registered: registered},
+		CurrentTarget: func() domain.Target { return domain.Target{ID: target} },
 	})
 }
 
-// TestDiagnosticoConEstadoIlegible propaga el fallo de VirtualBox.
-func TestDiagnosticoConEstadoIlegible(t *testing.T) {
+// TestDiagnosticsWithStateUnreadable propaga el fallo de VirtualBox.
+func TestDiagnosticsWithStateUnreadable(t *testing.T) {
 	t.Parallel()
 
-	maquina := &stubMachine{stateErr: errors.New("sin VBoxManage")}
+	machine := &stubMachine{stateErr: errors.New("sin VBoxManage")}
 
-	if _, err := nuevoDiagnostico(maquina, false, "otra-maquina").Obtener(context.Background()); err == nil {
+	if _, err := newDiagnostics(machine, false, "otra-maquina").Get(context.Background()); err == nil {
 		t.Error("Obtener() error = nil, want el fallo del estado")
 	}
 }
 
-// TestDiagnosticoDeMaquinaApagada explica que está apagada.
-func TestDiagnosticoDeMaquinaApagada(t *testing.T) {
+// TestDiagnosticsOfMachineOff explica que está apagada.
+func TestDiagnosticsOfMachineOff(t *testing.T) {
 	t.Parallel()
 
-	maquina := &stubMachine{state: domain.StatePoweredOff}
+	machine := &stubMachine{state: domain.StatePoweredOff}
 
-	informe, err := nuevoDiagnostico(maquina, false, nombreDebian).Obtener(context.Background())
+	report, err := newDiagnostics(machine, false, testMachineName).Get(context.Background())
 	if err != nil {
 		t.Fatalf("Obtener() error = %v, want nil", err)
 	}
 
-	if len(informe.Problemas) == 0 || informe.Problemas[0] != "La máquina está apagada." {
-		t.Errorf("problemas = %v, want el aviso de máquina apagada", informe.Problemas)
+	if len(report.Problemas) == 0 || report.Problemas[0] != "La máquina está apagada." {
+		t.Errorf("problemas = %v, want el aviso de máquina apagada", report.Problemas)
 	}
 
-	if informe.SSHAbierto {
+	if report.SSHOpen {
 		t.Error("SSHAbierto = true para una máquina apagada")
 	}
 }
 
-// TestDiagnosticoDeMaquinaRegistrada avisa que no hace falta registrarla.
-func TestDiagnosticoDeMaquinaRegistrada(t *testing.T) {
+// TestDiagnosticsOfMachineRegistered avisa que no hace falta registrarla.
+func TestDiagnosticsOfMachineRegistered(t *testing.T) {
 	t.Parallel()
 
-	maquina := &stubMachine{state: domain.StateRunning, guest: domain.GuestAdditions{
+	machine := &stubMachine{state: domain.StateRunning, guest: domain.GuestAdditions{
 		Version: "7.2.18", RunLevel: 2,
 	}}
 
-	informe, err := nuevoDiagnostico(maquina, true, nombreDebian).Obtener(context.Background())
+	report, err := newDiagnostics(machine, true, testMachineName).Get(context.Background())
 	if err != nil {
 		t.Fatalf("Obtener() error = %v, want nil", err)
 	}
 
-	if !informe.Registrada {
+	if !report.IsRegistered {
 		t.Error("Registrada = false, want true")
 	}
 }
 
-// TestDiagnosticoSinGuestAdditions avisa de la versión ausente.
-func TestDiagnosticoSinGuestAdditions(t *testing.T) {
+// TestDiagnosticsWithoutGuestAdditions avisa de la versión ausente.
+func TestDiagnosticsWithoutGuestAdditions(t *testing.T) {
 	t.Parallel()
 
-	maquina := &stubMachine{state: domain.StateRunning}
+	machine := &stubMachine{state: domain.StateRunning}
 
-	informe, err := nuevoDiagnostico(maquina, false, nombreDebian).Obtener(context.Background())
+	report, err := newDiagnostics(machine, false, testMachineName).Get(context.Background())
 	if err != nil {
 		t.Fatalf("Obtener() error = %v, want nil", err)
 	}
 
-	if len(informe.Problemas) == 0 {
+	if len(report.Problemas) == 0 {
 		t.Error("problemas vacío, want el aviso de Guest Additions")
 	}
 }
 
-// TestDiagnosticoConNivelBajo avisa de un nivel incompleto.
-func TestDiagnosticoConNivelBajo(t *testing.T) {
+// TestDiagnosticsWithLevelLow avisa de un nivel incompleto.
+func TestDiagnosticsWithLevelLow(t *testing.T) {
 	t.Parallel()
 
-	maquina := &stubMachine{state: domain.StateRunning, guest: domain.GuestAdditions{
+	machine := &stubMachine{state: domain.StateRunning, guest: domain.GuestAdditions{
 		Version: "7.2.18", RunLevel: 1,
 	}}
 
-	informe, err := nuevoDiagnostico(maquina, false, nombreDebian).Obtener(context.Background())
+	report, err := newDiagnostics(machine, false, testMachineName).Get(context.Background())
 	if err != nil {
 		t.Fatalf("Obtener() error = %v, want nil", err)
 	}
 
-	if len(informe.Problemas) == 0 {
+	if len(report.Problemas) == 0 {
 		t.Error("problemas vacío, want el aviso del nivel de Guest Additions")
 	}
 }
 
-// TestDiagnosticoConVersionesDistintas compara con el anfitrión.
-func TestDiagnosticoConVersionesDistintas(t *testing.T) {
+// TestDiagnosticsWithVersionesDifferent compara con el anfitrión.
+func TestDiagnosticsWithVersionesDifferent(t *testing.T) {
 	t.Parallel()
 
-	maquina := &stubMachine{state: domain.StateRunning, guest: domain.GuestAdditions{
+	machine := &stubMachine{state: domain.StateRunning, guest: domain.GuestAdditions{
 		Version: "6.0.0", RunLevel: 2,
 	}}
 
-	servicio := NuevoDiagnostico(&ConfigDiagnostico{
-		Maquina:        maquina,
-		Objetivo:       func() domain.Target { return domain.Target{ID: nombreDebian} },
-		VersionSistema: func(context.Context) (string, error) { return "7.2.18", nil },
+	service := NewDiagnostics(&DiagnosticsConfig{
+		Machine:       machine,
+		CurrentTarget: func() domain.Target { return domain.Target{ID: testMachineName} },
+		VersionSystem: func(context.Context) (string, error) { return "7.2.18", nil },
 	})
 
-	informe, err := servicio.Obtener(context.Background())
+	report, err := service.Get(context.Background())
 	if err != nil {
 		t.Fatalf("Obtener() error = %v, want nil", err)
 	}
 
-	if len(informe.Problemas) == 0 {
+	if len(report.Problemas) == 0 {
 		t.Error("problemas vacío, want el aviso de versión distinta")
 	}
 }
 
-// TestDiagnosticoConVersionIlegible no falla si el anfitrión no responde.
-func TestDiagnosticoConVersionIlegible(t *testing.T) {
+// TestDiagnosticsWithVersionUnreadable no falla si el anfitrión no responde.
+func TestDiagnosticsWithVersionUnreadable(t *testing.T) {
 	t.Parallel()
 
-	maquina := &stubMachine{state: domain.StateRunning, guest: domain.GuestAdditions{
+	machine := &stubMachine{state: domain.StateRunning, guest: domain.GuestAdditions{
 		Version: "7.2.18", RunLevel: 2,
 	}}
 
-	servicio := NuevoDiagnostico(&ConfigDiagnostico{
-		Maquina:        maquina,
-		Objetivo:       func() domain.Target { return domain.Target{ID: nombreDebian} },
-		VersionSistema: func(context.Context) (string, error) { return "", errors.New("sin VBoxManage") },
+	service := NewDiagnostics(&DiagnosticsConfig{
+		Machine:       machine,
+		CurrentTarget: func() domain.Target { return domain.Target{ID: testMachineName} },
+		VersionSystem: func(context.Context) (string, error) { return "", errors.New("sin VBoxManage") },
 	})
 
-	if _, err := servicio.Obtener(context.Background()); err != nil {
+	if _, err := service.Get(context.Background()); err != nil {
 		t.Errorf("Obtener() error = %v, want nil", err)
 	}
 }
 
-// conexionFalsa simula una conexión TCP ya establecida.
-type conexionFalsa struct {
+// fakeConn simula una conexión TCP ya establecida.
+type fakeConn struct {
 	closeErr error
 }
 
 // Read no se usa.
-func (conexionFalsa) Read([]byte) (int, error) { return 0, nil }
+func (fakeConn) Read([]byte) (int, error) { return 0, nil }
 
 // Write no se usa.
-func (conexionFalsa) Write(datos []byte) (int, error) { return len(datos), nil }
+func (fakeConn) Write(data []byte) (int, error) { return len(data), nil }
 
 // Close devuelve el error configurado.
-func (c conexionFalsa) Close() error { return c.closeErr }
+func (c fakeConn) Close() error { return c.closeErr }
 
 // LocalAddr no se usa.
-func (conexionFalsa) LocalAddr() net.Addr { return &net.TCPAddr{} }
+func (fakeConn) LocalAddr() net.Addr { return &net.TCPAddr{} }
 
 // RemoteAddr no se usa.
-func (conexionFalsa) RemoteAddr() net.Addr { return &net.TCPAddr{} }
+func (fakeConn) RemoteAddr() net.Addr { return &net.TCPAddr{} }
 
 // SetDeadline no se usa.
-func (conexionFalsa) SetDeadline(time.Time) error { return nil }
+func (fakeConn) SetDeadline(time.Time) error { return nil }
 
 // SetReadDeadline no se usa.
-func (conexionFalsa) SetReadDeadline(time.Time) error { return nil }
+func (fakeConn) SetReadDeadline(time.Time) error { return nil }
 
 // SetWriteDeadline no se usa.
-func (conexionFalsa) SetWriteDeadline(time.Time) error { return nil }
+func (fakeConn) SetWriteDeadline(time.Time) error { return nil }
 
-// TestProbarPuertoSSHConExito cubre la conexión correcta.
-func TestProbarPuertoSSHConExito(t *testing.T) {
-	original := abrirConexion
+// TestTestPortSSHWithSuccess cubre la conexión correcta.
+func TestTestPortSSHWithSuccess(t *testing.T) {
+	original := openConnection
 
-	t.Cleanup(func() { abrirConexion = original })
+	t.Cleanup(func() { openConnection = original })
 
-	abrirConexion = func(context.Context, string) (net.Conn, error) { return conexionFalsa{}, nil }
+	openConnection = func(context.Context, string) (net.Conn, error) { return fakeConn{}, nil }
 
-	if !probarPuertoSSH(context.Background(), netip.MustParseAddr("127.0.0.1")) {
+	if !testPortSSH(context.Background(), netip.MustParseAddr("127.0.0.1")) {
 		t.Error("probarPuertoSSH() = false, want true")
 	}
 
-	abrirConexion = func(context.Context, string) (net.Conn, error) {
-		return conexionFalsa{closeErr: errors.New("ya cerrada")}, nil
+	openConnection = func(context.Context, string) (net.Conn, error) {
+		return fakeConn{closeErr: errors.New("ya cerrada")}, nil
 	}
 
-	if !probarPuertoSSH(context.Background(), netip.MustParseAddr("127.0.0.1")) {
+	if !testPortSSH(context.Background(), netip.MustParseAddr("127.0.0.1")) {
 		t.Error("probarPuertoSSH() = false, want true aunque falle el cierre")
 	}
 
-	abrirConexion = func(context.Context, string) (net.Conn, error) { return nil, errors.New("sin ruta") }
+	openConnection = func(context.Context, string) (net.Conn, error) { return nil, errors.New("sin ruta") }
 
-	if probarPuertoSSH(context.Background(), netip.MustParseAddr("127.0.0.1")) {
+	if testPortSSH(context.Background(), netip.MustParseAddr("127.0.0.1")) {
 		t.Error("probarPuertoSSH() = true, want false sin conexión")
 	}
 }

@@ -12,8 +12,9 @@ import (
 	"strings"
 )
 
-// Nombre de la consola en arte ASCII, tal como se muestra al arrancar.
-const arteVMCons = `
+// vmconsArt es el nombre de la consola en arte ASCII, tal como se muestra
+// al arrancar.
+const vmconsArt = `
  ██╗   ██╗███╗   ███╗ ██████╗ ██████╗ ███╗   ██╗███████╗
  ██║   ██║████╗ ████║██╔════╝██╔═══██╗████╗  ██║██╔════╝
  ██║   ██║██╔████╔██║██║     ██║   ██║██╔██╗ ██║███████╗
@@ -27,10 +28,10 @@ const arteVMCons = `
 const (
 	colorRojo  = "\x1b[38;2;192;57;43m"
 	colorTenue = "\x1b[38;2;102;102;102m"
-	colorFin   = "\x1b[0m"
+	colorEnd   = "\x1b[0m"
 )
 
-// imprimirBanner presenta la consola al arrancar: el nombre en arte
+// printBanner presenta la consola al arrancar: el nombre en arte
 // ASCII, la dirección donde escucha, el origen de la interfaz web y la
 // máquina configurada. Devuelve el error de escritura, que el llamador
 // solo registra: no poder pintar el banner no impide servir.
@@ -38,54 +39,54 @@ const (
 // direccion es la dirección de escucha del servidor HTTP; origen, el
 // texto que describe de dónde se sirve la interfaz; maquina, el nombre o
 // UUID configurado, que puede estar vacío.
-func imprimirBanner(direccion string) error {
-	rojo, tenue, fin := "", "", ""
+func printBanner(address string) error {
+	rojo, tenue, end := "", "", ""
 
-	if colorHabilitado() {
-		rojo, tenue, fin = colorRojo, colorTenue, colorFin
+	if colorEnabled() {
+		rojo, tenue, end = colorRojo, colorTenue, colorEnd
 	}
 
-	lineas := []string{
-		fmt.Sprintf("%s%s%s", rojo, arteVMCons, fin),
+	lines := []string{
+		fmt.Sprintf("%s%s%s", rojo, vmconsArt, end),
 		"",
-		fmt.Sprintf("  %sconsola de automatización de máquinas virtuales%s", tenue, fin),
+		fmt.Sprintf("  %sconsola de automatización de máquinas virtuales%s", tenue, end),
 		"",
-		fmt.Sprintf("  %sescuchando en%s  %s", tenue, fin, urlConsola(direccion)),
+		fmt.Sprintf("  %sescuchando en%s  %s", tenue, end, consoleURL(address)),
 		"",
 	}
 
-	if _, err := os.Stdout.WriteString(strings.Join(lineas, "\n") + "\n"); err != nil {
+	if _, err := os.Stdout.WriteString(strings.Join(lines, "\n") + "\n"); err != nil {
 		return fmt.Errorf("escribir el banner de arranque: %w", err)
 	}
 
 	return nil
 }
 
-// urlConsola traduce la dirección de escucha a la URL que se anuncia.
+// consoleURL traduce la dirección de escucha a la URL que se anuncia.
 // Una dirección sin host, o con la dirección de cualquier interfaz, se
 // anuncia como localhost, que es donde el usuario abre el navegador.
-func urlConsola(direccion string) string {
-	host, puerto, err := net.SplitHostPort(direccion)
+func consoleURL(address string) string {
+	host, port, err := net.SplitHostPort(address)
 	if err != nil {
-		return "http://" + direccion
+		return "http://" + address
 	}
 
 	if host == "" || host == "0.0.0.0" || host == "::" {
 		host = "localhost"
 	}
 
-	return "http://" + net.JoinHostPort(host, puerto)
+	return "http://" + net.JoinHostPort(host, port)
 }
 
-// interfazWeb devuelve el sistema de archivos de la aplicación web: el
+// webInterface devuelve el sistema de archivos de la aplicación web: el
 // directorio indicado por VMCONS_WEB o, si la variable falta, la copia
 // embebida en el binario.
-func interfazWeb() (fs.FS, error) {
+func webInterface() (fs.FS, error) {
 	if dir := os.Getenv(envWeb); dir != "" {
-		return interfazEnDisco(dir)
+		return webFromDisk(dir)
 	}
 
-	dist, err := fs.Sub(contenidoWeb, "web/dist")
+	dist, err := fs.Sub(embeddedWeb, "web/dist")
 	if err != nil {
 		return nil, fmt.Errorf("preparar la interfaz embebida: %w", err)
 	}
@@ -93,9 +94,9 @@ func interfazWeb() (fs.FS, error) {
 	return dist, nil
 }
 
-// interfazEnDisco valida el directorio indicado por el operador y lo
+// webFromDisk valida el directorio indicado por el operador y lo
 // publica como sistema de archivos.
-func interfazEnDisco(dir string) (fs.FS, error) {
+func webFromDisk(dir string) (fs.FS, error) {
 	// #nosec G703 -- la ruta la indica el operador en VMCONS_WEB.
 	info, err := os.Stat(dir)
 	if err != nil {
@@ -114,9 +115,9 @@ func interfazEnDisco(dir string) (fs.FS, error) {
 	return os.DirFS(dir), nil
 }
 
-// colorHabilitado informa si la salida estándar es una terminal y el
+// colorEnabled informa si la salida estándar es una terminal y el
 // usuario no pidió desactivar el color con NO_COLOR.
-func colorHabilitado() bool {
+func colorEnabled() bool {
 	if _, desactivado := os.LookupEnv("NO_COLOR"); desactivado {
 		return false
 	}

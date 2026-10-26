@@ -11,243 +11,243 @@ import (
 	"consola-vm/internal/services"
 )
 
-// ServicioSystemd ejecuta las operaciones sobre las unidades de systemd.
-type ServicioSystemd interface {
-	// Listar devuelve las unidades con su estado.
-	Listar(ctx context.Context) ([]services.EstadoUnidad, error)
-	// Obtener devuelve el estado de una unidad.
-	Obtener(ctx context.Context, unidad string) (services.EstadoUnidad, error)
-	// Desplegar transfiere los archivos de la unidad.
-	Desplegar(ctx context.Context, unidad string, archivos []services.ArchivoDespliegue, usuario, grupo string) (services.Resultado, error)
-	// CambiarEstado activa, desactiva, habilita o deshabilita la unidad.
-	CambiarEstado(ctx context.Context, unidad string, activo, habilitado *bool) (services.Resultado, error)
-	// Reiniciar reinicia la unidad.
-	Reiniciar(ctx context.Context, unidad string) (services.Resultado, error)
+// SystemdService ejecuta las operaciones sobre las unidades de systemd.
+type SystemdService interface {
+	// List devuelve las unidades con su estado.
+	List(ctx context.Context) ([]services.UnitState, error)
+	// Get devuelve el estado de una unidad.
+	Get(ctx context.Context, unit string) (services.UnitState, error)
+	// Deploy transfiere los archivos de la unidad.
+	Deploy(ctx context.Context, unit string, files []services.DeploymentFile, user, group string) (services.Outcome, error)
+	// ChangeState activa, desactiva, habilita o deshabilita la unidad.
+	ChangeState(ctx context.Context, unit string, active, enabled *bool) (services.Outcome, error)
+	// Restart reinicia la unidad.
+	Restart(ctx context.Context, unit string) (services.Outcome, error)
 }
 
 // Systemd agrupa los recursos de gestión de unidades con systemd
 // (numeral 3.3).
 type Systemd struct {
-	servicio ServicioSystemd
+	service SystemdService
 }
 
-// NuevoSystemd construye el handler de gestión de unidades systemd.
-func NuevoSystemd(servicio ServicioSystemd) *Systemd {
-	return &Systemd{servicio: servicio}
+// NewSystemd construye el handler de gestión de unidades systemd.
+func NewSystemd(service SystemdService) *Systemd {
+	return &Systemd{service: service}
 }
 
-// archivoDespliegue describe un archivo que se transfiere a la máquina.
-type archivoDespliegue struct {
-	Origen  string `json:"origen"`
-	Destino string `json:"destino"`
-	Modo    string `json:"modo"`
+// fileDespliegue describe un archivo que se transfiere a la máquina.
+type fileDespliegue struct {
+	Source      string `json:"origen"`
+	Destination string `json:"destino"`
+	Mode        string `json:"modo"`
 }
 
-// solicitudDespliegue es el cuerpo de PUT /api/units/{unit}.
-type solicitudDespliegue struct {
-	Archivos []archivoDespliegue `json:"archivos"`
-	Usuario  string              `json:"usuario"`
-	Grupo    string              `json:"grupo"`
+// deployRequest es el cuerpo de PUT /api/units/{unit}.
+type deployRequest struct {
+	Files []fileDespliegue `json:"archivos"`
+	User  string           `json:"usuario"`
+	Group string           `json:"grupo"`
 }
 
-// solicitudEstadoUnidad es el cuerpo de PATCH /api/units/{unit}: indica
+// unitStateRequest es el cuerpo de PATCH /api/units/{unit}: indica
 // exactamente una de las dos propiedades.
-type solicitudEstadoUnidad struct {
-	Activo     *bool `json:"activo"`
-	Habilitado *bool `json:"habilitado"`
+type unitStateRequest struct {
+	Active  *bool `json:"activo"`
+	Enabled *bool `json:"habilitado"`
 }
 
-// unidadRespuesta es una unidad en la respuesta JSON.
-type unidadRespuesta struct {
-	Unidad     string `json:"unidad"`
-	Activo     bool   `json:"activo"`
-	Habilitado bool   `json:"habilitado"`
-	Estado     string `json:"estado"`
-	Detalle    string `json:"detalle,omitempty"`
+// unitRow es una unidad en la respuesta JSON.
+type unitRow struct {
+	Unit    string `json:"unidad"`
+	Active  bool   `json:"activo"`
+	Enabled bool   `json:"habilitado"`
+	State   string `json:"estado"`
+	Detail  string `json:"detalle,omitempty"`
 }
 
-// listaUnidades es el cuerpo de GET /api/units.
-type listaUnidades struct {
-	Unidades []unidadRespuesta `json:"unidades"`
+// unitList es el cuerpo de GET /api/units.
+type unitList struct {
+	Units []unitRow `json:"unidades"`
 }
 
-// Unidades atiende GET /api/units: lista las unidades administradas.
-func (h *Systemd) Unidades(w http.ResponseWriter, r *http.Request) {
-	if !exigirMetodo(w, r, http.MethodGet) {
+// Units atiende GET /api/units: lista las unidades administradas.
+func (h *Systemd) Units(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
 
-	unidades, err := h.servicio.Listar(r.Context())
+	units, err := h.service.List(r.Context())
 	if err != nil {
-		responderErrorOperacion(w, services.Resultado{}, err)
+		respondErrorOperation(w, services.Outcome{}, err)
 
 		return
 	}
 
-	respuesta := listaUnidades{Unidades: make([]unidadRespuesta, 0, len(unidades))}
-	for _, unidad := range unidades {
-		respuesta.Unidades = append(respuesta.Unidades, respuestaDeUnidad(unidad))
+	response := unitList{Units: make([]unitRow, 0, len(units))}
+	for _, unit := range units {
+		response.Units = append(response.Units, unitResponse(unit))
 	}
 
-	escribirJSON(w, http.StatusOK, respuesta)
+	writeJSON(w, http.StatusOK, response)
 }
 
-// Unidad atiende GET, PUT y PATCH /api/units/{unit}: consulta la
+// Unit atiende GET, PUT y PATCH /api/units/{unit}: consulta la
 // unidad, despliega sus archivos o cambia su estado.
-func (h *Systemd) Unidad(w http.ResponseWriter, r *http.Request) {
-	if !exigirMetodo(w, r, http.MethodGet, http.MethodPut, http.MethodPatch) {
+func (h *Systemd) Unit(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet, http.MethodPut, http.MethodPatch) {
 		return
 	}
 
-	unidad := r.PathValue(campoUnit)
-	if err := validarUnidad(unidad); err != nil {
-		responderValidacion(w, err)
+	unit := r.PathValue(unitParam)
+	if err := validateUnit(unit); err != nil {
+		respondValidacion(w, err)
 
 		return
 	}
 
 	switch r.Method {
 	case http.MethodGet:
-		h.obtenerUnidad(w, r, unidad)
+		h.getUnit(w, r, unit)
 	case http.MethodPut:
-		h.desplegarUnidad(w, r, unidad)
+		h.deployUnit(w, r, unit)
 	case http.MethodPatch:
-		h.cambiarEstadoUnidad(w, r, unidad)
+		h.changeStateUnit(w, r, unit)
 	}
 }
 
-// obtenerUnidad responde el estado de la unidad.
-func (h *Systemd) obtenerUnidad(w http.ResponseWriter, r *http.Request, unidad string) {
-	estado, err := h.servicio.Obtener(r.Context(), unidad)
-	if h.responderNoEncontrada(w, unidad, err) {
+// getUnit responde el estado de la unidad.
+func (h *Systemd) getUnit(w http.ResponseWriter, r *http.Request, unit string) {
+	state, err := h.service.Get(r.Context(), unit)
+	if h.respondNotFound(w, unit, err) {
 		return
 	}
 
 	if err != nil {
-		responderErrorOperacion(w, services.Resultado{}, err)
+		respondErrorOperation(w, services.Outcome{}, err)
 
 		return
 	}
 
-	escribirJSON(w, http.StatusOK, respuestaDeUnidad(estado))
+	writeJSON(w, http.StatusOK, unitResponse(state))
 }
 
-// desplegarUnidad valida y transfiere la unidad y sus archivos.
-func (h *Systemd) desplegarUnidad(w http.ResponseWriter, r *http.Request, unidad string) {
-	var solicitud solicitudDespliegue
-	if err := decodificarJSON(w, r, &solicitud); err != nil {
-		responderValidacion(w, err)
+// deployUnit valida y transfiere la unidad y sus archivos.
+func (h *Systemd) deployUnit(w http.ResponseWriter, r *http.Request, unit string) {
+	var request deployRequest
+	if err := decodeJSON(w, r, &request); err != nil {
+		respondValidacion(w, err)
 
 		return
 	}
 
-	if err := validarArchivos(solicitud.Archivos); err != nil {
-		responderValidacion(w, err)
+	if err := validateFiles(request.Files); err != nil {
+		respondValidacion(w, err)
 
 		return
 	}
 
-	if solicitud.Usuario != "" {
-		if err := validarUsuario("usuario", solicitud.Usuario); err != nil {
-			responderValidacion(w, err)
+	if request.User != "" {
+		if err := validateUser("usuario", request.User); err != nil {
+			respondValidacion(w, err)
 
 			return
 		}
 	}
 
-	if solicitud.Grupo != "" {
-		if err := validarUsuario("grupo", solicitud.Grupo); err != nil {
-			responderValidacion(w, err)
+	if request.Group != "" {
+		if err := validateUser("grupo", request.Group); err != nil {
+			respondValidacion(w, err)
 
 			return
 		}
 	}
 
-	archivos := make([]services.ArchivoDespliegue, 0, len(solicitud.Archivos))
-	for _, archivo := range solicitud.Archivos {
-		archivos = append(archivos, services.ArchivoDespliegue{
-			Origen:  archivo.Origen,
-			Destino: archivo.Destino,
-			Modo:    archivo.Modo,
+	files := make([]services.DeploymentFile, 0, len(request.Files))
+	for _, file := range request.Files {
+		files = append(files, services.DeploymentFile{
+			Source:      file.Source,
+			Destination: file.Destination,
+			Mode:        file.Mode,
 		})
 	}
 
-	resultado, err := h.servicio.Desplegar(r.Context(), unidad, archivos, solicitud.Usuario, solicitud.Grupo)
+	result, err := h.service.Deploy(r.Context(), unit, files, request.User, request.Group)
 	if err != nil {
-		responderErrorOperacion(w, resultado, err)
+		respondErrorOperation(w, result, err)
 
 		return
 	}
 
-	escribirResultado(w, http.StatusOK, resultado)
+	writeResult(w, http.StatusOK, result)
 }
 
-// cambiarEstadoUnidad aplica el cambio y responde el estado resultante.
-func (h *Systemd) cambiarEstadoUnidad(w http.ResponseWriter, r *http.Request, unidad string) {
-	var solicitud solicitudEstadoUnidad
-	if err := decodificarJSON(w, r, &solicitud); err != nil {
-		responderValidacion(w, err)
+// changeStateUnit aplica el cambio y responde el estado resultante.
+func (h *Systemd) changeStateUnit(w http.ResponseWriter, r *http.Request, unit string) {
+	var request unitStateRequest
+	if err := decodeJSON(w, r, &request); err != nil {
+		respondValidacion(w, err)
 
 		return
 	}
 
-	if err := validarEstadoUnidad(solicitud); err != nil {
-		responderValidacion(w, err)
+	if err := validateStateUnit(request); err != nil {
+		respondValidacion(w, err)
 
 		return
 	}
 
-	resultado, err := h.servicio.CambiarEstado(r.Context(), unidad, solicitud.Activo, solicitud.Habilitado)
-	if h.responderNoEncontrada(w, unidad, err) {
+	result, err := h.service.ChangeState(r.Context(), unit, request.Active, request.Enabled)
+	if h.respondNotFound(w, unit, err) {
 		return
 	}
 
 	if err != nil {
-		responderErrorOperacion(w, resultado, err)
+		respondErrorOperation(w, result, err)
 
 		return
 	}
 
-	estado, err := h.servicio.Obtener(r.Context(), unidad)
+	state, err := h.service.Get(r.Context(), unit)
 	if err != nil {
-		responderErrorOperacion(w, services.Resultado{}, err)
+		respondErrorOperation(w, services.Outcome{}, err)
 
 		return
 	}
 
-	escribirJSON(w, http.StatusOK, respuestaDeUnidad(estado))
+	writeJSON(w, http.StatusOK, unitResponse(state))
 }
 
-// validarEstadoUnidad exige exactamente una de las dos propiedades.
-func validarEstadoUnidad(solicitud solicitudEstadoUnidad) error {
-	if solicitud.Activo == nil && solicitud.Habilitado == nil {
-		return campoInvalido(campoActivo, "debe indicar «activo» o «habilitado»")
+// validateStateUnit exige exactamente una de las dos propiedades.
+func validateStateUnit(request unitStateRequest) error {
+	if request.Active == nil && request.Enabled == nil {
+		return invalidField(activeField, "debe indicar «activo» o «habilitado»")
 	}
 
-	if solicitud.Activo != nil && solicitud.Habilitado != nil {
-		return campoInvalido(campoHabilitado, "indique solo «activo» o «habilitado»")
+	if request.Active != nil && request.Enabled != nil {
+		return invalidField(enabledField, "indique solo «activo» o «habilitado»")
 	}
 
 	return nil
 }
 
-// validarArchivos comprueba que haya al menos un archivo y que cada uno
+// validateFiles comprueba que haya al menos un archivo y que cada uno
 // tenga origen, destino absoluto y modo octal.
-func validarArchivos(archivos []archivoDespliegue) error {
-	if len(archivos) == 0 {
-		return campoInvalido(campoArchivos, "debe indicar al menos un archivo")
+func validateFiles(files []fileDespliegue) error {
+	if len(files) == 0 {
+		return invalidField(filesField, "debe indicar al menos un archivo")
 	}
 
-	for _, archivo := range archivos {
-		if archivo.Origen == "" {
-			return campoInvalido(campoOrigen, "no puede estar vacío")
+	for _, file := range files {
+		if file.Source == "" {
+			return invalidField(sourceField, "no puede estar vacío")
 		}
 
-		if err := validarRuta(campoDestino, archivo.Destino); err != nil {
+		if err := validatePath(destinationField, file.Destination); err != nil {
 			return err
 		}
 
-		if err := validarModo(campoModo, archivo.Modo); err != nil {
+		if err := validateMode(modeField, file.Mode); err != nil {
 			return err
 		}
 	}
@@ -255,56 +255,56 @@ func validarArchivos(archivos []archivoDespliegue) error {
 	return nil
 }
 
-// Reinicios atiende POST /api/units/{unit}/restarts: reinicia la
+// Restarts atiende POST /api/units/{unit}/restarts: reinicia la
 // unidad indicada.
-func (h *Systemd) Reinicios(w http.ResponseWriter, r *http.Request) {
-	if !exigirMetodo(w, r, http.MethodPost) {
+func (h *Systemd) Restarts(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodPost) {
 		return
 	}
 
-	unidad := r.PathValue(campoUnit)
-	if err := validarUnidad(unidad); err != nil {
-		responderValidacion(w, err)
+	unit := r.PathValue(unitParam)
+	if err := validateUnit(unit); err != nil {
+		respondValidacion(w, err)
 
 		return
 	}
 
-	resultado, err := h.servicio.Reiniciar(r.Context(), unidad)
-	if h.responderNoEncontrada(w, unidad, err) {
+	result, err := h.service.Restart(r.Context(), unit)
+	if h.respondNotFound(w, unit, err) {
 		return
 	}
 
 	if err != nil {
-		responderErrorOperacion(w, resultado, err)
+		respondErrorOperation(w, result, err)
 
 		return
 	}
 
-	escribirResultado(w, http.StatusAccepted, resultado)
+	writeResult(w, http.StatusAccepted, result)
 }
 
-// responderNoEncontrada responde 404 si el error indica que la unidad no
+// respondNotFound responde 404 si el error indica que la unidad no
 // existe y devuelve true en ese caso.
-func (h *Systemd) responderNoEncontrada(w http.ResponseWriter, unidad string, err error) bool {
-	if !errors.Is(err, services.ErrUnidadNoEncontrada) {
+func (h *Systemd) respondNotFound(w http.ResponseWriter, unit string, err error) bool {
+	if !errors.Is(err, services.ErrUnitNotFound) {
 		return false
 	}
 
-	escribirJSON(w, http.StatusNotFound, respuestaError{
-		Mensaje: "La unidad «" + unidad + "» no existe.",
-		Tecnico: err.Error(),
+	writeJSON(w, http.StatusNotFound, errorResponse{
+		Message:   "La unidad «" + unit + "» no existe.",
+		Technical: err.Error(),
 	})
 
 	return true
 }
 
-// respuestaDeUnidad convierte el estado del dominio en la respuesta.
-func respuestaDeUnidad(estado services.EstadoUnidad) unidadRespuesta {
-	return unidadRespuesta{
-		Unidad:     estado.Unidad,
-		Activo:     estado.Activo,
-		Habilitado: estado.Habilitado,
-		Estado:     estado.Estado,
-		Detalle:    estado.Detalle,
+// unitResponse convierte el estado del dominio en la respuesta.
+func unitResponse(state services.UnitState) unitRow {
+	return unitRow{
+		Unit:    state.Unit,
+		Active:  state.Active,
+		Enabled: state.Enabled,
+		State:   state.State,
+		Detail:  state.Detail,
 	}
 }

@@ -20,8 +20,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// esquemaUsuariosConsola crea la tabla de cuentas de la consola.
-const esquemaUsuariosConsola = `
+// schemaUsersConsole crea la tabla de cuentas de la consola.
+const schemaUsersConsole = `
 CREATE TABLE IF NOT EXISTS usuarios_consola (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	usuario TEXT NOT NULL UNIQUE,
@@ -29,46 +29,46 @@ CREATE TABLE IF NOT EXISTS usuarios_consola (
 	creado_en TEXT NOT NULL
 );`
 
-// claveSecretoConsola es la clave de configuración con el secreto que firma
+// consoleSecretKey es la clave de configuración con el secreto que firma
 // las cookies de sesión.
-const claveSecretoConsola = "consola_secreto"
+const consoleSecretKey = "consola_secreto"
 
-// VigenciaSesionConsola es el tiempo que dura una sesión de la consola.
-const VigenciaSesionConsola = 12 * time.Hour
+// SessionLifetime es el tiempo que dura una sesión de la consola.
+const SessionLifetime = 12 * time.Hour
 
 // Límites de la contraseña de la consola.
 const (
-	minPasswordConsola = 8
-	maxPasswordConsola = 128
+	minPasswordConsole = 8
+	maxPasswordConsole = 128
 )
 
-// reUsuarioConsola valida el nombre de usuario de la consola.
-var reUsuarioConsola = regexp.MustCompile(`^[a-z_][a-z0-9_-]{2,31}$`)
+// consoleUserPattern valida el nombre de usuario de la consola.
+var consoleUserPattern = regexp.MustCompile(`^[a-z_][a-z0-9_-]{2,31}$`)
 
-// ErrConsolaConfigurada indica que la consola ya tiene una cuenta.
-var ErrConsolaConfigurada = errors.New("la consola ya tiene una cuenta")
+// ErrConsoleConfigured indica que la consola ya tiene una cuenta.
+var ErrConsoleConfigured = errors.New("la consola ya tiene una cuenta")
 
-// ErrDatosConsola indica que el usuario o la contraseña no cumplen las
+// ErrConsoleData indica que el usuario o la contraseña no cumplen las
 // reglas de validación.
-var ErrDatosConsola = errors.New("los datos de la cuenta no son válidos")
+var ErrConsoleData = errors.New("los datos de la cuenta no son válidos")
 
-// Consola autentica a los usuarios de la consola con una cuenta guardada
+// Console autentica a los usuarios de la consola con una cuenta guardada
 // en SQLite y emite cookies de sesión firmadas.
-type Consola struct {
-	almacen *Almacen
-	ahora   func() time.Time
+type Console struct {
+	store *Store
+	now   func() time.Time
 }
 
-// NuevoConsola construye el servicio de autenticación sobre el almacén.
-func NuevoConsola(almacen *Almacen) *Consola {
-	return &Consola{almacen: almacen, ahora: time.Now}
+// NewConsole construye el servicio de autenticación sobre el almacén.
+func NewConsole(store *Store) *Console {
+	return &Console{store: store, now: time.Now}
 }
 
-// Configurada informa si ya existe una cuenta de la consola.
-func (c *Consola) Configurada() (bool, error) {
+// IsConfigured informa si ya existe una cuenta de la consola.
+func (c *Console) IsConfigured() (bool, error) {
 	var total int
 
-	if err := c.almacen.db.QueryRowContext(context.Background(),
+	if err := c.store.db.QueryRowContext(context.Background(),
 		`SELECT COUNT(*) FROM usuarios_consola`).Scan(&total); err != nil {
 		return false, fmt.Errorf("contar las cuentas de la consola: %w", err)
 	}
@@ -76,21 +76,21 @@ func (c *Consola) Configurada() (bool, error) {
 	return total > 0, nil
 }
 
-// Configurar crea la primera cuenta de la consola. Falla con
-// ErrConsolaConfigurada si ya existe una y con ErrDatosConsola si el
+// Configure crea la primera cuenta de la consola. Falla con
+// ErrConsoleConfigured si ya existe una y con ErrConsoleData si el
 // usuario o la contraseña no son válidos.
-func (c *Consola) Configurar(ctx context.Context, usuario, password string) error {
-	if err := validarDatosConsola(usuario, password); err != nil {
+func (c *Console) Configure(ctx context.Context, user, password string) error {
+	if err := validateConsoleData(user, password); err != nil {
 		return err
 	}
 
-	configurada, err := c.Configurada()
+	configurada, err := c.IsConfigured()
 	if err != nil {
 		return err
 	}
 
 	if configurada {
-		return ErrConsolaConfigurada
+		return ErrConsoleConfigured
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -98,9 +98,9 @@ func (c *Consola) Configurar(ctx context.Context, usuario, password string) erro
 		return fmt.Errorf("derivar la contraseña de la consola: %w", err)
 	}
 
-	if _, err := c.almacen.db.ExecContext(ctx, `
+	if _, err := c.store.db.ExecContext(ctx, `
 		INSERT INTO usuarios_consola (usuario, hash, creado_en) VALUES (?, ?, ?)`,
-		usuario, string(hash), c.ahora().UTC().Format(time.RFC3339),
+		user, string(hash), c.now().UTC().Format(time.RFC3339),
 	); err != nil {
 		return fmt.Errorf("guardar la cuenta de la consola: %w", err)
 	}
@@ -108,17 +108,17 @@ func (c *Consola) Configurar(ctx context.Context, usuario, password string) erro
 	return nil
 }
 
-// Autenticar comprueba el usuario y la contraseña. Devuelve false sin
+// Authenticate comprueba el usuario y la contraseña. Devuelve false sin
 // error cuando no coinciden, para no revelar cuál de los dos falló.
-func (c *Consola) Autenticar(ctx context.Context, usuario, password string) (bool, error) {
-	if !reUsuarioConsola.MatchString(usuario) || password == "" {
+func (c *Console) Authenticate(ctx context.Context, user, password string) (bool, error) {
+	if !consoleUserPattern.MatchString(user) || password == "" {
 		return false, nil
 	}
 
 	var hash string
 
-	err := c.almacen.db.QueryRowContext(ctx,
-		`SELECT hash FROM usuarios_consola WHERE usuario = ?`, usuario).Scan(&hash)
+	err := c.store.db.QueryRowContext(ctx,
+		`SELECT hash FROM usuarios_consola WHERE usuario = ?`, user).Scan(&hash)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil //nolint:nilerr // una cuenta inexistente es un acceso fallido, no un error.
 	}
@@ -134,104 +134,104 @@ func (c *Consola) Autenticar(ctx context.Context, usuario, password string) (boo
 	return true, nil
 }
 
-// AbrirSesion emite una cookie de sesión firmada para el usuario.
-func (c *Consola) AbrirSesion(usuario string) (string, error) {
-	secreto, err := c.almacen.secretoConsola()
+// OpenSession emite una cookie de sesión firmada para el usuario.
+func (c *Console) OpenSession(user string) (string, error) {
+	secret, err := c.store.consoleSecret()
 	if err != nil {
 		return "", err
 	}
 
-	expira := c.ahora().Add(VigenciaSesionConsola).Unix()
-	contenido := usuario + "|" + strconv.FormatInt(expira, 10)
+	expires := c.now().Add(SessionLifetime).Unix()
+	content := user + "|" + strconv.FormatInt(expires, 10)
 
-	return contenido + "|" + firmarConsola(secreto, contenido), nil
+	return content + "|" + signConsole(secret, content), nil
 }
 
-// Validar comprueba la firma y la vigencia de una cookie de sesión y
+// Validate comprueba la firma y la vigencia de una cookie de sesión y
 // devuelve el usuario cuando es válida.
-func (c *Consola) Validar(token string) (string, bool) {
-	partes := strings.Split(token, "|")
-	if len(partes) != 3 {
+func (c *Console) Validate(token string) (string, bool) {
+	parts := strings.Split(token, "|")
+	if len(parts) != 3 {
 		return "", false
 	}
 
-	usuario, expiraTexto, firma := partes[0], partes[1], partes[2]
+	user, expiresText, firma := parts[0], parts[1], parts[2]
 
-	expira, err := strconv.ParseInt(expiraTexto, 10, 64)
-	if err != nil || c.ahora().Unix() >= expira {
+	expires, err := strconv.ParseInt(expiresText, 10, 64)
+	if err != nil || c.now().Unix() >= expires {
 		return "", false
 	}
 
-	secreto, err := c.almacen.secretoConsola()
+	secret, err := c.store.consoleSecret()
 	if err != nil {
 		return "", false
 	}
 
-	esperada := firmarConsola(secreto, usuario+"|"+expiraTexto)
+	esperada := signConsole(secret, user+"|"+expiresText)
 	if !hmac.Equal([]byte(firma), []byte(esperada)) {
 		return "", false
 	}
 
-	return usuario, true
+	return user, true
 }
 
-// validarDatosConsola aplica las reglas del usuario y de la contraseña.
-func validarDatosConsola(usuario, password string) error {
-	if !reUsuarioConsola.MatchString(usuario) {
-		return fmt.Errorf("%w: el usuario debe tener entre 3 y 32 caracteres y empezar por letra o guion bajo", ErrDatosConsola)
+// validateConsoleData aplica las reglas del usuario y de la contraseña.
+func validateConsoleData(user, password string) error {
+	if !consoleUserPattern.MatchString(user) {
+		return fmt.Errorf("%w: el usuario debe tener entre 3 y 32 caracteres y empezar por letra o guion bajo", ErrConsoleData)
 	}
 
-	if len(password) < minPasswordConsola || len(password) > maxPasswordConsola {
+	if len(password) < minPasswordConsole || len(password) > maxPasswordConsole {
 		return fmt.Errorf("%w: la contraseña debe tener entre %d y %d caracteres",
-			ErrDatosConsola, minPasswordConsola, maxPasswordConsola)
+			ErrConsoleData, minPasswordConsole, maxPasswordConsole)
 	}
 
 	if strings.ContainsRune(password, 0) {
-		return fmt.Errorf("%w: la contraseña no puede contener NUL", ErrDatosConsola)
+		return fmt.Errorf("%w: la contraseña no puede contener NUL", ErrConsoleData)
 	}
 
 	return nil
 }
 
-// firmarConsola calcula el HMAC-SHA256 del contenido de la cookie.
-func firmarConsola(secreto []byte, contenido string) string {
-	mac := hmac.New(sha256.New, secreto)
-	mac.Write([]byte(contenido))
+// signConsole calcula el HMAC-SHA256 del contenido de la cookie.
+func signConsole(secret []byte, content string) string {
+	mac := hmac.New(sha256.New, secret)
+	mac.Write([]byte(content))
 
 	return hex.EncodeToString(mac.Sum(nil))
 }
 
-// secretoConsola devuelve el secreto que firma las cookies y lo genera en
+// consoleSecret devuelve el secreto que firma las cookies y lo genera en
 // el primer uso.
-func (a *Almacen) secretoConsola() ([]byte, error) {
-	var valor string
+func (a *Store) consoleSecret() ([]byte, error) {
+	var value string
 
 	err := a.db.QueryRowContext(context.Background(),
-		`SELECT valor FROM configuracion WHERE clave = ?`, claveSecretoConsola).Scan(&valor)
+		`SELECT valor FROM configuracion WHERE clave = ?`, consoleSecretKey).Scan(&value)
 	if err == nil {
-		secreto, err := base64.StdEncoding.DecodeString(valor)
+		secret, err := base64.StdEncoding.DecodeString(value)
 		if err != nil {
 			return nil, fmt.Errorf("decodificar el secreto de la consola: %w", err)
 		}
 
-		return secreto, nil
+		return secret, nil
 	}
 
 	if !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("leer el secreto de la consola: %w", err)
 	}
 
-	secreto := make([]byte, 32)
-	if _, err := aleatorio(secreto); err != nil {
+	secret := make([]byte, 32)
+	if _, err := randomRead(secret); err != nil {
 		return nil, fmt.Errorf("generar el secreto de la consola: %w", err)
 	}
 
 	if _, err := a.db.ExecContext(context.Background(),
 		`INSERT INTO configuracion (clave, valor) VALUES (?, ?)`,
-		claveSecretoConsola, base64.StdEncoding.EncodeToString(secreto),
+		consoleSecretKey, base64.StdEncoding.EncodeToString(secret),
 	); err != nil {
 		return nil, fmt.Errorf("guardar el secreto de la consola: %w", err)
 	}
 
-	return secreto, nil
+	return secret, nil
 }

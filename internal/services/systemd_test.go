@@ -12,351 +12,351 @@ import (
 	"consola-vm/internal/core/domain"
 )
 
-// unidadPrueba es la unidad usada en las pruebas.
-const unidadPrueba = "catalogo.service"
+// unitTests es la unidad usada en las pruebas.
+const unitTests = "catalogo.service"
 
-// salidaUnidades simula systemctl list-units.
-const salidaUnidades = "catalogo.service loaded active running Catálogo\n" +
+// outputUnits simula systemctl list-units.
+const outputUnits = "catalogo.service loaded active running Catálogo\n" +
 	"ssh.service loaded active running OpenBSD Secure Shell server\n" +
 	"cron.service loaded inactive dead Regular background daemon\n"
 
-// salidaUnitFiles simula systemctl list-unit-files.
-const salidaUnitFiles = "catalogo.service enabled\n" +
+// outputUnitFiles simula systemctl list-unit-files.
+const outputUnitFiles = "catalogo.service enabled\n" +
 	"ssh.service enabled\n" +
 	"cron.service disabled\n"
 
-// nuevoSystemdDePrueba arma el servicio con una sesión falsa.
-func nuevoSystemdDePrueba(sesion *stubSession, err error) *Systemd {
-	return NuevoSystemd(&stubAbridor{sesion: sesion, err: err})
+// newSystemdOfTests arma el servicio con una sesión falsa.
+func newSystemdOfTests(session *stubSession, err error) *Systemd {
+	return NewSystemd(&stubOpener{session: session, err: err})
 }
 
-// TestSystemdListar combina unidades y habilitación.
-func TestSystemdListar(t *testing.T) {
+// TestSystemdList combina unidades y habilitación.
+func TestSystemdList(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{results: []domain.Result{
-		{Stdout: salidaUnidades},
-		{Stdout: salidaUnitFiles},
+	session := &stubSession{results: []domain.Result{
+		{Stdout: outputUnits},
+		{Stdout: outputUnitFiles},
 	}}
 
-	lista, err := nuevoSystemdDePrueba(sesion, nil).Listar(context.Background())
+	lists, err := newSystemdOfTests(session, nil).List(context.Background())
 	if err != nil {
-		t.Fatalf(msgListarOK, err)
+		t.Fatalf(msgListOK, err)
 	}
 
-	if len(lista) != 3 {
-		t.Fatalf("Listar() devolvió %d unidades, want 3", len(lista))
+	if len(lists) != 3 {
+		t.Fatalf("Listar() devolvió %d unidades, want 3", len(lists))
 	}
 
-	if !lista[0].Activo || !lista[0].Habilitado || lista[0].Estado != estadoActivo || lista[0].Detalle != "running" {
-		t.Errorf("catalogo = %+v, want activa, habilitada y running", lista[0])
+	if !lists[0].Active || !lists[0].Enabled || lists[0].State != stateActive || lists[0].Detail != "running" {
+		t.Errorf("catalogo = %+v, want activa, habilitada y running", lists[0])
 	}
 
-	if lista[2].Activo || lista[2].Habilitado || lista[2].Estado != estadoInactivo {
-		t.Errorf("cron = %+v, want inactiva y deshabilitada", lista[2])
+	if lists[2].Active || lists[2].Enabled || lists[2].State != stateInactive {
+		t.Errorf("cron = %+v, want inactiva y deshabilitada", lists[2])
 	}
 }
 
-// TestSystemdObtener interpreta systemctl show.
-func TestSystemdObtener(t *testing.T) {
+// TestSystemdGet interpreta systemctl show.
+func TestSystemdGet(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{result: domain.Result{Stdout: "LoadState=loaded\nActiveState=active\nUnitFileState=enabled\nSubState=running\n"}}
+	session := &stubSession{result: domain.Result{Stdout: "LoadState=loaded\nActiveState=active\nUnitFileState=enabled\nSubState=running\n"}}
 
-	estado, err := nuevoSystemdDePrueba(sesion, nil).Obtener(context.Background(), unidadPrueba)
+	state, err := newSystemdOfTests(session, nil).Get(context.Background(), unitTests)
 	if err != nil {
 		t.Fatalf("Obtener() error = %v, want nil", err)
 	}
 
-	if !estado.Activo || !estado.Habilitado || estado.Estado != estadoActivo || estado.Detalle != "running" {
-		t.Errorf("estado = %+v, want activa, habilitada y running", estado)
+	if !state.Active || !state.Enabled || state.State != stateActive || state.Detail != "running" {
+		t.Errorf("estado = %+v, want activa, habilitada y running", state)
 	}
 }
 
-// TestSystemdObtenerNoEncontrada comprueba LoadState=not-found.
-func TestSystemdObtenerNoEncontrada(t *testing.T) {
+// TestSystemdGetNotFound comprueba LoadState=not-found.
+func TestSystemdGetNotFound(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{result: domain.Result{Stdout: "LoadState=not-found\n"}}
+	session := &stubSession{result: domain.Result{Stdout: "LoadState=not-found\n"}}
 
-	if _, err := nuevoSystemdDePrueba(sesion, nil).Obtener(context.Background(), unidadPrueba); !errors.Is(err, ErrUnidadNoEncontrada) {
+	if _, err := newSystemdOfTests(session, nil).Get(context.Background(), unitTests); !errors.Is(err, ErrUnitNotFound) {
 		t.Fatalf("Obtener() error = %v, want ErrUnidadNoEncontrada", err)
 	}
 }
 
-// TestSystemdObtenerCodigoCuatro comprueba el código 4 de systemctl.
-func TestSystemdObtenerCodigoCuatro(t *testing.T) {
+// TestSystemdGetCodeCuatro comprueba el código 4 de systemctl.
+func TestSystemdGetCodeCuatro(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{err: &domain.ExitError{Code: 4, Command: binSystemctl}}
+	session := &stubSession{err: &domain.ExitError{Code: 4, Command: binSystemctl}}
 
-	if _, err := nuevoSystemdDePrueba(sesion, nil).Obtener(context.Background(), unidadPrueba); !errors.Is(err, ErrUnidadNoEncontrada) {
+	if _, err := newSystemdOfTests(session, nil).Get(context.Background(), unitTests); !errors.Is(err, ErrUnitNotFound) {
 		t.Fatalf("Obtener() error = %v, want ErrUnidadNoEncontrada", err)
 	}
 }
 
-// TestSystemdDesplegar transfiere, ajusta permisos y recarga systemd.
-func TestSystemdDesplegar(t *testing.T) {
+// TestSystemdDeploy transfiere, ajusta permisos y recarga systemd.
+func TestSystemdDeploy(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{}
-	systemd := nuevoSystemdDePrueba(sesion, nil)
+	session := &stubSession{}
+	systemd := newSystemdOfTests(session, nil)
 
-	resultado, err := systemd.Desplegar(context.Background(), unidadPrueba, []ArchivoDespliegue{
-		{Origen: "./app/catalogo", Destino: "/opt/catalogo/catalogo", Modo: "755"},
-	}, duenoPrueba, duenoPrueba)
+	result, err := systemd.Deploy(context.Background(), unitTests, []DeploymentFile{
+		{Source: "./app/catalogo", Destination: "/opt/catalogo/catalogo", Mode: "755"},
+	}, duenoTests, duenoTests)
 	if err != nil {
 		t.Fatalf("Desplegar() error = %v, want nil", err)
 	}
 
-	if len(sesion.puts) != 1 || sesion.puts[0][1] != "/opt/catalogo/catalogo" {
-		t.Errorf("Put() = %v, want el archivo transferido", sesion.puts)
+	if len(session.puts) != 1 || session.puts[0][1] != "/opt/catalogo/catalogo" {
+		t.Errorf("Put() = %v, want el archivo transferido", session.puts)
 	}
 
-	if len(sesion.commands) != 3 {
-		t.Fatalf("la sesión ejecutó %d órdenes, want 3", len(sesion.commands))
+	if len(session.commands) != 3 {
+		t.Fatalf("la sesión ejecutó %d órdenes, want 3", len(session.commands))
 	}
 
-	if sesion.commands[0].Path != binChmod || strings.Join(sesion.commands[0].Args, " ") != "755 /opt/catalogo/catalogo" {
-		t.Errorf("chmod = %v, want 755 en el destino", sesion.commands[0])
+	if session.commands[0].Path != binChmod || strings.Join(session.commands[0].Args, " ") != "755 /opt/catalogo/catalogo" {
+		t.Errorf("chmod = %v, want 755 en el destino", session.commands[0])
 	}
 
-	if sesion.commands[1].Path != binChown || sesion.commands[1].Args[0] != "catalogo:catalogo" {
-		t.Errorf("chown = %v, want catalogo:catalogo", sesion.commands[1])
+	if session.commands[1].Path != binChown || session.commands[1].Args[0] != "catalogo:catalogo" {
+		t.Errorf("chown = %v, want catalogo:catalogo", session.commands[1])
 	}
 
-	if sesion.commands[2].Path != binSystemctl || sesion.commands[2].Args[0] != "daemon-reload" {
-		t.Errorf("systemctl = %v, want daemon-reload", sesion.commands[2])
+	if session.commands[2].Path != binSystemctl || session.commands[2].Args[0] != "daemon-reload" {
+		t.Errorf("systemctl = %v, want daemon-reload", session.commands[2])
 	}
 
-	if resultado.Codigo != 0 {
-		t.Errorf(msgCodigoCero, resultado.Codigo)
+	if result.Code != 0 {
+		t.Errorf(msgCodeCero, result.Code)
 	}
 }
 
-// TestSystemdCambiarEstado cubre start, stop, enable y disable.
-func TestSystemdCambiarEstado(t *testing.T) {
+// TestSystemdChangeState cubre start, stop, enable y disable.
+func TestSystemdChangeState(t *testing.T) {
 	t.Parallel()
 
 	verdadero := true
-	falso := false
+	fake := false
 
-	casos := []struct {
-		nombre     string
-		activo     *bool
-		habilitado *bool
-		esperado   string
+	testCases := []struct {
+		name     string
+		active   *bool
+		enabled  *bool
+		expected string
 	}{
 		{"start", &verdadero, nil, "start"},
-		{"stop", &falso, nil, "stop"},
+		{"stop", &fake, nil, "stop"},
 		{"enable", nil, &verdadero, "enable"},
-		{"disable", nil, &falso, "disable"},
+		{"disable", nil, &fake, "disable"},
 	}
 
-	for _, caso := range casos {
-		sesion := &stubSession{}
-		systemd := nuevoSystemdDePrueba(sesion, nil)
+	for _, testCase := range testCases {
+		session := &stubSession{}
+		systemd := newSystemdOfTests(session, nil)
 
-		if _, err := systemd.CambiarEstado(context.Background(), unidadPrueba, caso.activo, caso.habilitado); err != nil {
-			t.Fatalf("%s: CambiarEstado() error = %v", caso.nombre, err)
+		if _, err := systemd.ChangeState(context.Background(), unitTests, testCase.active, testCase.enabled); err != nil {
+			t.Fatalf("%s: CambiarEstado() error = %v", testCase.name, err)
 		}
 
-		cmd := sesion.commands[0]
-		if cmd.Path != binSystemctl || cmd.Args[0] != caso.esperado || cmd.Args[1] != unidadPrueba {
-			t.Errorf("%s: orden = %v, want %s %s", caso.nombre, cmd.Args, caso.esperado, unidadPrueba)
+		cmd := session.commands[0]
+		if cmd.Path != binSystemctl || cmd.Args[0] != testCase.expected || cmd.Args[1] != unitTests {
+			t.Errorf("%s: orden = %v, want %s %s", testCase.name, cmd.Args, testCase.expected, unitTests)
 		}
 	}
 }
 
-// TestSystemdReiniciar comprueba systemctl restart.
-func TestSystemdReiniciar(t *testing.T) {
+// TestSystemdRestart comprueba systemctl restart.
+func TestSystemdRestart(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{}
+	session := &stubSession{}
 
-	if _, err := nuevoSystemdDePrueba(sesion, nil).Reiniciar(context.Background(), unidadPrueba); err != nil {
+	if _, err := newSystemdOfTests(session, nil).Restart(context.Background(), unitTests); err != nil {
 		t.Fatalf("Reiniciar() error = %v, want nil", err)
 	}
 
-	cmd := sesion.commands[0]
-	if cmd.Args[0] != "restart" || cmd.Args[1] != unidadPrueba {
-		t.Errorf("orden = %v, want restart %s", cmd.Args, unidadPrueba)
+	cmd := session.commands[0]
+	if cmd.Args[0] != "restart" || cmd.Args[1] != unitTests {
+		t.Errorf("orden = %v, want restart %s", cmd.Args, unitTests)
 	}
 }
 
-// TestSystemdListarSinSesion comprueba la ausencia de sesión.
-func TestSystemdListarSinSesion(t *testing.T) {
+// TestSystemdListWithoutSession comprueba la ausencia de sesión.
+func TestSystemdListWithoutSession(t *testing.T) {
 	t.Parallel()
 
-	systemd := nuevoSystemdDePrueba(nil, ErrSesionNoDisponible)
+	systemd := newSystemdOfTests(nil, ErrSessionUnavailable)
 
-	if _, err := systemd.Listar(context.Background()); !errors.Is(err, ErrSesionNoDisponible) {
-		t.Fatalf(msgListarSinSesion, err)
+	if _, err := systemd.List(context.Background()); !errors.Is(err, ErrSessionUnavailable) {
+		t.Fatalf(msgListWithoutSession, err)
 	}
 }
 
-// TestSystemdCambiarEstadoError comprueba el fallo de systemctl.
-func TestSystemdCambiarEstadoError(t *testing.T) {
+// TestSystemdChangeStateError comprueba el fallo de systemctl.
+func TestSystemdChangeStateError(t *testing.T) {
 	t.Parallel()
 
 	verdadero := true
-	sesion := &stubSession{
+	session := &stubSession{
 		result: domain.Result{Stderr: "Unit not found", ExitCode: 5},
 		err:    &domain.ExitError{Code: 5, Command: binSystemctl},
 	}
 
-	resultado, err := nuevoSystemdDePrueba(sesion, nil).CambiarEstado(context.Background(), unidadPrueba, &verdadero, nil)
+	result, err := newSystemdOfTests(session, nil).ChangeState(context.Background(), unitTests, &verdadero, nil)
 	if err == nil {
 		t.Fatal("CambiarEstado() error = nil, want el error de systemctl")
 	}
 
-	if resultado.Codigo != 5 || resultado.Stderr == "" {
-		t.Errorf(msgResultadoTecnico, resultado)
+	if result.Code != 5 || result.Stderr == "" {
+		t.Errorf(msgResultTechnical, result)
 	}
 }
 
-// TestSystemdListarError comprueba el fallo al listar unidades.
-func TestSystemdListarError(t *testing.T) {
+// TestSystemdListError comprueba el fallo al listar unidades.
+func TestSystemdListError(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{err: &domain.ExitError{Code: 1, Command: binSystemctl}}
+	session := &stubSession{err: &domain.ExitError{Code: 1, Command: binSystemctl}}
 
-	if _, err := nuevoSystemdDePrueba(sesion, nil).Listar(context.Background()); err == nil {
+	if _, err := newSystemdOfTests(session, nil).List(context.Background()); err == nil {
 		t.Fatal("Listar() error = nil, want el error de systemctl")
 	}
 }
 
-// TestSystemdListarErrorDeArchivos comprueba el fallo al consultar la
+// TestSystemdListErrorOfFiles comprueba el fallo al consultar la
 // habilitación.
-func TestSystemdListarErrorDeArchivos(t *testing.T) {
+func TestSystemdListErrorOfFiles(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{
-		results: []domain.Result{{Stdout: salidaUnidades}},
+	session := &stubSession{
+		results: []domain.Result{{Stdout: outputUnits}},
 		errs:    []error{nil, &domain.ExitError{Code: 1, Command: binSystemctl}},
 	}
 
-	if _, err := nuevoSystemdDePrueba(sesion, nil).Listar(context.Background()); err == nil {
+	if _, err := newSystemdOfTests(session, nil).List(context.Background()); err == nil {
 		t.Fatal("Listar() error = nil, want el error de list-unit-files")
 	}
 }
 
-// TestSystemdObtenerError comprueba un fallo inesperado de systemctl.
-func TestSystemdObtenerError(t *testing.T) {
+// TestSystemdGetError comprueba un fallo inesperado de systemctl.
+func TestSystemdGetError(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{err: &domain.ExitError{Code: 1, Command: binSystemctl}}
+	session := &stubSession{err: &domain.ExitError{Code: 1, Command: binSystemctl}}
 
-	if _, err := nuevoSystemdDePrueba(sesion, nil).Obtener(context.Background(), unidadPrueba); err == nil {
+	if _, err := newSystemdOfTests(session, nil).Get(context.Background(), unitTests); err == nil {
 		t.Fatal("Obtener() error = nil, want el error de systemctl")
 	}
 }
 
-// TestSystemdDesplegarErrores cubre los fallos de transferencia y
+// TestSystemdDeployErrors cubre los fallos de transferencia y
 // permisos.
-func TestSystemdDesplegarErrores(t *testing.T) {
+func TestSystemdDeployErrors(t *testing.T) {
 	t.Parallel()
 
-	archivos := []ArchivoDespliegue{{Origen: "./app", Destino: "/opt/app", Modo: "755"}}
+	files := []DeploymentFile{{Source: "./app", Destination: "/opt/app", Mode: "755"}}
 
-	casos := []struct {
-		nombre string
-		sesion *stubSession
+	testCases := []struct {
+		name    string
+		session *stubSession
 	}{
 		{"transferencia", &stubSession{putErr: &domain.ExitError{Code: 1, Command: "scp"}}},
 		{"permisos", &stubSession{errs: []error{&domain.ExitError{Code: 1, Command: binChmod}}}},
 		{"propietario", &stubSession{errs: []error{nil, &domain.ExitError{Code: 1, Command: binChown}}}},
 	}
 
-	for _, caso := range casos {
-		systemd := nuevoSystemdDePrueba(caso.sesion, nil)
+	for _, testCase := range testCases {
+		systemd := newSystemdOfTests(testCase.session, nil)
 
-		if _, err := systemd.Desplegar(context.Background(), unidadPrueba, archivos, duenoPrueba, ""); err == nil {
-			t.Errorf("%s: Desplegar() error = nil, want un error", caso.nombre)
+		if _, err := systemd.Deploy(context.Background(), unitTests, files, duenoTests, ""); err == nil {
+			t.Errorf("%s: Desplegar() error = nil, want un error", testCase.name)
 		}
 	}
 }
 
-// TestSystemdCambiarEstadoSinIndicacion comprueba el cuerpo vacío.
-func TestSystemdCambiarEstadoSinIndicacion(t *testing.T) {
+// TestSystemdChangeStateWithoutIndicacion comprueba el cuerpo vacío.
+func TestSystemdChangeStateWithoutIndicacion(t *testing.T) {
 	t.Parallel()
 
-	if _, err := nuevoSystemdDePrueba(&stubSession{}, nil).CambiarEstado(context.Background(), unidadPrueba, nil, nil); err == nil {
+	if _, err := newSystemdOfTests(&stubSession{}, nil).ChangeState(context.Background(), unitTests, nil, nil); err == nil {
 		t.Fatal("CambiarEstado() error = nil, want el error de estado no indicado")
 	}
 }
 
-// TestSystemdSinSesion cubre la ausencia de sesión en las operaciones.
-func TestSystemdSinSesion(t *testing.T) {
+// TestSystemdWithoutSession cubre la ausencia de sesión en las operaciones.
+func TestSystemdWithoutSession(t *testing.T) {
 	t.Parallel()
 
-	systemd := nuevoSystemdDePrueba(nil, ErrSesionNoDisponible)
+	systemd := newSystemdOfTests(nil, ErrSessionUnavailable)
 	verdadero := true
 
-	if _, err := systemd.Obtener(context.Background(), unidadPrueba); !errors.Is(err, ErrSesionNoDisponible) {
-		t.Errorf(msgObtenerSinSesion, err)
+	if _, err := systemd.Get(context.Background(), unitTests); !errors.Is(err, ErrSessionUnavailable) {
+		t.Errorf(msgGetWithoutSession, err)
 	}
 
-	if _, err := systemd.Desplegar(context.Background(), unidadPrueba, nil, "", ""); !errors.Is(err, ErrSesionNoDisponible) {
+	if _, err := systemd.Deploy(context.Background(), unitTests, nil, "", ""); !errors.Is(err, ErrSessionUnavailable) {
 		t.Errorf("Desplegar() error = %v, want ErrSesionNoDisponible", err)
 	}
 
-	if _, err := systemd.CambiarEstado(context.Background(), unidadPrueba, &verdadero, nil); !errors.Is(err, ErrSesionNoDisponible) {
+	if _, err := systemd.ChangeState(context.Background(), unitTests, &verdadero, nil); !errors.Is(err, ErrSessionUnavailable) {
 		t.Errorf("CambiarEstado() error = %v, want ErrSesionNoDisponible", err)
 	}
 
-	if _, err := systemd.Reiniciar(context.Background(), unidadPrueba); !errors.Is(err, ErrSesionNoDisponible) {
+	if _, err := systemd.Restart(context.Background(), unitTests); !errors.Is(err, ErrSessionUnavailable) {
 		t.Errorf("Reiniciar() error = %v, want ErrSesionNoDisponible", err)
 	}
 }
 
-// TestMapearEstado comprueba la traducción de los estados.
-func TestMapearEstado(t *testing.T) {
+// TestMapState comprueba la traducción de los estados.
+func TestMapState(t *testing.T) {
 	t.Parallel()
 
-	casos := map[string]string{
-		estadoActivo:   estadoActivo,
-		estadoInactivo: estadoInactivo,
-		"failed":       "failed",
-		"otro":         "unknown",
+	testCases := map[string]string{
+		stateActive:   stateActive,
+		stateInactive: stateInactive,
+		"failed":      "failed",
+		"otro":        "unknown",
 	}
 
-	for entrada, esperado := range casos {
-		if obtenido := mapearEstado(entrada); obtenido != esperado {
-			t.Errorf("mapearEstado(%q) = %q, want %q", entrada, obtenido, esperado)
+	for entry, expected := range testCases {
+		if obtained := mapState(entry); obtained != expected {
+			t.Errorf("mapearEstado(%q) = %q, want %q", entry, obtained, expected)
 		}
 	}
 }
 
-// TestSystemdDesplegarSinPropietario comprueba que sin usuario no se
+// TestSystemdDeployWithoutPropietario comprueba que sin usuario no se
 // ejecuta chown y que el despliegue sigue recargando systemd.
-func TestSystemdDesplegarSinPropietario(t *testing.T) {
+func TestSystemdDeployWithoutPropietario(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{}
-	systemd := nuevoSystemdDePrueba(sesion, nil)
+	session := &stubSession{}
+	systemd := newSystemdOfTests(session, nil)
 
-	if _, err := systemd.Desplegar(context.Background(), unidadPrueba, []ArchivoDespliegue{
-		{Origen: "./app", Destino: "/opt/app", Modo: "755"},
+	if _, err := systemd.Deploy(context.Background(), unitTests, []DeploymentFile{
+		{Source: "./app", Destination: "/opt/app", Mode: "755"},
 	}, "", ""); err != nil {
 		t.Fatalf("Desplegar() error = %v, want nil", err)
 	}
 
-	if len(sesion.puts) != 1 {
-		t.Errorf("Put() se llamó %d veces, want 1", len(sesion.puts))
+	if len(session.puts) != 1 {
+		t.Errorf("Put() se llamó %d veces, want 1", len(session.puts))
 	}
 
-	for _, cmd := range sesion.commands {
+	for _, cmd := range session.commands {
 		if cmd.Path == binChown {
 			t.Errorf("se ejecutó chown sin propietario: %v", cmd.Args)
 		}
 	}
 
-	if len(sesion.commands) != 2 {
-		t.Fatalf("la sesión ejecutó %d órdenes, want chmod y daemon-reload", len(sesion.commands))
+	if len(session.commands) != 2 {
+		t.Fatalf("la sesión ejecutó %d órdenes, want chmod y daemon-reload", len(session.commands))
 	}
 
-	if sesion.commands[1].Path != binSystemctl || sesion.commands[1].Args[0] != "daemon-reload" {
-		t.Errorf("última orden = %v, want systemctl daemon-reload", sesion.commands[1])
+	if session.commands[1].Path != binSystemctl || session.commands[1].Args[0] != "daemon-reload" {
+		t.Errorf("última orden = %v, want systemctl daemon-reload", session.commands[1])
 	}
 }

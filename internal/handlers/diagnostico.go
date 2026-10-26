@@ -12,78 +12,78 @@ import (
 	"consola-vm/internal/services"
 )
 
-// ServicioDiagnostico explica por qué una máquina no se puede registrar.
-type ServicioDiagnostico interface {
-	Obtener(ctx context.Context) (services.Diagnostico, error)
+// DiagnosticsService explica por qué una máquina no se puede registrar.
+type DiagnosticsService interface {
+	Get(ctx context.Context) (services.Diagnostics, error)
 }
 
-// Diagnostico expone GET /api/session/diagnostico.
-type Diagnostico struct {
-	servicio ServicioDiagnostico
+// Diagnostics expone GET /api/session/diagnostico.
+type Diagnostics struct {
+	service DiagnosticsService
 }
 
-// NuevoDiagnostico construye el handler del diagnóstico.
-func NuevoDiagnostico(servicio ServicioDiagnostico) *Diagnostico {
-	return &Diagnostico{servicio: servicio}
+// NewDiagnostics construye el handler del diagnóstico.
+func NewDiagnostics(service DiagnosticsService) *Diagnostics {
+	return &Diagnostics{service: service}
 }
 
-// diagnosticoRespuesta es el cuerpo JSON del diagnóstico.
-type diagnosticoRespuesta struct {
+// diagnosticsResponse es el cuerpo JSON del diagnóstico.
+type diagnosticsResponse struct {
 	VM                     string   `json:"vm"`
-	Estado                 string   `json:"estado"`
-	Red                    string   `json:"red"`
+	State                  string   `json:"estado"`
+	Network                string   `json:"red"`
 	IP                     string   `json:"ip,omitempty"`
-	Registrada             bool     `json:"registrada"`
+	IsRegistered           bool     `json:"registrada"`
 	GuestAdditionsVersion  string   `json:"guest_additions_version,omitempty"`
 	GuestAdditionsRunLevel int      `json:"guest_additions_run_level"`
-	UsuarioSugerido        string   `json:"usuario_sugerido,omitempty"`
-	SSHAbierto             bool     `json:"ssh_abierto"`
+	UserSugerido           string   `json:"usuario_sugerido,omitempty"`
+	SSHOpen                bool     `json:"ssh_abierto"`
 	Problemas              []string `json:"problemas"`
 	Sugerencias            []string `json:"sugerencias"`
 }
 
 // ServeHTTP implementa http.Handler.
-func (h *Diagnostico) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !exigirMetodo(w, r, http.MethodGet) {
+func (h *Diagnostics) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
 
-	informe, err := h.servicio.Obtener(r.Context())
-	if errors.Is(err, services.ErrSinMaquina) {
-		escribirJSON(w, http.StatusConflict, respuestaError{
-			Mensaje: "Primero elige una máquina virtual.",
-			Tecnico: err.Error(),
+	report, err := h.service.Get(r.Context())
+	if errors.Is(err, services.ErrNoMachine) {
+		writeJSON(w, http.StatusConflict, errorResponse{
+			Message:   "Primero elige una máquina virtual.",
+			Technical: err.Error(),
 		})
 
 		return
 	}
 
 	if err != nil {
-		slog.Error("diagnosticar la máquina", claveError, err)
-		escribirJSON(w, http.StatusInternalServerError, respuestaError{
-			Mensaje: "No fue posible diagnosticar la máquina.",
-			Tecnico: err.Error(),
+		slog.Error("diagnosticar la máquina", errorKey, err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{
+			Message:   "No fue posible diagnosticar la máquina.",
+			Technical: err.Error(),
 		})
 
 		return
 	}
 
 	ip := ""
-	if informe.IP.IsValid() {
-		ip = informe.IP.String()
+	if report.IP.IsValid() {
+		ip = report.IP.String()
 	}
 
-	escribirJSON(w, http.StatusOK, diagnosticoRespuesta{
-		VM:                     informe.VM,
-		Estado:                 string(informe.Estado),
-		Red:                    string(informe.Red),
+	writeJSON(w, http.StatusOK, diagnosticsResponse{
+		VM:                     report.VM,
+		State:                  string(report.State),
+		Network:                string(report.Network),
 		IP:                     ip,
-		Registrada:             informe.Registrada,
-		GuestAdditionsVersion:  informe.GuestAdditionsVersion,
-		GuestAdditionsRunLevel: informe.GuestAdditionsRunLevel,
-		UsuarioSugerido:        informe.UsuarioSugerido,
-		SSHAbierto:             informe.SSHAbierto,
-		Problemas:              informe.Problemas,
-		Sugerencias:            informe.Sugerencias,
+		IsRegistered:           report.IsRegistered,
+		GuestAdditionsVersion:  report.GuestAdditionsVersion,
+		GuestAdditionsRunLevel: report.GuestAdditionsRunLevel,
+		UserSugerido:           report.UserSugerido,
+		SSHOpen:                report.SSHOpen,
+		Problemas:              report.Problemas,
+		Sugerencias:            report.Sugerencias,
 	})
 }

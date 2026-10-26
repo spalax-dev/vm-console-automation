@@ -23,7 +23,7 @@ import (
 const (
 	binarySSH  = "ssh"
 	binarySCP  = "scp"
-	opcionHost = "StrictHostKeyChecking=accept-new"
+	optionHost = "StrictHostKeyChecking=accept-new"
 )
 
 // defaultUser y defaultPort son el usuario y el puerto por omisión.
@@ -119,17 +119,17 @@ func (c *Connector) Connect(ctx context.Context, target domain.Target) (ports.Se
 	return &Session{connector: c, target: target}, nil
 }
 
-// archivoTemporal es el subconjunto de *os.File que usa la contraseña
+// tempFile es el subconjunto de *os.File que usa la contraseña
 // temporal; permite simular fallos en las pruebas.
-type archivoTemporal interface {
-	Chmod(modo os.FileMode) error
-	WriteString(texto string) (int, error)
+type tempFile interface {
+	Chmod(mode os.FileMode) error
+	WriteString(text string) (int, error)
 	Name() string
 	Close() error
 }
 
-// crearTemporal abre el archivo temporal de la contraseña.
-var crearTemporal = func() (*os.File, error) {
+// createTempFile abre el archivo temporal de la contraseña.
+var createTempFile = func() (*os.File, error) {
 	return os.CreateTemp("", "vmcons-pass-*")
 }
 
@@ -137,41 +137,41 @@ var crearTemporal = func() (*os.File, error) {
 // contraseña se guarda en un archivo temporal 0600 que la sesión elimina
 // al cerrarse.
 func (c *Connector) ConnectPassword(
-	_ context.Context, target domain.Target, usuario, password string,
+	_ context.Context, target domain.Target, user, password string,
 ) (ports.Session, error) {
-	archivo, err := crearTemporal()
+	file, err := createTempFile()
 	if err != nil {
 		return nil, fmt.Errorf("ssh: crear el archivo temporal: %w", err)
 	}
 
-	if err := prepararTemporal(archivo, password); err != nil {
+	if err := prepareTempFile(file, password); err != nil {
 		return nil, err
 	}
 
-	copia := *c
-	copia.user = usuario
-	copia.passwordFile = archivo.Name()
+	duplicate := *c
+	duplicate.user = user
+	duplicate.passwordFile = file.Name()
 
-	return &Session{connector: &copia, target: target, passwordFile: archivo.Name()}, nil
+	return &Session{connector: &duplicate, target: target, passwordFile: file.Name()}, nil
 }
 
-// prepararTemporal protege el archivo, escribe la contraseña y lo cierra.
+// prepareTempFile protege el archivo, escribe la contraseña y lo cierra.
 // Ante un fallo deja el sistema sin archivos temporales abandonados.
-func prepararTemporal(archivo archivoTemporal, password string) error {
-	if err := archivo.Chmod(0o600); err != nil {
-		cerrarTemporal(archivo)
+func prepareTempFile(file tempFile, password string) error {
+	if err := file.Chmod(0o600); err != nil {
+		closeTempFile(file)
 
 		return fmt.Errorf("ssh: proteger el archivo temporal: %w", err)
 	}
 
-	if _, err := archivo.WriteString(password); err != nil {
-		cerrarTemporal(archivo)
+	if _, err := file.WriteString(password); err != nil {
+		closeTempFile(file)
 
 		return fmt.Errorf("ssh: guardar la contraseña temporal: %w", err)
 	}
 
-	if err := archivo.Close(); err != nil {
-		eliminarTemporal(archivo.Name())
+	if err := file.Close(); err != nil {
+		removeTempFile(file.Name())
 
 		return fmt.Errorf("ssh: cerrar el archivo temporal: %w", err)
 	}
@@ -189,13 +189,13 @@ type Session struct {
 // Run implements ports.Session: ejecuta la orden en la máquina remota,
 // entregándola al shell del usuario remoto ya citada con ShellLine.
 func (s *Session) Run(ctx context.Context, cmd *domain.Command) (domain.Result, error) {
-	programa, args := s.connector.comando(binarySSH, s.connector.baseArgs(), s.passwordFile)
+	programa, args := s.connector.command(binarySSH, s.connector.baseArgs(), s.passwordFile)
 	args = append(args, s.destination(), cmd.ShellLine())
 
 	result, err := s.connector.exe.Execute(ctx, programa, args...)
 	if err != nil {
 		return result, fmt.Errorf("ssh: ejecutar %q: %w", cmd.Path,
-			errorSanitizado(err, "ssh "+s.destination()))
+			sanitizeError(err, "ssh "+s.destination()))
 	}
 
 	return result, nil
@@ -205,12 +205,12 @@ func (s *Session) Run(ctx context.Context, cmd *domain.Command) (domain.Result, 
 // establece permisos de lectura, escritura y ejecución en el destino.
 // Nota: scp usa -P (mayúscula) para el puerto, a diferencia de ssh.
 func (s *Session) Put(ctx context.Context, localPath, remotePath string) error {
-	programa, args := s.connector.comando(binarySCP, s.connector.scpArgs(), s.passwordFile)
+	programa, args := s.connector.command(binarySCP, s.connector.scpArgs(), s.passwordFile)
 	args = append(args, localPath, s.destination()+":"+remotePath)
 
 	if _, err := s.connector.exe.Execute(ctx, programa, args...); err != nil {
 		return fmt.Errorf("ssh: transferir %q: %w", localPath,
-			errorSanitizado(err, "scp "+s.destination()))
+			sanitizeError(err, "scp "+s.destination()))
 	}
 
 	chmod := &domain.Command{
@@ -239,12 +239,12 @@ func (s *Session) Close() error {
 	return nil
 }
 
-// errorSanitizado reemplaza la orden completa por una versión sin
+// sanitizeError reemplaza la orden completa por una versión sin
 // argumentos sensibles (contraseña, script remoto o rutas temporales).
-func errorSanitizado(err error, comando string) error {
+func sanitizeError(err error, command string) error {
 	var exitErr *domain.ExitError
 	if errors.As(err, &exitErr) {
-		return &domain.ExitError{Code: exitErr.Code, Command: comando}
+		return &domain.ExitError{Code: exitErr.Code, Command: command}
 	}
 
 	return err
@@ -255,18 +255,18 @@ func (s *Session) destination() string {
 	return s.connector.user + "@" + s.target.Address.String()
 }
 
-// cerrarTemporal cierra y elimina el archivo temporal de la contraseña.
-func cerrarTemporal(archivo archivoTemporal) {
-	if err := archivo.Close(); err != nil {
+// closeTempFile cierra y elimina el archivo temporal de la contraseña.
+func closeTempFile(file tempFile) {
+	if err := file.Close(); err != nil {
 		slog.Warn("cerrar el archivo temporal de la contraseña", "error", err)
 	}
 
-	eliminarTemporal(archivo.Name())
+	removeTempFile(file.Name())
 }
 
-// eliminarTemporal borra el archivo temporal sin interrumpir el flujo.
-func eliminarTemporal(ruta string) {
-	if err := os.Remove(ruta); err != nil && !os.IsNotExist(err) {
+// removeTempFile borra el archivo temporal sin interrumpir el flujo.
+func removeTempFile(path string) {
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		slog.Warn("eliminar el archivo temporal de la contraseña", "error", err)
 	}
 }
@@ -275,28 +275,28 @@ func eliminarTemporal(ruta string) {
 // no pide contraseñas; en modo contraseña desactiva la llave y la
 // autenticación por teclado para que sshpass pueda responder.
 func (c *Connector) baseArgs() []string {
-	puerto := strconv.FormatUint(uint64(c.port), 10)
+	port := strconv.FormatUint(uint64(c.port), 10)
 
 	if c.passwordFile != "" {
 		return []string{
-			"-p", puerto,
+			"-p", port,
 			"-o", "BatchMode=no",
 			"-o", "PubkeyAuthentication=no",
 			"-o", "PreferredAuthentications=password",
-			"-o", opcionHost,
+			"-o", optionHost,
 		}
 	}
 
 	return []string{
 		"-i", c.keyPath,
-		"-p", puerto,
+		"-p", port,
 		"-o", "BatchMode=yes",
-		"-o", opcionHost,
+		"-o", optionHost,
 	}
 }
 
-// comando antepone sshpass cuando la sesión usa contraseña.
-func (c *Connector) comando(programa string, args []string, passwordFile string) (nombre string, argumentos []string) {
+// command antepone sshpass cuando la sesión usa contraseña.
+func (c *Connector) command(programa string, args []string, passwordFile string) (name string, arguments []string) {
 	if passwordFile == "" {
 		return programa, args
 	}
@@ -311,6 +311,6 @@ func (c *Connector) scpArgs() []string {
 		"-i", c.keyPath,
 		"-P", strconv.FormatUint(uint64(c.port), 10),
 		"-o", "BatchMode=yes",
-		"-o", opcionHost,
+		"-o", optionHost,
 	}
 }

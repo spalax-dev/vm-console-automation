@@ -84,7 +84,7 @@ PasswordConnector establece sesiones con usuario y contraseña, para registrar m
 ```go
 type PasswordConnector interface {
     // ConnectPassword abre una sesión con las credenciales dadas.
-    ConnectPassword(ctx context.Context, target domain.Target, usuario, password string) (Session, error)
+    ConnectPassword(ctx context.Context, target domain.Target, user, password string) (Session, error)
 }
 ```
 

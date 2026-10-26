@@ -14,183 +14,183 @@ import (
 	"consola-vm/internal/core/ports"
 )
 
-// ErrSesionNoDisponible indica que ningún conector puede atender la
+// ErrSessionUnavailable indica que ningún conector puede atender la
 // máquina en este momento (por ejemplo, la VM está apagada o no hay
 // llave SSH instalada ni Guest Additions disponible).
-var ErrSesionNoDisponible = errors.New("no hay una sesión disponible con la máquina")
+var ErrSessionUnavailable = errors.New("no hay una sesión disponible con la máquina")
 
-// ErrSinMaquina indica que la consola todavía no está vinculada con
-// ninguna máquina del inventario. Se envuelve con ErrSesionNoDisponible
+// ErrNoMachine indica que la consola todavía no está vinculada con
+// ninguna máquina del inventario. Se envuelve con ErrSessionUnavailable
 // para que el manejador responda 503 con un mensaje propio.
-var ErrSinMaquina = errors.New("no hay una máquina vinculada")
+var ErrNoMachine = errors.New("no hay una máquina vinculada")
 
-// InfoSesion describe el resultado del descubrimiento: el conector
+// SessionInfo describe el resultado del descubrimiento: el conector
 // elegido, la dirección de la máquina y su estado de encendido.
-type InfoSesion struct {
-	// Conector es el nombre publicado por el conector seleccionado.
-	Conector string
+type SessionInfo struct {
+	// Connector es el nombre publicado por el conector seleccionado.
+	Connector string
 	// IP es la dirección descubierta de la máquina.
 	IP netip.Addr
-	// Estado es el estado de encendido observado.
-	Estado domain.MachineState
+	// State es el estado de encendido observado.
+	State domain.MachineState
 }
 
-// ConfigDescubridor reúne las dependencias del descubridor de sesión.
-type ConfigDescubridor struct {
-	// Maquina consulta el estado y la dirección de la VM.
-	Maquina ports.Machine
-	// Objetivo identifica la máquina que se va a administrar.
-	Objetivo domain.Target
-	// Conectores son los conectores candidatos, en orden de preferencia.
-	Conectores []ports.Connector
-	// Registro informa si una máquina ya fue preparada para SSH. Una
+// DiscovererConfig reúne las dependencias del descubridor de sesión.
+type DiscovererConfig struct {
+	// Machine consulta el estado y la dirección de la VM.
+	Machine ports.Machine
+	// CurrentTarget identifica la máquina que se va a administrar.
+	CurrentTarget domain.Target
+	// Connectors son los conectores candidatos, en orden de preferencia.
+	Connectors []ports.Connector
+	// Registration informa si una máquina ya fue preparada para SSH. Una
 	// máquina registrada no vuelve a usar Guest Additions.
-	Registro Registro
+	Registration Registration
 }
 
-// Descubridor elige, en tiempo de ejecución, el conector con el que la
+// Discoverer elige, en tiempo de ejecución, el conector con el que la
 // consola puede administrar la máquina virtual.
-type Descubridor struct {
-	maquina    ports.Machine
-	conectores []ports.Connector
-	registro   Registro
+type Discoverer struct {
+	machine      ports.Machine
+	connectors   []ports.Connector
+	registration Registration
 
 	// mu protege objetivo: los manejadores HTTP consultan la sesión y
 	// vinculan una máquina distinta en paralelo.
-	mu       sync.RWMutex
-	objetivo domain.Target
+	mu     sync.RWMutex
+	target domain.Target
 }
 
-// NuevoDescubridor construye un descubridor con las dependencias dadas.
-func NuevoDescubridor(config *ConfigDescubridor) *Descubridor {
-	return &Descubridor{
-		maquina:    config.Maquina,
-		objetivo:   config.Objetivo,
-		conectores: config.Conectores,
-		registro:   config.Registro,
+// NewDiscoverer construye un descubridor con las dependencias dadas.
+func NewDiscoverer(config *DiscovererConfig) *Discoverer {
+	return &Discoverer{
+		machine:      config.Machine,
+		target:       config.CurrentTarget,
+		connectors:   config.Connectors,
+		registration: config.Registration,
 	}
 }
 
-// Objetivo devuelve la máquina con la que trabaja la consola.
-func (d *Descubridor) Objetivo() domain.Target {
+// CurrentTarget devuelve la máquina con la que trabaja la consola.
+func (d *Discoverer) CurrentTarget() domain.Target {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	return d.objetivo
+	return d.target
 }
 
-// Establecer vincula la consola con la máquina indicada. La dirección
+// Set vincula la consola con la máquina indicada. La dirección
 // descubierta se descarta porque pertenece a la máquina anterior.
-func (d *Descubridor) Establecer(nombre string) {
+func (d *Discoverer) Set(name string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	d.objetivo = domain.Target{ID: nombre}
+	d.target = domain.Target{ID: name}
 }
 
-// Descubrir resuelve el conector disponible para la máquina. Verifica
+// Discover resuelve el conector disponible para la máquina. Verifica
 // primero que la máquina esté en ejecución, descubre su dirección si
 // falta y sondea los conectores en orden de preferencia. Devuelve
-// ErrSesionNoDisponible cuando la máquina no puede atenderse o ningún
+// ErrSessionUnavailable cuando la máquina no puede atenderse o ningún
 // conector supera el sondeo.
-func (d *Descubridor) Descubrir(ctx context.Context) (InfoSesion, error) {
-	conector, objetivo, estado, err := d.resolver(ctx)
+func (d *Discoverer) Discover(ctx context.Context) (SessionInfo, error) {
+	connector, target, state, err := d.resolve(ctx)
 	if err != nil {
-		return InfoSesion{}, err
+		return SessionInfo{}, err
 	}
 
-	return InfoSesion{
-		Conector: conector.Name(),
-		IP:       objetivo.Address,
-		Estado:   estado,
+	return SessionInfo{
+		Connector: connector.Name(),
+		IP:        target.Address,
+		State:     state,
 	}, nil
 }
 
-// Abrir implementa AbridorSesion: resuelve el conector disponible y
+// Open implementa SessionOpener: resuelve el conector disponible y
 // establece una sesión con la máquina. La sesión queda a cargo del
 // llamador, que debe cerrarla.
-func (d *Descubridor) Abrir(ctx context.Context) (ports.Session, error) {
-	conector, objetivo, _, err := d.resolver(ctx)
+func (d *Discoverer) Open(ctx context.Context) (ports.Session, error) {
+	connector, target, _, err := d.resolve(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	sesion, err := conector.Connect(ctx, objetivo)
+	session, err := connector.Connect(ctx, target)
 	if err != nil {
-		return nil, fmt.Errorf("abrir la sesión con la máquina %q: %w", objetivo.ID, err)
+		return nil, fmt.Errorf("abrir la sesión con la máquina %q: %w", target.ID, err)
 	}
 
-	return sesion, nil
+	return session, nil
 }
 
-// resolver verifica el estado de la máquina, completa la dirección y
+// resolve verifica el estado de la máquina, completa la dirección y
 // elige el conector disponible.
-func (d *Descubridor) resolver(ctx context.Context) (ports.Connector, domain.Target, domain.MachineState, error) {
-	objetivo := d.Objetivo()
+func (d *Discoverer) resolve(ctx context.Context) (ports.Connector, domain.Target, domain.MachineState, error) {
+	target := d.CurrentTarget()
 
-	if objetivo.ID == "" {
+	if target.ID == "" {
 		return nil, domain.Target{}, domain.StateUnknown, fmt.Errorf(
-			"%w: %w, elige una del inventario", ErrSesionNoDisponible, ErrSinMaquina,
+			"%w: %w, elige una del inventario", ErrSessionUnavailable, ErrNoMachine,
 		)
 	}
 
-	estado, err := d.maquina.State(ctx, objetivo)
+	state, err := d.machine.State(ctx, target)
 	if err != nil {
-		return nil, domain.Target{}, domain.StateUnknown, fmt.Errorf(msgEstadoMaquina, err)
+		return nil, domain.Target{}, domain.StateUnknown, fmt.Errorf(msgStateMachine, err)
 	}
 
-	if estado != domain.StateRunning {
-		return nil, domain.Target{}, estado, fmt.Errorf(
-			"%w: la máquina %q está en estado %q", ErrSesionNoDisponible, objetivo.ID, estado,
+	if state != domain.StateRunning {
+		return nil, domain.Target{}, state, fmt.Errorf(
+			"%w: la máquina %q está en estado %q", ErrSessionUnavailable, target.ID, state,
 		)
 	}
 
-	objetivo, err = d.conDireccion(ctx, objetivo)
+	target, err = d.withAddress(ctx, target)
 	if err != nil {
-		return nil, domain.Target{}, estado, fmt.Errorf("%w: %w", ErrSesionNoDisponible, err)
+		return nil, domain.Target{}, state, fmt.Errorf("%w: %w", ErrSessionUnavailable, err)
 	}
 
-	conector := d.primerConectorDisponible(ctx, objetivo)
-	if conector == nil {
-		return nil, domain.Target{}, estado, fmt.Errorf(
-			"%w: ningún conector pudo atender la máquina %q", ErrSesionNoDisponible, objetivo.ID,
+	connector := d.firstAvailableConnector(ctx, target)
+	if connector == nil {
+		return nil, domain.Target{}, state, fmt.Errorf(
+			"%w: ningún conector pudo atender la máquina %q", ErrSessionUnavailable, target.ID,
 		)
 	}
 
-	return conector, objetivo, estado, nil
+	return connector, target, state, nil
 }
 
-// conDireccion devuelve el objetivo con una dirección válida, ya sea la
+// withAddress devuelve el objetivo con una dirección válida, ya sea la
 // que traía o la descubierta con el puerto Machine.
-func (d *Descubridor) conDireccion(ctx context.Context, objetivo domain.Target) (domain.Target, error) {
-	if objetivo.Address.IsValid() {
-		return objetivo, nil
+func (d *Discoverer) withAddress(ctx context.Context, target domain.Target) (domain.Target, error) {
+	if target.Address.IsValid() {
+		return target, nil
 	}
 
-	direccion, err := d.maquina.Address(ctx, objetivo)
+	address, err := d.machine.Address(ctx, target)
 	if err != nil {
 		return domain.Target{}, fmt.Errorf("descubrir la dirección de la máquina: %w", err)
 	}
 
-	objetivo.Address = direccion
+	target.Address = address
 
-	return objetivo, nil
+	return target, nil
 }
 
-// primerConectorDisponible devuelve el primer conector cuyo sondeo
+// firstAvailableConnector devuelve el primer conector cuyo sondeo
 // termina sin error, o nil si ninguno puede atender la máquina. En una
 // máquina ya registrada no se recurre al conector de respaldo: después
 // de instalar SSH, la comunicación debe ser exclusivamente por SSH.
-func (d *Descubridor) primerConectorDisponible(ctx context.Context, objetivo domain.Target) ports.Connector {
-	registrada := d.registro != nil && d.registro.Registrada(objetivo.ID)
+func (d *Discoverer) firstAvailableConnector(ctx context.Context, target domain.Target) ports.Connector {
+	registered := d.registration != nil && d.registration.IsRegistered(target.ID)
 
-	for indice, conector := range d.conectores {
-		if indice > 0 && registrada {
+	for index, connector := range d.connectors {
+		if index > 0 && registered {
 			break
 		}
 
-		if err := conector.Probe(ctx, objetivo); err == nil {
-			return conector
+		if err := connector.Probe(ctx, target); err == nil {
+			return connector
 		}
 	}
 

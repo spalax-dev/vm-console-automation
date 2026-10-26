@@ -25,10 +25,10 @@ func TestVersion(t *testing.T) {
 		t.Errorf("Version() = %q, %v, want 7.2.18r", version, err)
 	}
 
-	conError := newFakeExecutor()
-	conError.errs = map[string]error{"--version": errors.New("sin VBoxManage")}
+	withError := newFakeExecutor()
+	withError.errs = map[string]error{"--version": errors.New("sin VBoxManage")}
 
-	if _, err := New(conError).Version(context.Background()); err == nil {
+	if _, err := New(withError).Version(context.Background()); err == nil {
 		t.Error("Version() error = nil, want el fallo de VBoxManage")
 	}
 }
@@ -63,51 +63,51 @@ func TestGuestAdditions(t *testing.T) {
 		t.Errorf("GuestAdditions() sin usuarios = %+v, %v, want vacío sin error", guest, err)
 	}
 
-	sinDatos := newFakeExecutor()
-	sinDatos.errs = map[string]error{cmdShowVMInfo: errors.New("sin VBoxManage")}
+	withoutData := newFakeExecutor()
+	withoutData.errs = map[string]error{cmdShowVMInfo: errors.New("sin VBoxManage")}
 
-	if _, err := New(sinDatos).GuestAdditions(context.Background(), domain.Target{ID: vmID}); err == nil {
+	if _, err := New(withoutData).GuestAdditions(context.Background(), domain.Target{ID: vmID}); err == nil {
 		t.Error("GuestAdditions() error = nil, want el fallo de VBoxManage")
 	}
 }
 
-// TestValorPropiedad interpreta las propiedades de showvminfo.
-func TestValorPropiedad(t *testing.T) {
+// TestValueProperty interpreta las propiedades de showvminfo.
+func TestValueProperty(t *testing.T) {
 	t.Parallel()
 
-	salida := "  GuestAdditionsVersion=\"6.0.0\"\nOtra=1\n"
+	output := "  GuestAdditionsVersion=\"6.0.0\"\nOtra=1\n"
 
-	if valor := valorPropiedad(salida, "GuestAdditionsVersion"); valor != "6.0.0" {
-		t.Errorf("valorPropiedad() = %q, want 6.0.0", valor)
+	if value := valueProperty(output, "GuestAdditionsVersion"); value != "6.0.0" {
+		t.Errorf("valorPropiedad() = %q, want 6.0.0", value)
 	}
 
-	if valor := valorPropiedad(salida, "Inexistente"); valor != "" {
-		t.Errorf("valorPropiedad() = %q, want vacío", valor)
+	if value := valueProperty(output, "Inexistente"); value != "" {
+		t.Errorf("valorPropiedad() = %q, want vacío", value)
 	}
 
-	if numero := enteroPropiedad(salida, "Otra"); numero != 1 {
-		t.Errorf("enteroPropiedad() = %d, want 1", numero)
+	if number := enteroProperty(output, "Otra"); number != 1 {
+		t.Errorf("enteroPropiedad() = %d, want 1", number)
 	}
 
-	if numero := enteroPropiedad("Otra=abc", "Otra"); numero != 0 {
-		t.Errorf("enteroPropiedad() con valor inválido = %d, want 0", numero)
+	if number := enteroProperty("Otra=abc", "Otra"); number != 0 {
+		t.Errorf("enteroPropiedad() con valor inválido = %d, want 0", number)
 	}
 
-	if numero := enteroPropiedad("Otra=1", "Otra"); numero != 1 {
-		t.Errorf("enteroPropiedad() sin espacios = %d, want 1", numero)
+	if number := enteroProperty("Otra=1", "Otra"); number != 1 {
+		t.Errorf("enteroPropiedad() sin espacios = %d, want 1", number)
 	}
 
-	if numero := enteroPropiedad(salida, "Inexistente"); numero != 0 {
-		t.Errorf("enteroPropiedad() ausente = %d, want 0", numero)
+	if number := enteroProperty(output, "Inexistente"); number != 0 {
+		t.Errorf("enteroPropiedad() ausente = %d, want 0", number)
 	}
 }
 
-// TestParsearUsuarios interpreta la lista de usuarios conectados.
-func TestParsearUsuarios(t *testing.T) {
+// TestParseUsers interpreta la lista de usuarios conectados.
+func TestParseUsers(t *testing.T) {
 	t.Parallel()
 
-	casos := []struct {
-		salida string
+	testCases := []struct {
+		output string
 		want   int
 	}{
 		{"Value: jorge,andrey", 2},
@@ -116,76 +116,76 @@ func TestParsearUsuarios(t *testing.T) {
 		{"sin la propiedad", 0},
 	}
 
-	for _, caso := range casos {
-		if usuarios := parsearUsuarios(caso.salida); len(usuarios) != caso.want {
-			t.Errorf("parsearUsuarios(%q) = %v, want %d", caso.salida, usuarios, caso.want)
+	for _, testCase := range testCases {
+		if users := parseUsers(testCase.output); len(users) != testCase.want {
+			t.Errorf("parsearUsuarios(%q) = %v, want %d", testCase.output, users, testCase.want)
 		}
 	}
 }
 
-// TestCloseNoHaceNada comprueba que la sesión de guestcontrol no guarda
+// TestCloseNotMakesNada comprueba que la sesión de guestcontrol no guarda
 // recursos.
-func TestCloseNoHaceNada(t *testing.T) {
+func TestCloseNotMakesNada(t *testing.T) {
 	t.Parallel()
 
-	sesion := &Session{}
+	session := &Session{}
 
-	if err := sesion.Close(); err != nil {
+	if err := session.Close(); err != nil {
 		t.Errorf("Close() error = %v, want nil", err)
 	}
 }
 
-// TestSessionRunPropagaElFallo devuelve el error del hipervisor.
-func TestSessionRunPropagaElFallo(t *testing.T) {
+// TestSessionRunPropagatesFailure devuelve el error del hipervisor.
+func TestSessionRunPropagatesFailure(t *testing.T) {
 	t.Parallel()
 
 	fake := runningFake()
 	fake.errs = map[string]error{"guestcontrol": &domain.ExitError{Code: 1, Command: "VBoxManage"}}
 
-	sesion, err := New(fake).Connect(context.Background(), domain.Target{ID: vmID})
+	session, err := New(fake).Connect(context.Background(), domain.Target{ID: vmID})
 	if err != nil {
 		t.Fatalf(msgConnectFail, err)
 	}
 
-	if _, err := sesion.Run(context.Background(), &domain.Command{Path: "/usr/bin/id"}); err == nil {
+	if _, err := session.Run(context.Background(), &domain.Command{Path: "/usr/bin/id"}); err == nil {
 		t.Error("Run() error = nil, want el fallo de guestcontrol")
 	}
 }
 
-// TestSessionPutPropagaElFallo devuelve el error de la transferencia.
-func TestSessionPutPropagaElFallo(t *testing.T) {
+// TestSessionPutPropagatesFailure devuelve el error de la transferencia.
+func TestSessionPutPropagatesFailure(t *testing.T) {
 	t.Parallel()
 
 	fake := runningFake()
 	fake.errs = map[string]error{subGuestControl: &domain.ExitError{Code: 1, Command: "VBoxManage"}}
 
-	sesion, err := New(fake).Connect(context.Background(), domain.Target{ID: vmID})
+	session, err := New(fake).Connect(context.Background(), domain.Target{ID: vmID})
 	if err != nil {
 		t.Fatalf(msgConnectFail, err)
 	}
 
-	if err := sesion.Put(context.Background(), "/tmp/a", "/tmp/b"); err == nil {
+	if err := session.Put(context.Background(), "/tmp/a", "/tmp/b"); err == nil {
 		t.Error("Put() error = nil, want el fallo de copyto")
 	}
 }
 
-// TestErrorSanitizadoConservaLosDemasErrores deja intacto un error que no
+// TestErrorSanitizedKeepsOtherErrors deja intacto un error que no
 // proviene de un código de salida.
-func TestErrorSanitizadoConservaLosDemasErrores(t *testing.T) {
+func TestErrorSanitizedKeepsOtherErrors(t *testing.T) {
 	t.Parallel()
 
 	original := errors.New("sin conexión")
 
-	if err := errorSanitizado(original, "comando"); !errors.Is(err, original) {
+	if err := sanitizeError(original, "comando"); !errors.Is(err, original) {
 		t.Errorf("errorSanitizado() = %v, want el error original", err)
 	}
 }
 
-// TestParseStateTraduceLosEstados cubre el vocabulario de VirtualBox.
-func TestParseStateTraduceLosEstados(t *testing.T) {
+// TestParseStateTranslatesStates cubre el vocabulario de VirtualBox.
+func TestParseStateTranslatesStates(t *testing.T) {
 	t.Parallel()
 
-	casos := map[string]domain.MachineState{
+	testCases := map[string]domain.MachineState{
 		`VMState="running"`:  domain.StateRunning,
 		`VMState="poweroff"`: domain.StatePoweredOff,
 		`VMState="aborted"`:  domain.StatePoweredOff,
@@ -195,23 +195,23 @@ func TestParseStateTraduceLosEstados(t *testing.T) {
 		"sin estado":         domain.StateUnknown,
 	}
 
-	for salida, esperado := range casos {
-		if estado := parseState(salida); estado != esperado {
-			t.Errorf("parseState(%q) = %q, want %q", salida, estado, esperado)
+	for output, expected := range testCases {
+		if state := parseState(output); state != expected {
+			t.Errorf("parseState(%q) = %q, want %q", output, state, expected)
 		}
 	}
 }
 
-// TestParseNetworkDesconocida informa desconocido ante un modo ajeno.
-func TestParseNetworkDesconocida(t *testing.T) {
+// TestParseNetworkUnknown informa desconocido ante un modo ajeno.
+func TestParseNetworkUnknown(t *testing.T) {
 	t.Parallel()
 
-	if modo := parseNetwork(`nic1="otro"`); modo != domain.NetworkUnknown {
-		t.Errorf("parseNetwork() = %q, want desconocido", modo)
+	if mode := parseNetwork(`nic1="otro"`); mode != domain.NetworkUnknown {
+		t.Errorf("parseNetwork() = %q, want desconocido", mode)
 	}
 
-	if modo := parseNetwork("sin interfaz"); modo != domain.NetworkUnknown {
-		t.Errorf("parseNetwork() = %q, want desconocido", modo)
+	if mode := parseNetwork("sin interfaz"); mode != domain.NetworkUnknown {
+		t.Errorf("parseNetwork() = %q, want desconocido", mode)
 	}
 }
 
@@ -219,10 +219,10 @@ func TestParseNetworkDesconocida(t *testing.T) {
 func TestStateError(t *testing.T) {
 	t.Parallel()
 
-	conError := newFakeExecutor()
-	conError.errs = map[string]error{cmdShowVMInfo: errors.New("sin VBoxManage")}
+	withError := newFakeExecutor()
+	withError.errs = map[string]error{cmdShowVMInfo: errors.New("sin VBoxManage")}
 
-	if _, err := New(conError).State(context.Background(), domain.Target{ID: vmID}); err == nil {
+	if _, err := New(withError).State(context.Background(), domain.Target{ID: vmID}); err == nil {
 		t.Error("State() error = nil, want el fallo de VBoxManage")
 	}
 }
@@ -231,41 +231,41 @@ func TestStateError(t *testing.T) {
 func TestNetworkError(t *testing.T) {
 	t.Parallel()
 
-	conError := newFakeExecutor()
-	conError.errs = map[string]error{cmdShowVMInfo: errors.New("sin VBoxManage")}
+	withError := newFakeExecutor()
+	withError.errs = map[string]error{cmdShowVMInfo: errors.New("sin VBoxManage")}
 
-	if _, err := New(conError).Network(context.Background(), domain.Target{ID: vmID}); err == nil {
+	if _, err := New(withError).Network(context.Background(), domain.Target{ID: vmID}); err == nil {
 		t.Error("Network() error = nil, want el fallo de VBoxManage")
 	}
 }
 
-// TestProbePropagaElFalloDelEstado no oculta el error de showvminfo.
-func TestProbePropagaElFalloDelEstado(t *testing.T) {
+// TestProbePropagatesFailureOfState no oculta el error de showvminfo.
+func TestProbePropagatesFailureOfState(t *testing.T) {
 	t.Parallel()
 
-	conError := newFakeExecutor()
-	conError.errs = map[string]error{cmdShowVMInfo: errors.New("sin VBoxManage")}
+	withError := newFakeExecutor()
+	withError.errs = map[string]error{cmdShowVMInfo: errors.New("sin VBoxManage")}
 
-	if err := New(conError).Probe(context.Background(), domain.Target{ID: vmID}); err == nil {
+	if err := New(withError).Probe(context.Background(), domain.Target{ID: vmID}); err == nil {
 		t.Error("Probe() error = nil, want el fallo de VBoxManage")
 	}
 }
 
-// TestConnectPropagaElFalloDeProbe no abre sesión si la máquina no
+// TestConnectPropagatesFailureOfProbe no abre sesión si la máquina no
 // responde.
-func TestConnectPropagaElFalloDeProbe(t *testing.T) {
+func TestConnectPropagatesFailureOfProbe(t *testing.T) {
 	t.Parallel()
 
-	conError := newFakeExecutor()
-	conError.errs = map[string]error{cmdShowVMInfo: errors.New("sin VBoxManage")}
+	withError := newFakeExecutor()
+	withError.errs = map[string]error{cmdShowVMInfo: errors.New("sin VBoxManage")}
 
-	if _, err := New(conError).Connect(context.Background(), domain.Target{ID: vmID}); err == nil {
+	if _, err := New(withError).Connect(context.Background(), domain.Target{ID: vmID}); err == nil {
 		t.Error("Connect() error = nil, want el fallo de VBoxManage")
 	}
 }
 
-// TestReintentableSinArgumentos no reintenta una orden desconocida.
-func TestReintentableSinArgumentos(t *testing.T) {
+// TestReintentableWithoutArguments no reintenta una orden desconocida.
+func TestReintentableWithoutArguments(t *testing.T) {
 	t.Parallel()
 
 	if reintentable(nil) {
@@ -281,9 +281,9 @@ func TestReintentableSinArgumentos(t *testing.T) {
 	}
 }
 
-// TestEjecutarEsperaCancelada abandona el reintento si la petición se
+// TestRunEsperaCancelada abandona el reintento si la petición se
 // cancela mientras espera.
-func TestEjecutarEsperaCancelada(t *testing.T) {
+func TestRunEsperaCancelada(t *testing.T) {
 	t.Parallel()
 
 	fake := newFakeExecutor()
@@ -292,19 +292,19 @@ func TestEjecutarEsperaCancelada(t *testing.T) {
 	ctx, cancelar := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancelar()
 
-	if _, err := New(fake).ejecutar(ctx, cmdShowVMInfo, vmID); err == nil {
+	if _, err := New(fake).run(ctx, cmdShowVMInfo, vmID); err == nil {
 		t.Error("ejecutar() error = nil, want el fallo tras cancelar la espera")
 	}
 }
 
-// TestEjecutarReintentaYFalla devuelve el error del segundo intento.
-func TestEjecutarReintentaYFalla(t *testing.T) {
+// TestRunReintentaYFails devuelve el error del segundo intento.
+func TestRunReintentaYFails(t *testing.T) {
 	t.Parallel()
 
 	fake := newFakeExecutor()
 	fake.errs = map[string]error{cmdShowVMInfo: errors.New("ocupado")}
 
-	if _, err := New(fake).ejecutar(context.Background(), cmdShowVMInfo, vmID); err == nil {
+	if _, err := New(fake).run(context.Background(), cmdShowVMInfo, vmID); err == nil {
 		t.Error("ejecutar() error = nil, want el fallo del reintento")
 	}
 
@@ -313,8 +313,8 @@ func TestEjecutarReintentaYFalla(t *testing.T) {
 	}
 }
 
-// TestNewValoresPorOmision comprueba el binario y el usuario iniciales.
-func TestNewValoresPorOmision(t *testing.T) {
+// TestNewValuesByOmision comprueba el binario y el usuario iniciales.
+func TestNewValuesByOmision(t *testing.T) {
 	t.Parallel()
 
 	client := New(newFakeExecutor())
@@ -339,35 +339,35 @@ func (f *fakeReintento) Execute(_ context.Context, _ string, _ ...string) (domai
 	return domain.Result{Stdout: vmRunning}, nil
 }
 
-// TestEjecutarReintentaYTriunfa devuelve el resultado del segundo intento.
-func TestEjecutarReintentaYTriunfa(t *testing.T) {
+// TestRunReintentaYTriunfa devuelve el resultado del segundo intento.
+func TestRunReintentaYTriunfa(t *testing.T) {
 	t.Parallel()
 
 	fake := &fakeReintento{}
 
-	resultado, err := New(fake).ejecutar(context.Background(), cmdShowVMInfo, vmID)
+	result, err := New(fake).run(context.Background(), cmdShowVMInfo, vmID)
 	if err != nil {
 		t.Fatalf("ejecutar() error = %v, want nil", err)
 	}
 
-	if resultado.Stdout != vmRunning || fake.intentos != 2 {
+	if result.Stdout != vmRunning || fake.intentos != 2 {
 		t.Errorf("ejecutar() = %q tras %d intentos, want el segundo resultado",
-			resultado.Stdout, fake.intentos)
+			result.Stdout, fake.intentos)
 	}
 }
 
-// TestSessionRunPasaElDirectorioDeTrabajo agrega --cwd a la orden.
-func TestSessionRunPasaElDirectorioDeTrabajo(t *testing.T) {
+// TestSessionRunPasaDirectoryOfTrabajo agrega --cwd a la orden.
+func TestSessionRunPasaDirectoryOfTrabajo(t *testing.T) {
 	t.Parallel()
 
 	fake := runningFake()
 
-	sesion, err := New(fake).Connect(context.Background(), domain.Target{ID: vmID})
+	session, err := New(fake).Connect(context.Background(), domain.Target{ID: vmID})
 	if err != nil {
 		t.Fatalf(msgConnectFail, err)
 	}
 
-	if _, err := sesion.Run(context.Background(), &domain.Command{
+	if _, err := session.Run(context.Background(), &domain.Command{
 		Path: "/usr/bin/date",
 		Dir:  "/tmp",
 	}); err != nil {
@@ -380,8 +380,8 @@ func TestSessionRunPasaElDirectorioDeTrabajo(t *testing.T) {
 	}
 }
 
-// TestParseAddressIgnoraLineasAjenas y falla si no hay propiedad.
-func TestParseAddressIgnoraLineasAjenas(t *testing.T) {
+// TestParseAddressIgnoresLinesForeign y falla si no hay propiedad.
+func TestParseAddressIgnoresLinesForeign(t *testing.T) {
 	t.Parallel()
 
 	if _, err := parseAddress("Address: 10.0.2.15"); err == nil {

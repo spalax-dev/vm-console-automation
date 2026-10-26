@@ -18,169 +18,169 @@ import (
 
 // Valores repetidos en las pruebas de los handlers.
 const (
-	casoValido            = "válido"
-	casoMetodoNoPermitido = "método no permitido"
-	casoCuerpoInvalido    = "cuerpo inválido"
-	unidadCatalogo        = "catalogo.service"
-	casoListar            = "listar"
-	casoConsultar         = "consultar"
-	casoEliminar          = "eliminar"
-	casoNombreInvalido    = "nombre inválido"
-	casoUsuarioInvalido   = "usuario inválido"
-	usuarioJorge          = "jorge"
-	usuarioJorgeMayus     = "Jorge"
-	rutaUsuarioJorge      = "/api/users/jorge"
-	nombreNano            = "nano"
-	servidorPrueba        = "192.168.1.61:8080"
-	rutaPaquetes          = "/api/packages"
-	rutaPaqueteNano       = rutaPaquetes + "/" + nombreNano
-	operacionInstalarNano = "apt-get install -y nano"
-	rutaLlaveRoot         = "/api/keys/root"
-	msgCodigoCuerpo       = "código = %d, want %d (cuerpo %s)"
-	rutaIssue             = "/api/issue"
-	rutaHostname          = "/api/hostname"
-	hostDebian            = "debian13"
-	rutaUsuarios          = "/api/users"
-	llavePrivadaPrueba    = "privada"
-	casoInexistente       = "inexistente"
-	estadoActivoPrueba    = "active"
-	propietarioCatalogo   = "catalogo"
-	rutaUnidad            = "/api/units/x"
-	rutaReinicios         = "/api/units/x/restarts"
-	casoErrorLectura      = "error de lectura"
-	casoUnidadInvalida    = "unidad inválida"
-	rutaServidores        = "/api/haproxy/backend/servers"
-	rutaServidor          = rutaServidores + "/x"
-	ipServidor            = "192.168.1.61"
-	cuerpoServidor        = `{"direccion":"192.168.1.61","puerto":8080}`
-	cuerpoActivar         = `{"activo":true}`
-	textoBienvenido       = "Bienvenido"
+	testCaseValid              = "válido"
+	testCaseMethodNotPermitido = "método no permitido"
+	testCaseBodyInvalid        = "cuerpo inválido"
+	unitCatalogo               = "catalogo.service"
+	testCaseList               = "listar"
+	testCaseGet                = "consultar"
+	testCaseDelete             = "eliminar"
+	testCaseNameInvalid        = "nombre inválido"
+	testCaseUserInvalid        = "usuario inválido"
+	userJorge                  = "jorge"
+	userJorgeMayus             = "Jorge"
+	pathUserJorge              = "/api/users/jorge"
+	nameNano                   = "nano"
+	serverTests                = "192.168.1.61:8080"
+	pathPackages               = "/api/packages"
+	pathPkgNano                = pathPackages + "/" + nameNano
+	operationInstallNano       = "apt-get install -y nano"
+	pathSSHKeyRoot             = "/api/keys/root"
+	msgCodeBody                = "código = %d, want %d (cuerpo %s)"
+	pathIssue                  = "/api/issue"
+	pathHostname               = "/api/hostname"
+	hostTest                   = "vm1"
+	pathUsers                  = "/api/users"
+	sshKeyPrivateTests         = "privada"
+	testCaseInexistente        = "inexistente"
+	stateActiveTests           = "active"
+	propietarioCatalogo        = "catalogo"
+	pathUnit                   = "/api/units/x"
+	pathRestarts               = "/api/units/x/restarts"
+	testCaseErrorRead          = "error de lectura"
+	testCaseUnitInvalida       = "unidad inválida"
+	pathServers                = "/api/haproxy/backend/servers"
+	pathServer                 = pathServers + "/x"
+	ipServer                   = "192.168.1.61"
+	bodyServer                 = `{"direccion":"192.168.1.61","puerto":8080}`
+	bodyActivar                = `{"activo":true}`
+	textBienvenido             = "Bienvenido"
 )
 
-// stubPaquetes es un servicio de paquetes falso con resultados
+// stubPackages es un servicio de paquetes falso con resultados
 // preprogramados.
-type stubPaquetes struct {
-	lista     []services.Paquete
-	resultado services.Resultado
-	err       error
-	nombre    string
+type stubPackages struct {
+	lists  []services.Package
+	result services.Outcome
+	err    error
+	name   string
 }
 
-// Listar devuelve la lista preprogramada.
-func (s *stubPaquetes) Listar(context.Context) ([]services.Paquete, error) {
-	return s.lista, s.err
+// List devuelve la lista preprogramada.
+func (s *stubPackages) List(context.Context) ([]services.Package, error) {
+	return s.lists, s.err
 }
 
-// Instalar registra el nombre y devuelve el resultado preprogramado.
-func (s *stubPaquetes) Instalar(_ context.Context, nombre string) (services.Resultado, error) {
-	s.nombre = nombre
+// Install registra el nombre y devuelve el resultado preprogramado.
+func (s *stubPackages) Install(_ context.Context, name string) (services.Outcome, error) {
+	s.name = name
 
-	return s.resultado, s.err
+	return s.result, s.err
 }
 
-// Eliminar registra el nombre y devuelve el resultado preprogramado.
-func (s *stubPaquetes) Eliminar(_ context.Context, nombre string) (services.Resultado, error) {
-	s.nombre = nombre
+// Delete registra el nombre y devuelve el resultado preprogramado.
+func (s *stubPackages) Delete(_ context.Context, name string) (services.Outcome, error) {
+	s.name = name
 
-	return s.resultado, s.err
+	return s.result, s.err
 }
 
-// stubLlaves es un servicio de llaves falso con resultados
+// stubKeys es un servicio de llaves falso con resultados
 // preprogramados.
-type stubLlaves struct {
-	resultado   services.Resultado
-	err         error
-	nombre      string
-	contenido   []byte
-	descargaErr error
-	generadas   int
+type stubKeys struct {
+	result       services.Outcome
+	err          error
+	name         string
+	content      []byte
+	downloadsErr error
+	generadas    int
 }
 
-// Generar registra la llamada y devuelve el resultado preprogramado.
-func (s *stubLlaves) Generar(context.Context) (services.Resultado, error) {
+// Generate registra la llamada y devuelve el resultado preprogramado.
+func (s *stubKeys) Generate(context.Context) (services.Outcome, error) {
 	s.generadas++
 
-	return s.resultado, s.err
+	return s.result, s.err
 }
 
-// Descargar devuelve la llave preprogramada.
-func (s *stubLlaves) Descargar() (nombre string, contenido []byte, err error) {
-	return s.nombre, s.contenido, s.descargaErr
+// Download devuelve la llave preprogramada.
+func (s *stubKeys) Download() (name string, content []byte, err error) {
+	return s.name, s.content, s.downloadsErr
 }
 
 // stubIssue es un servicio de /etc/issue falso con resultados
 // preprogramados.
 type stubIssue struct {
-	config     services.ConfiguracionIssue
-	resultado  services.Resultado
+	config     services.IssueConfig
+	result     services.Outcome
 	err        error
-	escrito    services.ConfiguracionIssue
+	escrito    services.IssueConfig
 	escrituras int
 }
 
-// Obtener devuelve la configuración preprogramada.
-func (s *stubIssue) Obtener(context.Context) (services.ConfiguracionIssue, error) {
+// Get devuelve la configuración preprogramada.
+func (s *stubIssue) Get(context.Context) (services.IssueConfig, error) {
 	return s.config, s.err
 }
 
-// Escribir registra la configuración y devuelve el resultado.
-func (s *stubIssue) Escribir(_ context.Context, config services.ConfiguracionIssue) (services.Resultado, error) {
+// Write registra la configuración y devuelve el resultado.
+func (s *stubIssue) Write(_ context.Context, config services.IssueConfig) (services.Outcome, error) {
 	s.escrito = config
 	s.escrituras++
 
-	return s.resultado, s.err
+	return s.result, s.err
 }
 
 // stubHostname es un servicio de hostname falso con resultados
 // preprogramados.
 type stubHostname struct {
-	config     services.ConfiguracionHostname
-	resultado  services.Resultado
+	config     services.HostnameConfig
+	result     services.Outcome
 	err        error
-	escrito    services.ConfiguracionHostname
+	escrito    services.HostnameConfig
 	escrituras int
 }
 
-// Obtener devuelve la configuración preprogramada.
-func (s *stubHostname) Obtener(context.Context) (services.ConfiguracionHostname, error) {
+// Get devuelve la configuración preprogramada.
+func (s *stubHostname) Get(context.Context) (services.HostnameConfig, error) {
 	return s.config, s.err
 }
 
-// Escribir registra la configuración y devuelve el resultado.
-func (s *stubHostname) Escribir(_ context.Context, config services.ConfiguracionHostname) (services.Resultado, error) {
+// Write registra la configuración y devuelve el resultado.
+func (s *stubHostname) Write(_ context.Context, config services.HostnameConfig) (services.Outcome, error) {
 	s.escrito = config
 	s.escrituras++
 
-	return s.resultado, s.err
+	return s.result, s.err
 }
 
-// nuevoSistemaPrueba arma el handler de sistema con los servicios
+// newSystemTests arma el handler de sistema con los servicios
 // falsos.
-func nuevoSistemaPrueba() *Sistema {
-	return NuevoSistema(&stubPaquetes{}, &stubLlaves{}, &stubIssue{}, &stubHostname{})
+func newSystemTests() *System {
+	return NewSystem(&stubPackages{}, &stubKeys{}, &stubIssue{}, &stubHostname{})
 }
 
-// casoPeticion describe una petición de prueba contra un handler.
-type casoPeticion struct {
-	// nombre identifica el caso en los mensajes de error.
-	nombre string
-	// metodo es el método HTTP de la petición.
-	metodo string
-	// cuerpo es el JSON enviado, vacío si no aplica.
-	cuerpo string
-	// codigo es el estado HTTP esperado.
-	codigo int
-	// campo es el campo de validación esperado en un 400, si aplica.
-	campo string
+// testCaseRequest describe una petición de prueba contra un handler.
+type testCaseRequest struct {
+	// name identifica el caso en los mensajes de error.
+	name string
+	// method es el método HTTP de la petición.
+	method string
+	// body es el JSON enviado, vacío si no aplica.
+	body string
+	// code es el estado HTTP esperado.
+	code int
+	// field es el campo de validación esperado en un 400, si aplica.
+	field string
 }
 
-// ejecutarCaso lanza una petición contra el handler y devuelve la
+// runTestCase lanza una petición contra el handler y devuelve la
 // respuesta grabada.
-func ejecutarCaso(t *testing.T, handler http.HandlerFunc, ruta string, caso casoPeticion) *httptest.ResponseRecorder {
+func runTestCase(t *testing.T, handler http.HandlerFunc, path string, testCase testCaseRequest) *httptest.ResponseRecorder {
 	t.Helper()
 
-	req := httptest.NewRequestWithContext(context.Background(), caso.metodo, ruta, strings.NewReader(caso.cuerpo))
-	req.Header.Set(cabeceraContentType, tipoJSONPrueba)
+	req := httptest.NewRequestWithContext(context.Background(), testCase.method, path, strings.NewReader(testCase.body))
+	req.Header.Set(headerContentType, kindJSONTests)
 
 	rec := httptest.NewRecorder()
 	handler(rec, req)
@@ -188,15 +188,15 @@ func ejecutarCaso(t *testing.T, handler http.HandlerFunc, ruta string, caso caso
 	return rec
 }
 
-// ejecutarCasoConPath lanza una petición con un parámetro de ruta.
-func ejecutarCasoConPath(
-	t *testing.T, handler http.HandlerFunc, ruta, clave, valor string, caso casoPeticion,
+// runTestCaseWithPath lanza una petición con un parámetro de ruta.
+func runTestCaseWithPath(
+	t *testing.T, handler http.HandlerFunc, path, key, value string, testCase testCaseRequest,
 ) *httptest.ResponseRecorder {
 	t.Helper()
 
-	req := httptest.NewRequestWithContext(context.Background(), caso.metodo, ruta, strings.NewReader(caso.cuerpo))
-	req.Header.Set(cabeceraContentType, tipoJSONPrueba)
-	req.SetPathValue(clave, valor)
+	req := httptest.NewRequestWithContext(context.Background(), testCase.method, path, strings.NewReader(testCase.body))
+	req.Header.Set(headerContentType, kindJSONTests)
+	req.SetPathValue(key, value)
 
 	rec := httptest.NewRecorder()
 	handler(rec, req)
@@ -204,200 +204,200 @@ func ejecutarCasoConPath(
 	return rec
 }
 
-// comprobarCaso valida el código HTTP y, en los errores de validación,
+// checkTestCase valida el código HTTP y, en los errores de validación,
 // que el cuerpo nombre el campo rechazado.
-func comprobarCaso(t *testing.T, rec *httptest.ResponseRecorder, caso casoPeticion) {
+func checkTestCase(t *testing.T, rec *httptest.ResponseRecorder, testCase testCaseRequest) {
 	t.Helper()
 
-	if rec.Code != caso.codigo {
-		t.Fatalf("%s: código = %d, want %d (cuerpo %s)", caso.nombre, rec.Code, caso.codigo, rec.Body.String())
+	if rec.Code != testCase.code {
+		t.Fatalf("%s: código = %d, want %d (cuerpo %s)", testCase.name, rec.Code, testCase.code, rec.Body.String())
 	}
 
-	if caso.campo == "" {
+	if testCase.field == "" {
 		return
 	}
 
-	var cuerpo map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &cuerpo); err != nil {
-		t.Fatalf("%s: respuesta no es JSON válido: %v", caso.nombre, err)
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("%s: respuesta no es JSON válido: %v", testCase.name, err)
 	}
 
-	if cuerpo["campo"] != caso.campo {
-		t.Errorf("%s: campo = %v, want %q", caso.nombre, cuerpo["campo"], caso.campo)
+	if body["campo"] != testCase.field {
+		t.Errorf("%s: campo = %v, want %q", testCase.name, body["campo"], testCase.field)
 	}
 
-	if cuerpo["ok"] != false {
-		t.Errorf("%s: ok = %v, want false", caso.nombre, cuerpo["ok"])
+	if body["ok"] != false {
+		t.Errorf("%s: ok = %v, want false", testCase.name, body["ok"])
 	}
 }
 
-// TestPaquetesListar cubre el listado de paquetes instalados.
-func TestPaquetesListar(t *testing.T) {
+// TestPackagesList cubre el listado de paquetes instalados.
+func TestPackagesList(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubPaquetes{lista: []services.Paquete{{Nombre: nombreNano, Version: "7.2-1"}}}
-	rec := ejecutarCaso(t, NuevoSistema(servicio, &stubLlaves{}, &stubIssue{}, &stubHostname{}).Paquetes, rutaPaquetes, casoPeticion{
-		nombre: casoListar, metodo: http.MethodGet,
+	service := &stubPackages{lists: []services.Package{{Name: nameNano, Version: "7.2-1"}}}
+	rec := runTestCase(t, NewSystem(service, &stubKeys{}, &stubIssue{}, &stubHostname{}).Packages, pathPackages, testCaseRequest{
+		name: testCaseList, method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf(msgCodigoCuerpo, rec.Code, http.StatusOK, rec.Body.String())
+		t.Fatalf(msgCodeBody, rec.Code, http.StatusOK, rec.Body.String())
 	}
 
-	var cuerpo struct {
-		Paquetes []paqueteRespuesta `json:"paquetes"`
+	var body struct {
+		Packages []packageResponse `json:"paquetes"`
 	}
 
-	if err := json.Unmarshal(rec.Body.Bytes(), &cuerpo); err != nil {
-		t.Fatalf(msgJSONInvalido, err)
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf(msgJSONInvalid, err)
 	}
 
-	if len(cuerpo.Paquetes) != 1 || cuerpo.Paquetes[0].Nombre != nombreNano {
-		t.Errorf("paquetes = %+v, want [%s]", cuerpo.Paquetes, nombreNano)
+	if len(body.Packages) != 1 || body.Packages[0].Name != nameNano {
+		t.Errorf("paquetes = %+v, want [%s]", body.Packages, nameNano)
 	}
 }
 
-// TestPaquetesInstalar cubre la instalación de un paquete.
-func TestPaquetesInstalar(t *testing.T) {
+// TestPackagesInstall cubre la instalación de un paquete.
+func TestPackagesInstall(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubPaquetes{resultado: services.Resultado{
-		Mensaje:   "Paquete «nano» instalado.",
-		Operacion: operacionInstalarNano,
+	service := &stubPackages{result: services.Outcome{
+		Message:   "Paquete «nano» instalado.",
+		Operation: operationInstallNano,
 	}}
 
-	rec := ejecutarCaso(t, NuevoSistema(servicio, &stubLlaves{}, &stubIssue{}, &stubHostname{}).Paquetes, rutaPaquetes, casoPeticion{
-		nombre: casoValido, metodo: http.MethodPost, cuerpo: `{"nombre":"nano"}`,
+	rec := runTestCase(t, NewSystem(service, &stubKeys{}, &stubIssue{}, &stubHostname{}).Packages, pathPackages, testCaseRequest{
+		name: testCaseValid, method: http.MethodPost, body: `{"nombre":"nano"}`,
 	})
 
 	if rec.Code != http.StatusCreated {
-		t.Fatalf(msgCodigoCuerpo, rec.Code, http.StatusCreated, rec.Body.String())
+		t.Fatalf(msgCodeBody, rec.Code, http.StatusCreated, rec.Body.String())
 	}
 
-	if got := rec.Header().Get(cabeceraLocation); got != rutaPaqueteNano {
-		t.Errorf("Location = %q, want %q", got, rutaPaqueteNano)
+	if got := rec.Header().Get(headerLocation); got != pathPkgNano {
+		t.Errorf("Location = %q, want %q", got, pathPkgNano)
 	}
 
-	if servicio.nombre != nombreNano {
-		t.Errorf("nombre = %q, want %q", servicio.nombre, nombreNano)
+	if service.name != nameNano {
+		t.Errorf("nombre = %q, want %q", service.name, nameNano)
 	}
 
-	var cuerpo map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &cuerpo); err != nil {
-		t.Fatalf(msgJSONInvalido, err)
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf(msgJSONInvalid, err)
 	}
 
-	if cuerpo["ok"] != true {
-		t.Errorf("ok = %v, want true", cuerpo["ok"])
+	if body["ok"] != true {
+		t.Errorf("ok = %v, want true", body["ok"])
 	}
 }
 
-// TestPaquetesValidacion cubre los errores de entrada de la colección.
-func TestPaquetesValidacion(t *testing.T) {
+// TestPackagesValidacion cubre los errores de entrada de la colección.
+func TestPackagesValidacion(t *testing.T) {
 	t.Parallel()
 
-	handler := nuevoSistemaPrueba().Paquetes
-	casos := []casoPeticion{
-		{nombre: "nombre con shell", metodo: http.MethodPost, cuerpo: `{"nombre":"nano; rm -rf /"}`, codigo: http.StatusBadRequest, campo: campoNombre},
-		{nombre: casoCuerpoInvalido, metodo: http.MethodPost, cuerpo: `{`, codigo: http.StatusBadRequest},
-		{nombre: casoMetodoNoPermitido, metodo: http.MethodPut, codigo: http.StatusMethodNotAllowed},
+	handler := newSystemTests().Packages
+	testCases := []testCaseRequest{
+		{name: "nombre con shell", method: http.MethodPost, body: `{"nombre":"nano; rm -rf /"}`, code: http.StatusBadRequest, field: nameField},
+		{name: testCaseBodyInvalid, method: http.MethodPost, body: `{`, code: http.StatusBadRequest},
+		{name: testCaseMethodNotPermitido, method: http.MethodPut, code: http.StatusMethodNotAllowed},
 	}
 
-	for _, caso := range casos {
-		rec := ejecutarCaso(t, handler, rutaPaquetes, caso)
-		comprobarCaso(t, rec, caso)
+	for _, testCase := range testCases {
+		rec := runTestCase(t, handler, pathPackages, testCase)
+		checkTestCase(t, rec, testCase)
 	}
 }
 
-// TestPaquetesErrorDeOrden cubre el fallo de APT con código distinto de
+// TestPackagesErrorOfCommand cubre el fallo de APT con código distinto de
 // cero.
-func TestPaquetesErrorDeOrden(t *testing.T) {
+func TestPackagesErrorOfCommand(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubPaquetes{
-		resultado: services.Resultado{
-			Operacion: operacionInstalarNano,
+	service := &stubPackages{
+		result: services.Outcome{
+			Operation: operationInstallNano,
 			Stderr:    "E: Unable to locate package nano",
-			Codigo:    100,
+			Code:      100,
 		},
-		err: &domain.ExitError{Code: 100, Command: operacionInstalarNano},
+		err: &domain.ExitError{Code: 100, Command: operationInstallNano},
 	}
 
-	rec := ejecutarCaso(t, NuevoSistema(servicio, &stubLlaves{}, &stubIssue{}, &stubHostname{}).Paquetes, rutaPaquetes, casoPeticion{
-		nombre: "fallo de APT", metodo: http.MethodPost, cuerpo: `{"nombre":"nano"}`,
+	rec := runTestCase(t, NewSystem(service, &stubKeys{}, &stubIssue{}, &stubHostname{}).Packages, pathPackages, testCaseRequest{
+		name: "fallo de APT", method: http.MethodPost, body: `{"nombre":"nano"}`,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 
-	var cuerpo map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &cuerpo); err != nil {
-		t.Fatalf(msgJSONInvalido, err)
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf(msgJSONInvalid, err)
 	}
 
-	if cuerpo["codigo"] != float64(100) {
-		t.Errorf("codigo = %v, want 100", cuerpo["codigo"])
+	if body["codigo"] != float64(100) {
+		t.Errorf("codigo = %v, want 100", body["codigo"])
 	}
 
-	if cuerpo["stderr"] != "E: Unable to locate package nano" {
-		t.Errorf("stderr = %v, want el stderr de APT", cuerpo["stderr"])
+	if body["stderr"] != "E: Unable to locate package nano" {
+		t.Errorf("stderr = %v, want el stderr de APT", body["stderr"])
 	}
 }
 
-// TestPaquetesSinSesion cubre la ausencia de sesión con la máquina.
-func TestPaquetesSinSesion(t *testing.T) {
+// TestPackagesWithoutSession cubre la ausencia de sesión con la máquina.
+func TestPackagesWithoutSession(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubPaquetes{err: services.ErrSesionNoDisponible}
+	service := &stubPackages{err: services.ErrSessionUnavailable}
 
-	rec := ejecutarCaso(t, NuevoSistema(servicio, &stubLlaves{}, &stubIssue{}, &stubHostname{}).Paquetes, rutaPaquetes, casoPeticion{
-		nombre: "sin sesión", metodo: http.MethodGet,
+	rec := runTestCase(t, NewSystem(service, &stubKeys{}, &stubIssue{}, &stubHostname{}).Packages, pathPackages, testCaseRequest{
+		name: "sin sesión", method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusServiceUnavailable {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusServiceUnavailable)
+		t.Fatalf(msgCode, rec.Code, http.StatusServiceUnavailable)
 	}
 }
 
-// TestPaquete cubre la eliminación de un paquete por su nombre.
-func TestPaquete(t *testing.T) {
+// TestPkg cubre la eliminación de un paquete por su nombre.
+func TestPkg(t *testing.T) {
 	t.Parallel()
 
-	handler := nuevoSistemaPrueba().Paquete
-	casos := []struct {
-		casoPeticion
-		nombre string
+	handler := newSystemTests().Package
+	testCases := []struct {
+		testCaseRequest
+		name string
 	}{
-		{casoPeticion{nombre: casoEliminar, metodo: http.MethodDelete, codigo: http.StatusNoContent}, nombreNano},
-		{casoPeticion{nombre: casoNombreInvalido, metodo: http.MethodDelete, codigo: http.StatusBadRequest, campo: campoName}, "nano; rm"},
-		{casoPeticion{nombre: casoMetodoNoPermitido, metodo: http.MethodGet, codigo: http.StatusMethodNotAllowed}, nombreNano},
+		{testCaseRequest{name: testCaseDelete, method: http.MethodDelete, code: http.StatusNoContent}, nameNano},
+		{testCaseRequest{name: testCaseNameInvalid, method: http.MethodDelete, code: http.StatusBadRequest, field: nameParam}, "nano; rm"},
+		{testCaseRequest{name: testCaseMethodNotPermitido, method: http.MethodGet, code: http.StatusMethodNotAllowed}, nameNano},
 	}
 
-	for _, caso := range casos {
-		rec := ejecutarCasoConPath(t, handler, "/api/packages/"+nombreNano, campoName, caso.nombre, caso.casoPeticion)
-		comprobarCaso(t, rec, caso.casoPeticion)
+	for _, testCase := range testCases {
+		rec := runTestCaseWithPath(t, handler, "/api/packages/"+nameNano, nameParam, testCase.name, testCase.testCaseRequest)
+		checkTestCase(t, rec, testCase.testCaseRequest)
 	}
 }
 
-// TestPaqueteEliminar comprueba que el nombre de la ruta llega al
+// TestPkgDelete comprueba que el nombre de la ruta llega al
 // servicio y que la respuesta no lleva cuerpo.
-func TestPaqueteEliminar(t *testing.T) {
+func TestPkgDelete(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubPaquetes{}
-	handler := NuevoSistema(servicio, &stubLlaves{}, &stubIssue{}, &stubHostname{}).Paquete
+	service := &stubPackages{}
+	handler := NewSystem(service, &stubKeys{}, &stubIssue{}, &stubHostname{}).Package
 
-	rec := ejecutarCasoConPath(t, handler, rutaPaqueteNano, campoName, nombreNano, casoPeticion{
-		nombre: casoEliminar, metodo: http.MethodDelete,
+	rec := runTestCaseWithPath(t, handler, pathPkgNano, nameParam, nameNano, testCaseRequest{
+		name: testCaseDelete, method: http.MethodDelete,
 	})
 
 	if rec.Code != http.StatusNoContent {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusNoContent)
+		t.Fatalf(msgCode, rec.Code, http.StatusNoContent)
 	}
 
-	if servicio.nombre != nombreNano {
-		t.Errorf("nombre = %q, want %q", servicio.nombre, nombreNano)
+	if service.name != nameNano {
+		t.Errorf("nombre = %q, want %q", service.name, nameNano)
 	}
 
 	if rec.Body.Len() != 0 {
@@ -405,153 +405,153 @@ func TestPaqueteEliminar(t *testing.T) {
 	}
 }
 
-// TestLlaveRootGenerar cubre la generación del par de llaves de root.
-func TestLlaveRootGenerar(t *testing.T) {
+// TestSSHKeyRootGenerate cubre la generación del par de llaves de root.
+func TestSSHKeyRootGenerate(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubLlaves{resultado: services.Resultado{
-		Mensaje: "Llave SSH de root generada e instalada.",
+	service := &stubKeys{result: services.Outcome{
+		Message: "Llave SSH de root generada e instalada.",
 	}}
 
-	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, servicio, &stubIssue{}, &stubHostname{}).LlaveRoot, rutaLlaveRoot, casoPeticion{
-		nombre: "generar", metodo: http.MethodPost,
+	rec := runTestCase(t, NewSystem(&stubPackages{}, service, &stubIssue{}, &stubHostname{}).RootKey, pathSSHKeyRoot, testCaseRequest{
+		name: "generar", method: http.MethodPost,
 	})
 
 	if rec.Code != http.StatusCreated {
-		t.Fatalf(msgCodigoCuerpo, rec.Code, http.StatusCreated, rec.Body.String())
+		t.Fatalf(msgCodeBody, rec.Code, http.StatusCreated, rec.Body.String())
 	}
 
-	if got := rec.Header().Get(cabeceraLocation); got != rutaLlaveRoot {
+	if got := rec.Header().Get(headerLocation); got != pathSSHKeyRoot {
 		t.Errorf("Location = %q, want /api/keys/root", got)
 	}
 
-	if servicio.generadas != 1 {
-		t.Errorf("Generar() se llamó %d veces, want 1", servicio.generadas)
+	if service.generadas != 1 {
+		t.Errorf("Generar() se llamó %d veces, want 1", service.generadas)
 	}
 }
 
-// TestLlaveRootGenerarExistente cubre el conflicto de una llave que ya
+// TestSSHKeyRootGenerateExisting cubre el conflicto de una llave que ya
 // existe.
-func TestLlaveRootGenerarExistente(t *testing.T) {
+func TestSSHKeyRootGenerateExisting(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubLlaves{err: services.ErrLlaveExistente}
+	service := &stubKeys{err: services.ErrKeyExists}
 
-	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, servicio, &stubIssue{}, &stubHostname{}).LlaveRoot, rutaLlaveRoot, casoPeticion{
-		nombre: "llave existente", metodo: http.MethodPost,
+	rec := runTestCase(t, NewSystem(&stubPackages{}, service, &stubIssue{}, &stubHostname{}).RootKey, pathSSHKeyRoot, testCaseRequest{
+		name: "llave existente", method: http.MethodPost,
 	})
 
 	if rec.Code != http.StatusConflict {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusConflict)
+		t.Fatalf(msgCode, rec.Code, http.StatusConflict)
 	}
 }
 
-// TestLlaveRootDescargar cubre la descarga de la llave privada.
-func TestLlaveRootDescargar(t *testing.T) {
+// TestSSHKeyRootDownload cubre la descarga de la llave privada.
+func TestSSHKeyRootDownload(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubLlaves{nombre: "id_ed25519", contenido: []byte(llavePrivadaPrueba)}
+	service := &stubKeys{name: "id_ed25519", content: []byte(sshKeyPrivateTests)}
 
-	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, servicio, &stubIssue{}, &stubHostname{}).LlaveRoot, rutaLlaveRoot, casoPeticion{
-		nombre: "descargar", metodo: http.MethodGet,
+	rec := runTestCase(t, NewSystem(&stubPackages{}, service, &stubIssue{}, &stubHostname{}).RootKey, pathSSHKeyRoot, testCaseRequest{
+		name: "descargar", method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+		t.Fatalf(msgCode, rec.Code, http.StatusOK)
 	}
 
 	if got := rec.Header().Get("Content-Disposition"); got != `attachment; filename="id_ed25519"` {
 		t.Errorf("Content-Disposition = %q", got)
 	}
 
-	if rec.Body.String() != llavePrivadaPrueba {
+	if rec.Body.String() != sshKeyPrivateTests {
 		t.Errorf("cuerpo = %q, want la llave privada", rec.Body.String())
 	}
 }
 
-// TestLlaveRootSinLlave cubre la descarga cuando no hay llave.
-func TestLlaveRootSinLlave(t *testing.T) {
+// TestSSHKeyRootWithoutSSHKey cubre la descarga cuando no hay llave.
+func TestSSHKeyRootWithoutSSHKey(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubLlaves{descargaErr: services.ErrLlaveNoEncontrada}
+	service := &stubKeys{downloadsErr: services.ErrKeyNotFound}
 
-	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, servicio, &stubIssue{}, &stubHostname{}).LlaveRoot, rutaLlaveRoot, casoPeticion{
-		nombre: "sin llave", metodo: http.MethodGet,
+	rec := runTestCase(t, NewSystem(&stubPackages{}, service, &stubIssue{}, &stubHostname{}).RootKey, pathSSHKeyRoot, testCaseRequest{
+		name: "sin llave", method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusNotFound {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusNotFound)
+		t.Fatalf(msgCode, rec.Code, http.StatusNotFound)
 	}
 }
 
-// TestLlaveRootMetodo cubre el método no permitido.
-func TestLlaveRootMetodo(t *testing.T) {
+// TestSSHKeyRootMethod cubre el método no permitido.
+func TestSSHKeyRootMethod(t *testing.T) {
 	t.Parallel()
 
-	rec := ejecutarCaso(t, nuevoSistemaPrueba().LlaveRoot, rutaLlaveRoot, casoPeticion{
-		nombre: casoMetodoNoPermitido, metodo: http.MethodPut,
+	rec := runTestCase(t, newSystemTests().RootKey, pathSSHKeyRoot, testCaseRequest{
+		name: testCaseMethodNotPermitido, method: http.MethodPut,
 	})
 
 	if rec.Code != http.StatusMethodNotAllowed {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusMethodNotAllowed)
+		t.Fatalf(msgCode, rec.Code, http.StatusMethodNotAllowed)
 	}
 }
 
-// TestIssueObtener cubre la lectura de /etc/issue.
-func TestIssueObtener(t *testing.T) {
+// TestIssueGet cubre la lectura de /etc/issue.
+func TestIssueGet(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubIssue{config: services.ConfiguracionIssue{
-		Mensaje:    textoBienvenido,
-		NombreHost: true,
-		IP:         true,
-		Contenido:  "Bienvenido\nHostname: \\n\nIP: \\4\n",
+	service := &stubIssue{config: services.IssueConfig{
+		Message:  textBienvenido,
+		NameHost: true,
+		IP:       true,
+		Content:  "Bienvenido\nHostname: \\n\nIP: \\4\n",
 	}}
 
-	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, &stubLlaves{}, servicio, &stubHostname{}).Issue, rutaIssue, casoPeticion{
-		nombre: casoConsultar, metodo: http.MethodGet,
+	rec := runTestCase(t, NewSystem(&stubPackages{}, &stubKeys{}, service, &stubHostname{}).Issue, pathIssue, testCaseRequest{
+		name: testCaseGet, method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+		t.Fatalf(msgCode, rec.Code, http.StatusOK)
 	}
 
-	var cuerpo map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &cuerpo); err != nil {
-		t.Fatalf(msgJSONInvalido, err)
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf(msgJSONInvalid, err)
 	}
 
-	if cuerpo["mensaje"] != textoBienvenido {
-		t.Errorf("mensaje = %v, want Bienvenido", cuerpo["mensaje"])
+	if body["mensaje"] != textBienvenido {
+		t.Errorf("mensaje = %v, want Bienvenido", body["mensaje"])
 	}
 
-	if cuerpo["nombre_host"] != true || cuerpo["ip"] != true {
-		t.Errorf("opciones = %v, want nombre_host e ip activos", cuerpo)
+	if body["nombre_host"] != true || body["ip"] != true {
+		t.Errorf("opciones = %v, want nombre_host e ip activos", body)
 	}
 }
 
-// TestIssueEscribir cubre el reemplazo de /etc/issue.
-func TestIssueEscribir(t *testing.T) {
+// TestIssueWrite cubre el reemplazo de /etc/issue.
+func TestIssueWrite(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubIssue{resultado: services.Resultado{Mensaje: "Entrada del sistema actualizada."}}
+	service := &stubIssue{result: services.Outcome{Message: "Entrada del sistema actualizada."}}
 
-	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, &stubLlaves{}, servicio, &stubHostname{}).Issue, rutaIssue, casoPeticion{
-		nombre: casoValido,
-		metodo: http.MethodPut,
-		cuerpo: `{"mensaje":"Bienvenido","nombre_host":true,"fecha":true,"hora":true,"ip":true}`,
+	rec := runTestCase(t, NewSystem(&stubPackages{}, &stubKeys{}, service, &stubHostname{}).Issue, pathIssue, testCaseRequest{
+		name:   testCaseValid,
+		method: http.MethodPut,
+		body:   `{"mensaje":"Bienvenido","nombre_host":true,"fecha":true,"hora":true,"ip":true}`,
 	})
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+		t.Fatalf(msgCode, rec.Code, http.StatusOK)
 	}
 
-	if servicio.escrituras != 1 {
-		t.Errorf("Escribir() se llamó %d veces, want 1", servicio.escrituras)
+	if service.escrituras != 1 {
+		t.Errorf("Escribir() se llamó %d veces, want 1", service.escrituras)
 	}
 
-	if servicio.escrito.Mensaje != textoBienvenido || !servicio.escrito.NombreHost {
-		t.Errorf("configuración = %+v, want mensaje y nombre_host", servicio.escrito)
+	if service.escrito.Message != textBienvenido || !service.escrito.NameHost {
+		t.Errorf("configuración = %+v, want mensaje y nombre_host", service.escrito)
 	}
 }
 
@@ -559,115 +559,115 @@ func TestIssueEscribir(t *testing.T) {
 func TestIssueValidacion(t *testing.T) {
 	t.Parallel()
 
-	handler := nuevoSistemaPrueba().Issue
-	casos := []casoPeticion{
+	handler := newSystemTests().Issue
+	testCases := []testCaseRequest{
 		{
-			nombre: "mensaje largo",
-			metodo: http.MethodPut,
-			cuerpo: `{"mensaje":"` + strings.Repeat("a", 600) + `","nombre_host":false,"fecha":false,"hora":false,"ip":false}`,
-			codigo: http.StatusBadRequest,
-			campo:  campoMensaje,
+			name:   "mensaje largo",
+			method: http.MethodPut,
+			body:   `{"mensaje":"` + strings.Repeat("a", 600) + `","nombre_host":false,"fecha":false,"hora":false,"ip":false}`,
+			code:   http.StatusBadRequest,
+			field:  messageField,
 		},
 		{
-			nombre: "mensaje con salto de línea",
-			metodo: http.MethodPut,
-			cuerpo: `{"mensaje":"linea1\nlinea2","nombre_host":false,"fecha":false,"hora":false,"ip":false}`,
-			codigo: http.StatusBadRequest,
-			campo:  campoMensaje,
+			name:   "mensaje con salto de línea",
+			method: http.MethodPut,
+			body:   `{"mensaje":"linea1\nlinea2","nombre_host":false,"fecha":false,"hora":false,"ip":false}`,
+			code:   http.StatusBadRequest,
+			field:  messageField,
 		},
 		{
-			nombre: "sin mensaje ni opciones",
-			metodo: http.MethodPut,
-			cuerpo: `{"mensaje":"","nombre_host":false,"fecha":false,"hora":false,"ip":false}`,
-			codigo: http.StatusBadRequest,
-			campo:  campoMensaje,
+			name:   "sin mensaje ni opciones",
+			method: http.MethodPut,
+			body:   `{"mensaje":"","nombre_host":false,"fecha":false,"hora":false,"ip":false}`,
+			code:   http.StatusBadRequest,
+			field:  messageField,
 		},
-		{nombre: casoCuerpoInvalido, metodo: http.MethodPut, cuerpo: `{`, codigo: http.StatusBadRequest},
-		{nombre: casoMetodoNoPermitido, metodo: http.MethodPost, codigo: http.StatusMethodNotAllowed},
+		{name: testCaseBodyInvalid, method: http.MethodPut, body: `{`, code: http.StatusBadRequest},
+		{name: testCaseMethodNotPermitido, method: http.MethodPost, code: http.StatusMethodNotAllowed},
 	}
 
-	for _, caso := range casos {
-		rec := ejecutarCaso(t, handler, rutaIssue, caso)
-		comprobarCaso(t, rec, caso)
+	for _, testCase := range testCases {
+		rec := runTestCase(t, handler, pathIssue, testCase)
+		checkTestCase(t, rec, testCase)
 	}
 }
 
-// TestIssueErrorDeOrden cubre el fallo al escribir /etc/issue.
-func TestIssueErrorDeOrden(t *testing.T) {
+// TestIssueErrorOfCommand cubre el fallo al escribir /etc/issue.
+func TestIssueErrorOfCommand(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubIssue{
-		resultado: services.Resultado{Codigo: 1, Stderr: "Read-only file system"},
-		err:       &domain.ExitError{Code: 1, Command: "sh"},
+	service := &stubIssue{
+		result: services.Outcome{Code: 1, Stderr: "Read-only file system"},
+		err:    &domain.ExitError{Code: 1, Command: "sh"},
 	}
 
-	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, &stubLlaves{}, servicio, &stubHostname{}).Issue, rutaIssue, casoPeticion{
-		nombre: "fallo de escritura", metodo: http.MethodPut, cuerpo: `{"mensaje":"hola"}`,
+	rec := runTestCase(t, NewSystem(&stubPackages{}, &stubKeys{}, service, &stubHostname{}).Issue, pathIssue, testCaseRequest{
+		name: "fallo de escritura", method: http.MethodPut, body: `{"mensaje":"hola"}`,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestHostnameObtener cubre la lectura del nombre de host.
-func TestHostnameObtener(t *testing.T) {
+// TestHostnameGet cubre la lectura del nombre de host.
+func TestHostnameGet(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubHostname{config: services.ConfiguracionHostname{
-		Nombre:          hostDebian,
-		IP:              "192.168.1.50",
-		ActualizarHosts: true,
+	service := &stubHostname{config: services.HostnameConfig{
+		Name:        hostTest,
+		IP:          "192.168.1.50",
+		UpdateHosts: true,
 	}}
 
-	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, &stubLlaves{}, &stubIssue{}, servicio).Hostname, rutaHostname, casoPeticion{
-		nombre: casoConsultar, metodo: http.MethodGet,
+	rec := runTestCase(t, NewSystem(&stubPackages{}, &stubKeys{}, &stubIssue{}, service).Hostname, pathHostname, testCaseRequest{
+		name: testCaseGet, method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+		t.Fatalf(msgCode, rec.Code, http.StatusOK)
 	}
 
-	var cuerpo map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &cuerpo); err != nil {
-		t.Fatalf(msgJSONInvalido, err)
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf(msgJSONInvalid, err)
 	}
 
-	if cuerpo["nombre"] != hostDebian {
-		t.Errorf("nombre = %v, want debian13", cuerpo["nombre"])
+	if body["nombre"] != hostTest {
+		t.Errorf("nombre = %v, want vm1", body["nombre"])
 	}
 
-	if cuerpo["ip"] != "192.168.1.50" {
-		t.Errorf("ip = %v, want 192.168.1.50", cuerpo["ip"])
+	if body["ip"] != "192.168.1.50" {
+		t.Errorf("ip = %v, want 192.168.1.50", body["ip"])
 	}
 
-	if cuerpo["actualizar_hosts"] != true {
-		t.Errorf("actualizar_hosts = %v, want true", cuerpo["actualizar_hosts"])
+	if body["actualizar_hosts"] != true {
+		t.Errorf("actualizar_hosts = %v, want true", body["actualizar_hosts"])
 	}
 }
 
-// TestHostnameEscribir cubre el reemplazo del nombre de host.
-func TestHostnameEscribir(t *testing.T) {
+// TestHostnameWrite cubre el reemplazo del nombre de host.
+func TestHostnameWrite(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubHostname{resultado: services.Resultado{Mensaje: "Nombre de host actualizado."}}
+	service := &stubHostname{result: services.Outcome{Message: "Nombre de host actualizado."}}
 
-	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, &stubLlaves{}, &stubIssue{}, servicio).Hostname, rutaHostname, casoPeticion{
-		nombre: casoValido,
-		metodo: http.MethodPut,
-		cuerpo: `{"nombre":"nodo-01","ip":"192.168.1.60","actualizar_hosts":true}`,
+	rec := runTestCase(t, NewSystem(&stubPackages{}, &stubKeys{}, &stubIssue{}, service).Hostname, pathHostname, testCaseRequest{
+		name:   testCaseValid,
+		method: http.MethodPut,
+		body:   `{"nombre":"nodo-01","ip":"192.168.1.60","actualizar_hosts":true}`,
 	})
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+		t.Fatalf(msgCode, rec.Code, http.StatusOK)
 	}
 
-	if servicio.escrituras != 1 {
-		t.Errorf("Escribir() se llamó %d veces, want 1", servicio.escrituras)
+	if service.escrituras != 1 {
+		t.Errorf("Escribir() se llamó %d veces, want 1", service.escrituras)
 	}
 
-	if servicio.escrito.Nombre != "nodo-01" || !servicio.escrito.ActualizarHosts {
-		t.Errorf("configuración = %+v, want nodo-01 con hosts", servicio.escrito)
+	if service.escrito.Name != "nodo-01" || !service.escrito.UpdateHosts {
+		t.Errorf("configuración = %+v, want nodo-01 con hosts", service.escrito)
 	}
 }
 
@@ -675,114 +675,114 @@ func TestHostnameEscribir(t *testing.T) {
 func TestHostnameValidacion(t *testing.T) {
 	t.Parallel()
 
-	handler := nuevoSistemaPrueba().Hostname
-	casos := []casoPeticion{
-		{nombre: "nombre con espacio", metodo: http.MethodPut, cuerpo: `{"nombre":"mi equipo","ip":"192.168.1.60"}`, codigo: http.StatusBadRequest, campo: campoNombre},
-		{nombre: "IP inválida", metodo: http.MethodPut, cuerpo: `{"nombre":"nodo-web-01","ip":"999.1.1.1"}`, codigo: http.StatusBadRequest, campo: campoIP},
-		{nombre: casoCuerpoInvalido, metodo: http.MethodPut, cuerpo: `{`, codigo: http.StatusBadRequest},
-		{nombre: casoMetodoNoPermitido, metodo: http.MethodPost, codigo: http.StatusMethodNotAllowed},
+	handler := newSystemTests().Hostname
+	testCases := []testCaseRequest{
+		{name: "nombre con espacio", method: http.MethodPut, body: `{"nombre":"mi equipo","ip":"192.168.1.60"}`, code: http.StatusBadRequest, field: nameField},
+		{name: "IP inválida", method: http.MethodPut, body: `{"nombre":"nodo-web-01","ip":"999.1.1.1"}`, code: http.StatusBadRequest, field: ipField},
+		{name: testCaseBodyInvalid, method: http.MethodPut, body: `{`, code: http.StatusBadRequest},
+		{name: testCaseMethodNotPermitido, method: http.MethodPost, code: http.StatusMethodNotAllowed},
 	}
 
-	for _, caso := range casos {
-		rec := ejecutarCaso(t, handler, rutaHostname, caso)
-		comprobarCaso(t, rec, caso)
+	for _, testCase := range testCases {
+		rec := runTestCase(t, handler, pathHostname, testCase)
+		checkTestCase(t, rec, testCase)
 	}
 }
 
-// TestHostnameErrorDeOrden cubre el fallo al cambiar el nombre.
-func TestHostnameErrorDeOrden(t *testing.T) {
+// TestHostnameErrorOfCommand cubre el fallo al cambiar el nombre.
+func TestHostnameErrorOfCommand(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubHostname{
-		resultado: services.Resultado{Codigo: 127, Stderr: "hostnamectl: not found"},
-		err:       &domain.ExitError{Code: 127, Command: "hostnamectl"},
+	service := &stubHostname{
+		result: services.Outcome{Code: 127, Stderr: "hostnamectl: not found"},
+		err:    &domain.ExitError{Code: 127, Command: "hostnamectl"},
 	}
 
-	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, &stubLlaves{}, &stubIssue{}, servicio).Hostname, rutaHostname, casoPeticion{
-		nombre: "fallo de hostnamectl", metodo: http.MethodPut, cuerpo: `{"nombre":"nodo-01","ip":"192.168.1.60"}`,
+	rec := runTestCase(t, NewSystem(&stubPackages{}, &stubKeys{}, &stubIssue{}, service).Hostname, pathHostname, testCaseRequest{
+		name: "fallo de hostnamectl", method: http.MethodPut, body: `{"nombre":"nodo-01","ip":"192.168.1.60"}`,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestPaqueteErrorDeOrden cubre el fallo del servicio al eliminar.
-func TestPaqueteErrorDeOrden(t *testing.T) {
+// TestPkgErrorOfCommand cubre el fallo del servicio al eliminar.
+func TestPkgErrorOfCommand(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubPaquetes{err: &domain.ExitError{Code: 100, Command: "apt-get remove"}}
-	handler := NuevoSistema(servicio, &stubLlaves{}, &stubIssue{}, &stubHostname{}).Paquete
+	service := &stubPackages{err: &domain.ExitError{Code: 100, Command: "apt-get remove"}}
+	handler := NewSystem(service, &stubKeys{}, &stubIssue{}, &stubHostname{}).Package
 
-	rec := ejecutarCasoConPath(t, handler, "/api/packages/nano", campoName, nombreNano, casoPeticion{
-		nombre: "fallo de APT", metodo: http.MethodDelete,
+	rec := runTestCaseWithPath(t, handler, "/api/packages/nano", nameParam, nameNano, testCaseRequest{
+		name: "fallo de APT", method: http.MethodDelete,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestLlaveRootErrorGenerico cubre un fallo inesperado al generar la
+// TestSSHKeyRootErrorGeneric cubre un fallo inesperado al generar la
 // llave.
-func TestLlaveRootErrorGenerico(t *testing.T) {
+func TestSSHKeyRootErrorGeneric(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubLlaves{err: errors.New("fallo inesperado")}
-	handler := NuevoSistema(&stubPaquetes{}, servicio, &stubIssue{}, &stubHostname{}).LlaveRoot
+	service := &stubKeys{err: errors.New("fallo inesperado")}
+	handler := NewSystem(&stubPackages{}, service, &stubIssue{}, &stubHostname{}).RootKey
 
-	rec := ejecutarCaso(t, handler, rutaLlaveRoot, casoPeticion{
-		nombre: "error genérico", metodo: http.MethodPost,
+	rec := runTestCase(t, handler, pathSSHKeyRoot, testCaseRequest{
+		name: "error genérico", method: http.MethodPost,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestLlaveRootErrorDeDescarga cubre un fallo inesperado al leer la
+// TestSSHKeyRootErrorOfDownloads cubre un fallo inesperado al leer la
 // llave privada.
-func TestLlaveRootErrorDeDescarga(t *testing.T) {
+func TestSSHKeyRootErrorOfDownloads(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubLlaves{descargaErr: errors.New("fallo de lectura")}
-	handler := NuevoSistema(&stubPaquetes{}, servicio, &stubIssue{}, &stubHostname{}).LlaveRoot
+	service := &stubKeys{downloadsErr: errors.New("fallo de lectura")}
+	handler := NewSystem(&stubPackages{}, service, &stubIssue{}, &stubHostname{}).RootKey
 
-	rec := ejecutarCaso(t, handler, rutaLlaveRoot, casoPeticion{
-		nombre: "error de descarga", metodo: http.MethodGet,
+	rec := runTestCase(t, handler, pathSSHKeyRoot, testCaseRequest{
+		name: "error de descarga", method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestIssueErrorDeLectura cubre el fallo al consultar /etc/issue.
-func TestIssueErrorDeLectura(t *testing.T) {
+// TestIssueErrorOfRead cubre el fallo al consultar /etc/issue.
+func TestIssueErrorOfRead(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubIssue{err: errLectura}
+	service := &stubIssue{err: errRead}
 
-	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, &stubLlaves{}, servicio, &stubHostname{}).Issue, rutaIssue, casoPeticion{
-		nombre: casoErrorLectura, metodo: http.MethodGet,
+	rec := runTestCase(t, NewSystem(&stubPackages{}, &stubKeys{}, service, &stubHostname{}).Issue, pathIssue, testCaseRequest{
+		name: testCaseErrorRead, method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestHostnameErrorDeLectura cubre el fallo al consultar el nombre.
-func TestHostnameErrorDeLectura(t *testing.T) {
+// TestHostnameErrorOfRead cubre el fallo al consultar el nombre.
+func TestHostnameErrorOfRead(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubHostname{err: errLectura}
+	service := &stubHostname{err: errRead}
 
-	rec := ejecutarCaso(t, NuevoSistema(&stubPaquetes{}, &stubLlaves{}, &stubIssue{}, servicio).Hostname, rutaHostname, casoPeticion{
-		nombre: casoErrorLectura, metodo: http.MethodGet,
+	rec := runTestCase(t, NewSystem(&stubPackages{}, &stubKeys{}, &stubIssue{}, service).Hostname, pathHostname, testCaseRequest{
+		name: testCaseErrorRead, method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }

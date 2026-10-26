@@ -11,150 +11,150 @@ import (
 	"consola-vm/internal/core/domain"
 )
 
-// ConfiguracionIssue describe el banner previo al inicio de sesión.
-type ConfiguracionIssue struct {
-	// Mensaje es el texto personalizado.
-	Mensaje string
-	// NombreHost indica si se incluye el nombre de host.
-	NombreHost bool
-	// Fecha indica si se incluye la fecha.
-	Fecha bool
-	// Hora indica si se incluye la hora.
-	Hora bool
+// IssueConfig describe el banner previo al inicio de sesión.
+type IssueConfig struct {
+	// Message es el texto personalizado.
+	Message string
+	// NameHost indica si se incluye el nombre de host.
+	NameHost bool
+	// Date indica si se incluye la fecha.
+	Date bool
+	// Hour indica si se incluye la hora.
+	Hour bool
 	// IP indica si se incluye la dirección IPv4.
 	IP bool
-	// Contenido es el texto completo del archivo, solo en las lecturas.
-	Contenido string
+	// Content es el texto completo del archivo, solo en las lecturas.
+	Content string
 }
 
 // Issue implementa el caso de uso de personalización de /etc/issue.
 type Issue struct {
-	sesiones AbridorSesion
+	sessions SessionOpener
 }
 
-// NuevoIssue construye el servicio de /etc/issue con el abridor de
+// NewIssue construye el servicio de /etc/issue con el abridor de
 // sesiones dado.
-func NuevoIssue(sesiones AbridorSesion) *Issue {
-	return &Issue{sesiones: sesiones}
+func NewIssue(sessions SessionOpener) *Issue {
+	return &Issue{sessions: sessions}
 }
 
 // Etiquetas del formato de una línea por elemento que escribe la
 // consola; usan las secuencias de agetty para cada dato.
 const (
 	etiquetaHostname = `Hostname: \n`
-	etiquetaFecha    = `Fecha: \d`
-	etiquetaHora     = `Hora: \t`
+	etiquetaDate     = `Fecha: \d`
+	etiquetaHour     = `Hora: \t`
 	etiquetaIP       = `IP: \4`
 )
 
-// Obtener lee /etc/issue y reconstruye el mensaje y las opciones.
-func (i *Issue) Obtener(ctx context.Context) (ConfiguracionIssue, error) {
-	sesion, err := i.sesiones.Abrir(ctx)
+// Get lee /etc/issue y reconstruye el mensaje y las opciones.
+func (i *Issue) Get(ctx context.Context) (IssueConfig, error) {
+	session, err := i.sessions.Open(ctx)
 	if err != nil {
-		return ConfiguracionIssue{}, fmt.Errorf("abrir la sesión para leer /etc/issue: %w", err)
+		return IssueConfig{}, fmt.Errorf("abrir la sesión para leer /etc/issue: %w", err)
 	}
 
-	defer cerrarSesion(sesion)
+	defer closeSession(session)
 
-	resultado, err := sesion.Run(ctx, &domain.Command{
+	result, err := session.Run(ctx, &domain.Command{
 		Path: binCat,
 		Args: []string{"/etc/issue"},
 	})
 	if err != nil {
-		return ConfiguracionIssue{}, fmt.Errorf("leer /etc/issue: %w", err)
+		return IssueConfig{}, fmt.Errorf("leer /etc/issue: %w", err)
 	}
 
-	return parsearIssue(resultado.Stdout), nil
+	return parseIssue(result.Stdout), nil
 }
 
-// Escribir reemplaza /etc/issue con el mensaje y las opciones dadas.
-func (i *Issue) Escribir(ctx context.Context, config ConfiguracionIssue) (Resultado, error) {
-	sesion, err := i.sesiones.Abrir(ctx)
+// Write reemplaza /etc/issue con el mensaje y las opciones dadas.
+func (i *Issue) Write(ctx context.Context, config IssueConfig) (Outcome, error) {
+	session, err := i.sessions.Open(ctx)
 	if err != nil {
-		return Resultado{}, fmt.Errorf("abrir la sesión para escribir /etc/issue: %w", err)
+		return Outcome{}, fmt.Errorf("abrir la sesión para escribir /etc/issue: %w", err)
 	}
 
-	defer cerrarSesion(sesion)
+	defer closeSession(session)
 
 	cmd := &domain.Command{
 		Path: binSh,
 		Args: []string{
 			"-c",
-			"printf '%s' " + domain.Quote(construirIssue(config)) +
+			"printf '%s' " + domain.Quote(buildIssue(config)) +
 				" > /etc/issue && chmod 644 /etc/issue",
 		},
 	}
 
-	resultado, err := sesion.Run(ctx, cmd)
+	result, err := session.Run(ctx, cmd)
 
-	salida := Resultado{
-		Mensaje:   "Entrada del sistema actualizada.",
-		Operacion: cmd.ShellLine(),
-		Salida:    resultado.Stdout,
-		Stderr:    resultado.Stderr,
-		Codigo:    resultado.ExitCode,
+	output := Outcome{
+		Message:   "Entrada del sistema actualizada.",
+		Operation: cmd.ShellLine(),
+		Output:    result.Stdout,
+		Stderr:    result.Stderr,
+		Code:      result.ExitCode,
 	}
 
 	if err != nil {
-		return salida, fmt.Errorf("escribir /etc/issue: %w", err)
+		return output, fmt.Errorf("escribir /etc/issue: %w", err)
 	}
 
-	return salida, nil
+	return output, nil
 }
 
-// construirIssue arma el contenido del archivo con una línea por
+// buildIssue arma el contenido del archivo con una línea por
 // elemento activo.
-func construirIssue(config ConfiguracionIssue) string {
-	lineas := []string{}
+func buildIssue(config IssueConfig) string {
+	lines := []string{}
 
-	if strings.TrimSpace(config.Mensaje) != "" {
-		lineas = append(lineas, config.Mensaje)
+	if strings.TrimSpace(config.Message) != "" {
+		lines = append(lines, config.Message)
 	}
 
-	if config.NombreHost {
-		lineas = append(lineas, etiquetaHostname)
+	if config.NameHost {
+		lines = append(lines, etiquetaHostname)
 	}
 
-	if config.Fecha {
-		lineas = append(lineas, etiquetaFecha)
+	if config.Date {
+		lines = append(lines, etiquetaDate)
 	}
 
-	if config.Hora {
-		lineas = append(lineas, etiquetaHora)
+	if config.Hour {
+		lines = append(lines, etiquetaHour)
 	}
 
 	if config.IP {
-		lineas = append(lineas, etiquetaIP)
+		lines = append(lines, etiquetaIP)
 	}
 
-	return strings.Join(lineas, "\n") + "\n"
+	return strings.Join(lines, "\n") + "\n"
 }
 
-// parsearIssue reconstruye la configuración a partir del contenido del
+// parseIssue reconstruye la configuración a partir del contenido del
 // archivo. Las líneas que no son del formato de la consola se conservan
 // como mensaje personalizado.
-func parsearIssue(contenido string) ConfiguracionIssue {
-	config := ConfiguracionIssue{Contenido: contenido}
-	mensaje := []string{}
+func parseIssue(content string) IssueConfig {
+	config := IssueConfig{Content: content}
+	message := []string{}
 
-	for _, linea := range strings.Split(strings.TrimRight(contenido, "\n"), "\n") {
-		switch strings.TrimSpace(linea) {
+	for _, line := range strings.Split(strings.TrimRight(content, "\n"), "\n") {
+		switch strings.TrimSpace(line) {
 		case etiquetaHostname:
-			config.NombreHost = true
-		case etiquetaFecha:
-			config.Fecha = true
-		case etiquetaHora:
-			config.Hora = true
+			config.NameHost = true
+		case etiquetaDate:
+			config.Date = true
+		case etiquetaHour:
+			config.Hour = true
 		case etiquetaIP:
 			config.IP = true
 		default:
-			if linea != "" {
-				mensaje = append(mensaje, linea)
+			if line != "" {
+				message = append(message, line)
 			}
 		}
 	}
 
-	config.Mensaje = strings.Join(mensaje, "\n")
+	config.Message = strings.Join(message, "\n")
 
 	return config
 }

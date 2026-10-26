@@ -11,94 +11,94 @@ import (
 	"testing"
 )
 
-// archivoConTexto crea un archivo cualquiera y devuelve su ruta.
-func archivoConTexto(t *testing.T) string {
+// fileWithText crea un archivo cualquiera y devuelve su ruta.
+func fileWithText(t *testing.T) string {
 	t.Helper()
 
-	ruta := filepath.Join(t.TempDir(), "archivo")
-	if err := os.WriteFile(ruta, []byte("x"), 0o600); err != nil {
+	path := filepath.Join(t.TempDir(), "archivo")
+	if err := os.WriteFile(path, []byte("x"), 0o600); err != nil {
 		t.Fatalf("crear el archivo: %v", err)
 	}
 
-	return ruta
+	return path
 }
 
-// TestNuevoAlmacenConDirectorioDeDatosImposible falla cuando el
+// TestNewStoreWithDirectoryOfDataImpossible falla cuando el
 // directorio de la base es en realidad un archivo.
-func TestNuevoAlmacenConDirectorioDeDatosImposible(t *testing.T) {
+func TestNewStoreWithDirectoryOfDataImpossible(t *testing.T) {
 	t.Parallel()
 
-	rutaBD := filepath.Join(archivoConTexto(t), "vmcons.db")
+	pathBD := filepath.Join(fileWithText(t), "vmcons.db")
 
-	if _, err := NuevoAlmacen(rutaBD, filepath.Join(t.TempDir(), "clave")); err == nil {
+	if _, err := NewStore(pathBD, filepath.Join(t.TempDir(), "clave")); err == nil {
 		t.Error("NuevoAlmacen() error = nil, want el fallo del directorio")
 	}
 }
 
-// TestNuevoAlmacenConClaveIlegible falla si la clave es un directorio.
-func TestNuevoAlmacenConClaveIlegible(t *testing.T) {
+// TestNewStoreWithKeyUnreadable falla si la clave es un directorio.
+func TestNewStoreWithKeyUnreadable(t *testing.T) {
 	t.Parallel()
 
-	directorio := t.TempDir()
+	directory := t.TempDir()
 
-	if _, err := NuevoAlmacen(filepath.Join(directorio, archivoBDPrueba), directorio); err == nil {
+	if _, err := NewStore(filepath.Join(directory, fileBDTests), directory); err == nil {
 		t.Error("NuevoAlmacen() error = nil, want el fallo de lectura de la clave")
 	}
 }
 
-// TestNuevoAlmacenNoPuedeCrearElDirectorioDeLaClave falla cuando el
+// TestNewStoreNotCanCreateDirectoryOfKey falla cuando el
 // directorio padre de la clave es un archivo. No depende de permisos ni
 // del usuario que ejecuta las pruebas.
-func TestNuevoAlmacenNoPuedeCrearElDirectorioDeLaClave(t *testing.T) {
+func TestNewStoreNotCanCreateDirectoryOfKey(t *testing.T) {
 	t.Parallel()
 
-	archivo := archivoConTexto(t)
-	rutaClave := filepath.Join(archivo, "sub", "clave")
+	file := fileWithText(t)
+	pathKey := filepath.Join(file, "sub", "clave")
 
-	if _, err := NuevoAlmacen(filepath.Join(t.TempDir(), archivoBDPrueba), rutaClave); err == nil {
+	if _, err := NewStore(filepath.Join(t.TempDir(), fileBDTests), pathKey); err == nil {
 		t.Error("NuevoAlmacen() error = nil, want el fallo al crear el directorio de la clave")
 	}
 }
 
-// TestNuevoAlmacenConBaseQueEsDirectorio falla al crear el esquema si la
+// TestNewStoreWithBaseThatIsDirectory falla al crear el esquema si la
 // ruta de la base apunta a un directorio.
-func TestNuevoAlmacenConBaseQueEsDirectorio(t *testing.T) {
+func TestNewStoreWithBaseThatIsDirectory(t *testing.T) {
 	t.Parallel()
 
-	if _, err := NuevoAlmacen(t.TempDir(), filepath.Join(t.TempDir(), "clave")); err == nil {
+	if _, err := NewStore(t.TempDir(), filepath.Join(t.TempDir(), "clave")); err == nil {
 		t.Error("NuevoAlmacen() error = nil, want el fallo al crear el esquema")
 	}
 }
 
-// TestAlmacenGuardarActualizaCredenciales comprueba que guardar dos veces
+// TestStoreSaveUpdatesCredentials comprueba que guardar dos veces
 // la misma máquina actualiza la fila en lugar de duplicarla.
-func TestAlmacenGuardarActualizaCredenciales(t *testing.T) {
+func TestStoreSaveUpdatesCredentials(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
+	store, _, _ := newTestDB(t)
 
-	primera := Credenciales{Usuario: "jorge", Password: "uno", Puerto: 22, Direccion: "10.0.0.1", Registrada: true}
-	if err := almacen.Guardar(nombreDebian, primera); err != nil {
+	first := Credentials{User: "jorge", Password: "uno", Port: 22, Address: "10.0.0.1", IsRegistered: true}
+	if err := store.Save(testMachineName, first); err != nil {
 		t.Fatalf("Guardar() error = %v, want nil", err)
 	}
 
-	segunda := Credenciales{Usuario: "andrey", Password: "dos", Puerto: 2222, Registrada: false}
-	if err := almacen.Guardar(nombreDebian, segunda); err != nil {
+	second := Credentials{User: "andrey", Password: "dos", Port: 2222, IsRegistered: false}
+	if err := store.Save(testMachineName, second); err != nil {
 		t.Fatalf("Guardar() error = %v, want nil", err)
 	}
 
-	guardadas, ok := almacen.Obtener(nombreDebian)
+	guardadas, ok := store.Get(testMachineName)
 	if !ok {
 		t.Fatal("Obtener() no encontró las credenciales actualizadas")
 	}
 
-	if guardadas != segunda {
-		t.Errorf("Obtener() = %+v, want %+v", guardadas, segunda)
+	if guardadas != second {
+		t.Errorf("Obtener() = %+v, want %+v", guardadas, second)
 	}
 
 	var total int
-	if err := almacen.db.QueryRowContext(context.Background(),
-		`SELECT COUNT(*) FROM credenciales WHERE vm = ?`, nombreDebian).Scan(&total); err != nil {
+	if err := store.db.QueryRowContext(context.Background(),
+		`SELECT COUNT(*) FROM credenciales WHERE vm = ?`, testMachineName).Scan(&total); err != nil {
 		t.Fatalf("contar las credenciales: %v", err)
 	}
 
@@ -107,99 +107,99 @@ func TestAlmacenGuardarActualizaCredenciales(t *testing.T) {
 	}
 }
 
-// TestObtenerConDescifradoFallido devuelve la cuenta sin contraseña.
-func TestObtenerConDescifradoFallido(t *testing.T) {
+// TestGetWithDecryptionFailed devuelve la cuenta sin contraseña.
+func TestGetWithDecryptionFailed(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
+	store, _, _ := newTestDB(t)
 
-	if err := almacen.Guardar(nombreDebian, Credenciales{Usuario: "jorge", Password: "secreto"}); err != nil {
+	if err := store.Save(testMachineName, Credentials{User: "jorge", Password: "secreto"}); err != nil {
 		t.Fatalf("Guardar() error = %v, want nil", err)
 	}
 
-	if _, err := almacen.db.ExecContext(context.Background(),
-		`UPDATE credenciales SET password = 'invalido' WHERE vm = ?`, nombreDebian); err != nil {
+	if _, err := store.db.ExecContext(context.Background(),
+		`UPDATE credenciales SET password = 'invalido' WHERE vm = ?`, testMachineName); err != nil {
 		t.Fatalf("corromper la contraseña: %v", err)
 	}
 
-	credenciales, ok := almacen.Obtener(nombreDebian)
-	if !ok || credenciales.Password != "" {
-		t.Errorf("Obtener() = %+v, %v, want la cuenta sin contraseña", credenciales, ok)
+	credentials, ok := store.Get(testMachineName)
+	if !ok || credentials.Password != "" {
+		t.Errorf("Obtener() = %+v, %v, want la cuenta sin contraseña", credentials, ok)
 	}
 }
 
-// TestCredencialesConBaseCerrada propaga los errores de SQLite.
-func TestCredencialesConBaseCerrada(t *testing.T) {
+// TestCredentialsWithBaseClosed propaga los errores de SQLite.
+func TestCredentialsWithBaseClosed(t *testing.T) {
 	t.Parallel()
 
-	almacen := conBaseCerrada(t)
+	store := withClosedDB(t)
 
-	if _, ok := almacen.Obtener(nombreDebian); ok {
+	if _, ok := store.Get(testMachineName); ok {
 		t.Error("Obtener() = true con la base cerrada")
 	}
 
-	if _, _, ok := almacen.Guest(nombreDebian); ok {
+	if _, _, ok := store.Guest(testMachineName); ok {
 		t.Error("Guest() = true con la base cerrada")
 	}
 
-	if almacen.Registrada(nombreDebian) {
+	if store.IsRegistered(testMachineName) {
 		t.Error("Registrada() = true con la base cerrada")
 	}
 
-	if err := almacen.Guardar(nombreDebian, Credenciales{}); err == nil {
+	if err := store.Save(testMachineName, Credentials{}); err == nil {
 		t.Error("Guardar() error = nil, want el fallo de SQLite")
 	}
 
-	if err := almacen.Borrar(nombreDebian); err == nil {
+	if err := store.Delete(testMachineName); err == nil {
 		t.Error("Borrar() error = nil, want el fallo de SQLite")
 	}
 
-	if activa := almacen.Activa(); activa != "" {
-		t.Errorf("Activa() = %q, want vacío con la base cerrada", activa)
+	if active := store.Active(); active != "" {
+		t.Errorf("Activa() = %q, want vacío con la base cerrada", active)
 	}
 
-	if err := almacen.GuardarActiva(nombreDebian); err == nil {
+	if err := store.SaveActive(testMachineName); err == nil {
 		t.Error("GuardarActiva() error = nil, want el fallo de SQLite")
 	}
 
-	if err := asegurarDescripcionOperaciones(almacen.db); err == nil {
+	if err := ensureOperationDescriptions(store.db); err == nil {
 		t.Error("asegurarDescripcionOperaciones() error = nil, want el fallo de SQLite")
 	}
 }
 
-// TestDescifrarTextosInvalidos cubre los datos corruptos.
-func TestDescifrarTextosInvalidos(t *testing.T) {
+// TestDecryptTextosInvalid cubre los datos corruptos.
+func TestDecryptTextosInvalid(t *testing.T) {
 	t.Parallel()
 
-	almacen, _, _ := nuevaBaseDePrueba(t)
+	store, _, _ := newTestDB(t)
 
-	casos := []struct {
-		nombre string
-		texto  string
+	testCases := []struct {
+		name string
+		text string
 	}{
 		{"no es base64", "no-es-base64"},
 		{"cifrado incompleto", base64.StdEncoding.EncodeToString([]byte("corto"))},
 		{"sin autenticación", base64.StdEncoding.EncodeToString(make([]byte, 20))},
 	}
 
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			if _, err := almacen.descifrar(caso.texto); err == nil {
-				t.Errorf("descifrar(%q) error = nil, want un error", caso.texto)
+			if _, err := store.decrypt(testCase.text); err == nil {
+				t.Errorf("descifrar(%q) error = nil, want un error", testCase.text)
 			}
 		})
 	}
 }
 
-// TestExisteColumnaConBaseCerrada propaga el fallo de consulta.
-func TestExisteColumnaConBaseCerrada(t *testing.T) {
+// TestExistsColumnaWithBaseClosed propaga el fallo de consulta.
+func TestExistsColumnaWithBaseClosed(t *testing.T) {
 	t.Parallel()
 
-	almacen := conBaseCerrada(t)
+	store := withClosedDB(t)
 
-	if _, err := existeColumna(almacen.db, "operaciones", "descripcion"); err == nil {
+	if _, err := columnExists(store.db, "operaciones", "descripcion"); err == nil {
 		t.Error("existeColumna() error = nil, want el fallo de SQLite")
 	}
 }

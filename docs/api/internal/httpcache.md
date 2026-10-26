@@ -8,14 +8,14 @@ import "consola-vm/internal/httpcache"
 
 Package httpcache guarda por unos segundos las respuestas de lectura de la API para no repetir consultas costosas a la máquina virtual: cada listado de paquetes, usuarios o unidades abre una sesión y ejecuta órdenes dentro de la VM.
 
-La caché es conservadora a propósito. Solo recuerda respuestas correctas de \`GET\` sobre la API, con una vigencia corta por recurso, y cualquier operación de escritura vacía la caché completa: una instalación de paquetes o un cambio de hostname invalida todo lo que el usuario podría estar viendo. Así se evita el riesgo clásico de mostrar datos viejos después de una operación.
+La caché es conservadora a propósito. Solo recuerda respuestas correctas de GET sobre la API, con una vigencia corta por recurso, y cualquier operación de escritura vacía la caché completa: una instalación de paquetes o un cambio de hostname invalida todo lo que el usuario podría estar viendo. Así se evita el riesgo clásico de mostrar datos viejos después de una operación.
 
 ## Index
 
 - [type Cache](<#Cache>)
-  - [func Nuevo\(politicas \[\]Politica\) \*Cache](<#Nuevo>)
-  - [func \(c \*Cache\) Envolver\(siguiente http.Handler\) http.Handler](<#Cache.Envolver>)
-- [type Politica](<#Politica>)
+  - [func New\(policies \[\]Policy\) \*Cache](<#New>)
+  - [func \(c \*Cache\) Wrap\(next http.Handler\) http.Handler](<#Cache.Wrap>)
+- [type Policy](<#Policy>)
 
 
 <a name="Cache"></a>
@@ -29,31 +29,31 @@ type Cache struct {
 }
 ```
 
-<a name="Nuevo"></a>
-### func [Nuevo](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/httpcache/cache.go#L70>)
+<a name="New"></a>
+### func [New](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/httpcache/cache.go#L70>)
 
 ```go
-func Nuevo(politicas []Politica) *Cache
+func New(policies []Policy) *Cache
 ```
 
-Nuevo construye la caché con las políticas dadas. Un prefijo más específico gana sobre uno más general.
+New construye la caché con las políticas dadas. Un prefijo más específico gana sobre uno más general.
 
-<a name="Cache.Envolver"></a>
-### func \(\*Cache\) [Envolver](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/httpcache/cache.go#L80>)
+<a name="Cache.Wrap"></a>
+### func \(\*Cache\) [Wrap](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/httpcache/cache.go#L80>)
 
 ```go
-func (c *Cache) Envolver(siguiente http.Handler) http.Handler
+func (c *Cache) Wrap(next http.Handler) http.Handler
 ```
 
-Envolver devuelve un manejador que cachea las lecturas de la API y delega el resto en siguiente.
+Wrap devuelve un manejador que cachea las lecturas de la API y delega el resto en siguiente.
 
-<a name="Politica"></a>
-## type [Politica](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/httpcache/cache.go#L36-L41>)
+<a name="Policy"></a>
+## type [Policy](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/httpcache/cache.go#L36-L41>)
 
-Politica declara la vigencia de las respuestas de un prefijo de ruta.
+Policy declara la vigencia de las respuestas de un prefijo de ruta.
 
 ```go
-type Politica struct {
+type Policy struct {
     // Prefijo es la ruta a la que se aplica, por ejemplo "/api/vms".
     Prefijo string
     // TTL es el tiempo durante el cual la respuesta se reutiliza.

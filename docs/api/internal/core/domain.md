@@ -60,7 +60,7 @@ func (c *Command) ShellLine() string
 ShellLine convierte la orden en una línea de shell POSIX en la que cada componente está citado. Es la representación que la consola entrega a los adaptadores que ejecutan órdenes a través de un shell.
 
 <a name="ExitError"></a>
-## type [ExitError](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L29-L34>)
+## type [ExitError](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L30-L35>)
 
 ExitError representa una orden que terminó con un código de salida distinto de cero. Permite que el núcleo distinga un fallo de la orden de un fallo del mecanismo de ejecución, sin conocer el adaptador.
 
@@ -74,7 +74,7 @@ type ExitError struct {
 ```
 
 <a name="ExitError.Error"></a>
-### func \(\*ExitError\) [Error](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L37>)
+### func \(\*ExitError\) [Error](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L38>)
 
 ```go
 func (e *ExitError) Error() string
@@ -83,7 +83,7 @@ func (e *ExitError) Error() string
 Error implementa la interfaz error.
 
 <a name="GuestAdditions"></a>
-## type [GuestAdditions](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L55-L62>)
+## type [GuestAdditions](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L61-L68>)
 
 GuestAdditions describe lo que la máquina informa sobre Guest Additions.
 
@@ -99,7 +99,7 @@ type GuestAdditions struct {
 ```
 
 <a name="MachineState"></a>
-## type [MachineState](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L42>)
+## type [MachineState](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L43>)
 
 MachineState describe el estado de encendido de una máquina virtual.
 
@@ -111,16 +111,21 @@ type MachineState string
 
 ```go
 const (
-    StateRunning    MachineState = "running"
+    // StateRunning indica que la máquina está encendida.
+    StateRunning MachineState = "running"
+    // StatePoweredOff indica que la máquina está apagada.
     StatePoweredOff MachineState = "poweroff"
-    StatePaused     MachineState = "paused"
-    StateSaved      MachineState = "saved"
-    StateUnknown    MachineState = "unknown"
+    // StatePaused indica que la máquina está pausada.
+    StatePaused MachineState = "paused"
+    // StateSaved indica que la máquina está guardada en disco.
+    StateSaved MachineState = "saved"
+    // StateUnknown indica que el estado no se pudo determinar.
+    StateUnknown MachineState = "unknown"
 )
 ```
 
 <a name="NetworkMode"></a>
-## type [NetworkMode](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L66>)
+## type [NetworkMode](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L72>)
 
 NetworkMode describe el modo de la primera interfaz de red de una máquina virtual.
 
@@ -132,19 +137,25 @@ type NetworkMode string
 
 ```go
 const (
-    NetworkBridged  NetworkMode = "bridged"
-    NetworkNAT      NetworkMode = "nat"
+    // NetworkBridged indica una interfaz en modo puente.
+    NetworkBridged NetworkMode = "bridged"
+    // NetworkNAT indica una interfaz con traducción de direcciones.
+    NetworkNAT NetworkMode = "nat"
+    // NetworkHostOnly indica una red privada entre el anfitrión y la máquina.
     NetworkHostOnly NetworkMode = "hostonly"
+    // NetworkInternal indica una red interna entre máquinas virtuales.
     NetworkInternal NetworkMode = "internal"
-    NetworkNone     NetworkMode = "none"
-    NetworkUnknown  NetworkMode = "unknown"
+    // NetworkNone indica que la interfaz no tiene red.
+    NetworkNone NetworkMode = "none"
+    // NetworkUnknown indica que el modo de red no se pudo determinar.
+    NetworkUnknown NetworkMode = "unknown"
 )
 ```
 
 <a name="Result"></a>
-## type [Result](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L17-L24>)
+## type [Result](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L18-L25>)
 
-Result contiene el resultado de la ejecución de una orden.
+Result reúne la salida estándar, la salida de error y el código de salida de una orden ejecutada.
 
 ```go
 type Result struct {
@@ -158,19 +169,22 @@ type Result struct {
 ```
 
 <a name="Target"></a>
-## type [Target](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L81-L84>)
+## type [Target](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L93-L99>)
 
 Target identifica la máquina administrada. El identificador es opaco para el núcleo: cada adaptador sabe cómo interpretarlo. La dirección se descubre antes de usarla; si es la dirección cero, es desconocida.
 
 ```go
 type Target struct {
-    ID      string
+    // ID es el nombre o UUID con el que el hipervisor identifica la máquina.
+    ID  string
+    // Address es la dirección descubierta; su valor cero indica que aún se
+    // desconoce.
     Address netip.Addr
 }
 ```
 
 <a name="VM"></a>
-## type [VM](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L88-L95>)
+## type [VM](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L103-L110>)
 
 VM describe una máquina virtual registrada en el hipervisor, tal como la enumera el inventario. El nombre es único y sirve para vincularla.
 

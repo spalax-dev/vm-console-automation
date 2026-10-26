@@ -22,10 +22,10 @@ Package vbox adapta Oracle VM VirtualBox a los puertos Machine y Connector de la
   - [func \(c \*Client\) Start\(ctx context.Context, target domain.Target\) error](<#Client.Start>)
   - [func \(c \*Client\) State\(ctx context.Context, target domain.Target\) \(domain.MachineState, error\)](<#Client.State>)
   - [func \(c \*Client\) Version\(ctx context.Context\) \(string, error\)](<#Client.Version>)
-- [type Credenciales](<#Credenciales>)
+- [type Credentials](<#Credentials>)
 - [type Option](<#Option>)
   - [func WithBinary\(bin string\) Option](<#WithBinary>)
-  - [func WithCredenciales\(credenciales Credenciales\) Option](<#WithCredenciales>)
+  - [func WithCredentials\(credentials Credentials\) Option](<#WithCredentials>)
   - [func WithGuestCredentials\(user, password string\) Option](<#WithGuestCredentials>)
 - [type Session](<#Session>)
   - [func \(s \*Session\) Close\(\) error](<#Session.Close>)
@@ -143,14 +143,14 @@ func (c *Client) Version(ctx context.Context) (string, error)
 
 Version devuelve la versión de VirtualBox del anfitrión.
 
-<a name="Credenciales"></a>
-## type [Credenciales](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L63-L65>)
+<a name="Credentials"></a>
+## type [Credentials](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L63-L65>)
 
-Credenciales resuelve el usuario y la contraseña de Guest Additions para una máquina concreta.
+Credentials resuelve el usuario y la contraseña de Guest Additions para una máquina concreta.
 
 ```go
-type Credenciales interface {
-    Guest(vm string) (usuario, password string, ok bool)
+type Credentials interface {
+    Guest(vm string) (user, password string, ok bool)
 }
 ```
 
@@ -172,14 +172,14 @@ func WithBinary(bin string) Option
 
 WithBinary establece la ruta o nombre del programa VBoxManage.
 
-<a name="WithCredenciales"></a>
-### func [WithCredenciales](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L79>)
+<a name="WithCredentials"></a>
+### func [WithCredentials](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L79>)
 
 ```go
-func WithCredenciales(credenciales Credenciales) Option
+func WithCredentials(credentials Credentials) Option
 ```
 
-WithCredenciales establece el almacén que resuelve las credenciales por máquina; tiene prioridad sobre las credenciales por omisión.
+WithCredentials establece el almacén que resuelve las credenciales por máquina; tiene prioridad sobre las credenciales por omisión.
 
 <a name="WithGuestCredentials"></a>
 ### func [WithGuestCredentials](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L87>)

@@ -21,39 +21,39 @@ import (
 	_ "modernc.org/sqlite" // controlador SQLite puro Go, sin CGO
 )
 
-// controladorSQL es el controlador de base de datos; es una variable para
+// sqlDriver es el controlador de base de datos; es una variable para
 // poder simular fallos de apertura en las pruebas.
-var controladorSQL = "sqlite"
+var sqlDriver = "sqlite"
 
-// ajustarPermisos cambia los permisos de la base; es una variable por la
+// adjustPermissions cambia los permisos de la base; es una variable por la
 // misma razón.
-var ajustarPermisos = os.Chmod
+var adjustPermissions = os.Chmod
 
-// aleatorio llena los buffers de cifrado y de secretos; es una variable
+// randomRead llena los buffers de cifrado y de secretos; es una variable
 // para poder simular fallos de entropía en las pruebas.
-var aleatorio = rand.Read
+var randomRead = rand.Read
 
-// nuevoGCM construye el modo GCM; es una variable por la misma razón.
-var nuevoGCM = cipher.NewGCM
+// newGCM construye el modo GCM; es una variable por la misma razón.
+var newGCM = cipher.NewGCM
 
-// Credenciales son los datos de acceso a una máquina virtual. La
+// Credentials son los datos de acceso a una máquina virtual. La
 // contraseña se cifra con AES-GCM antes de guardarse en SQLite.
-type Credenciales struct {
-	// Usuario es el usuario con el que se abre la sesión.
-	Usuario string
+type Credentials struct {
+	// User es el usuario con el que se abre la sesión.
+	User string
 	// Password es la contraseña del usuario.
 	Password string
-	// Puerto es el puerto SSH; cero significa el puerto por omisión.
-	Puerto uint16
-	// Direccion es una dirección alternativa (por ejemplo, un reenvío
+	// Port es el puerto SSH; cero significa el puerto por omisión.
+	Port uint16
+	// Address es una dirección alternativa (por ejemplo, un reenvío
 	// de puertos); vacía significa descubrirla con Guest Additions.
-	Direccion string
-	// Registrada indica que la consola ya preparó SSH en la máquina.
-	Registrada bool
+	Address string
+	// IsRegistered indica que la consola ya preparó SSH en la máquina.
+	IsRegistered bool
 }
 
-// esquemaCredenciales crea la tabla de credenciales si no existe.
-const esquemaCredenciales = `
+// schemaCredentials crea la tabla de credenciales si no existe.
+const schemaCredentials = `
 CREATE TABLE IF NOT EXISTS credenciales (
 	vm TEXT PRIMARY KEY,
 	usuario TEXT NOT NULL,
@@ -64,8 +64,8 @@ CREATE TABLE IF NOT EXISTS credenciales (
 	actualizado_en TEXT NOT NULL
 );`
 
-// esquemaOperaciones crea la tabla del historial si no existe.
-const esquemaOperaciones = `
+// schemaOperations crea la tabla del historial si no existe.
+const schemaOperations = `
 CREATE TABLE IF NOT EXISTS operaciones (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	fecha_hora TEXT NOT NULL,
@@ -79,78 +79,78 @@ CREATE TABLE IF NOT EXISTS operaciones (
 CREATE INDEX IF NOT EXISTS operaciones_fecha ON operaciones (fecha_hora);
 CREATE INDEX IF NOT EXISTS operaciones_vm ON operaciones (vm);`
 
-// esquemaConfiguracion crea la tabla de ajustes de la consola.
-const esquemaConfiguracion = `
+// schemaConfig crea la tabla de ajustes de la consola.
+const schemaConfig = `
 CREATE TABLE IF NOT EXISTS configuracion (
 	clave TEXT PRIMARY KEY,
 	valor TEXT NOT NULL
 );`
 
-// claveMaquinaActiva es la clave de la máquina vinculada.
-const claveMaquinaActiva = "vm_activa"
+// activeMachineKey es la clave de la máquina vinculada.
+const activeMachineKey = "vm_activa"
 
-// Almacen guarda las credenciales por máquina en SQLite y cifra la
+// Store guarda las credenciales por máquina en SQLite y cifra la
 // contraseña con una clave local.
-type Almacen struct {
-	db    *sql.DB
-	clave []byte
+type Store struct {
+	db  *sql.DB
+	key []byte
 }
 
-// NuevoAlmacen abre la base SQLite, crea el esquema y carga o genera la
+// NewStore abre la base SQLite, crea el esquema y carga o genera la
 // clave de cifrado.
-func NuevoAlmacen(rutaBD, rutaClave string) (*Almacen, error) {
-	if err := os.MkdirAll(filepath.Dir(rutaBD), 0o700); err != nil {
+func NewStore(pathBD, pathKey string) (*Store, error) {
+	if err := os.MkdirAll(filepath.Dir(pathBD), 0o700); err != nil {
 		return nil, fmt.Errorf("crear el directorio de datos: %w", err)
 	}
 
-	clave, err := cargarClave(rutaClave)
+	key, err := loadKey(pathKey)
 	if err != nil {
 		return nil, err
 	}
 
-	db, err := sql.Open(controladorSQL, rutaBD)
+	db, err := sql.Open(sqlDriver, pathBD)
 	if err != nil {
 		return nil, fmt.Errorf("abrir la base de datos: %w", err)
 	}
 
 	db.SetMaxOpenConns(1)
 
-	if err := crearEsquema(db); err != nil {
+	if err := createSchema(db); err != nil {
 		return nil, err
 	}
 
 	// #nosec G302 -- es la base de datos, no un ejecutable.
-	if err := ajustarPermisos(rutaBD, 0o600); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		slog.Warn("ajustar permisos de la base de datos", claveErrorLog, err)
+	if err := adjustPermissions(pathBD, 0o600); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		slog.Warn("ajustar permisos de la base de datos", logErrorKey, err)
 	}
 
-	return &Almacen{db: db, clave: clave}, nil
+	return &Store{db: db, key: key}, nil
 }
 
-// crearEsquema crea las tablas de la consola y aplica las migraciones
+// createSchema crea las tablas de la consola y aplica las migraciones
 // necesarias sobre bases creadas con una versión anterior.
-func crearEsquema(db *sql.DB) error {
-	esquemas := []struct {
-		nombre string
-		sql    string
+func createSchema(db *sql.DB) error {
+	schemas := []struct {
+		name string
+		sql  string
 	}{
-		{"credenciales", esquemaCredenciales},
-		{"historial", esquemaOperaciones},
-		{"configuración", esquemaConfiguracion},
-		{"cuentas de la consola", esquemaUsuariosConsola},
+		{"credenciales", schemaCredentials},
+		{"historial", schemaOperations},
+		{"configuración", schemaConfig},
+		{"cuentas de la consola", schemaUsersConsole},
 	}
 
-	for _, esquema := range esquemas {
-		if _, err := db.ExecContext(context.Background(), esquema.sql); err != nil {
-			return fmt.Errorf("crear el esquema de %s: %w", esquema.nombre, err)
+	for _, schema := range schemas {
+		if _, err := db.ExecContext(context.Background(), schema.sql); err != nil {
+			return fmt.Errorf("crear el esquema de %s: %w", schema.name, err)
 		}
 	}
 
-	return asegurarDescripcionOperaciones(db)
+	return ensureOperationDescriptions(db)
 }
 
 // Close cierra la conexión con la base de datos SQLite.
-func (a *Almacen) Close() error {
+func (a *Store) Close() error {
 	if a == nil || a.db == nil {
 		return nil
 	}
@@ -162,15 +162,15 @@ func (a *Almacen) Close() error {
 	return nil
 }
 
-// asegurarDescripcionOperaciones agrega la columna descripcion a bases
+// ensureOperationDescriptions agrega la columna descripcion a bases
 // creadas con una versión anterior.
-func asegurarDescripcionOperaciones(db *sql.DB) error {
-	existe, err := existeColumna(db, "operaciones", "descripcion")
+func ensureOperationDescriptions(db *sql.DB) error {
+	exists, err := columnExists(db, "operaciones", "descripcion")
 	if err != nil {
 		return err
 	}
 
-	if existe {
+	if exists {
 		return nil
 	}
 
@@ -182,116 +182,116 @@ func asegurarDescripcionOperaciones(db *sql.DB) error {
 	return nil
 }
 
-// existeColumna comprueba si una tabla SQLite tiene una columna. Cierra
+// columnExists comprueba si una tabla SQLite tiene una columna. Cierra
 // las filas antes de volver para liberar la única conexión de la base.
-func existeColumna(db *sql.DB, tabla, columna string) (bool, error) {
+func columnExists(db *sql.DB, table, columna string) (bool, error) {
 	// #nosec G201 -- la tabla y la columna las fija el código, no el usuario.
-	filas, err := db.QueryContext(context.Background(), `PRAGMA table_info(`+tabla+`)`)
+	rows, err := db.QueryContext(context.Background(), `PRAGMA table_info(`+table+`)`)
 	if err != nil {
-		return false, fmt.Errorf("leer el esquema de %s: %w", tabla, err)
+		return false, fmt.Errorf("leer el esquema de %s: %w", table, err)
 	}
 
 	defer func() {
-		if err := filas.Close(); err != nil {
-			slog.Warn("cerrar el esquema de la tabla", "tabla", tabla, claveErrorLog, err)
+		if err := rows.Close(); err != nil {
+			slog.Warn("cerrar el esquema de la tabla", "tabla", table, logErrorKey, err)
 		}
 	}()
 
-	for filas.Next() {
+	for rows.Next() {
 		var (
-			cid        int
-			nombre     string
-			tipo       string
-			noNulo     int
-			porDefecto sql.NullString
-			clave      int
+			cid       int
+			name      string
+			kind      string
+			notNulo   int
+			byDefecto sql.NullString
+			key       int
 		)
 
-		if err := filas.Scan(&cid, &nombre, &tipo, &noNulo, &porDefecto, &clave); err != nil {
-			return false, fmt.Errorf("leer una columna de %s: %w", tabla, err)
+		if err := rows.Scan(&cid, &name, &kind, &notNulo, &byDefecto, &key); err != nil {
+			return false, fmt.Errorf("leer una columna de %s: %w", table, err)
 		}
 
-		if nombre == columna {
+		if name == columna {
 			return true, nil
 		}
 	}
 
-	if err := filas.Err(); err != nil {
-		return false, fmt.Errorf("recorrer el esquema de %s: %w", tabla, err)
+	if err := rows.Err(); err != nil {
+		return false, fmt.Errorf("recorrer el esquema de %s: %w", table, err)
 	}
 
 	return false, nil
 }
 
-// cargarClave lee la clave local de 32 bytes o la genera si no existe.
-func cargarClave(ruta string) ([]byte, error) {
+// loadKey lee la clave local de 32 bytes o la genera si no existe.
+func loadKey(path string) ([]byte, error) {
 	// #nosec G304 -- la ruta la fija la consola al arrancar.
-	contenido, err := os.ReadFile(ruta)
+	content, err := os.ReadFile(path)
 	if err == nil {
-		if len(contenido) != 32 {
-			return nil, fmt.Errorf("la clave %q debe tener 32 bytes", ruta)
+		if len(content) != 32 {
+			return nil, fmt.Errorf("la clave %q debe tener 32 bytes", path)
 		}
 
-		return contenido, nil
+		return content, nil
 	}
 
 	if !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("leer la clave de cifrado: %w", err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(ruta), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return nil, fmt.Errorf("crear el directorio de la clave: %w", err)
 	}
 
-	clave := make([]byte, 32)
-	if _, err := aleatorio(clave); err != nil {
+	key := make([]byte, 32)
+	if _, err := randomRead(key); err != nil {
 		return nil, fmt.Errorf("generar la clave de cifrado: %w", err)
 	}
 
 	// #nosec G306 -- la clave debe ser privada.
-	if err := os.WriteFile(ruta, clave, 0o600); err != nil {
+	if err := os.WriteFile(path, key, 0o600); err != nil {
 		return nil, fmt.Errorf("guardar la clave de cifrado: %w", err)
 	}
 
-	return clave, nil
+	return key, nil
 }
 
-// Obtener devuelve las credenciales de una máquina.
-func (a *Almacen) Obtener(vm string) (Credenciales, bool) {
+// Get devuelve las credenciales de una máquina.
+func (a *Store) Get(vm string) (Credentials, bool) {
 	var (
-		credenciales Credenciales
-		cifrado      string
-		registrada   int
+		credentials Credentials
+		ciphertext  string
+		registered  int
 	)
 
 	err := a.db.QueryRowContext(context.Background(),
 		`SELECT usuario, password, puerto, direccion, registrada FROM credenciales WHERE vm = ?`, vm,
-	).Scan(&credenciales.Usuario, &cifrado, &credenciales.Puerto, &credenciales.Direccion, &registrada)
+	).Scan(&credentials.User, &ciphertext, &credentials.Port, &credentials.Address, &registered)
 	if errors.Is(err, sql.ErrNoRows) {
-		return Credenciales{}, false
+		return Credentials{}, false
 	}
 
 	if err != nil {
-		slog.Warn("leer las credenciales", "vm", vm, claveErrorLog, err)
+		slog.Warn("leer las credenciales", "vm", vm, logErrorKey, err)
 
-		return Credenciales{}, false
+		return Credentials{}, false
 	}
 
-	credenciales.Registrada = registrada == 1
+	credentials.IsRegistered = registered == 1
 
-	password, err := a.descifrar(cifrado)
+	password, err := a.decrypt(ciphertext)
 	if err != nil {
-		slog.Warn("descifrar la contraseña", "vm", vm, claveErrorLog, err)
+		slog.Warn("descifrar la contraseña", "vm", vm, logErrorKey, err)
 	}
 
-	credenciales.Password = password
+	credentials.Password = password
 
-	return credenciales, true
+	return credentials, true
 }
 
-// Guardar registra o actualiza las credenciales de una máquina.
-func (a *Almacen) Guardar(vm string, credenciales Credenciales) error {
-	password, err := a.cifrar(credenciales.Password)
+// Save registra o actualiza las credenciales de una máquina.
+func (a *Store) Save(vm string, credentials Credentials) error {
+	password, err := a.encrypt(credentials.Password)
 	if err != nil {
 		return err
 	}
@@ -306,8 +306,8 @@ func (a *Almacen) Guardar(vm string, credenciales Credenciales) error {
 			direccion = excluded.direccion,
 			registrada = excluded.registrada,
 			actualizado_en = excluded.actualizado_en`,
-		vm, credenciales.Usuario, password, credenciales.Puerto, credenciales.Direccion,
-		booleano(credenciales.Registrada), time.Now().UTC().Format(time.RFC3339),
+		vm, credentials.User, password, credentials.Port, credentials.Address,
+		boolInt(credentials.IsRegistered), time.Now().UTC().Format(time.RFC3339),
 	)
 	if err != nil {
 		return fmt.Errorf("guardar las credenciales: %w", err)
@@ -316,8 +316,8 @@ func (a *Almacen) Guardar(vm string, credenciales Credenciales) error {
 	return nil
 }
 
-// Borrar elimina las credenciales de una máquina.
-func (a *Almacen) Borrar(vm string) error {
+// Delete elimina las credenciales de una máquina.
+func (a *Store) Delete(vm string) error {
 	if _, err := a.db.ExecContext(context.Background(), `DELETE FROM credenciales WHERE vm = ?`, vm); err != nil {
 		return fmt.Errorf("borrar las credenciales: %w", err)
 	}
@@ -325,26 +325,26 @@ func (a *Almacen) Borrar(vm string) error {
 	return nil
 }
 
-// Activa devuelve la máquina vinculada que se guardó al cerrar.
-func (a *Almacen) Activa() string {
-	var valor string
+// Active devuelve la máquina vinculada que se guardó al cerrar.
+func (a *Store) Active() string {
+	var value string
 
 	err := a.db.QueryRowContext(context.Background(),
-		`SELECT valor FROM configuracion WHERE clave = ?`, claveMaquinaActiva,
-	).Scan(&valor)
+		`SELECT valor FROM configuracion WHERE clave = ?`, activeMachineKey,
+	).Scan(&value)
 	if err != nil {
 		return ""
 	}
 
-	return valor
+	return value
 }
 
-// GuardarActiva persiste la máquina vinculada para el próximo arranque.
-func (a *Almacen) GuardarActiva(vm string) error {
+// SaveActive persiste la máquina vinculada para el próximo arranque.
+func (a *Store) SaveActive(vm string) error {
 	_, err := a.db.ExecContext(context.Background(), `
 		INSERT INTO configuracion (clave, valor) VALUES (?, ?)
 		ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor`,
-		claveMaquinaActiva, vm,
+		activeMachineKey, vm,
 	)
 	if err != nil {
 		return fmt.Errorf("guardar la máquina vinculada: %w", err)
@@ -353,69 +353,69 @@ func (a *Almacen) GuardarActiva(vm string) error {
 	return nil
 }
 
-// Registrada informa si la máquina ya fue registrada en la consola.
-func (a *Almacen) Registrada(vm string) bool {
-	var registrada int
+// IsRegistered informa si la máquina ya fue registrada en la consola.
+func (a *Store) IsRegistered(vm string) bool {
+	var registered int
 
-	err := a.db.QueryRowContext(context.Background(), `SELECT registrada FROM credenciales WHERE vm = ?`, vm).Scan(&registrada)
+	err := a.db.QueryRowContext(context.Background(), `SELECT registrada FROM credenciales WHERE vm = ?`, vm).Scan(&registered)
 	if err != nil {
 		return false
 	}
 
-	return registrada == 1
+	return registered == 1
 }
 
 // Guest implementa la resolución de credenciales de Guest Additions.
-func (a *Almacen) Guest(vm string) (usuario, password string, ok bool) {
-	credenciales, ok := a.Obtener(vm)
+func (a *Store) Guest(vm string) (user, password string, ok bool) {
+	credentials, ok := a.Get(vm)
 
-	return credenciales.Usuario, credenciales.Password, ok
+	return credentials.User, credentials.Password, ok
 }
 
-// cifrar protege la contraseña con AES-256-GCM y la codifica en base64.
-func (a *Almacen) cifrar(texto string) (string, error) {
-	bloque, err := aes.NewCipher(a.clave)
+// encrypt protege la contraseña con AES-256-GCM y la codifica en base64.
+func (a *Store) encrypt(text string) (string, error) {
+	bloque, err := aes.NewCipher(a.key)
 	if err != nil {
 		return "", fmt.Errorf("preparar el cifrado: %w", err)
 	}
 
-	gcm, err := nuevoGCM(bloque)
+	gcm, err := newGCM(bloque)
 	if err != nil {
 		return "", fmt.Errorf("preparar GCM: %w", err)
 	}
 
 	nonce := make([]byte, gcm.NonceSize())
-	if _, err := aleatorio(nonce); err != nil {
+	if _, err := randomRead(nonce); err != nil {
 		return "", fmt.Errorf("generar el nonce: %w", err)
 	}
 
-	return base64.StdEncoding.EncodeToString(gcm.Seal(nonce, nonce, []byte(texto), nil)), nil
+	return base64.StdEncoding.EncodeToString(gcm.Seal(nonce, nonce, []byte(text), nil)), nil
 }
 
-// descifrar recupera la contraseña guardada con cifrar.
-func (a *Almacen) descifrar(texto string) (string, error) {
-	datos, err := base64.StdEncoding.DecodeString(texto)
+// decrypt recupera la contraseña guardada con cifrar.
+func (a *Store) decrypt(text string) (string, error) {
+	data, err := base64.StdEncoding.DecodeString(text)
 	if err != nil {
 		return "", fmt.Errorf("decodificar la contraseña: %w", err)
 	}
 
-	bloque, err := aes.NewCipher(a.clave)
+	bloque, err := aes.NewCipher(a.key)
 	if err != nil {
 		return "", fmt.Errorf("preparar el descifrado: %w", err)
 	}
 
-	gcm, err := nuevoGCM(bloque)
+	gcm, err := newGCM(bloque)
 	if err != nil {
 		return "", fmt.Errorf("preparar GCM: %w", err)
 	}
 
-	if len(datos) < gcm.NonceSize() {
+	if len(data) < gcm.NonceSize() {
 		return "", fmt.Errorf("la contraseña cifrada está incompleta")
 	}
 
-	nonce, cifrado := datos[:gcm.NonceSize()], datos[gcm.NonceSize():]
+	nonce, ciphertext := data[:gcm.NonceSize()], data[gcm.NonceSize():]
 
-	plano, err := gcm.Open(nil, nonce, cifrado, nil)
+	plano, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
 		return "", fmt.Errorf("descifrar la contraseña: %w", err)
 	}
@@ -423,9 +423,9 @@ func (a *Almacen) descifrar(texto string) (string, error) {
 	return string(plano), nil
 }
 
-// booleano convierte un bool en el entero que usa SQLite.
-func booleano(valor bool) int {
-	if valor {
+// boolInt convierte un bool en el entero que usa SQLite.
+func boolInt(value bool) int {
+	if value {
 		return 1
 	}
 

@@ -13,12 +13,12 @@ import (
 )
 
 const (
-	servidorSrv1    = "srv1"
-	servidorSrv2    = "srv2"
-	estadoUp        = "up"
-	estadoDown      = "down"
-	estadoUP        = "UP"
-	estadoDownMayus = "DOWN"
+	serverSrv1     = "srv1"
+	serverSrv2     = "srv2"
+	stateUp        = "up"
+	stateDown      = "down"
+	stateUP        = "UP"
+	stateDownMayus = "DOWN"
 )
 
 // configHaproxy simula una configuración con un front-end y un back-end.
@@ -37,311 +37,311 @@ backend app
     server srv1 192.168.1.61:8080 check
 `
 
-// nuevoHaproxyDePrueba arma el servicio con una sesión falsa.
-func nuevoHaproxyDePrueba(sesion *stubSession, err error) *Haproxy {
-	return NuevoHaproxy(&stubAbridor{sesion: sesion, err: err})
+// newHAProxyForTest arma el servicio con una sesión falsa.
+func newHAProxyForTest(session *stubSession, err error) *HAProxy {
+	return NewHAProxy(&stubOpener{session: session, err: err})
 }
 
-// TestHaproxyListar interpreta los servidores del backend.
-func TestHaproxyListar(t *testing.T) {
+// TestHaproxyList interpreta los servidores del backend.
+func TestHaproxyList(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{result: domain.Result{Stdout: configHaproxy}}
+	session := &stubSession{result: domain.Result{Stdout: configHaproxy}}
 
-	servidores, err := nuevoHaproxyDePrueba(sesion, nil).Listar(context.Background())
+	servers, err := newHAProxyForTest(session, nil).List(context.Background())
 	if err != nil {
-		t.Fatalf(msgListarOK, err)
+		t.Fatalf(msgListOK, err)
 	}
 
-	if len(servidores) != 1 || servidores[0].Direccion != ipServidorPrueba || servidores[0].Puerto != 8080 {
-		t.Errorf("servidores = %+v, want 192.168.1.61:8080", servidores)
+	if len(servers) != 1 || servers[0].Address != ipServerTests || servers[0].Port != 8080 {
+		t.Errorf("servidores = %+v, want 192.168.1.61:8080", servers)
 	}
 }
 
-// TestHaproxyAgregar modifica la configuración y recarga HAProxy.
-func TestHaproxyAgregar(t *testing.T) {
+// TestHaproxyAdd modifica la configuración y recarga HAProxy.
+func TestHaproxyAdd(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{results: []domain.Result{{Stdout: configHaproxy}, {}}}
-	haproxy := nuevoHaproxyDePrueba(sesion, nil)
+	session := &stubSession{results: []domain.Result{{Stdout: configHaproxy}, {}}}
+	haproxy := newHAProxyForTest(session, nil)
 
-	resultado, err := haproxy.Agregar(context.Background(), ipServidorNuevo, 9090)
+	result, err := haproxy.Add(context.Background(), ipServerNew, 9090)
 	if err != nil {
 		t.Fatalf("Agregar() error = %v, want nil", err)
 	}
 
-	if len(sesion.commands) != 2 {
-		t.Fatalf(msgOrdenDos, len(sesion.commands))
+	if len(session.commands) != 2 {
+		t.Fatalf(msgCommandDos, len(session.commands))
 	}
 
-	orden := sesion.commands[1].ShellLine()
-	for _, esperado := range []string{"base64 -d", binHaproxy, "-c", "reload haproxy"} {
-		if !strings.Contains(orden, esperado) {
-			t.Errorf("orden = %q, want %q", orden, esperado)
+	command := session.commands[1].ShellLine()
+	for _, expected := range []string{"base64 -d", binHaproxy, "-c", "reload haproxy"} {
+		if !strings.Contains(command, expected) {
+			t.Errorf("orden = %q, want %q", command, expected)
 		}
 	}
 
-	if resultado.Codigo != 0 {
-		t.Errorf("Codigo = %d, want 0", resultado.Codigo)
+	if result.Code != 0 {
+		t.Errorf("Codigo = %d, want 0", result.Code)
 	}
 }
 
-// TestHaproxyAgregarDuplicado comprueba el servidor ya presente.
-func TestHaproxyAgregarDuplicado(t *testing.T) {
+// TestHaproxyAddDuplicate comprueba el servidor ya presente.
+func TestHaproxyAddDuplicate(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{result: domain.Result{Stdout: configHaproxy}}
-	haproxy := nuevoHaproxyDePrueba(sesion, nil)
+	session := &stubSession{result: domain.Result{Stdout: configHaproxy}}
+	haproxy := newHAProxyForTest(session, nil)
 
-	if _, err := haproxy.Agregar(context.Background(), ipServidorPrueba, 8080); !errors.Is(err, ErrServidorExistente) {
+	if _, err := haproxy.Add(context.Background(), ipServerTests, 8080); !errors.Is(err, ErrServerExists) {
 		t.Fatalf("Agregar() error = %v, want ErrServidorExistente", err)
 	}
 
-	if len(sesion.commands) != 1 {
-		t.Errorf("la sesión ejecutó %d órdenes, want solo la lectura", len(sesion.commands))
+	if len(session.commands) != 1 {
+		t.Errorf("la sesión ejecutó %d órdenes, want solo la lectura", len(session.commands))
 	}
 }
 
-// TestHaproxySinBackend comprueba una configuración sin backend.
-func TestHaproxySinBackend(t *testing.T) {
+// TestHaproxyWithoutBackend comprueba una configuración sin backend.
+func TestHaproxyWithoutBackend(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{result: domain.Result{Stdout: "global\n    daemon\n"}}
+	session := &stubSession{result: domain.Result{Stdout: "global\n    daemon\n"}}
 
-	if _, err := nuevoHaproxyDePrueba(sesion, nil).Listar(context.Background()); !errors.Is(err, ErrBackendNoEncontrado) {
+	if _, err := newHAProxyForTest(session, nil).List(context.Background()); !errors.Is(err, ErrBackendNotFound) {
 		t.Fatalf("Listar() error = %v, want ErrBackendNoEncontrado", err)
 	}
 }
 
-// TestHaproxyEliminar quita el servidor de la configuración.
-func TestHaproxyEliminar(t *testing.T) {
+// TestHaproxyDelete quita el servidor de la configuración.
+func TestHaproxyDelete(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{results: []domain.Result{{Stdout: configHaproxy}, {}}}
-	haproxy := nuevoHaproxyDePrueba(sesion, nil)
+	session := &stubSession{results: []domain.Result{{Stdout: configHaproxy}, {}}}
+	haproxy := newHAProxyForTest(session, nil)
 
-	if _, err := haproxy.Eliminar(context.Background(), ipServidorPrueba, 8080); err != nil {
-		t.Fatalf(msgEliminarOK, err)
+	if _, err := haproxy.Delete(context.Background(), ipServerTests, 8080); err != nil {
+		t.Fatalf(msgDeleteOK, err)
 	}
 
-	orden := sesion.commands[1].ShellLine()
-	if !strings.Contains(orden, "base64 -d") {
-		t.Errorf("orden = %q, want base64 -d", orden)
+	command := session.commands[1].ShellLine()
+	if !strings.Contains(command, "base64 -d") {
+		t.Errorf("orden = %q, want base64 -d", command)
 	}
 }
 
-// TestHaproxyEliminarInexistente comprueba el servidor ausente.
-func TestHaproxyEliminarInexistente(t *testing.T) {
+// TestHaproxyDeleteInexistente comprueba el servidor ausente.
+func TestHaproxyDeleteInexistente(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{result: domain.Result{Stdout: configHaproxy}}
+	session := &stubSession{result: domain.Result{Stdout: configHaproxy}}
 
-	if _, err := nuevoHaproxyDePrueba(sesion, nil).Eliminar(context.Background(), "192.168.1.99", 9999); !errors.Is(err, ErrServidorNoEncontrado) {
+	if _, err := newHAProxyForTest(session, nil).Delete(context.Background(), "192.168.1.99", 9999); !errors.Is(err, ErrServerNotFound) {
 		t.Fatalf("Eliminar() error = %v, want ErrServidorNoEncontrado", err)
 	}
 
-	if len(sesion.commands) != 1 {
-		t.Errorf("la sesión ejecutó %d órdenes, want solo la lectura", len(sesion.commands))
+	if len(session.commands) != 1 {
+		t.Errorf("la sesión ejecutó %d órdenes, want solo la lectura", len(session.commands))
 	}
 }
 
-// TestAgregarServidorInsertaEnBackend comprueba la línea generada.
-func TestAgregarServidorInsertaEnBackend(t *testing.T) {
+// TestAddServerInsertaInBackend comprueba la línea generada.
+func TestAddServerInsertaInBackend(t *testing.T) {
 	t.Parallel()
 
-	nuevo, err := agregarServidor(configHaproxy, ipServidorNuevo, 9090)
+	updated, err := addServer(configHaproxy, ipServerNew, 9090)
 	if err != nil {
 		t.Fatalf("agregarServidor() error = %v, want nil", err)
 	}
 
-	if !strings.Contains(nuevo, "    server srv_192_168_1_62_9090 192.168.1.62:9090 check") {
-		t.Errorf("configuración = %q, want la línea del servidor", nuevo)
+	if !strings.Contains(updated, "    server srv_192_168_1_62_9090 192.168.1.62:9090 check") {
+		t.Errorf("configuración = %q, want la línea del servidor", updated)
 	}
 
-	if strings.Contains(nuevo, "frontend http\n    server") {
-		t.Errorf("configuración = %q, el servidor debe ir en el backend", nuevo)
+	if strings.Contains(updated, "frontend http\n    server") {
+		t.Errorf("configuración = %q, el servidor debe ir en el backend", updated)
 	}
 }
 
-// TestQuitarServidorDejaBackend comprueba la eliminación de la línea.
-func TestQuitarServidorDejaBackend(t *testing.T) {
+// TestRemoveServerDejaBackend comprueba la eliminación de la línea.
+func TestRemoveServerDejaBackend(t *testing.T) {
 	t.Parallel()
 
-	nuevo, err := quitarServidor(configHaproxy, ipServidorPrueba, 8080)
+	updated, err := removeServer(configHaproxy, ipServerTests, 8080)
 	if err != nil {
 		t.Fatalf("quitarServidor() error = %v, want nil", err)
 	}
 
-	if strings.Contains(nuevo, servidorSrv1) {
-		t.Errorf("configuración = %q, el servidor no se quitó", nuevo)
+	if strings.Contains(updated, serverSrv1) {
+		t.Errorf("configuración = %q, el servidor no se quitó", updated)
 	}
 
-	if !strings.Contains(nuevo, "backend app") || !strings.Contains(nuevo, "balance roundrobin") {
-		t.Errorf("configuración = %q, want el backend intacto", nuevo)
+	if !strings.Contains(updated, "backend app") || !strings.Contains(updated, "balance roundrobin") {
+		t.Errorf("configuración = %q, want el backend intacto", updated)
 	}
 }
 
-// TestHaproxyAgregarErrorDeRecarga comprueba el fallo de recarga.
-func TestHaproxyAgregarErrorDeRecarga(t *testing.T) {
+// TestHaproxyAddErrorOfReload comprueba el fallo de recarga.
+func TestHaproxyAddErrorOfReload(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{
+	session := &stubSession{
 		results: []domain.Result{{Stdout: configHaproxy}},
 		result:  domain.Result{Stderr: "haproxy: invalid config", ExitCode: 1},
 		errs:    []error{nil, &domain.ExitError{Code: 1, Command: binSh}},
 	}
 
-	resultado, err := nuevoHaproxyDePrueba(sesion, nil).Agregar(context.Background(), ipServidorNuevo, 9090)
+	result, err := newHAProxyForTest(session, nil).Add(context.Background(), ipServerNew, 9090)
 	if err == nil {
 		t.Fatal("Agregar() error = nil, want el error de validación")
 	}
 
-	if resultado.Codigo != 1 || resultado.Stderr == "" {
-		t.Errorf(msgResultadoTecnico, resultado)
+	if result.Code != 1 || result.Stderr == "" {
+		t.Errorf(msgResultTechnical, result)
 	}
 }
 
-// TestHaproxySinSesion comprueba la ausencia de sesión.
-func TestHaproxySinSesion(t *testing.T) {
+// TestHaproxyWithoutSession comprueba la ausencia de sesión.
+func TestHaproxyWithoutSession(t *testing.T) {
 	t.Parallel()
 
-	haproxy := nuevoHaproxyDePrueba(nil, ErrSesionNoDisponible)
+	haproxy := newHAProxyForTest(nil, ErrSessionUnavailable)
 
-	if _, err := haproxy.Listar(context.Background()); !errors.Is(err, ErrSesionNoDisponible) {
+	if _, err := haproxy.List(context.Background()); !errors.Is(err, ErrSessionUnavailable) {
 		t.Fatalf("Listar() error = %v, want ErrSesionNoDisponible", err)
 	}
 }
 
-// TestHaproxyErroresDeSesion cubre la ausencia de sesión y la lectura de
+// TestHaproxyErrorsOfSession cubre la ausencia de sesión y la lectura de
 // la configuración.
-func TestHaproxyErroresDeSesion(t *testing.T) {
+func TestHaproxyErrorsOfSession(t *testing.T) {
 	t.Parallel()
 
-	sinSesion := nuevoHaproxyDePrueba(nil, ErrSesionNoDisponible)
+	withoutSession := newHAProxyForTest(nil, ErrSessionUnavailable)
 
-	if _, err := sinSesion.Agregar(context.Background(), ipServidorPrueba, 8080); !errors.Is(err, ErrSesionNoDisponible) {
+	if _, err := withoutSession.Add(context.Background(), ipServerTests, 8080); !errors.Is(err, ErrSessionUnavailable) {
 		t.Errorf("Agregar() error = %v, want ErrSesionNoDisponible", err)
 	}
 
-	if _, err := sinSesion.Eliminar(context.Background(), ipServidorPrueba, 8080); !errors.Is(err, ErrSesionNoDisponible) {
+	if _, err := withoutSession.Delete(context.Background(), ipServerTests, 8080); !errors.Is(err, ErrSessionUnavailable) {
 		t.Errorf("Eliminar() error = %v, want ErrSesionNoDisponible", err)
 	}
 
-	conError := nuevoHaproxyDePrueba(&stubSession{err: &domain.ExitError{Code: 1, Command: binCat}}, nil)
+	withError := newHAProxyForTest(&stubSession{err: &domain.ExitError{Code: 1, Command: binCat}}, nil)
 
-	if _, err := conError.Listar(context.Background()); err == nil {
+	if _, err := withError.List(context.Background()); err == nil {
 		t.Error("Listar() error = nil, want el error de lectura")
 	}
 
-	if _, err := conError.Agregar(context.Background(), ipServidorPrueba, 8080); err == nil {
+	if _, err := withError.Add(context.Background(), ipServerTests, 8080); err == nil {
 		t.Error("Agregar() error = nil, want el error de lectura")
 	}
 }
 
-// TestHaproxyEliminarErrorDeRecarga cubre el fallo al recargar HAProxy.
-func TestHaproxyEliminarErrorDeRecarga(t *testing.T) {
+// TestHaproxyDeleteErrorOfReload cubre el fallo al recargar HAProxy.
+func TestHaproxyDeleteErrorOfReload(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{
+	session := &stubSession{
 		results: []domain.Result{{Stdout: configHaproxy}},
 		result:  domain.Result{Stderr: "reload failed", ExitCode: 1},
 		errs:    []error{nil, &domain.ExitError{Code: 1, Command: binSh}},
 	}
 
-	if _, err := nuevoHaproxyDePrueba(sesion, nil).Eliminar(context.Background(), ipServidorPrueba, 8080); err == nil {
+	if _, err := newHAProxyForTest(session, nil).Delete(context.Background(), ipServerTests, 8080); err == nil {
 		t.Fatal("Eliminar() error = nil, want el error de recarga")
 	}
 }
 
-// filaEstadistica construye una fila CSV del socket de estadísticas con el
+// statsRow construye una fila CSV del socket de estadísticas con el
 // estado indicado.
-func filaEstadistica(nombre, estado string) string {
-	return "app," + nombre + strings.Repeat(",", 16) + estado + ",1,1,1"
+func statsRow(name, state string) string {
+	return "app," + name + strings.Repeat(",", 16) + state + ",1,1,1"
 }
 
 // estadisticasHaproxy simula la salida de «show stat» con dos servidores.
 var estadisticasHaproxy = strings.Join([]string{
 	"# pxname,svname,qcur,qmax,scur,smax,slim,stot,bin,bout,status",
-	filaEstadistica("FRONTEND", "OPEN"),
-	filaEstadistica(servidorSrv1, estadoUP),
-	filaEstadistica(servidorSrv2, estadoDownMayus),
+	statsRow("FRONTEND", "OPEN"),
+	statsRow(serverSrv1, stateUP),
+	statsRow(serverSrv2, stateDownMayus),
 	"app,BACKEND,,,,,,,,,,UP",
 }, "\n")
 
-// TestHaproxyListarConEstado toma el estado de cada servidor del socket de
+// TestHaproxyListWithState toma el estado de cada servidor del socket de
 // estadísticas.
-func TestHaproxyListarConEstado(t *testing.T) {
+func TestHaproxyListWithState(t *testing.T) {
 	t.Parallel()
 
 	config := configHaproxy + "    server srv2 192.168.1.62:9090 check\n"
-	sesion := &stubSession{results: []domain.Result{
+	session := &stubSession{results: []domain.Result{
 		{Stdout: config},
 		{Stdout: estadisticasHaproxy},
 	}}
 
-	servidores, err := nuevoHaproxyDePrueba(sesion, nil).Listar(context.Background())
+	servers, err := newHAProxyForTest(session, nil).List(context.Background())
 	if err != nil {
-		t.Fatalf(msgListarOK, err)
+		t.Fatalf(msgListOK, err)
 	}
 
-	if len(servidores) != 2 {
-		t.Fatalf("Listar() devolvió %d servidores, want 2", len(servidores))
+	if len(servers) != 2 {
+		t.Fatalf("Listar() devolvió %d servidores, want 2", len(servers))
 	}
 
-	if servidores[0].Estado != estadoUp || servidores[1].Estado != estadoDown {
-		t.Errorf("estados = %q, %q, want up y down", servidores[0].Estado, servidores[1].Estado)
+	if servers[0].State != stateUp || servers[1].State != stateDown {
+		t.Errorf("estados = %q, %q, want up y down", servers[0].State, servers[1].State)
 	}
 }
 
-// TestHaproxyListarSinSocketDejaElEstadoDesconocido comprueba que el
+// TestHaproxyListWithoutSocketDejaStateUnknown comprueba que el
 // listado sigue funcionando cuando el socket no responde.
-func TestHaproxyListarSinSocketDejaElEstadoDesconocido(t *testing.T) {
+func TestHaproxyListWithoutSocketDejaStateUnknown(t *testing.T) {
 	t.Parallel()
 
-	sesion := &stubSession{
+	session := &stubSession{
 		results: []domain.Result{{Stdout: configHaproxy}},
 		errs:    []error{nil, errors.New("socat no está instalado")},
 	}
 
-	servidores, err := nuevoHaproxyDePrueba(sesion, nil).Listar(context.Background())
+	servers, err := newHAProxyForTest(session, nil).List(context.Background())
 	if err != nil {
-		t.Fatalf(msgListarOK, err)
+		t.Fatalf(msgListOK, err)
 	}
 
-	if len(servidores) != 1 || servidores[0].Estado != "unknown" {
-		t.Errorf("servidores = %+v, want un servidor con estado unknown", servidores)
+	if len(servers) != 1 || servers[0].State != "unknown" {
+		t.Errorf("servidores = %+v, want un servidor con estado unknown", servers)
 	}
 }
 
-// TestHaproxyListarSinServidoresNoConsultaElSocket evita la consulta cuando
+// TestHaproxyListWithoutServersNotConsultaSocket evita la consulta cuando
 // el back-end está vacío.
-func TestHaproxyListarSinServidoresNoConsultaElSocket(t *testing.T) {
+func TestHaproxyListWithoutServersNotConsultaSocket(t *testing.T) {
 	t.Parallel()
 
 	config := "backend app\n    balance roundrobin\n"
-	sesion := &stubSession{results: []domain.Result{{Stdout: config}}}
+	session := &stubSession{results: []domain.Result{{Stdout: config}}}
 
-	servidores, err := nuevoHaproxyDePrueba(sesion, nil).Listar(context.Background())
+	servers, err := newHAProxyForTest(session, nil).List(context.Background())
 	if err != nil {
-		t.Fatalf(msgListarOK, err)
+		t.Fatalf(msgListOK, err)
 	}
 
-	if len(servidores) != 0 {
-		t.Errorf("servidores = %+v, want una lista vacía", servidores)
+	if len(servers) != 0 {
+		t.Errorf("servidores = %+v, want una lista vacía", servers)
 	}
 
-	if len(sesion.commands) != 1 {
-		t.Errorf("órdenes ejecutadas = %d, want 1 (solo leer la configuración)", len(sesion.commands))
+	if len(session.commands) != 1 {
+		t.Errorf("órdenes ejecutadas = %d, want 1 (solo leer la configuración)", len(session.commands))
 	}
 }
 
-// TestParsearEstados traduce el campo status de la salida CSV.
-func TestParsearEstados(t *testing.T) {
+// TestParseStates traduce el campo status de la salida CSV.
+func TestParseStates(t *testing.T) {
 	t.Parallel()
 
-	casos := []struct {
-		nombre  string
-		salida  string
+	testCases := []struct {
+		name    string
+		output  string
 		esperar map[string]string
 	}{
 		{"vacía", "", map[string]string{}},
@@ -350,27 +350,27 @@ func TestParsearEstados(t *testing.T) {
 		{
 			"estados conocidos",
 			strings.Join([]string{
-				filaEstadistica(servidorSrv1, estadoUP),
-				filaEstadistica(servidorSrv2, estadoDownMayus),
-				filaEstadistica("srv3", "MAINT"),
-				filaEstadistica("srv4", "DRAIN"),
+				statsRow(serverSrv1, stateUP),
+				statsRow(serverSrv2, stateDownMayus),
+				statsRow("srv3", "MAINT"),
+				statsRow("srv4", "DRAIN"),
 			}, "\n"),
-			map[string]string{servidorSrv1: estadoUp, servidorSrv2: estadoDown, "srv3": estadoDown, "srv4": estadoDown},
+			map[string]string{serverSrv1: stateUp, serverSrv2: stateDown, "srv3": stateDown, "srv4": stateDown},
 		},
 	}
 
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			estados := parsearEstados(caso.salida)
-			if len(estados) != len(caso.esperar) {
-				t.Fatalf("estados = %v, want %v", estados, caso.esperar)
+			states := parseStates(testCase.output)
+			if len(states) != len(testCase.esperar) {
+				t.Fatalf("estados = %v, want %v", states, testCase.esperar)
 			}
 
-			for nombre, estado := range caso.esperar {
-				if estados[nombre] != estado {
-					t.Errorf("estado de %s = %q, want %q", nombre, estados[nombre], estado)
+			for name, state := range testCase.esperar {
+				if states[name] != state {
+					t.Errorf("estado de %s = %q, want %q", name, states[name], state)
 				}
 			}
 		})

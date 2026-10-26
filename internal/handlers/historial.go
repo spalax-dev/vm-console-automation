@@ -18,179 +18,179 @@ import (
 	"consola-vm/internal/services"
 )
 
-// ServicioHistorial registra y consulta las operaciones de la consola.
-type ServicioHistorial interface {
-	Registrar(ctx context.Context, operacion *services.Operacion) error
-	Listar(ctx context.Context, filtro *services.FiltroHistorial) ([]services.Operacion, error)
+// HistoryService registra y consulta las operaciones de la consola.
+type HistoryService interface {
+	Register(ctx context.Context, operation *services.Operation) error
+	List(ctx context.Context, filter *services.HistoryFilter) ([]services.Operation, error)
 }
 
-// Historial expone GET /api/historial con los filtros del diseño.
-type Historial struct {
-	servicio ServicioHistorial
+// History expone GET /api/historial con los filtros del diseño.
+type History struct {
+	service HistoryService
 }
 
-// NuevoHistorial construye el handler del historial.
-func NuevoHistorial(servicio ServicioHistorial) *Historial {
-	return &Historial{servicio: servicio}
+// NewHistory construye el handler del historial.
+func NewHistory(service HistoryService) *History {
+	return &History{service: service}
 }
 
-// operacionRespuesta es una fila del historial en JSON.
-type operacionRespuesta struct {
+// operationResponse es una fila del historial en JSON.
+type operationResponse struct {
 	ID          int64  `json:"id"`
-	FechaHora   string `json:"fecha_hora"`
+	DateHour    string `json:"fecha_hora"`
 	VM          string `json:"vm"`
-	Modulo      string `json:"modulo"`
-	Operacion   string `json:"operacion"`
-	Descripcion string `json:"descripcion"`
-	Resultado   string `json:"resultado"`
-	Detalle     string `json:"detalle,omitempty"`
+	Module      string `json:"modulo"`
+	Operation   string `json:"operacion"`
+	Description string `json:"descripcion"`
+	Outcome     string `json:"resultado"`
+	Detail      string `json:"detalle,omitempty"`
 }
 
-// listaHistorial es el cuerpo de GET /api/historial.
-type listaHistorial struct {
-	Operaciones []operacionRespuesta `json:"operaciones"`
+// historyList es el cuerpo de GET /api/historial.
+type historyList struct {
+	Operations []operationResponse `json:"operaciones"`
 }
 
 // ServeHTTP implementa http.Handler.
-func (h *Historial) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !exigirMetodo(w, r, http.MethodGet) {
+func (h *History) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
 
-	filtro, err := filtroDeHistorial(r)
+	filter, err := filterOfHistory(r)
 	if err != nil {
-		responderValidacion(w, err)
+		respondValidacion(w, err)
 
 		return
 	}
 
-	operaciones, err := h.servicio.Listar(r.Context(), filtro)
+	operations, err := h.service.List(r.Context(), filter)
 	if err != nil {
-		slog.Error("consultar el historial", claveError, err)
-		escribirJSON(w, http.StatusInternalServerError, respuestaError{
-			Mensaje: "No fue posible consultar el historial.",
-			Tecnico: err.Error(),
+		slog.Error("consultar el historial", errorKey, err)
+		writeJSON(w, http.StatusInternalServerError, errorResponse{
+			Message:   "No fue posible consultar el historial.",
+			Technical: err.Error(),
 		})
 
 		return
 	}
 
-	respuesta := listaHistorial{Operaciones: make([]operacionRespuesta, 0, len(operaciones))}
-	for i := range operaciones {
-		respuesta.Operaciones = append(respuesta.Operaciones, operacionRespuesta(operaciones[i]))
+	response := historyList{Operations: make([]operationResponse, 0, len(operations))}
+	for i := range operations {
+		response.Operations = append(response.Operations, operationResponse(operations[i]))
 	}
 
-	escribirJSON(w, http.StatusOK, respuesta)
+	writeJSON(w, http.StatusOK, response)
 }
 
-// filtroDeHistorial valida y traduce los parámetros de la query.
-func filtroDeHistorial(r *http.Request) (*services.FiltroHistorial, error) {
+// filterOfHistory valida y traduce los parámetros de la query.
+func filterOfHistory(r *http.Request) (*services.HistoryFilter, error) {
 	query := r.URL.Query()
 
-	filtro := &services.FiltroHistorial{
-		Texto:     query.Get("q"),
-		VM:        query.Get("vm"),
-		Modulo:    query.Get("modulo"),
-		Desde:     query.Get("desde"),
-		Hasta:     query.Get("hasta"),
-		HoraDesde: query.Get("hora_desde"),
-		HoraHasta: query.Get("hora_hasta"),
+	filter := &services.HistoryFilter{
+		Text:     query.Get("q"),
+		VM:       query.Get("vm"),
+		Module:   query.Get("modulo"),
+		From:     query.Get("desde"),
+		To:       query.Get("hasta"),
+		HourFrom: query.Get("hora_desde"),
+		HourTo:   query.Get("hora_hasta"),
 	}
 
-	if valor := query.Get("limite"); valor != "" {
-		limite, err := strconv.Atoi(valor)
-		if err != nil || limite < 1 || limite > 1000 {
-			return nil, campoInvalido("limite", "debe estar entre 1 y 1000")
+	if value := query.Get("limite"); value != "" {
+		limit, err := strconv.Atoi(value)
+		if err != nil || limit < 1 || limit > 1000 {
+			return nil, invalidField("limite", "debe estar entre 1 y 1000")
 		}
 
-		filtro.Limite = limite
+		filter.Limit = limit
 	}
 
-	if err := validarFechas(filtro); err != nil {
+	if err := validateFechas(filter); err != nil {
 		return nil, err
 	}
 
-	if err := validarHoras(filtro); err != nil {
+	if err := validateHoras(filter); err != nil {
 		return nil, err
 	}
 
-	return filtro, nil
+	return filter, nil
 }
 
-// validarFechas comprueba el formato de las fechas del filtro.
-func validarFechas(filtro *services.FiltroHistorial) error {
-	for campo, valor := range map[string]string{"desde": filtro.Desde, "hasta": filtro.Hasta} {
-		if valor == "" {
+// validateFechas comprueba el formato de las fechas del filtro.
+func validateFechas(filter *services.HistoryFilter) error {
+	for field, value := range map[string]string{"desde": filter.From, "hasta": filter.To} {
+		if value == "" {
 			continue
 		}
 
-		if _, err := time.Parse(time.DateOnly, valor); err != nil {
-			return campoInvalido(campo, "debe tener el formato AAAA-MM-DD")
+		if _, err := time.Parse(time.DateOnly, value); err != nil {
+			return invalidField(field, "debe tener el formato AAAA-MM-DD")
 		}
 	}
 
 	return nil
 }
 
-// validarHoras comprueba el formato de las horas del filtro.
-func validarHoras(filtro *services.FiltroHistorial) error {
-	for campo, valor := range map[string]string{"hora_desde": filtro.HoraDesde, "hora_hasta": filtro.HoraHasta} {
-		if valor == "" {
+// validateHoras comprueba el formato de las horas del filtro.
+func validateHoras(filter *services.HistoryFilter) error {
+	for field, value := range map[string]string{"hora_desde": filter.HourFrom, "hora_hasta": filter.HourTo} {
+		if value == "" {
 			continue
 		}
 
-		if _, err := time.Parse("15:04", valor); err != nil {
-			return campoInvalido(campo, "debe tener el formato HH:MM")
+		if _, err := time.Parse("15:04", value); err != nil {
+			return invalidField(field, "debe tener el formato HH:MM")
 		}
 	}
 
 	return nil
 }
 
-// leerCuerpo lee el JSON de la petición para describir la operación y
+// readBody lee el JSON de la petición para describir la operación y
 // lo restaura para que el handler lo vuelva a leer. Nunca guarda el
 // cuerpo completo: solo se usan campos descriptivos.
-func leerCuerpo(r *http.Request) map[string]any {
-	datos := map[string]any{}
+func readBody(r *http.Request) map[string]any {
+	data := map[string]any{}
 
-	if r.Body == nil || !strings.HasPrefix(r.Header.Get(cabeceraContentType), "application/json") {
-		return datos
+	if r.Body == nil || !strings.HasPrefix(r.Header.Get(headerContentType), "application/json") {
+		return data
 	}
 
-	cuerpo, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
-	r.Body = io.NopCloser(bytes.NewReader(cuerpo))
+	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	r.Body = io.NopCloser(bytes.NewReader(body))
 
 	if err != nil {
-		return datos
+		return data
 	}
 
-	if err := json.Unmarshal(cuerpo, &datos); err != nil || datos == nil {
-		datos = map[string]any{}
+	if err := json.Unmarshal(body, &data); err != nil || data == nil {
+		data = map[string]any{}
 	}
 
-	return datos
+	return data
 }
 
-// estadoDe devuelve el estado escrito o 200 si el handler no lo fijó.
-func estadoDe(registro *registroWriter) int {
-	if registro.estado == 0 {
+// stateOf devuelve el estado escrito o 200 si el handler no lo fijó.
+func stateOf(registration *registrationWriter) int {
+	if registration.state == 0 {
 		return http.StatusOK
 	}
 
-	return registro.estado
+	return registration.state
 }
 
-// resultadoDe traduce el código HTTP a «ok» o «error».
-func resultadoDe(estado int) string {
-	if estado >= http.StatusBadRequest {
+// resultOf traduce el código HTTP a «ok» o «error».
+func resultOf(state int) string {
+	if state >= http.StatusBadRequest {
 		return "error"
 	}
 
 	return "ok"
 }
 
-// nombreActivo consulta la máquina vinculada sin romper si no hay una.
-func nombreActivo(vm func() string) string {
+// activeName consulta la máquina vinculada sin romper si no hay una.
+func activeName(vm func() string) string {
 	if vm == nil {
 		return ""
 	}
@@ -198,72 +198,72 @@ func nombreActivo(vm func() string) string {
 	return vm()
 }
 
-// maquinaDe elige la máquina afectada: la del cuerpo para las
+// machineFrom elige la máquina afectada: la del cuerpo para las
 // operaciones de sesión, la de la ruta para el encendido y, si no, la
 // máquina activa.
-func maquinaDe(r *http.Request, datos map[string]any, activa string) string {
+func machineFrom(r *http.Request, data map[string]any, active string) string {
 	if strings.HasPrefix(r.URL.Path, "/api/session") {
-		if maquina, ok := datos["vm"].(string); ok && maquina != "" {
-			return maquina
+		if machine, ok := data["vm"].(string); ok && machine != "" {
+			return machine
 		}
 	}
 
 	if strings.HasPrefix(r.URL.Path, "/api/vms/") {
-		partes := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-		if len(partes) >= 3 {
-			return partes[2]
+		parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+		if len(parts) >= 3 {
+			return parts[2]
 		}
 	}
 
-	return activa
+	return active
 }
 
-// completarDatos agrega la opción de borrado de archivos a la
+// completeData agrega la opción de borrado de archivos a la
 // descripción.
-func completarDatos(r *http.Request, datos map[string]any) {
+func completeData(r *http.Request, data map[string]any) {
 	if r.URL.Query().Get("files") == "true" {
-		datos["archivos"] = true
+		data["archivos"] = true
 	}
 }
 
-// resumenDe arma la operación técnica y la descripción legible.
-func resumenDe(r *http.Request, datos map[string]any, nombreVM string) (operacion, descripcion string) {
-	operacion = r.Method + " " + r.Pattern
+// resumenOf arma la operación técnica y la descripción legible.
+func resumenOf(r *http.Request, data map[string]any, vmName string) (operation, description string) {
+	operation = r.Method + " " + r.Pattern
 	if r.Pattern == "" {
-		operacion = r.Method + " " + r.URL.Path
+		operation = r.Method + " " + r.URL.Path
 	}
 
-	if _, existe := datos["vm"]; !existe && nombreVM != "" {
-		datos["vm"] = nombreVM
+	if _, exists := data["vm"]; !exists && vmName != "" {
+		data["vm"] = vmName
 	}
 
-	descripcion = services.DescribirOperacion(r.Method, r.Pattern, r.URL.Path, datos)
+	description = services.DescribeOperation(r.Method, r.Pattern, r.URL.Path, data)
 
-	return operacion, descripcion
+	return operation, description
 }
 
-// registroWriter conserva el código de estado que escribe el handler.
-type registroWriter struct {
+// registrationWriter conserva el código de estado que escribe el handler.
+type registrationWriter struct {
 	http.ResponseWriter
-	estado int
+	state int
 }
 
 // WriteHeader registra el primer estado escrito.
-func (w *registroWriter) WriteHeader(codigo int) {
-	if w.estado == 0 {
-		w.estado = codigo
+func (w *registrationWriter) WriteHeader(code int) {
+	if w.state == 0 {
+		w.state = code
 	}
 
-	w.ResponseWriter.WriteHeader(codigo)
+	w.ResponseWriter.WriteHeader(code)
 }
 
 // Write registra 200 si el handler no llamó a WriteHeader.
-func (w *registroWriter) Write(datos []byte) (int, error) {
-	if w.estado == 0 {
-		w.estado = http.StatusOK
+func (w *registrationWriter) Write(data []byte) (int, error) {
+	if w.state == 0 {
+		w.state = http.StatusOK
 	}
 
-	escritos, err := w.ResponseWriter.Write(datos)
+	escritos, err := w.ResponseWriter.Write(data)
 	if err != nil {
 		return escritos, fmt.Errorf("escribir la respuesta: %w", err)
 	}
@@ -271,35 +271,35 @@ func (w *registroWriter) Write(datos []byte) (int, error) {
 	return escritos, nil
 }
 
-// ConHistorial envuelve el mux para registrar las operaciones mutantes.
-func ConHistorial(siguiente http.Handler, historial ServicioHistorial, vm func() string) http.Handler {
+// WithHistory envuelve el mux para registrar las operaciones mutantes.
+func WithHistory(next http.Handler, history HistoryService, vm func() string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		modulo := services.ModuloDe(r.URL.Path)
-		if r.Method == http.MethodGet || modulo == "" {
-			siguiente.ServeHTTP(w, r)
+		module := services.ModuleOf(r.URL.Path)
+		if r.Method == http.MethodGet || module == "" {
+			next.ServeHTTP(w, r)
 
 			return
 		}
 
-		datos := leerCuerpo(r)
-		completarDatos(r, datos)
+		data := readBody(r)
+		completeData(r, data)
 
-		registro := &registroWriter{ResponseWriter: w}
-		siguiente.ServeHTTP(registro, r)
+		registration := &registrationWriter{ResponseWriter: w}
+		next.ServeHTTP(registration, r)
 
-		estado := estadoDe(registro)
-		nombreVM := maquinaDe(r, datos, nombreActivo(vm))
-		operacion, descripcion := resumenDe(r, datos, nombreVM)
+		state := stateOf(registration)
+		vmName := machineFrom(r, data, activeName(vm))
+		operation, description := resumenOf(r, data, vmName)
 
-		if err := historial.Registrar(context.Background(), &services.Operacion{
-			VM:          nombreVM,
-			Modulo:      modulo,
-			Operacion:   operacion,
-			Descripcion: descripcion,
-			Resultado:   resultadoDe(estado),
-			Detalle:     "HTTP " + strconv.Itoa(estado),
+		if err := history.Register(context.Background(), &services.Operation{
+			VM:          vmName,
+			Module:      module,
+			Operation:   operation,
+			Description: description,
+			Outcome:     resultOf(state),
+			Detail:      "HTTP " + strconv.Itoa(state),
 		}); err != nil {
-			slog.Error("registrar la operación", claveError, err)
+			slog.Error("registrar la operación", errorKey, err)
 		}
 	})
 }

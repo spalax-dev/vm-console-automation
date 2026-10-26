@@ -13,7 +13,7 @@ Package ssh adapta el cliente OpenSSH del sistema operativo al puerto Connector 
 - [type Connector](<#Connector>)
   - [func New\(exe ports.Executor, opts ...Option\) \*Connector](<#New>)
   - [func \(c \*Connector\) Connect\(ctx context.Context, target domain.Target\) \(ports.Session, error\)](<#Connector.Connect>)
-  - [func \(c \*Connector\) ConnectPassword\(\_ context.Context, target domain.Target, usuario, password string\) \(ports.Session, error\)](<#Connector.ConnectPassword>)
+  - [func \(c \*Connector\) ConnectPassword\(\_ context.Context, target domain.Target, user, password string\) \(ports.Session, error\)](<#Connector.ConnectPassword>)
   - [func \(c \*Connector\) Name\(\) string](<#Connector.Name>)
   - [func \(c \*Connector\) Probe\(ctx context.Context, target domain.Target\) error](<#Connector.Probe>)
 - [type Option](<#Option>)
@@ -59,7 +59,7 @@ Connect implements ports.Connector: devuelve una sesión que ejecuta órdenes re
 ### func \(\*Connector\) [ConnectPassword](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/ssh/ssh.go#L139-L141>)
 
 ```go
-func (c *Connector) ConnectPassword(_ context.Context, target domain.Target, usuario, password string) (ports.Session, error)
+func (c *Connector) ConnectPassword(_ context.Context, target domain.Target, user, password string) (ports.Session, error)
 ```
 
 ConnectPassword implementa ports.PasswordConnector usando sshpass. La contraseña se guarda en un archivo temporal 0600 que la sesión elimina al cerrarse.

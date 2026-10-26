@@ -14,88 +14,88 @@ import (
 	"consola-vm/internal/services"
 )
 
-// rutaDiagnostico es la ruta del recurso de diagnóstico.
-const rutaDiagnostico = "/api/session/diagnostico"
+// pathDiagnostics es la ruta del recurso de diagnóstico.
+const pathDiagnostics = "/api/session/diagnostico"
 
-// stubDiagnostico devuelve un informe preprogramado.
-type stubDiagnostico struct {
-	informe services.Diagnostico
-	err     error
+// stubDiagnostics devuelve un informe preprogramado.
+type stubDiagnostics struct {
+	report services.Diagnostics
+	err    error
 }
 
-// Obtener devuelve el informe o el error configurados.
-func (s *stubDiagnostico) Obtener(context.Context) (services.Diagnostico, error) {
-	return s.informe, s.err
+// Get devuelve el informe o el error configurados.
+func (s *stubDiagnostics) Get(context.Context) (services.Diagnostics, error) {
+	return s.report, s.err
 }
 
-// TestDiagnosticoHandlerRespondeInforme cubre la respuesta del informe.
-func TestDiagnosticoHandlerRespondeInforme(t *testing.T) {
+// TestDiagnosticsHandlerRespondsReport cubre la respuesta del informe.
+func TestDiagnosticsHandlerRespondsReport(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubDiagnostico{informe: services.Diagnostico{
-		VM:                     maquinaDebian,
-		Estado:                 domain.StateRunning,
-		Red:                    domain.NetworkBridged,
-		IP:                     netipMustParse(t, ipPrueba),
+	service := &stubDiagnostics{report: services.Diagnostics{
+		VM:                     testMachine,
+		State:                  domain.StateRunning,
+		Network:                domain.NetworkBridged,
+		IP:                     netipMustParse(t, ipTests),
 		GuestAdditionsVersion:  "6.0.0 r127566",
 		GuestAdditionsRunLevel: 2,
-		UsuarioSugerido:        usuarioJorge,
+		UserSugerido:           userJorge,
 		Problemas:              []string{"SSH no responde"},
 		Sugerencias:            []string{"Instala openssh-server"},
 	}}
 
-	rec := ejecutarCaso(t, NuevoDiagnostico(servicio).ServeHTTP, rutaDiagnostico, casoPeticion{
-		nombre: "diagnóstico", metodo: http.MethodGet,
+	rec := runTestCase(t, NewDiagnostics(service).ServeHTTP, pathDiagnostics, testCaseRequest{
+		name: "diagnóstico", method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+		t.Fatalf(msgCode, rec.Code, http.StatusOK)
 	}
 
-	var cuerpo diagnosticoRespuesta
-	if err := json.Unmarshal(rec.Body.Bytes(), &cuerpo); err != nil {
-		t.Fatalf(msgJSONInvalido, err)
+	var body diagnosticsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf(msgJSONInvalid, err)
 	}
 
-	if cuerpo.VM != maquinaDebian || cuerpo.UsuarioSugerido != usuarioJorge || cuerpo.SSHAbierto {
-		t.Errorf("cuerpo = %+v, want debian/jorge/SSH cerrado", cuerpo)
+	if body.VM != testMachine || body.UserSugerido != userJorge || body.SSHOpen {
+		t.Errorf("cuerpo = %+v, want vm1/jorge/SSH cerrado", body)
 	}
 }
 
-// TestDiagnosticoHandlerSinMaquina cubre la consola sin vínculo.
-func TestDiagnosticoHandlerSinMaquina(t *testing.T) {
+// TestDiagnosticsHandlerWithoutMachine cubre la consola sin vínculo.
+func TestDiagnosticsHandlerWithoutMachine(t *testing.T) {
 	t.Parallel()
 
-	rec := ejecutarCaso(t, NuevoDiagnostico(&stubDiagnostico{err: services.ErrSinMaquina}).ServeHTTP, rutaDiagnostico, casoPeticion{
-		nombre: "sin máquina", metodo: http.MethodGet,
+	rec := runTestCase(t, NewDiagnostics(&stubDiagnostics{err: services.ErrNoMachine}).ServeHTTP, pathDiagnostics, testCaseRequest{
+		name: "sin máquina", method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusConflict {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusConflict)
+		t.Fatalf(msgCode, rec.Code, http.StatusConflict)
 	}
 }
 
-// TestDiagnosticoHandlerMetodo cubre el método no permitido.
-func TestDiagnosticoHandlerMetodo(t *testing.T) {
+// TestDiagnosticsHandlerMethod cubre el método no permitido.
+func TestDiagnosticsHandlerMethod(t *testing.T) {
 	t.Parallel()
 
-	rec := ejecutarCaso(t, NuevoDiagnostico(&stubDiagnostico{}).ServeHTTP, rutaDiagnostico, casoPeticion{
-		nombre: casoMetodoNoPermitido, metodo: http.MethodPost,
+	rec := runTestCase(t, NewDiagnostics(&stubDiagnostics{}).ServeHTTP, pathDiagnostics, testCaseRequest{
+		name: testCaseMethodNotPermitido, method: http.MethodPost,
 	})
 
 	if rec.Code != http.StatusMethodNotAllowed {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusMethodNotAllowed)
+		t.Fatalf(msgCode, rec.Code, http.StatusMethodNotAllowed)
 	}
 }
 
 // netipMustParse evita importar net/netip en varias aserciones.
-func netipMustParse(t *testing.T, valor string) (direccion netip.Addr) {
+func netipMustParse(t *testing.T, value string) (address netip.Addr) {
 	t.Helper()
 
-	direccion, err := netip.ParseAddr(valor)
+	address, err := netip.ParseAddr(value)
 	if err != nil {
-		t.Fatalf("ParseAddr(%q): %v", valor, err)
+		t.Fatalf("ParseAddr(%q): %v", value, err)
 	}
 
-	return direccion
+	return address
 }

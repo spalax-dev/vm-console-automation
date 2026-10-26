@@ -14,13 +14,13 @@ import (
 
 // Salidas de ejemplo de `VBoxManage list`.
 const (
-	salidaVMs = `"debian-1" {8f3a1c2e-1111-4a4a-9a9a-000000000001}
+	outputVMs = `"vm-1" {8f3a1c2e-1111-4a4a-9a9a-000000000001}
 "ubuntu-lab" {8f3a1c2e-2222-4a4a-9a9a-000000000002}
 `
-	salidaEnMarcha = `"debian-1" {8f3a1c2e-1111-4a4a-9a9a-000000000001}
+	outputInRunning = `"vm-1" {8f3a1c2e-1111-4a4a-9a9a-000000000001}
 `
-	msgListSinError = "List() error = %v, want nil"
-	nombreDebian    = "debian-1"
+	msgListWithoutError = "List() error = %v, want nil"
+	testMachineName     = "vm-1"
 )
 
 // fakeListExecutor responde a `list vms` y `list runningvms` con salidas
@@ -28,7 +28,7 @@ const (
 type fakeListExecutor struct {
 	vms     domain.Result
 	vmsErr  error
-	enCurso domain.Result
+	inCurso domain.Result
 	runErr  error
 	calls   []string
 }
@@ -38,81 +38,81 @@ func (f *fakeListExecutor) Execute(_ context.Context, _ string, args ...string) 
 	f.calls = append(f.calls, strings.Join(args, " "))
 
 	if len(args) > 1 && args[1] == "runningvms" {
-		return f.enCurso, f.runErr
+		return f.inCurso, f.runErr
 	}
 
 	return f.vms, f.vmsErr
 }
 
-// TestListDevuelveLasMaquinasConSuEstado comprueba la lectura del
+// TestListReturnsMachinesWithSuState comprueba la lectura del
 // inventario y la marca de las máquinas en ejecución.
-func TestListDevuelveLasMaquinasConSuEstado(t *testing.T) {
+func TestListReturnsMachinesWithSuState(t *testing.T) {
 	t.Parallel()
 
 	exe := &fakeListExecutor{
-		vms:     domain.Result{Stdout: salidaVMs},
-		enCurso: domain.Result{Stdout: salidaEnMarcha},
+		vms:     domain.Result{Stdout: outputVMs},
+		inCurso: domain.Result{Stdout: outputInRunning},
 	}
 
-	maquinas, err := New(exe).List(context.Background())
+	machines, err := New(exe).List(context.Background())
 	if err != nil {
-		t.Fatalf(msgListSinError, err)
+		t.Fatalf(msgListWithoutError, err)
 	}
 
-	if len(maquinas) != 2 {
-		t.Fatalf("len(maquinas) = %d, want 2", len(maquinas))
+	if len(machines) != 2 {
+		t.Fatalf("len(maquinas) = %d, want 2", len(machines))
 	}
 
-	if maquinas[0].Name != "debian-1" || maquinas[0].UUID != "8f3a1c2e-1111-4a4a-9a9a-000000000001" {
-		t.Errorf("maquinas[0] = %+v, want debian-1 con su UUID", maquinas[0])
+	if machines[0].Name != "vm-1" || machines[0].UUID != "8f3a1c2e-1111-4a4a-9a9a-000000000001" {
+		t.Errorf("maquinas[0] = %+v, want vm-1 con su UUID", machines[0])
 	}
 
-	if maquinas[0].State != domain.StateRunning {
-		t.Errorf("maquinas[0].State = %q, want %q", maquinas[0].State, domain.StateRunning)
+	if machines[0].State != domain.StateRunning {
+		t.Errorf("maquinas[0].State = %q, want %q", machines[0].State, domain.StateRunning)
 	}
 
-	if maquinas[1].State != domain.StatePoweredOff {
-		t.Errorf("maquinas[1].State = %q, want %q", maquinas[1].State, domain.StatePoweredOff)
+	if machines[1].State != domain.StatePoweredOff {
+		t.Errorf("maquinas[1].State = %q, want %q", machines[1].State, domain.StatePoweredOff)
 	}
 }
 
-// TestListSinMaquinas devuelve una lista vacía, no un error.
-func TestListSinMaquinas(t *testing.T) {
+// TestListWithoutMachines devuelve una lista vacía, no un error.
+func TestListWithoutMachines(t *testing.T) {
 	t.Parallel()
 
 	exe := &fakeListExecutor{}
 
-	maquinas, err := New(exe).List(context.Background())
+	machines, err := New(exe).List(context.Background())
 	if err != nil {
-		t.Fatalf(msgListSinError, err)
+		t.Fatalf(msgListWithoutError, err)
 	}
 
-	if len(maquinas) != 0 {
-		t.Errorf("len(maquinas) = %d, want 0", len(maquinas))
+	if len(machines) != 0 {
+		t.Errorf("len(maquinas) = %d, want 0", len(machines))
 	}
 }
 
-// TestListIgnoraLineasSinFormato descarta el ruido de la salida.
-func TestListIgnoraLineasSinFormato(t *testing.T) {
+// TestListIgnoresLinesWithoutFormat descarta el ruido de la salida.
+func TestListIgnoresLinesWithoutFormat(t *testing.T) {
 	t.Parallel()
 
 	exe := &fakeListExecutor{
-		vms: domain.Result{Stdout: "aviso del hipervisor\n" + salidaVMs},
+		vms: domain.Result{Stdout: "aviso del hipervisor\n" + outputVMs},
 	}
 
-	maquinas, err := New(exe).List(context.Background())
+	machines, err := New(exe).List(context.Background())
 	if err != nil {
-		t.Fatalf(msgListSinError, err)
+		t.Fatalf(msgListWithoutError, err)
 	}
 
-	if len(maquinas) != 2 {
-		t.Errorf("len(maquinas) = %d, want 2", len(maquinas))
+	if len(machines) != 2 {
+		t.Errorf("len(maquinas) = %d, want 2", len(machines))
 	}
 }
 
-// TestListPropagaElFalloDelHipervisor comprueba que el error de
+// TestListPropagatesFailureOfHypervisor comprueba que el error de
 // VBoxManage no se oculta.
-func TestListPropagaElFalloDelHipervisor(t *testing.T) {
+func TestListPropagatesFailureOfHypervisor(t *testing.T) {
 	t.Parallel()
 
 	exe := &fakeListExecutor{vmsErr: errors.New("VBoxManage no está disponible")}
@@ -122,13 +122,13 @@ func TestListPropagaElFalloDelHipervisor(t *testing.T) {
 	}
 }
 
-// TestListPropagaElFalloDeLasMaquinasEnMarcha evita informar un estado
+// TestListPropagatesFailureOfMachinesInRunning evita informar un estado
 // que no se pudo consultar.
-func TestListPropagaElFalloDeLasMaquinasEnMarcha(t *testing.T) {
+func TestListPropagatesFailureOfMachinesInRunning(t *testing.T) {
 	t.Parallel()
 
 	exe := &fakeListExecutor{
-		vms:    domain.Result{Stdout: salidaVMs},
+		vms:    domain.Result{Stdout: outputVMs},
 		runErr: errors.New("fallo al listar las máquinas en ejecución"),
 	}
 
@@ -137,13 +137,13 @@ func TestListPropagaElFalloDeLasMaquinasEnMarcha(t *testing.T) {
 	}
 }
 
-// TestStartInvocaStartvmSinInterfaz comprueba la orden de encendido.
-func TestStartInvocaStartvmSinInterfaz(t *testing.T) {
+// TestStartInvocaStartvmWithoutInterfaz comprueba la orden de encendido.
+func TestStartInvocaStartvmWithoutInterfaz(t *testing.T) {
 	t.Parallel()
 
 	exe := &fakeListExecutor{}
 
-	if err := New(exe).Start(context.Background(), domain.Target{ID: nombreDebian}); err != nil {
+	if err := New(exe).Start(context.Background(), domain.Target{ID: testMachineName}); err != nil {
 		t.Fatalf("Start() error = %v, want nil", err)
 	}
 
@@ -151,18 +151,18 @@ func TestStartInvocaStartvmSinInterfaz(t *testing.T) {
 		t.Fatalf("llamadas = %d, want 1", len(exe.calls))
 	}
 
-	if exe.calls[0] != "startvm debian-1 --type headless" {
-		t.Errorf("orden = %q, want %q", exe.calls[0], "startvm debian-1 --type headless")
+	if exe.calls[0] != "startvm vm-1 --type headless" {
+		t.Errorf("orden = %q, want %q", exe.calls[0], "startvm vm-1 --type headless")
 	}
 }
 
-// TestStartPropagaElFalloDelHipervisor conserva la causa del error.
-func TestStartPropagaElFalloDelHipervisor(t *testing.T) {
+// TestStartPropagatesFailureOfHypervisor conserva la causa del error.
+func TestStartPropagatesFailureOfHypervisor(t *testing.T) {
 	t.Parallel()
 
 	exe := &fakeListExecutor{vmsErr: errors.New("la máquina no existe")}
 
-	if err := New(exe).Start(context.Background(), domain.Target{ID: nombreDebian}); err == nil {
+	if err := New(exe).Start(context.Background(), domain.Target{ID: testMachineName}); err == nil {
 		t.Fatal("Start() error = nil, want error")
 	}
 }

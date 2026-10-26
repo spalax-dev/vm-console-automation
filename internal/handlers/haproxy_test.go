@@ -12,214 +12,214 @@ import (
 	"consola-vm/internal/services"
 )
 
-// stubHaproxy es un servicio de HAProxy falso con resultados
+// stubHAProxy es un servicio de HAProxy falso con resultados
 // preprogramados.
-type stubHaproxy struct {
-	lista      []services.Servidor
-	resultado  services.Resultado
-	err        error
-	direccion  string
-	puerto     int
-	agregados  int
-	eliminados int
+type stubHAProxy struct {
+	lists     []services.Server
+	result    services.Outcome
+	err       error
+	address   string
+	port      int
+	agregados int
+	deleted   int
 }
 
-// Listar devuelve la lista preprogramada.
-func (s *stubHaproxy) Listar(context.Context) ([]services.Servidor, error) {
-	return s.lista, s.err
+// List devuelve la lista preprogramada.
+func (s *stubHAProxy) List(context.Context) ([]services.Server, error) {
+	return s.lists, s.err
 }
 
-// Agregar registra los argumentos y devuelve el resultado.
-func (s *stubHaproxy) Agregar(_ context.Context, direccion string, puerto int) (services.Resultado, error) {
-	s.direccion = direccion
-	s.puerto = puerto
+// Add registra los argumentos y devuelve el resultado.
+func (s *stubHAProxy) Add(_ context.Context, address string, port int) (services.Outcome, error) {
+	s.address = address
+	s.port = port
 	s.agregados++
 
-	return s.resultado, s.err
+	return s.result, s.err
 }
 
-// Eliminar registra los argumentos y devuelve el resultado.
-func (s *stubHaproxy) Eliminar(_ context.Context, direccion string, puerto int) (services.Resultado, error) {
-	s.direccion = direccion
-	s.puerto = puerto
-	s.eliminados++
+// Delete registra los argumentos y devuelve el resultado.
+func (s *stubHAProxy) Delete(_ context.Context, address string, port int) (services.Outcome, error) {
+	s.address = address
+	s.port = port
+	s.deleted++
 
-	return s.resultado, s.err
+	return s.result, s.err
 }
 
-// TestServidoresListar cubre el listado del back-end.
-func TestServidoresListar(t *testing.T) {
+// TestServersList cubre el listado del back-end.
+func TestServersList(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubHaproxy{lista: []services.Servidor{
-		{Direccion: ipServidor, Puerto: 8080, Estado: "unknown"},
+	service := &stubHAProxy{lists: []services.Server{
+		{Address: ipServer, Port: 8080, State: "unknown"},
 	}}
 
-	rec := ejecutarCaso(t, NuevoHaproxy(servicio).Servidores, rutaServidores, casoPeticion{
-		nombre: casoListar, metodo: http.MethodGet,
+	rec := runTestCase(t, NewHAProxy(service).Servers, pathServers, testCaseRequest{
+		name: testCaseList, method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+		t.Fatalf(msgCode, rec.Code, http.StatusOK)
 	}
 
-	var cuerpo listaBackend
-	if err := json.Unmarshal(rec.Body.Bytes(), &cuerpo); err != nil {
-		t.Fatalf(msgJSONInvalido, err)
+	var body backendList
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf(msgJSONInvalid, err)
 	}
 
-	if len(cuerpo.Servidores) != 1 || cuerpo.Servidores[0].Puerto != 8080 {
-		t.Errorf("servidores = %+v, want 192.168.1.61:8080", cuerpo.Servidores)
+	if len(body.Servers) != 1 || body.Servers[0].Port != 8080 {
+		t.Errorf("servidores = %+v, want 192.168.1.61:8080", body.Servers)
 	}
 }
 
-// TestServidoresAgregar cubre el alta de un servidor.
-func TestServidoresAgregar(t *testing.T) {
+// TestServersAdd cubre el alta de un servidor.
+func TestServersAdd(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubHaproxy{resultado: services.Resultado{Mensaje: "Servidor agregado."}}
+	service := &stubHAProxy{result: services.Outcome{Message: "Servidor agregado."}}
 
-	rec := ejecutarCaso(t, NuevoHaproxy(servicio).Servidores, rutaServidores, casoPeticion{
-		nombre: "agregar", metodo: http.MethodPost, cuerpo: cuerpoServidor,
+	rec := runTestCase(t, NewHAProxy(service).Servers, pathServers, testCaseRequest{
+		name: "agregar", method: http.MethodPost, body: bodyServer,
 	})
 
 	if rec.Code != http.StatusCreated {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusCreated)
+		t.Fatalf(msgCode, rec.Code, http.StatusCreated)
 	}
 
-	if got := rec.Header().Get(cabeceraLocation); got != "/api/haproxy/backend/servers/192.168.1.61:8080" {
+	if got := rec.Header().Get(headerLocation); got != "/api/haproxy/backend/servers/192.168.1.61:8080" {
 		t.Errorf("Location = %q, want la ruta del servidor", got)
 	}
 
-	if servicio.agregados != 1 || servicio.puerto != 8080 {
-		t.Errorf("Agregar() = %+v, want 192.168.1.61:8080", servicio)
+	if service.agregados != 1 || service.port != 8080 {
+		t.Errorf("Agregar() = %+v, want 192.168.1.61:8080", service)
 	}
 }
 
-// TestServidoresDuplicado cubre el servidor que ya existe.
-func TestServidoresDuplicado(t *testing.T) {
+// TestServersDuplicate cubre el servidor que ya existe.
+func TestServersDuplicate(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubHaproxy{err: services.ErrServidorExistente}
+	service := &stubHAProxy{err: services.ErrServerExists}
 
-	rec := ejecutarCaso(t, NuevoHaproxy(servicio).Servidores, rutaServidores, casoPeticion{
-		nombre: "duplicado", metodo: http.MethodPost, cuerpo: cuerpoServidor,
+	rec := runTestCase(t, NewHAProxy(service).Servers, pathServers, testCaseRequest{
+		name: "duplicado", method: http.MethodPost, body: bodyServer,
 	})
 
 	if rec.Code != http.StatusConflict {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusConflict)
+		t.Fatalf(msgCode, rec.Code, http.StatusConflict)
 	}
 }
 
-// TestServidoresValidacion cubre la dirección y el puerto.
-func TestServidoresValidacion(t *testing.T) {
+// TestServersValidacion cubre la dirección y el puerto.
+func TestServersValidacion(t *testing.T) {
 	t.Parallel()
 
-	handler := NuevoHaproxy(&stubHaproxy{}).Servidores
-	casos := []casoPeticion{
-		{nombre: "hostname", metodo: http.MethodPost, cuerpo: `{"direccion":"localhost","puerto":8080}`, codigo: http.StatusBadRequest, campo: campoDireccion},
-		{nombre: "puerto fuera de rango", metodo: http.MethodPost, cuerpo: `{"direccion":"192.168.1.61","puerto":70000}`, codigo: http.StatusBadRequest, campo: campoPuerto},
-		{nombre: casoCuerpoInvalido, metodo: http.MethodPost, cuerpo: `{`, codigo: http.StatusBadRequest},
-		{nombre: casoMetodoNoPermitido, metodo: http.MethodPut, codigo: http.StatusMethodNotAllowed},
+	handler := NewHAProxy(&stubHAProxy{}).Servers
+	testCases := []testCaseRequest{
+		{name: "hostname", method: http.MethodPost, body: `{"direccion":"localhost","puerto":8080}`, code: http.StatusBadRequest, field: addressField},
+		{name: "puerto fuera de rango", method: http.MethodPost, body: `{"direccion":"192.168.1.61","puerto":70000}`, code: http.StatusBadRequest, field: portField},
+		{name: testCaseBodyInvalid, method: http.MethodPost, body: `{`, code: http.StatusBadRequest},
+		{name: testCaseMethodNotPermitido, method: http.MethodPut, code: http.StatusMethodNotAllowed},
 	}
 
-	for _, caso := range casos {
-		rec := ejecutarCaso(t, handler, rutaServidores, caso)
-		comprobarCaso(t, rec, caso)
+	for _, testCase := range testCases {
+		rec := runTestCase(t, handler, pathServers, testCase)
+		checkTestCase(t, rec, testCase)
 	}
 }
 
-// TestServidorEliminar cubre la eliminación de un servidor.
-func TestServidorEliminar(t *testing.T) {
+// TestServerDelete cubre la eliminación de un servidor.
+func TestServerDelete(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubHaproxy{}
+	service := &stubHAProxy{}
 
-	rec := ejecutarCasoConPath(t, NuevoHaproxy(servicio).Servidor, rutaServidor, campoServer, servidorPrueba, casoPeticion{
-		nombre: casoEliminar, metodo: http.MethodDelete,
+	rec := runTestCaseWithPath(t, NewHAProxy(service).Server, pathServer, serverParam, serverTests, testCaseRequest{
+		name: testCaseDelete, method: http.MethodDelete,
 	})
 
 	if rec.Code != http.StatusNoContent {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusNoContent)
+		t.Fatalf(msgCode, rec.Code, http.StatusNoContent)
 	}
 
-	if servicio.eliminados != 1 || servicio.direccion != ipServidor || servicio.puerto != 8080 {
-		t.Errorf("Eliminar() = %+v, want 192.168.1.61:8080", servicio)
+	if service.deleted != 1 || service.address != ipServer || service.port != 8080 {
+		t.Errorf("Eliminar() = %+v, want 192.168.1.61:8080", service)
 	}
 }
 
-// TestServidorNoEncontrado cubre un servidor ausente.
-func TestServidorNoEncontrado(t *testing.T) {
+// TestServerNotFound cubre un servidor ausente.
+func TestServerNotFound(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubHaproxy{err: services.ErrServidorNoEncontrado}
+	service := &stubHAProxy{err: services.ErrServerNotFound}
 
-	rec := ejecutarCasoConPath(t, NuevoHaproxy(servicio).Servidor, rutaServidor, campoServer, servidorPrueba, casoPeticion{
-		nombre: casoInexistente, metodo: http.MethodDelete,
+	rec := runTestCaseWithPath(t, NewHAProxy(service).Server, pathServer, serverParam, serverTests, testCaseRequest{
+		name: testCaseInexistente, method: http.MethodDelete,
 	})
 
 	if rec.Code != http.StatusNotFound {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusNotFound)
+		t.Fatalf(msgCode, rec.Code, http.StatusNotFound)
 	}
 }
 
-// TestServidorValidacion cubre el identificador de la ruta.
-func TestServidorValidacion(t *testing.T) {
+// TestServerValidacion cubre el identificador de la ruta.
+func TestServerValidacion(t *testing.T) {
 	t.Parallel()
 
-	handler := NuevoHaproxy(&stubHaproxy{}).Servidor
-	casos := []struct {
-		casoPeticion
-		servidor string
+	handler := NewHAProxy(&stubHAProxy{}).Server
+	testCases := []struct {
+		testCaseRequest
+		server string
 	}{
-		{casoPeticion{nombre: "sin puerto", metodo: http.MethodDelete, codigo: http.StatusBadRequest, campo: campoServer}, ipServidor},
-		{casoPeticion{nombre: "puerto cero", metodo: http.MethodDelete, codigo: http.StatusBadRequest, campo: campoServer}, "192.168.1.61:0"},
-		{casoPeticion{nombre: casoMetodoNoPermitido, metodo: http.MethodPost, codigo: http.StatusMethodNotAllowed}, servidorPrueba},
+		{testCaseRequest{name: "sin puerto", method: http.MethodDelete, code: http.StatusBadRequest, field: serverParam}, ipServer},
+		{testCaseRequest{name: "puerto cero", method: http.MethodDelete, code: http.StatusBadRequest, field: serverParam}, "192.168.1.61:0"},
+		{testCaseRequest{name: testCaseMethodNotPermitido, method: http.MethodPost, code: http.StatusMethodNotAllowed}, serverTests},
 	}
 
-	for _, caso := range casos {
-		rec := ejecutarCasoConPath(t, handler, rutaServidor, campoServer, caso.servidor, caso.casoPeticion)
-		comprobarCaso(t, rec, caso.casoPeticion)
-	}
-}
-
-// TestServidoresError cubre el fallo al agregar un servidor.
-func TestServidoresError(t *testing.T) {
-	t.Parallel()
-
-	servicio := &stubHaproxy{err: errLectura}
-
-	rec := ejecutarCaso(t, NuevoHaproxy(servicio).Servidores, rutaServidores, casoPeticion{
-		nombre: "fallo de alta", metodo: http.MethodPost, cuerpo: cuerpoServidor,
-	})
-
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+	for _, testCase := range testCases {
+		rec := runTestCaseWithPath(t, handler, pathServer, serverParam, testCase.server, testCase.testCaseRequest)
+		checkTestCase(t, rec, testCase.testCaseRequest)
 	}
 }
 
-// TestServidoresListarError cubre el fallo al listar el back-end.
-func TestServidoresListarError(t *testing.T) {
+// TestServersError cubre el fallo al agregar un servidor.
+func TestServersError(t *testing.T) {
 	t.Parallel()
 
-	rec := ejecutarCaso(t, NuevoHaproxy(&stubHaproxy{err: errLectura}).Servidores, rutaServidores, casoPeticion{
-		nombre: casoListar, metodo: http.MethodGet,
+	service := &stubHAProxy{err: errRead}
+
+	rec := runTestCase(t, NewHAProxy(service).Servers, pathServers, testCaseRequest{
+		name: "fallo de alta", method: http.MethodPost, body: bodyServer,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestServidorError cubre el fallo al eliminar un servidor.
-func TestServidorError(t *testing.T) {
+// TestServersListError cubre el fallo al listar el back-end.
+func TestServersListError(t *testing.T) {
 	t.Parallel()
 
-	rec := ejecutarCasoConPath(t, NuevoHaproxy(&stubHaproxy{err: errLectura}).Servidor, rutaServidor, campoServer, servidorPrueba, casoPeticion{
-		nombre: casoEliminar, metodo: http.MethodDelete,
+	rec := runTestCase(t, NewHAProxy(&stubHAProxy{err: errRead}).Servers, pathServers, testCaseRequest{
+		name: testCaseList, method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
+	}
+}
+
+// TestServerError cubre el fallo al eliminar un servidor.
+func TestServerError(t *testing.T) {
+	t.Parallel()
+
+	rec := runTestCaseWithPath(t, NewHAProxy(&stubHAProxy{err: errRead}).Server, pathServer, serverParam, serverTests, testCaseRequest{
+		name: testCaseDelete, method: http.MethodDelete,
+	})
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }

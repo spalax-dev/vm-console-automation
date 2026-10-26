@@ -15,125 +15,125 @@ import (
 )
 
 const (
-	rutaAuthEstado     = "/api/auth/estado"
-	rutaAuthLogin      = "/api/auth/login"
-	tokenPrueba        = "token-1"
-	cabeceraSetCookie  = "Set-Cookie"
-	cuerpoCredenciales = `{"usuario":"jorge","password":"una-clave-larga"}` // #nosec G101 -- credenciales de prueba.
+	pathAuthState   = "/api/auth/estado"
+	pathAuthLogin   = "/api/auth/login"
+	tokenTests      = "token-1"
+	headerSetCookie = "Set-Cookie"
+	bodyCredentials = `{"usuario":"jorge","password":"una-clave-larga"}` // #nosec G101 -- credenciales de prueba.
 )
 
-// stubConsola sustituye al servicio de autenticación en las pruebas.
-type stubConsola struct {
-	configurada   bool
-	configurarErr error
-	autenticado   bool
-	autenticarErr error
-	token         string
-	tokenErr      error
-	usuario       string
-	valida        bool
-	registrados   []string
+// stubConsole sustituye al servicio de autenticación en las pruebas.
+type stubConsole struct {
+	configurada     bool
+	configureErr    error
+	autenticado     bool
+	authenticateErr error
+	token           string
+	tokenErr        error
+	user            string
+	validates       bool
+	registered      []string
 }
 
-// Configurada informa el estado preprogramado.
-func (s *stubConsola) Configurada() (bool, error) { return s.configurada, s.configurarErr }
+// IsConfigured informa el estado preprogramado.
+func (s *stubConsole) IsConfigured() (bool, error) { return s.configurada, s.configureErr }
 
-// Configurar registra la cuenta recibida.
-func (s *stubConsola) Configurar(_ context.Context, usuario, password string) error {
-	s.registrados = append(s.registrados, usuario+"|"+password)
+// Configure registra la cuenta recibida.
+func (s *stubConsole) Configure(_ context.Context, user, password string) error {
+	s.registered = append(s.registered, user+"|"+password)
 
-	return s.configurarErr
+	return s.configureErr
 }
 
-// Autenticar devuelve el resultado preprogramado.
-func (s *stubConsola) Autenticar(_ context.Context, usuario, _ string) (bool, error) {
-	s.registrados = append(s.registrados, usuario)
+// Authenticate devuelve el resultado preprogramado.
+func (s *stubConsole) Authenticate(_ context.Context, user, _ string) (bool, error) {
+	s.registered = append(s.registered, user)
 
-	return s.autenticado, s.autenticarErr
+	return s.autenticado, s.authenticateErr
 }
 
-// AbrirSesion devuelve el token preprogramado.
-func (s *stubConsola) AbrirSesion(usuario string) (string, error) {
-	s.usuario = usuario
+// OpenSession devuelve el token preprogramado.
+func (s *stubConsole) OpenSession(user string) (string, error) {
+	s.user = user
 
 	return s.token, s.tokenErr
 }
 
-// Validar devuelve el resultado preprogramado.
-func (s *stubConsola) Validar(token string) (string, bool) {
-	if !s.valida || token != s.token {
+// Validate devuelve el resultado preprogramado.
+func (s *stubConsole) Validate(token string) (string, bool) {
+	if !s.validates || token != s.token {
 		return "", false
 	}
 
-	return s.usuario, true
+	return s.user, true
 }
 
-// peticionConCookie arma una petición con la cookie de sesión.
-func peticionConCookie(metodo, ruta, cuerpo, token string) *http.Request {
-	var lector *strings.Reader
+// requestWithCookie arma una petición con la cookie de sesión.
+func requestWithCookie(method, path, body, token string) *http.Request {
+	var reader *strings.Reader
 
-	if cuerpo == "" {
-		lector = strings.NewReader("")
+	if body == "" {
+		reader = strings.NewReader("")
 	} else {
-		lector = strings.NewReader(cuerpo)
+		reader = strings.NewReader(body)
 	}
 
-	peticion := httptest.NewRequestWithContext(context.Background(), metodo, ruta, lector)
+	request := httptest.NewRequestWithContext(context.Background(), method, path, reader)
 
 	if token != "" {
-		peticion.AddCookie(&http.Cookie{ // #nosec G124 -- cookie de prueba sobre HTTP.
-			Name: nombreCookieSesion, Value: token,
+		request.AddCookie(&http.Cookie{ // #nosec G124 -- cookie de prueba sobre HTTP.
+			Name: sessionCookieName, Value: token,
 		})
 	}
 
-	return peticion
+	return request
 }
 
-// TestAuthEstado comprueba el informe de estado sin autenticación.
-func TestAuthEstado(t *testing.T) {
+// TestAuthState comprueba el informe de estado sin autenticación.
+func TestAuthState(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubConsola{configurada: true}
-	auth := NuevoAuth(servicio)
+	service := &stubConsole{configurada: true}
+	auth := NewAuth(service)
 
 	rec := httptest.NewRecorder()
-	auth.Estado(rec, peticionConCookie(http.MethodGet, rutaAuthEstado, "", ""))
+	auth.State(rec, requestWithCookie(http.MethodGet, pathAuthState, "", ""))
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("Estado() estado = %d, want 200", rec.Code)
 	}
 
-	var cuerpo struct {
-		Configurada bool   `json:"configurada"`
-		Autenticado bool   `json:"autenticado"`
-		Usuario     string `json:"usuario"`
+	var body struct {
+		IsConfigured bool   `json:"configurada"`
+		Autenticado  bool   `json:"autenticado"`
+		User         string `json:"usuario"`
 	}
 
-	if err := json.Unmarshal(rec.Body.Bytes(), &cuerpo); err != nil {
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("Estado() cuerpo inválido: %v", err)
 	}
 
-	if !cuerpo.Configurada || cuerpo.Autenticado {
-		t.Errorf("Estado() = %+v, want configurada y sin sesión", cuerpo)
+	if !body.IsConfigured || body.Autenticado {
+		t.Errorf("Estado() = %+v, want configurada y sin sesión", body)
 	}
 
 	rec = httptest.NewRecorder()
-	servicio.token = tokenPrueba
-	servicio.valida = true
-	servicio.usuario = usuarioJorge
+	service.token = tokenTests
+	service.validates = true
+	service.user = userJorge
 
-	auth.Estado(rec, peticionConCookie(http.MethodGet, rutaAuthEstado, "", tokenPrueba))
+	auth.State(rec, requestWithCookie(http.MethodGet, pathAuthState, "", tokenTests))
 
-	if err := json.Unmarshal(rec.Body.Bytes(), &cuerpo); err != nil {
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("Estado() cuerpo inválido: %v", err)
 	}
 
-	if !cuerpo.Autenticado || cuerpo.Usuario != usuarioJorge {
-		t.Errorf("Estado() = %+v, want autenticado como jorge", cuerpo)
+	if !body.Autenticado || body.User != userJorge {
+		t.Errorf("Estado() = %+v, want autenticado como jorge", body)
 	}
 
 	rec = httptest.NewRecorder()
-	auth.Estado(rec, peticionConCookie(http.MethodPost, rutaAuthEstado, "", ""))
+	auth.State(rec, requestWithCookie(http.MethodPost, pathAuthState, "", ""))
 
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Errorf("Estado() con POST = %d, want 405", rec.Code)
@@ -144,70 +144,70 @@ func TestAuthEstado(t *testing.T) {
 func TestAuthSetup(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubConsola{token: tokenPrueba}
-	auth := NuevoAuth(servicio)
+	service := &stubConsole{token: tokenTests}
+	auth := NewAuth(service)
 
 	rec := httptest.NewRecorder()
-	auth.Configurar(rec, peticionConCookie(http.MethodPost, "/api/auth/setup",
-		cuerpoCredenciales, ""))
+	auth.Configure(rec, requestWithCookie(http.MethodPost, "/api/auth/setup",
+		bodyCredentials, ""))
 
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("Configurar() estado = %d, want 201: %s", rec.Code, rec.Body.String())
 	}
 
-	if !strings.Contains(rec.Header().Get(cabeceraSetCookie), nombreCookieSesion+"=token-1") {
+	if !strings.Contains(rec.Header().Get(headerSetCookie), sessionCookieName+"=token-1") {
 		t.Errorf("Configurar() cookie = %q, want la cookie de sesión",
-			rec.Header().Get(cabeceraSetCookie))
+			rec.Header().Get(headerSetCookie))
 	}
 }
 
-// TestAuthSetupRechaza comprueba los errores de la creación de la cuenta.
-func TestAuthSetupRechaza(t *testing.T) {
+// TestAuthSetupRejects comprueba los errores de la creación de la cuenta.
+func TestAuthSetupRejects(t *testing.T) {
 	t.Parallel()
 
-	casos := []struct {
-		nombre   string
-		servicio *stubConsola
-		cuerpo   string
-		estado   int
+	testCases := []struct {
+		name    string
+		service *stubConsole
+		body    string
+		state   int
 	}{
 		{
 			"ya configurada",
-			&stubConsola{configurarErr: services.ErrConsolaConfigurada},
-			cuerpoCredenciales,
+			&stubConsole{configureErr: services.ErrConsoleConfigured},
+			bodyCredentials,
 			http.StatusConflict,
 		},
 		{
 			"usuario inválido",
-			&stubConsola{},
+			&stubConsole{},
 			`{"usuario":"Jorge","password":"una-clave-larga"}`,
 			http.StatusBadRequest,
 		},
 		{
 			"contraseña corta",
-			&stubConsola{},
+			&stubConsole{},
 			`{"usuario":"jorge","password":"corta"}`,
 			http.StatusBadRequest,
 		},
 		{
 			"json inválido",
-			&stubConsola{},
+			&stubConsole{},
 			`{`,
 			http.StatusBadRequest,
 		},
 	}
 
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
 			rec := httptest.NewRecorder()
-			NuevoAuth(caso.servicio).Configurar(rec,
-				peticionConCookie(http.MethodPost, "/api/auth/setup", caso.cuerpo, ""))
+			NewAuth(testCase.service).Configure(rec,
+				requestWithCookie(http.MethodPost, "/api/auth/setup", testCase.body, ""))
 
-			if rec.Code != caso.estado {
+			if rec.Code != testCase.state {
 				t.Errorf("Configurar() estado = %d, want %d: %s",
-					rec.Code, caso.estado, rec.Body.String())
+					rec.Code, testCase.state, rec.Body.String())
 			}
 		})
 	}
@@ -217,22 +217,22 @@ func TestAuthSetupRechaza(t *testing.T) {
 func TestAuthLogin(t *testing.T) {
 	t.Parallel()
 
-	correcto := &stubConsola{autenticado: true, token: tokenPrueba}
+	correct := &stubConsole{autenticado: true, token: tokenTests}
 	rec := httptest.NewRecorder()
-	NuevoAuth(correcto).Entrar(rec, peticionConCookie(http.MethodPost, rutaAuthLogin,
-		cuerpoCredenciales, ""))
+	NewAuth(correct).Login(rec, requestWithCookie(http.MethodPost, pathAuthLogin,
+		bodyCredentials, ""))
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("Entrar() estado = %d, want 200: %s", rec.Code, rec.Body.String())
 	}
 
-	if !strings.Contains(rec.Header().Get(cabeceraSetCookie), nombreCookieSesion+"=token-1") {
+	if !strings.Contains(rec.Header().Get(headerSetCookie), sessionCookieName+"=token-1") {
 		t.Errorf("Entrar() no instaló la cookie")
 	}
 
-	incorrecto := &stubConsola{autenticado: false}
+	incorrect := &stubConsole{autenticado: false}
 	rec = httptest.NewRecorder()
-	NuevoAuth(incorrecto).Entrar(rec, peticionConCookie(http.MethodPost, rutaAuthLogin,
+	NewAuth(incorrect).Login(rec, requestWithCookie(http.MethodPost, pathAuthLogin,
 		`{"usuario":"jorge","password":"otra-clave"}`, ""))
 
 	if rec.Code != http.StatusUnauthorized {
@@ -240,71 +240,71 @@ func TestAuthLogin(t *testing.T) {
 	}
 }
 
-// TestAuthSalir vence la cookie de sesión.
-func TestAuthSalir(t *testing.T) {
+// TestAuthLogout vence la cookie de sesión.
+func TestAuthLogout(t *testing.T) {
 	t.Parallel()
 
 	rec := httptest.NewRecorder()
-	NuevoAuth(&stubConsola{token: tokenPrueba, valida: true}).Salir(rec,
-		peticionConCookie(http.MethodPost, "/api/auth/logout", "", tokenPrueba))
+	NewAuth(&stubConsole{token: tokenTests, validates: true}).Logout(rec,
+		requestWithCookie(http.MethodPost, "/api/auth/logout", "", tokenTests))
 
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("Salir() estado = %d, want 204", rec.Code)
 	}
 
-	if cookie := rec.Header().Get(cabeceraSetCookie); !strings.Contains(cookie, "Max-Age=0") {
+	if cookie := rec.Header().Get(headerSetCookie); !strings.Contains(cookie, "Max-Age=0") {
 		t.Errorf("Salir() cookie = %q, want vencida", cookie)
 	}
 }
 
-// TestConAutenticacion protege la API y deja pasar el acceso y los
+// TestWithAutenticacion protege la API y deja pasar el acceso y los
 // archivos estáticos.
-func TestConAutenticacion(t *testing.T) {
+func TestWithAutenticacion(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubConsola{token: tokenPrueba, valida: true, usuario: "jorge"}
-	manejador := ConAutenticacion(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if usuario := UsuarioDe(r.Context()); usuario != "" {
-			w.Header().Set("X-Usuario", usuario)
+	service := &stubConsole{token: tokenTests, validates: true, user: "jorge"}
+	handler := WithAuthentication(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if user := UserFrom(r.Context()); user != "" {
+			w.Header().Set("X-Usuario", user)
 		}
 
 		w.WriteHeader(http.StatusNoContent)
-	}), servicio)
+	}), service)
 
-	casos := []struct {
-		nombre string
-		ruta   string
-		token  string
-		estado int
+	testCases := []struct {
+		name  string
+		path  string
+		token string
+		state int
 	}{
-		{"api sin cookie", rutaPaquetes, "", http.StatusUnauthorized},
-		{"api con cookie válida", rutaPaquetes, tokenPrueba, http.StatusNoContent},
-		{"api con cookie inválida", rutaPaquetes, "otra", http.StatusUnauthorized},
-		{"acceso", rutaAuthLogin, "", http.StatusNoContent},
+		{"api sin cookie", pathPackages, "", http.StatusUnauthorized},
+		{"api con cookie válida", pathPackages, tokenTests, http.StatusNoContent},
+		{"api con cookie inválida", pathPackages, "otra", http.StatusUnauthorized},
+		{"acceso", pathAuthLogin, "", http.StatusNoContent},
 		{"interfaz", "/index.html", "", http.StatusNoContent},
 	}
 
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
 			rec := httptest.NewRecorder()
-			manejador.ServeHTTP(rec, peticionConCookie(http.MethodGet, caso.ruta, "", caso.token))
+			handler.ServeHTTP(rec, requestWithCookie(http.MethodGet, testCase.path, "", testCase.token))
 
-			if rec.Code != caso.estado {
-				t.Errorf("ConAutenticacion() estado = %d, want %d", rec.Code, caso.estado)
+			if rec.Code != testCase.state {
+				t.Errorf("ConAutenticacion() estado = %d, want %d", rec.Code, testCase.state)
 			}
 		})
 	}
 
 	rec := httptest.NewRecorder()
-	manejador.ServeHTTP(rec, peticionConCookie(http.MethodGet, rutaPaquetes, "", tokenPrueba))
+	handler.ServeHTTP(rec, requestWithCookie(http.MethodGet, pathPackages, "", tokenTests))
 
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("ConAutenticacion() estado = %d, want 204", rec.Code)
 	}
 
-	if usuario := rec.Header().Get("X-Usuario"); usuario != usuarioJorge {
-		t.Errorf("ConAutenticacion() usuario del contexto = %q, want %q", usuario, usuarioJorge)
+	if user := rec.Header().Get("X-Usuario"); user != userJorge {
+		t.Errorf("ConAutenticacion() usuario del contexto = %q, want %q", user, userJorge)
 	}
 }

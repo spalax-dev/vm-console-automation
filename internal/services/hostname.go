@@ -14,135 +14,135 @@ import (
 	"consola-vm/internal/core/ports"
 )
 
-// ConfiguracionHostname describe el nombre de la máquina y su entrada en
+// HostnameConfig describe el nombre de la máquina y su entrada en
 // /etc/hosts.
-type ConfiguracionHostname struct {
-	// Nombre es el nombre de host actual o deseado.
-	Nombre string
+type HostnameConfig struct {
+	// Name es el nombre de host actual o deseado.
+	Name string
 	// IP es la dirección IPv4 asociada.
 	IP string
-	// ActualizarHosts indica si el nombre está registrado en /etc/hosts.
-	ActualizarHosts bool
+	// UpdateHosts indica si el nombre está registrado en /etc/hosts.
+	UpdateHosts bool
 }
 
 // Hostname implementa el caso de uso del nombre de host y /etc/hosts.
 type Hostname struct {
-	sesiones AbridorSesion
+	sessions SessionOpener
 }
 
-// NuevoHostname construye el servicio de nombre de host con el abridor
+// NewHostname construye el servicio de nombre de host con el abridor
 // de sesiones dado.
-func NuevoHostname(sesiones AbridorSesion) *Hostname {
-	return &Hostname{sesiones: sesiones}
+func NewHostname(sessions SessionOpener) *Hostname {
+	return &Hostname{sessions: sessions}
 }
 
-// Obtener lee el nombre, la primera IPv4 y la presencia del nombre en
+// Get lee el nombre, la primera IPv4 y la presencia del nombre en
 // /etc/hosts.
-func (h *Hostname) Obtener(ctx context.Context) (ConfiguracionHostname, error) {
-	sesion, err := h.sesiones.Abrir(ctx)
+func (h *Hostname) Get(ctx context.Context) (HostnameConfig, error) {
+	session, err := h.sessions.Open(ctx)
 	if err != nil {
-		return ConfiguracionHostname{}, fmt.Errorf("abrir la sesión para leer el nombre de host: %w", err)
+		return HostnameConfig{}, fmt.Errorf("abrir la sesión para leer el nombre de host: %w", err)
 	}
 
-	defer cerrarSesion(sesion)
+	defer closeSession(session)
 
-	nombre, err := ejecutarSalida(ctx, sesion, binCat, "/etc/hostname")
+	name, err := runOutput(ctx, session, binCat, "/etc/hostname")
 	if err != nil {
-		return ConfiguracionHostname{}, fmt.Errorf("leer /etc/hostname: %w", err)
+		return HostnameConfig{}, fmt.Errorf("leer /etc/hostname: %w", err)
 	}
 
-	ip, err := obtenerIPv4(ctx, sesion)
+	ip, err := getIPv4(ctx, session)
 	if err != nil {
-		return ConfiguracionHostname{}, err
+		return HostnameConfig{}, err
 	}
 
-	hosts, err := ejecutarSalida(ctx, sesion, binCat, "/etc/hosts")
+	hosts, err := runOutput(ctx, session, binCat, "/etc/hosts")
 	if err != nil {
-		return ConfiguracionHostname{}, fmt.Errorf("leer /etc/hosts: %w", err)
+		return HostnameConfig{}, fmt.Errorf("leer /etc/hosts: %w", err)
 	}
 
-	nombre = strings.TrimSpace(nombre)
+	name = strings.TrimSpace(name)
 
-	return ConfiguracionHostname{
-		Nombre:          nombre,
-		IP:              ip,
-		ActualizarHosts: nombreEnHosts(hosts, nombre),
+	return HostnameConfig{
+		Name:        name,
+		IP:          ip,
+		UpdateHosts: nameInHosts(hosts, name),
 	}, nil
 }
 
-// Escribir cambia el nombre de host y, si se pide, actualiza /etc/hosts.
-func (h *Hostname) Escribir(ctx context.Context, config ConfiguracionHostname) (Resultado, error) {
-	sesion, err := h.sesiones.Abrir(ctx)
+// Write cambia el nombre de host y, si se pide, actualiza /etc/hosts.
+func (h *Hostname) Write(ctx context.Context, config HostnameConfig) (Outcome, error) {
+	session, err := h.sessions.Open(ctx)
 	if err != nil {
-		return Resultado{}, fmt.Errorf("abrir la sesión para cambiar el nombre de host: %w", err)
+		return Outcome{}, fmt.Errorf("abrir la sesión para cambiar el nombre de host: %w", err)
 	}
 
-	defer cerrarSesion(sesion)
+	defer closeSession(session)
 
-	guion := "hostnamectl set-hostname " + domain.Quote(config.Nombre)
+	guion := "hostnamectl set-hostname " + domain.Quote(config.Name)
 
-	if config.ActualizarHosts {
-		hosts, err := ejecutarSalida(ctx, sesion, binCat, "/etc/hosts")
+	if config.UpdateHosts {
+		hosts, err := runOutput(ctx, session, binCat, "/etc/hosts")
 		if err != nil {
-			return Resultado{}, fmt.Errorf("leer /etc/hosts: %w", err)
+			return Outcome{}, fmt.Errorf("leer /etc/hosts: %w", err)
 		}
 
-		guion += " && printf '%s' " + domain.Quote(contenidoHosts(hosts, config.Nombre, config.IP)) +
+		guion += " && printf '%s' " + domain.Quote(hostsContent(hosts, config.Name, config.IP)) +
 			" > /etc/hosts"
 	}
 
 	cmd := &domain.Command{Path: binSh, Args: []string{"-c", guion}}
 
-	resultado, err := sesion.Run(ctx, cmd)
+	result, err := session.Run(ctx, cmd)
 
-	salida := Resultado{
-		Mensaje:   "Nombre de host actualizado.",
-		Operacion: cmd.ShellLine(),
-		Salida:    resultado.Stdout,
-		Stderr:    resultado.Stderr,
-		Codigo:    resultado.ExitCode,
+	output := Outcome{
+		Message:   "Nombre de host actualizado.",
+		Operation: cmd.ShellLine(),
+		Output:    result.Stdout,
+		Stderr:    result.Stderr,
+		Code:      result.ExitCode,
 	}
 
 	if err != nil {
-		return salida, fmt.Errorf("actualizar el nombre de host: %w", err)
+		return output, fmt.Errorf("actualizar el nombre de host: %w", err)
 	}
 
-	return salida, nil
+	return output, nil
 }
 
-// ejecutarSalida ejecuta una orden y devuelve su salida estándar.
-func ejecutarSalida(ctx context.Context, sesion ports.Session, path string, args ...string) (string, error) {
-	resultado, err := sesion.Run(ctx, &domain.Command{Path: path, Args: args})
+// runOutput ejecuta una orden y devuelve su salida estándar.
+func runOutput(ctx context.Context, session ports.Session, path string, args ...string) (string, error) {
+	result, err := session.Run(ctx, &domain.Command{Path: path, Args: args})
 	if err != nil {
 		return "", fmt.Errorf("ejecutar %s: %w", path, err)
 	}
 
-	return resultado.Stdout, nil
+	return result.Stdout, nil
 }
 
-// obtenerIPv4 devuelve la primera dirección IPv4 de «hostname -I».
-func obtenerIPv4(ctx context.Context, sesion ports.Session) (string, error) {
-	salida, err := ejecutarSalida(ctx, sesion, "/usr/bin/hostname", "-I")
+// getIPv4 devuelve la primera dirección IPv4 de «hostname -I».
+func getIPv4(ctx context.Context, session ports.Session) (string, error) {
+	output, err := runOutput(ctx, session, "/usr/bin/hostname", "-I")
 	if err != nil {
 		return "", fmt.Errorf("consultar la dirección IP: %w", err)
 	}
 
-	for _, campo := range strings.Fields(salida) {
-		direccion, err := netip.ParseAddr(campo)
-		if err == nil && direccion.Is4() {
-			return direccion.String(), nil
+	for _, field := range strings.Fields(output) {
+		address, err := netip.ParseAddr(field)
+		if err == nil && address.Is4() {
+			return address.String(), nil
 		}
 	}
 
 	return "", fmt.Errorf("la máquina no informó una dirección IPv4")
 }
 
-// nombreEnHosts informa si el nombre aparece como destino en el
+// nameInHosts informa si el nombre aparece como destino en el
 // contenido de /etc/hosts.
-func nombreEnHosts(contenido, nombre string) bool {
-	for _, linea := range strings.Split(contenido, "\n") {
-		campos := strings.Fields(linea)
-		if len(campos) >= 2 && slices.Contains(campos[1:], nombre) {
+func nameInHosts(content, name string) bool {
+	for _, line := range strings.Split(content, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && slices.Contains(fields[1:], name) {
 			return true
 		}
 	}
@@ -150,25 +150,25 @@ func nombreEnHosts(contenido, nombre string) bool {
 	return false
 }
 
-// contenidoHosts devuelve /etc/hosts sin las líneas que mapean el
+// hostsContent devuelve /etc/hosts sin las líneas que mapean el
 // nombre y con la entrada «ip nombre» al final.
-func contenidoHosts(contenido, nombre, ip string) string {
-	lineas := []string{}
+func hostsContent(content, name, ip string) string {
+	lines := []string{}
 
-	for _, linea := range strings.Split(contenido, "\n") {
-		if linea == "" {
+	for _, line := range strings.Split(content, "\n") {
+		if line == "" {
 			continue
 		}
 
-		campos := strings.Fields(linea)
-		if len(campos) >= 2 && slices.Contains(campos[1:], nombre) {
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && slices.Contains(fields[1:], name) {
 			continue
 		}
 
-		lineas = append(lineas, linea)
+		lines = append(lines, line)
 	}
 
-	lineas = append(lineas, ip+" "+nombre)
+	lines = append(lines, ip+" "+name)
 
-	return strings.Join(lineas, "\n") + "\n"
+	return strings.Join(lines, "\n") + "\n"
 }

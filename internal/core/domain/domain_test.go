@@ -95,7 +95,7 @@ func TestExitErrorMessageContainsCode(t *testing.T) {
 func TestMachineStateValues(t *testing.T) {
 	t.Parallel()
 
-	casos := map[MachineState]string{
+	testCases := map[MachineState]string{
 		StateRunning:    "running",
 		StatePoweredOff: "poweroff",
 		StatePaused:     "paused",
@@ -103,7 +103,7 @@ func TestMachineStateValues(t *testing.T) {
 		StateUnknown:    "unknown",
 	}
 
-	for state, want := range casos {
+	for state, want := range testCases {
 		if string(state) != want {
 			t.Errorf("MachineState = %q, want %q", string(state), want)
 		}

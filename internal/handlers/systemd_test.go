@@ -13,449 +13,449 @@ import (
 	"consola-vm/internal/services"
 )
 
-// errUnidad simula un fallo inesperado del servicio de systemd.
-var errUnidad = errors.New("fallo de systemd")
+// errUnit simula un fallo inesperado del servicio de systemd.
+var errUnit = errors.New("fallo de systemd")
 
 // stubSystemd es un servicio de systemd falso con resultados
 // preprogramados.
 type stubSystemd struct {
-	lista      []services.EstadoUnidad
-	estado     services.EstadoUnidad
-	resultado  services.Resultado
-	err        error
-	obtenerErr error
-	unidad     string
-	archivos   []services.ArchivoDespliegue
-	usuario    string
-	grupo      string
-	activo     *bool
-	habilitado *bool
-	reinicios  int
+	lists    []services.UnitState
+	state    services.UnitState
+	result   services.Outcome
+	err      error
+	getErr   error
+	unit     string
+	files    []services.DeploymentFile
+	user     string
+	group    string
+	active   *bool
+	enabled  *bool
+	restarts int
 }
 
-// Listar devuelve la lista preprogramada.
-func (s *stubSystemd) Listar(context.Context) ([]services.EstadoUnidad, error) {
-	return s.lista, s.err
+// List devuelve la lista preprogramada.
+func (s *stubSystemd) List(context.Context) ([]services.UnitState, error) {
+	return s.lists, s.err
 }
 
-// Obtener devuelve el estado preprogramado.
-func (s *stubSystemd) Obtener(_ context.Context, unidad string) (services.EstadoUnidad, error) {
-	s.unidad = unidad
+// Get devuelve el estado preprogramado.
+func (s *stubSystemd) Get(_ context.Context, unit string) (services.UnitState, error) {
+	s.unit = unit
 
-	return s.estado, s.obtenerErr
+	return s.state, s.getErr
 }
 
-// Desplegar registra los argumentos y devuelve el resultado.
-func (s *stubSystemd) Desplegar(
-	_ context.Context, unidad string, archivos []services.ArchivoDespliegue, usuario, grupo string,
-) (services.Resultado, error) {
-	s.unidad = unidad
-	s.archivos = archivos
-	s.usuario = usuario
-	s.grupo = grupo
+// Deploy registra los argumentos y devuelve el resultado.
+func (s *stubSystemd) Deploy(
+	_ context.Context, unit string, files []services.DeploymentFile, user, group string,
+) (services.Outcome, error) {
+	s.unit = unit
+	s.files = files
+	s.user = user
+	s.group = group
 
-	return s.resultado, s.err
+	return s.result, s.err
 }
 
-// CambiarEstado registra los argumentos y devuelve el resultado.
-func (s *stubSystemd) CambiarEstado(
-	_ context.Context, unidad string, activo, habilitado *bool,
-) (services.Resultado, error) {
-	s.unidad = unidad
-	s.activo = activo
-	s.habilitado = habilitado
+// ChangeState registra los argumentos y devuelve el resultado.
+func (s *stubSystemd) ChangeState(
+	_ context.Context, unit string, active, enabled *bool,
+) (services.Outcome, error) {
+	s.unit = unit
+	s.active = active
+	s.enabled = enabled
 
-	return s.resultado, s.err
+	return s.result, s.err
 }
 
-// Reiniciar registra la llamada y devuelve el resultado.
-func (s *stubSystemd) Reiniciar(_ context.Context, unidad string) (services.Resultado, error) {
-	s.unidad = unidad
-	s.reinicios++
+// Restart registra la llamada y devuelve el resultado.
+func (s *stubSystemd) Restart(_ context.Context, unit string) (services.Outcome, error) {
+	s.unit = unit
+	s.restarts++
 
-	return s.resultado, s.err
+	return s.result, s.err
 }
 
-// TestUnidadesListar cubre el listado de unidades.
-func TestUnidadesListar(t *testing.T) {
+// TestUnitsList cubre el listado de unidades.
+func TestUnitsList(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubSystemd{lista: []services.EstadoUnidad{
-		{Unidad: unidadCatalogo, Activo: true, Estado: estadoActivoPrueba, Detalle: "running"},
+	service := &stubSystemd{lists: []services.UnitState{
+		{Unit: unitCatalogo, Active: true, State: stateActiveTests, Detail: "running"},
 	}}
 
-	rec := ejecutarCaso(t, NuevoSystemd(servicio).Unidades, "/api/units", casoPeticion{
-		nombre: casoListar, metodo: http.MethodGet,
+	rec := runTestCase(t, NewSystemd(service).Units, "/api/units", testCaseRequest{
+		name: testCaseList, method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+		t.Fatalf(msgCode, rec.Code, http.StatusOK)
 	}
 
-	var cuerpo listaUnidades
-	if err := json.Unmarshal(rec.Body.Bytes(), &cuerpo); err != nil {
-		t.Fatalf(msgJSONInvalido, err)
+	var body unitList
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf(msgJSONInvalid, err)
 	}
 
-	if len(cuerpo.Unidades) != 1 || !cuerpo.Unidades[0].Activo {
-		t.Errorf("unidades = %+v, want la unidad activa", cuerpo.Unidades)
+	if len(body.Units) != 1 || !body.Units[0].Active {
+		t.Errorf("unidades = %+v, want la unidad activa", body.Units)
 	}
 }
 
-// TestUnidadObtener cubre la consulta del estado de una unidad.
-func TestUnidadObtener(t *testing.T) {
+// TestUnitGet cubre la consulta del estado de una unidad.
+func TestUnitGet(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubSystemd{estado: services.EstadoUnidad{
-		Unidad: unidadCatalogo, Activo: true, Habilitado: true, Estado: estadoActivoPrueba, Detalle: "running",
+	service := &stubSystemd{state: services.UnitState{
+		Unit: unitCatalogo, Active: true, Enabled: true, State: stateActiveTests, Detail: "running",
 	}}
 
-	rec := ejecutarCasoConPath(t, NuevoSystemd(servicio).Unidad, rutaUnidad, campoUnit, unidadCatalogo, casoPeticion{
-		nombre: casoConsultar, metodo: http.MethodGet,
+	rec := runTestCaseWithPath(t, NewSystemd(service).Unit, pathUnit, unitParam, unitCatalogo, testCaseRequest{
+		name: testCaseGet, method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+		t.Fatalf(msgCode, rec.Code, http.StatusOK)
 	}
 
-	var cuerpo unidadRespuesta
-	if err := json.Unmarshal(rec.Body.Bytes(), &cuerpo); err != nil {
-		t.Fatalf(msgJSONInvalido, err)
+	var body unitRow
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf(msgJSONInvalid, err)
 	}
 
-	if !cuerpo.Activo || !cuerpo.Habilitado {
-		t.Errorf("unidad = %+v, want activa y habilitada", cuerpo)
+	if !body.Active || !body.Enabled {
+		t.Errorf("unidad = %+v, want activa y habilitada", body)
 	}
 }
 
-// TestUnidadNoEncontrada cubre la consulta de una unidad inexistente.
-func TestUnidadNoEncontrada(t *testing.T) {
+// TestUnitNotFound cubre la consulta de una unidad inexistente.
+func TestUnitNotFound(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubSystemd{obtenerErr: services.ErrUnidadNoEncontrada}
+	service := &stubSystemd{getErr: services.ErrUnitNotFound}
 
-	rec := ejecutarCasoConPath(t, NuevoSystemd(servicio).Unidad, rutaUnidad, campoUnit, unidadCatalogo, casoPeticion{
-		nombre: casoInexistente, metodo: http.MethodGet,
+	rec := runTestCaseWithPath(t, NewSystemd(service).Unit, pathUnit, unitParam, unitCatalogo, testCaseRequest{
+		name: testCaseInexistente, method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusNotFound {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusNotFound)
+		t.Fatalf(msgCode, rec.Code, http.StatusNotFound)
 	}
 }
 
-// TestUnidadError cubre un fallo inesperado al consultar.
-func TestUnidadError(t *testing.T) {
+// TestUnitError cubre un fallo inesperado al consultar.
+func TestUnitError(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubSystemd{obtenerErr: errUnidad}
+	service := &stubSystemd{getErr: errUnit}
 
-	rec := ejecutarCasoConPath(t, NuevoSystemd(servicio).Unidad, rutaUnidad, campoUnit, unidadCatalogo, casoPeticion{
-		nombre: "error", metodo: http.MethodGet,
+	rec := runTestCaseWithPath(t, NewSystemd(service).Unit, pathUnit, unitParam, unitCatalogo, testCaseRequest{
+		name: "error", method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestUnidadDesplegar cubre la transferencia de archivos.
-func TestUnidadDesplegar(t *testing.T) {
+// TestUnitDeploy cubre la transferencia de archivos.
+func TestUnitDeploy(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubSystemd{resultado: services.Resultado{Mensaje: "Unidad desplegada."}}
+	service := &stubSystemd{result: services.Outcome{Message: "Unidad desplegada."}}
 
-	cuerpo := `{"archivos":[{"origen":"./app/catalogo","destino":"/opt/catalogo/catalogo","modo":"755"}],"usuario":"catalogo","grupo":"catalogo"}`
+	body := `{"archivos":[{"origen":"./app/catalogo","destino":"/opt/catalogo/catalogo","modo":"755"}],"usuario":"catalogo","grupo":"catalogo"}`
 
-	rec := ejecutarCasoConPath(t, NuevoSystemd(servicio).Unidad, rutaUnidad, campoUnit, unidadCatalogo, casoPeticion{
-		nombre: "desplegar", metodo: http.MethodPut, cuerpo: cuerpo,
+	rec := runTestCaseWithPath(t, NewSystemd(service).Unit, pathUnit, unitParam, unitCatalogo, testCaseRequest{
+		name: "desplegar", method: http.MethodPut, body: body,
 	})
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+		t.Fatalf(msgCode, rec.Code, http.StatusOK)
 	}
 
-	if len(servicio.archivos) != 1 || servicio.archivos[0].Destino != "/opt/catalogo/catalogo" {
-		t.Errorf("archivos = %+v, want el archivo transferido", servicio.archivos)
+	if len(service.files) != 1 || service.files[0].Destination != "/opt/catalogo/catalogo" {
+		t.Errorf("archivos = %+v, want el archivo transferido", service.files)
 	}
 
-	if servicio.usuario != propietarioCatalogo || servicio.grupo != propietarioCatalogo {
-		t.Errorf("propietario = %s:%s, want catalogo:catalogo", servicio.usuario, servicio.grupo)
+	if service.user != propietarioCatalogo || service.group != propietarioCatalogo {
+		t.Errorf("propietario = %s:%s, want catalogo:catalogo", service.user, service.group)
 	}
 }
 
-// TestUnidadCambiarEstado cubre la activación de una unidad.
-func TestUnidadCambiarEstado(t *testing.T) {
+// TestUnitChangeState cubre la activación de una unidad.
+func TestUnitChangeState(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubSystemd{estado: services.EstadoUnidad{
-		Unidad: unidadCatalogo, Activo: true, Estado: estadoActivoPrueba,
+	service := &stubSystemd{state: services.UnitState{
+		Unit: unitCatalogo, Active: true, State: stateActiveTests,
 	}}
 
-	rec := ejecutarCasoConPath(t, NuevoSystemd(servicio).Unidad, rutaUnidad, campoUnit, unidadCatalogo, casoPeticion{
-		nombre: "activar", metodo: http.MethodPatch, cuerpo: cuerpoActivar,
+	rec := runTestCaseWithPath(t, NewSystemd(service).Unit, pathUnit, unitParam, unitCatalogo, testCaseRequest{
+		name: "activar", method: http.MethodPatch, body: bodyActivar,
 	})
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusOK)
+		t.Fatalf(msgCode, rec.Code, http.StatusOK)
 	}
 
-	if servicio.activo == nil || !*servicio.activo {
-		t.Errorf("activo = %v, want true", servicio.activo)
+	if service.active == nil || !*service.active {
+		t.Errorf("activo = %v, want true", service.active)
 	}
 
-	var cuerpo unidadRespuesta
-	if err := json.Unmarshal(rec.Body.Bytes(), &cuerpo); err != nil {
-		t.Fatalf(msgJSONInvalido, err)
+	var body unitRow
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf(msgJSONInvalid, err)
 	}
 
-	if !cuerpo.Activo {
-		t.Errorf("estado = %+v, want activa", cuerpo)
+	if !body.Active {
+		t.Errorf("estado = %+v, want activa", body)
 	}
 }
 
-// TestUnidadValidacion cubre las reglas de unidad, archivos y estado.
-func TestUnidadValidacion(t *testing.T) {
+// TestUnitValidacion cubre las reglas de unidad, archivos y estado.
+func TestUnitValidacion(t *testing.T) {
 	t.Parallel()
 
-	handler := NuevoSystemd(&stubSystemd{}).Unidad
+	handler := NewSystemd(&stubSystemd{}).Unit
 
-	casos := []struct {
-		casoPeticion
-		unidad string
+	testCases := []struct {
+		testCaseRequest
+		unit string
 	}{
-		{casoPeticion{nombre: casoUnidadInvalida, metodo: http.MethodGet, codigo: http.StatusBadRequest, campo: campoUnit}, "../etc/passwd"},
+		{testCaseRequest{name: testCaseUnitInvalida, method: http.MethodGet, code: http.StatusBadRequest, field: unitParam}, "../etc/passwd"},
 		{
-			casoPeticion{
-				nombre: "sin archivos",
-				metodo: http.MethodPut,
-				cuerpo: `{"archivos":[]}`,
-				codigo: http.StatusBadRequest,
-				campo:  campoArchivos,
+			testCaseRequest{
+				name:   "sin archivos",
+				method: http.MethodPut,
+				body:   `{"archivos":[]}`,
+				code:   http.StatusBadRequest,
+				field:  filesField,
 			},
-			unidadCatalogo,
+			unitCatalogo,
 		},
 		{
-			casoPeticion{
-				nombre: "destino relativo",
-				metodo: http.MethodPut,
-				cuerpo: `{"archivos":[{"origen":"./app","destino":"opt/app","modo":"755"}]}`,
-				codigo: http.StatusBadRequest,
-				campo:  campoDestino,
+			testCaseRequest{
+				name:   "destino relativo",
+				method: http.MethodPut,
+				body:   `{"archivos":[{"origen":"./app","destino":"opt/app","modo":"755"}]}`,
+				code:   http.StatusBadRequest,
+				field:  destinationField,
 			},
-			unidadCatalogo,
+			unitCatalogo,
 		},
 		{
-			casoPeticion{
-				nombre: "modo inválido",
-				metodo: http.MethodPut,
-				cuerpo: `{"archivos":[{"origen":"./app","destino":"/opt/app","modo":"rwx"}]}`,
-				codigo: http.StatusBadRequest,
-				campo:  campoModo,
+			testCaseRequest{
+				name:   "modo inválido",
+				method: http.MethodPut,
+				body:   `{"archivos":[{"origen":"./app","destino":"/opt/app","modo":"rwx"}]}`,
+				code:   http.StatusBadRequest,
+				field:  modeField,
 			},
-			unidadCatalogo,
+			unitCatalogo,
 		},
 		{
-			casoPeticion{
-				nombre: casoUsuarioInvalido,
-				metodo: http.MethodPut,
-				cuerpo: `{"archivos":[{"origen":"./app","destino":"/opt/app","modo":"755"}],"usuario":"José"}`,
-				codigo: http.StatusBadRequest,
-				campo:  "usuario",
+			testCaseRequest{
+				name:   testCaseUserInvalid,
+				method: http.MethodPut,
+				body:   `{"archivos":[{"origen":"./app","destino":"/opt/app","modo":"755"}],"usuario":"José"}`,
+				code:   http.StatusBadRequest,
+				field:  "usuario",
 			},
-			unidadCatalogo,
+			unitCatalogo,
 		},
 		{
-			casoPeticion{
-				nombre: "sin estado",
-				metodo: http.MethodPatch,
-				cuerpo: `{}`,
-				codigo: http.StatusBadRequest,
-				campo:  campoActivo,
+			testCaseRequest{
+				name:   "sin estado",
+				method: http.MethodPatch,
+				body:   `{}`,
+				code:   http.StatusBadRequest,
+				field:  activeField,
 			},
-			unidadCatalogo,
+			unitCatalogo,
 		},
 		{
-			casoPeticion{
-				nombre: "dos estados",
-				metodo: http.MethodPatch,
-				cuerpo: `{"activo":true,"habilitado":true}`,
-				codigo: http.StatusBadRequest,
-				campo:  campoHabilitado,
+			testCaseRequest{
+				name:   "dos estados",
+				method: http.MethodPatch,
+				body:   `{"activo":true,"habilitado":true}`,
+				code:   http.StatusBadRequest,
+				field:  enabledField,
 			},
-			unidadCatalogo,
+			unitCatalogo,
 		},
-		{casoPeticion{nombre: casoCuerpoInvalido, metodo: http.MethodPut, cuerpo: `{`, codigo: http.StatusBadRequest}, unidadCatalogo},
-		{casoPeticion{nombre: casoMetodoNoPermitido, metodo: http.MethodDelete, codigo: http.StatusMethodNotAllowed}, unidadCatalogo},
+		{testCaseRequest{name: testCaseBodyInvalid, method: http.MethodPut, body: `{`, code: http.StatusBadRequest}, unitCatalogo},
+		{testCaseRequest{name: testCaseMethodNotPermitido, method: http.MethodDelete, code: http.StatusMethodNotAllowed}, unitCatalogo},
 	}
 
-	for _, caso := range casos {
-		rec := ejecutarCasoConPath(t, handler, rutaUnidad, campoUnit, caso.unidad, caso.casoPeticion)
-		comprobarCaso(t, rec, caso.casoPeticion)
+	for _, testCase := range testCases {
+		rec := runTestCaseWithPath(t, handler, pathUnit, unitParam, testCase.unit, testCase.testCaseRequest)
+		checkTestCase(t, rec, testCase.testCaseRequest)
 	}
 }
 
-// TestReinicios cubre el reinicio de una unidad.
-func TestReinicios(t *testing.T) {
+// TestRestarts cubre el reinicio de una unidad.
+func TestRestarts(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubSystemd{resultado: services.Resultado{Mensaje: "Unidad reiniciada."}}
+	service := &stubSystemd{result: services.Outcome{Message: "Unidad reiniciada."}}
 
-	rec := ejecutarCasoConPath(t, NuevoSystemd(servicio).Reinicios, rutaReinicios, campoUnit, unidadCatalogo, casoPeticion{
-		nombre: "reiniciar", metodo: http.MethodPost,
+	rec := runTestCaseWithPath(t, NewSystemd(service).Restarts, pathRestarts, unitParam, unitCatalogo, testCaseRequest{
+		name: "reiniciar", method: http.MethodPost,
 	})
 
 	if rec.Code != http.StatusAccepted {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusAccepted)
+		t.Fatalf(msgCode, rec.Code, http.StatusAccepted)
 	}
 
-	if servicio.reinicios != 1 {
-		t.Errorf("Reiniciar() se llamó %d veces, want 1", servicio.reinicios)
+	if service.restarts != 1 {
+		t.Errorf("Reiniciar() se llamó %d veces, want 1", service.restarts)
 	}
 }
 
-// TestReiniciosNoEncontrada cubre el reinicio de una unidad inexistente.
-func TestReiniciosNoEncontrada(t *testing.T) {
+// TestRestartsNotFound cubre el reinicio de una unidad inexistente.
+func TestRestartsNotFound(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubSystemd{err: services.ErrUnidadNoEncontrada}
+	service := &stubSystemd{err: services.ErrUnitNotFound}
 
-	rec := ejecutarCasoConPath(t, NuevoSystemd(servicio).Reinicios, rutaReinicios, campoUnit, unidadCatalogo, casoPeticion{
-		nombre: casoInexistente, metodo: http.MethodPost,
+	rec := runTestCaseWithPath(t, NewSystemd(service).Restarts, pathRestarts, unitParam, unitCatalogo, testCaseRequest{
+		name: testCaseInexistente, method: http.MethodPost,
 	})
 
 	if rec.Code != http.StatusNotFound {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusNotFound)
+		t.Fatalf(msgCode, rec.Code, http.StatusNotFound)
 	}
 }
 
-// TestUnidadesListarError cubre el fallo al listar unidades.
-func TestUnidadesListarError(t *testing.T) {
+// TestUnitsListError cubre el fallo al listar unidades.
+func TestUnitsListError(t *testing.T) {
 	t.Parallel()
 
-	rec := ejecutarCaso(t, NuevoSystemd(&stubSystemd{err: errUnidad}).Unidades, "/api/units", casoPeticion{
-		nombre: casoListar, metodo: http.MethodGet,
+	rec := runTestCase(t, NewSystemd(&stubSystemd{err: errUnit}).Units, "/api/units", testCaseRequest{
+		name: testCaseList, method: http.MethodGet,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestUnidadDesplegarError cubre el fallo al transferir los archivos.
-func TestUnidadDesplegarError(t *testing.T) {
+// TestUnitDeployError cubre el fallo al transferir los archivos.
+func TestUnitDeployError(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubSystemd{err: errUnidad}
-	cuerpo := `{"archivos":[{"origen":"./app","destino":"/opt/app","modo":"755"}]}`
+	service := &stubSystemd{err: errUnit}
+	body := `{"archivos":[{"origen":"./app","destino":"/opt/app","modo":"755"}]}`
 
-	rec := ejecutarCasoConPath(t, NuevoSystemd(servicio).Unidad, rutaUnidad, campoUnit, unidadCatalogo, casoPeticion{
-		nombre: "fallo de despliegue", metodo: http.MethodPut, cuerpo: cuerpo,
+	rec := runTestCaseWithPath(t, NewSystemd(service).Unit, pathUnit, unitParam, unitCatalogo, testCaseRequest{
+		name: "fallo de despliegue", method: http.MethodPut, body: body,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestUnidadCambiarEstadoError cubre el fallo de systemctl al cambiar el
+// TestUnitChangeStateError cubre el fallo de systemctl al cambiar el
 // estado.
-func TestUnidadCambiarEstadoError(t *testing.T) {
+func TestUnitChangeStateError(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubSystemd{err: errUnidad}
+	service := &stubSystemd{err: errUnit}
 
-	rec := ejecutarCasoConPath(t, NuevoSystemd(servicio).Unidad, rutaUnidad, campoUnit, unidadCatalogo, casoPeticion{
-		nombre: "fallo de estado", metodo: http.MethodPatch, cuerpo: cuerpoActivar,
+	rec := runTestCaseWithPath(t, NewSystemd(service).Unit, pathUnit, unitParam, unitCatalogo, testCaseRequest{
+		name: "fallo de estado", method: http.MethodPatch, body: bodyActivar,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestUnidadCambiarEstadoSinConsulta cubre el fallo al releer el estado.
-func TestUnidadCambiarEstadoSinConsulta(t *testing.T) {
+// TestUnitChangeStateWithoutConsulta cubre el fallo al releer el estado.
+func TestUnitChangeStateWithoutConsulta(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubSystemd{obtenerErr: errUnidad}
+	service := &stubSystemd{getErr: errUnit}
 
-	rec := ejecutarCasoConPath(t, NuevoSystemd(servicio).Unidad, rutaUnidad, campoUnit, unidadCatalogo, casoPeticion{
-		nombre: "fallo de consulta", metodo: http.MethodPatch, cuerpo: cuerpoActivar,
+	rec := runTestCaseWithPath(t, NewSystemd(service).Unit, pathUnit, unitParam, unitCatalogo, testCaseRequest{
+		name: "fallo de consulta", method: http.MethodPatch, body: bodyActivar,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestReiniciosError cubre el fallo al reiniciar una unidad.
-func TestReiniciosError(t *testing.T) {
+// TestRestartsError cubre el fallo al reiniciar una unidad.
+func TestRestartsError(t *testing.T) {
 	t.Parallel()
 
-	rec := ejecutarCasoConPath(t, NuevoSystemd(&stubSystemd{err: errUnidad}).Reinicios, rutaReinicios, campoUnit, unidadCatalogo, casoPeticion{
-		nombre: "fallo de reinicio", metodo: http.MethodPost,
+	rec := runTestCaseWithPath(t, NewSystemd(&stubSystemd{err: errUnit}).Restarts, pathRestarts, unitParam, unitCatalogo, testCaseRequest{
+		name: "fallo de reinicio", method: http.MethodPost,
 	})
 
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusInternalServerError)
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
 	}
 }
 
-// TestUnidadCambiarEstadoNoEncontrada cubre el cambio de estado de una
+// TestUnitChangeStateNotFound cubre el cambio de estado de una
 // unidad inexistente.
-func TestUnidadCambiarEstadoNoEncontrada(t *testing.T) {
+func TestUnitChangeStateNotFound(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubSystemd{err: services.ErrUnidadNoEncontrada}
+	service := &stubSystemd{err: services.ErrUnitNotFound}
 
-	rec := ejecutarCasoConPath(t, NuevoSystemd(servicio).Unidad, rutaUnidad, campoUnit, unidadCatalogo, casoPeticion{
-		nombre: "inexistente", metodo: http.MethodPatch, cuerpo: cuerpoActivar,
+	rec := runTestCaseWithPath(t, NewSystemd(service).Unit, pathUnit, unitParam, unitCatalogo, testCaseRequest{
+		name: "inexistente", method: http.MethodPatch, body: bodyActivar,
 	})
 
 	if rec.Code != http.StatusNotFound {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusNotFound)
+		t.Fatalf(msgCode, rec.Code, http.StatusNotFound)
 	}
 }
 
-// TestUnidadDesplegarGrupoInvalido cubre el grupo no válido.
-func TestUnidadDesplegarGrupoInvalido(t *testing.T) {
+// TestUnitDeployGroupInvalid cubre el grupo no válido.
+func TestUnitDeployGroupInvalid(t *testing.T) {
 	t.Parallel()
 
-	cuerpo := `{"archivos":[{"origen":"./app","destino":"/opt/app","modo":"755"}],"grupo":"José"}`
+	body := `{"archivos":[{"origen":"./app","destino":"/opt/app","modo":"755"}],"grupo":"José"}`
 
-	rec := ejecutarCasoConPath(t, NuevoSystemd(&stubSystemd{}).Unidad, rutaUnidad, campoUnit, unidadCatalogo, casoPeticion{
-		nombre: "grupo inválido", metodo: http.MethodPut, cuerpo: cuerpo,
+	rec := runTestCaseWithPath(t, NewSystemd(&stubSystemd{}).Unit, pathUnit, unitParam, unitCatalogo, testCaseRequest{
+		name: "grupo inválido", method: http.MethodPut, body: body,
 	})
 
-	comprobarCaso(t, rec, casoPeticion{nombre: "grupo inválido", codigo: http.StatusBadRequest, campo: "grupo"})
+	checkTestCase(t, rec, testCaseRequest{name: "grupo inválido", code: http.StatusBadRequest, field: "grupo"})
 }
 
-// TestUnidadDesplegarSinOrigen cubre el archivo sin ruta de origen.
-func TestUnidadDesplegarSinOrigen(t *testing.T) {
+// TestUnitDeployWithoutSource cubre el archivo sin ruta de origen.
+func TestUnitDeployWithoutSource(t *testing.T) {
 	t.Parallel()
 
-	cuerpo := `{"archivos":[{"origen":"","destino":"/opt/app","modo":"755"}]}`
+	body := `{"archivos":[{"origen":"","destino":"/opt/app","modo":"755"}]}`
 
-	rec := ejecutarCasoConPath(t, NuevoSystemd(&stubSystemd{}).Unidad, rutaUnidad, campoUnit, unidadCatalogo, casoPeticion{
-		nombre: "sin origen", metodo: http.MethodPut, cuerpo: cuerpo,
+	rec := runTestCaseWithPath(t, NewSystemd(&stubSystemd{}).Unit, pathUnit, unitParam, unitCatalogo, testCaseRequest{
+		name: "sin origen", method: http.MethodPut, body: body,
 	})
 
-	comprobarCaso(t, rec, casoPeticion{nombre: "sin origen", codigo: http.StatusBadRequest, campo: campoOrigen})
+	checkTestCase(t, rec, testCaseRequest{name: "sin origen", code: http.StatusBadRequest, field: sourceField})
 }
 
-// TestReiniciosValidacion cubre el método y la unidad inválidos.
-func TestReiniciosValidacion(t *testing.T) {
+// TestRestartsValidacion cubre el método y la unidad inválidos.
+func TestRestartsValidacion(t *testing.T) {
 	t.Parallel()
 
-	handler := NuevoSystemd(&stubSystemd{}).Reinicios
+	handler := NewSystemd(&stubSystemd{}).Restarts
 
-	metodo := ejecutarCasoConPath(t, handler, rutaReinicios, campoUnit, unidadCatalogo, casoPeticion{
-		nombre: casoMetodoNoPermitido, metodo: http.MethodGet,
+	method := runTestCaseWithPath(t, handler, pathRestarts, unitParam, unitCatalogo, testCaseRequest{
+		name: testCaseMethodNotPermitido, method: http.MethodGet,
 	})
-	comprobarCaso(t, metodo, casoPeticion{nombre: casoMetodoNoPermitido, codigo: http.StatusMethodNotAllowed})
+	checkTestCase(t, method, testCaseRequest{name: testCaseMethodNotPermitido, code: http.StatusMethodNotAllowed})
 
-	invalida := ejecutarCasoConPath(t, handler, rutaReinicios, campoUnit, "catalogo", casoPeticion{
-		nombre: casoUnidadInvalida, metodo: http.MethodPost,
+	invalida := runTestCaseWithPath(t, handler, pathRestarts, unitParam, "catalogo", testCaseRequest{
+		name: testCaseUnitInvalida, method: http.MethodPost,
 	})
-	comprobarCaso(t, invalida, casoPeticion{nombre: casoUnidadInvalida, codigo: http.StatusBadRequest, campo: campoUnit})
+	checkTestCase(t, invalida, testCaseRequest{name: testCaseUnitInvalida, code: http.StatusBadRequest, field: unitParam})
 }

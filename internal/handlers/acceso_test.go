@@ -11,152 +11,152 @@ import (
 	"consola-vm/internal/services"
 )
 
-// rutaRegistro es la ruta del recurso de registro.
-const rutaRegistro = "/api/session/register"
+// pathRegistration es la ruta del recurso de registro.
+const pathRegistration = "/api/session/register"
 
-// stubAcceso es un servicio de credenciales falso.
-type stubAcceso struct {
-	resultado   services.Resultado
-	err         error
-	usuario     string
-	password    string
-	registrados int
-	olvidados   int
+// stubAccess es un servicio de credenciales falso.
+type stubAccess struct {
+	result     services.Outcome
+	err        error
+	user       string
+	password   string
+	registered int
+	olvidados  int
 }
 
-// Registrar registra los argumentos y devuelve el resultado.
-func (s *stubAcceso) Registrar(_ context.Context, usuario, password string) (services.Resultado, error) {
-	s.usuario = usuario
+// Register registra los argumentos y devuelve el resultado.
+func (s *stubAccess) Register(_ context.Context, user, password string) (services.Outcome, error) {
+	s.user = user
 	s.password = password
-	s.registrados++
+	s.registered++
 
-	return s.resultado, s.err
+	return s.result, s.err
 }
 
-// Olvidar registra la llamada.
-func (s *stubAcceso) Olvidar() error {
+// Forget registra la llamada.
+func (s *stubAccess) Forget() error {
 	s.olvidados++
 
 	return s.err
 }
 
-// TestAccesoIniciar cubre el guardado correcto de credenciales.
-func TestAccesoIniciar(t *testing.T) {
+// TestAccessStart cubre el guardado correcto de credenciales.
+func TestAccessStart(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubAcceso{resultado: services.Resultado{Mensaje: "Credenciales verificadas."}}
+	service := &stubAccess{result: services.Outcome{Message: "Credenciales verificadas."}}
 
-	rec := ejecutarCaso(t, NuevoAcceso(servicio).ServeHTTP, rutaRegistro, casoPeticion{
-		nombre: "registrar", metodo: http.MethodPost, cuerpo: `{"usuario":"root","password":"secreto"}`,
+	rec := runTestCase(t, NewAccess(service).ServeHTTP, pathRegistration, testCaseRequest{
+		name: "registrar", method: http.MethodPost, body: `{"usuario":"root","password":"secreto"}`,
 	})
 
 	if rec.Code != http.StatusCreated {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusCreated)
+		t.Fatalf(msgCode, rec.Code, http.StatusCreated)
 	}
 
-	if servicio.registrados != 1 || servicio.usuario != "root" {
-		t.Errorf("Registrar() = %+v, want root", servicio)
+	if service.registered != 1 || service.user != "root" {
+		t.Errorf("Registrar() = %+v, want root", service)
 	}
 }
 
-// TestAccesoIniciarRechazado cubre las credenciales inválidas.
-func TestAccesoIniciarRechazado(t *testing.T) {
+// TestAccessStartRechazado cubre las credenciales inválidas.
+func TestAccessStartRechazado(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubAcceso{err: services.ErrCredencialesInvalidas}
+	service := &stubAccess{err: services.ErrInvalidCredentials}
 
-	rec := ejecutarCaso(t, NuevoAcceso(servicio).ServeHTTP, rutaRegistro, casoPeticion{
-		nombre: "credenciales inválidas", metodo: http.MethodPost, cuerpo: `{"usuario":"root","password":"mala"}`,
+	rec := runTestCase(t, NewAccess(service).ServeHTTP, pathRegistration, testCaseRequest{
+		name: "credenciales inválidas", method: http.MethodPost, body: `{"usuario":"root","password":"mala"}`,
 	})
 
 	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusUnauthorized)
+		t.Fatalf(msgCode, rec.Code, http.StatusUnauthorized)
 	}
 }
 
-// TestAccesoIniciarSinSesion cubre la máquina apagada o sin Guest
+// TestAccessStartWithoutSession cubre la máquina apagada o sin Guest
 // Additions.
-func TestAccesoIniciarSinSesion(t *testing.T) {
+func TestAccessStartWithoutSession(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubAcceso{err: services.ErrSesionNoDisponible}
+	service := &stubAccess{err: services.ErrSessionUnavailable}
 
-	rec := ejecutarCaso(t, NuevoAcceso(servicio).ServeHTTP, rutaRegistro, casoPeticion{
-		nombre: "sin sesión", metodo: http.MethodPost, cuerpo: `{"usuario":"root","password":"x"}`,
+	rec := runTestCase(t, NewAccess(service).ServeHTTP, pathRegistration, testCaseRequest{
+		name: "sin sesión", method: http.MethodPost, body: `{"usuario":"root","password":"x"}`,
 	})
 
 	if rec.Code != http.StatusServiceUnavailable {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusServiceUnavailable)
+		t.Fatalf(msgCode, rec.Code, http.StatusServiceUnavailable)
 	}
 }
 
-// TestAccesoIniciarSinMaquina cubre la consola sin vínculo.
-func TestAccesoIniciarSinMaquina(t *testing.T) {
+// TestAccessStartWithoutMachine cubre la consola sin vínculo.
+func TestAccessStartWithoutMachine(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubAcceso{err: services.ErrSinMaquina}
+	service := &stubAccess{err: services.ErrNoMachine}
 
-	rec := ejecutarCaso(t, NuevoAcceso(servicio).ServeHTTP, rutaRegistro, casoPeticion{
-		nombre: "sin máquina", metodo: http.MethodPost, cuerpo: `{"usuario":"root","password":"x"}`,
+	rec := runTestCase(t, NewAccess(service).ServeHTTP, pathRegistration, testCaseRequest{
+		name: "sin máquina", method: http.MethodPost, body: `{"usuario":"root","password":"x"}`,
 	})
 
 	if rec.Code != http.StatusConflict {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusConflict)
+		t.Fatalf(msgCode, rec.Code, http.StatusConflict)
 	}
 }
 
-// TestAccesoValidacion cubre usuario, puerto y método.
-func TestAccesoValidacion(t *testing.T) {
+// TestAccessValidacion cubre usuario, puerto y método.
+func TestAccessValidacion(t *testing.T) {
 	t.Parallel()
 
-	handler := NuevoAcceso(&stubAcceso{}).ServeHTTP
-	casos := []casoPeticion{
-		{nombre: casoUsuarioInvalido, metodo: http.MethodPost, cuerpo: `{"usuario":"Root","password":"x"}`, codigo: http.StatusBadRequest, campo: campoUsuario},
-		{nombre: casoCuerpoInvalido, metodo: http.MethodPost, cuerpo: `{`, codigo: http.StatusBadRequest},
-		{nombre: casoMetodoNoPermitido, metodo: http.MethodGet, codigo: http.StatusMethodNotAllowed},
+	handler := NewAccess(&stubAccess{}).ServeHTTP
+	testCases := []testCaseRequest{
+		{name: testCaseUserInvalid, method: http.MethodPost, body: `{"usuario":"Root","password":"x"}`, code: http.StatusBadRequest, field: userField},
+		{name: testCaseBodyInvalid, method: http.MethodPost, body: `{`, code: http.StatusBadRequest},
+		{name: testCaseMethodNotPermitido, method: http.MethodGet, code: http.StatusMethodNotAllowed},
 	}
 
-	for _, caso := range casos {
-		rec := ejecutarCaso(t, handler, rutaRegistro, caso)
-		comprobarCaso(t, rec, caso)
+	for _, testCase := range testCases {
+		rec := runTestCase(t, handler, pathRegistration, testCase)
+		checkTestCase(t, rec, testCase)
 	}
 }
 
-// TestAccesoOlvidar elimina las credenciales.
-func TestAccesoOlvidar(t *testing.T) {
+// TestAccessForget elimina las credenciales.
+func TestAccessForget(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubAcceso{}
+	service := &stubAccess{}
 
-	rec := ejecutarCaso(t, NuevoAcceso(servicio).ServeHTTP, rutaRegistro, casoPeticion{
-		nombre: "olvidar", metodo: http.MethodDelete,
+	rec := runTestCase(t, NewAccess(service).ServeHTTP, pathRegistration, testCaseRequest{
+		name: "olvidar", method: http.MethodDelete,
 	})
 
 	if rec.Code != http.StatusNoContent {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusNoContent)
+		t.Fatalf(msgCode, rec.Code, http.StatusNoContent)
 	}
 
-	if servicio.olvidados != 1 {
-		t.Errorf("Olvidar() se llamó %d veces, want 1", servicio.olvidados)
+	if service.olvidados != 1 {
+		t.Errorf("Olvidar() se llamó %d veces, want 1", service.olvidados)
 	}
 }
 
-// TestAccesoRecortaElUsuario comprueba que los espacios del autocompletado
+// TestAccessRecortaUser comprueba que los espacios del autocompletado
 // no invalidan un usuario correcto.
-func TestAccesoRecortaElUsuario(t *testing.T) {
+func TestAccessRecortaUser(t *testing.T) {
 	t.Parallel()
 
-	servicio := &stubAcceso{resultado: services.Resultado{Mensaje: "Credenciales verificadas."}}
+	service := &stubAccess{result: services.Outcome{Message: "Credenciales verificadas."}}
 
-	rec := ejecutarCaso(t, NuevoAcceso(servicio).ServeHTTP, rutaRegistro, casoPeticion{
-		nombre: "usuario con espacios", metodo: http.MethodPost, cuerpo: `{"usuario":" jorge ","password":"clave"}`,
+	rec := runTestCase(t, NewAccess(service).ServeHTTP, pathRegistration, testCaseRequest{
+		name: "usuario con espacios", method: http.MethodPost, body: `{"usuario":" jorge ","password":"clave"}`,
 	})
 
 	if rec.Code != http.StatusCreated {
-		t.Fatalf(msgCodigo, rec.Code, http.StatusCreated)
+		t.Fatalf(msgCode, rec.Code, http.StatusCreated)
 	}
 
-	if servicio.usuario != usuarioJorge {
-		t.Errorf("usuario = %q, want jorge", servicio.usuario)
+	if service.user != userJorge {
+		t.Errorf("usuario = %q, want jorge", service.user)
 	}
 }

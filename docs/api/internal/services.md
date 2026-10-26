@@ -6,415 +6,295 @@
 import "consola-vm/internal/services"
 ```
 
-Package services implementa los casos de uso de la consola: descubre el conector disponible con la máquina virtual y ejecuta las operaciones de administración sobre ella. Depende solo de los puertos del núcleo \(internal/core/ports\) y no conoce los adaptadores concretos: la inyección de dependencias se hace en main.go.
+Package services implementa los casos de uso de la consola: descubre el conector disponible, ejecuta las operaciones de administración sobre la máquina, guarda credenciales, historial y configuración en SQLite y autentica a los usuarios de la consola. Depende solo de los puertos del núcleo \(internal/core/ports\) y no conoce los adaptadores concretos: la inyección de dependencias se hace en main.go.
 
 ## Index
 
 - [Constants](<#constants>)
 - [Variables](<#variables>)
-- [func DescribirOperacion\(metodo, patron, ruta string, datos map\[string\]any\) string](<#DescribirOperacion>)
-- [func ModuloDe\(ruta string\) string](<#ModuloDe>)
-- [type AbridorSesion](<#AbridorSesion>)
-- [type Acceso](<#Acceso>)
-  - [func NuevoAcceso\(config \*ConfigAcceso\) \*Acceso](<#NuevoAcceso>)
-  - [func \(a \*Acceso\) Olvidar\(\) error](<#Acceso.Olvidar>)
-  - [func \(a \*Acceso\) Registrar\(ctx context.Context, usuario, password string\) \(Resultado, error\)](<#Acceso.Registrar>)
-- [type Almacen](<#Almacen>)
-  - [func NuevoAlmacen\(rutaBD, rutaClave string\) \(\*Almacen, error\)](<#NuevoAlmacen>)
-  - [func \(a \*Almacen\) Activa\(\) string](<#Almacen.Activa>)
-  - [func \(a \*Almacen\) Borrar\(vm string\) error](<#Almacen.Borrar>)
-  - [func \(a \*Almacen\) Close\(\) error](<#Almacen.Close>)
-  - [func \(a \*Almacen\) Guardar\(vm string, credenciales Credenciales\) error](<#Almacen.Guardar>)
-  - [func \(a \*Almacen\) GuardarActiva\(vm string\) error](<#Almacen.GuardarActiva>)
-  - [func \(a \*Almacen\) Guest\(vm string\) \(usuario, password string, ok bool\)](<#Almacen.Guest>)
-  - [func \(a \*Almacen\) Obtener\(vm string\) \(Credenciales, bool\)](<#Almacen.Obtener>)
-  - [func \(a \*Almacen\) Registrada\(vm string\) bool](<#Almacen.Registrada>)
-- [type ArchivoDespliegue](<#ArchivoDespliegue>)
-- [type ConfigAcceso](<#ConfigAcceso>)
-- [type ConfigDescubridor](<#ConfigDescubridor>)
-- [type ConfigDiagnostico](<#ConfigDiagnostico>)
-- [type ConfigLlaves](<#ConfigLlaves>)
-- [type ConfigUsuarios](<#ConfigUsuarios>)
-- [type ConfigVinculacion](<#ConfigVinculacion>)
-- [type ConfiguracionHostname](<#ConfiguracionHostname>)
-- [type ConfiguracionIssue](<#ConfiguracionIssue>)
-- [type Consola](<#Consola>)
-  - [func NuevoConsola\(almacen \*Almacen\) \*Consola](<#NuevoConsola>)
-  - [func \(c \*Consola\) AbrirSesion\(usuario string\) \(string, error\)](<#Consola.AbrirSesion>)
-  - [func \(c \*Consola\) Autenticar\(ctx context.Context, usuario, password string\) \(bool, error\)](<#Consola.Autenticar>)
-  - [func \(c \*Consola\) Configurada\(\) \(bool, error\)](<#Consola.Configurada>)
-  - [func \(c \*Consola\) Configurar\(ctx context.Context, usuario, password string\) error](<#Consola.Configurar>)
-  - [func \(c \*Consola\) Validar\(token string\) \(string, bool\)](<#Consola.Validar>)
-- [type Credenciales](<#Credenciales>)
-- [type Descubridor](<#Descubridor>)
-  - [func NuevoDescubridor\(config \*ConfigDescubridor\) \*Descubridor](<#NuevoDescubridor>)
-  - [func \(d \*Descubridor\) Abrir\(ctx context.Context\) \(ports.Session, error\)](<#Descubridor.Abrir>)
-  - [func \(d \*Descubridor\) Descubrir\(ctx context.Context\) \(InfoSesion, error\)](<#Descubridor.Descubrir>)
-  - [func \(d \*Descubridor\) Establecer\(nombre string\)](<#Descubridor.Establecer>)
-  - [func \(d \*Descubridor\) Objetivo\(\) domain.Target](<#Descubridor.Objetivo>)
-- [type Diagnostico](<#Diagnostico>)
-- [type DiagnosticoServicio](<#DiagnosticoServicio>)
-  - [func NuevoDiagnostico\(config \*ConfigDiagnostico\) \*DiagnosticoServicio](<#NuevoDiagnostico>)
-  - [func \(d \*DiagnosticoServicio\) Obtener\(ctx context.Context\) \(Diagnostico, error\)](<#DiagnosticoServicio.Obtener>)
-- [type EstadoUnidad](<#EstadoUnidad>)
-- [type FiltroHistorial](<#FiltroHistorial>)
-- [type Haproxy](<#Haproxy>)
-  - [func NuevoHaproxy\(sesiones AbridorSesion\) \*Haproxy](<#NuevoHaproxy>)
-  - [func \(h \*Haproxy\) Agregar\(ctx context.Context, direccion string, puerto int\) \(Resultado, error\)](<#Haproxy.Agregar>)
-  - [func \(h \*Haproxy\) Eliminar\(ctx context.Context, direccion string, puerto int\) \(Resultado, error\)](<#Haproxy.Eliminar>)
-  - [func \(h \*Haproxy\) Listar\(ctx context.Context\) \(\[\]Servidor, error\)](<#Haproxy.Listar>)
-- [type Historial](<#Historial>)
-  - [func NuevoHistorial\(almacen \*Almacen\) \*Historial](<#NuevoHistorial>)
-  - [func \(h \*Historial\) Listar\(ctx context.Context, filtro \*FiltroHistorial\) \(\[\]Operacion, error\)](<#Historial.Listar>)
-  - [func \(h \*Historial\) Registrar\(ctx context.Context, operacion \*Operacion\) error](<#Historial.Registrar>)
+- [func DescribeOperation\(method, pattern, path string, data map\[string\]any\) string](<#DescribeOperation>)
+- [func ModuleOf\(path string\) string](<#ModuleOf>)
+- [type Access](<#Access>)
+  - [func NewAccess\(config \*AccessConfig\) \*Access](<#NewAccess>)
+  - [func \(a \*Access\) Forget\(\) error](<#Access.Forget>)
+  - [func \(a \*Access\) Register\(ctx context.Context, user, password string\) \(Outcome, error\)](<#Access.Register>)
+- [type AccessConfig](<#AccessConfig>)
+- [type ActivePersistence](<#ActivePersistence>)
+- [type Binding](<#Binding>)
+  - [func NewBinding\(config \*BindingConfig\) \*Binding](<#NewBinding>)
+  - [func \(v \*Binding\) Active\(\) string](<#Binding.Active>)
+  - [func \(v \*Binding\) Bind\(ctx context.Context, identifier string\) \(VirtualMachine, error\)](<#Binding.Bind>)
+  - [func \(v \*Binding\) List\(ctx context.Context, filter string\) \(\[\]VirtualMachine, error\)](<#Binding.List>)
+  - [func \(v \*Binding\) PowerOn\(ctx context.Context, identifier string\) \(VirtualMachine, error\)](<#Binding.PowerOn>)
+- [type BindingConfig](<#BindingConfig>)
+- [type Console](<#Console>)
+  - [func NewConsole\(store \*Store\) \*Console](<#NewConsole>)
+  - [func \(c \*Console\) Authenticate\(ctx context.Context, user, password string\) \(bool, error\)](<#Console.Authenticate>)
+  - [func \(c \*Console\) Configure\(ctx context.Context, user, password string\) error](<#Console.Configure>)
+  - [func \(c \*Console\) IsConfigured\(\) \(bool, error\)](<#Console.IsConfigured>)
+  - [func \(c \*Console\) OpenSession\(user string\) \(string, error\)](<#Console.OpenSession>)
+  - [func \(c \*Console\) Validate\(token string\) \(string, bool\)](<#Console.Validate>)
+- [type Credentials](<#Credentials>)
+- [type DeploymentFile](<#DeploymentFile>)
+- [type Diagnostics](<#Diagnostics>)
+- [type DiagnosticsConfig](<#DiagnosticsConfig>)
+- [type DiagnosticsService](<#DiagnosticsService>)
+  - [func NewDiagnostics\(config \*DiagnosticsConfig\) \*DiagnosticsService](<#NewDiagnostics>)
+  - [func \(d \*DiagnosticsService\) Get\(ctx context.Context\) \(Diagnostics, error\)](<#DiagnosticsService.Get>)
+- [type Discoverer](<#Discoverer>)
+  - [func NewDiscoverer\(config \*DiscovererConfig\) \*Discoverer](<#NewDiscoverer>)
+  - [func \(d \*Discoverer\) CurrentTarget\(\) domain.Target](<#Discoverer.CurrentTarget>)
+  - [func \(d \*Discoverer\) Discover\(ctx context.Context\) \(SessionInfo, error\)](<#Discoverer.Discover>)
+  - [func \(d \*Discoverer\) Open\(ctx context.Context\) \(ports.Session, error\)](<#Discoverer.Open>)
+  - [func \(d \*Discoverer\) Set\(name string\)](<#Discoverer.Set>)
+- [type DiscovererConfig](<#DiscovererConfig>)
+- [type HAProxy](<#HAProxy>)
+  - [func NewHAProxy\(sessions SessionOpener\) \*HAProxy](<#NewHAProxy>)
+  - [func \(h \*HAProxy\) Add\(ctx context.Context, address string, port int\) \(Outcome, error\)](<#HAProxy.Add>)
+  - [func \(h \*HAProxy\) Delete\(ctx context.Context, address string, port int\) \(Outcome, error\)](<#HAProxy.Delete>)
+  - [func \(h \*HAProxy\) List\(ctx context.Context\) \(\[\]Server, error\)](<#HAProxy.List>)
+- [type History](<#History>)
+  - [func NewHistory\(store \*Store\) \*History](<#NewHistory>)
+  - [func \(h \*History\) List\(ctx context.Context, filter \*HistoryFilter\) \(\[\]Operation, error\)](<#History.List>)
+  - [func \(h \*History\) Register\(ctx context.Context, operation \*Operation\) error](<#History.Register>)
+- [type HistoryFilter](<#HistoryFilter>)
 - [type Hostname](<#Hostname>)
-  - [func NuevoHostname\(sesiones AbridorSesion\) \*Hostname](<#NuevoHostname>)
-  - [func \(h \*Hostname\) Escribir\(ctx context.Context, config ConfiguracionHostname\) \(Resultado, error\)](<#Hostname.Escribir>)
-  - [func \(h \*Hostname\) Obtener\(ctx context.Context\) \(ConfiguracionHostname, error\)](<#Hostname.Obtener>)
-- [type InfoSesion](<#InfoSesion>)
+  - [func NewHostname\(sessions SessionOpener\) \*Hostname](<#NewHostname>)
+  - [func \(h \*Hostname\) Get\(ctx context.Context\) \(HostnameConfig, error\)](<#Hostname.Get>)
+  - [func \(h \*Hostname\) Write\(ctx context.Context, config HostnameConfig\) \(Outcome, error\)](<#Hostname.Write>)
+- [type HostnameConfig](<#HostnameConfig>)
 - [type Issue](<#Issue>)
-  - [func NuevoIssue\(sesiones AbridorSesion\) \*Issue](<#NuevoIssue>)
-  - [func \(i \*Issue\) Escribir\(ctx context.Context, config ConfiguracionIssue\) \(Resultado, error\)](<#Issue.Escribir>)
-  - [func \(i \*Issue\) Obtener\(ctx context.Context\) \(ConfiguracionIssue, error\)](<#Issue.Obtener>)
-- [type Llaves](<#Llaves>)
-  - [func NuevoLlaves\(config ConfigLlaves\) \*Llaves](<#NuevoLlaves>)
-  - [func \(l \*Llaves\) Descargar\(\) \(nombre string, contenido \[\]byte, err error\)](<#Llaves.Descargar>)
-  - [func \(l \*Llaves\) Generar\(ctx context.Context\) \(Resultado, error\)](<#Llaves.Generar>)
-- [type MaquinaVirtual](<#MaquinaVirtual>)
-- [type Operacion](<#Operacion>)
-- [type Paquete](<#Paquete>)
-- [type Paquetes](<#Paquetes>)
-  - [func NuevoPaquetes\(sesiones AbridorSesion\) \*Paquetes](<#NuevoPaquetes>)
-  - [func \(p \*Paquetes\) Eliminar\(ctx context.Context, nombre string\) \(Resultado, error\)](<#Paquetes.Eliminar>)
-  - [func \(p \*Paquetes\) Instalar\(ctx context.Context, nombre string\) \(Resultado, error\)](<#Paquetes.Instalar>)
-  - [func \(p \*Paquetes\) Listar\(ctx context.Context\) \(\[\]Paquete, error\)](<#Paquetes.Listar>)
-- [type PersistenciaActiva](<#PersistenciaActiva>)
-- [type Registro](<#Registro>)
-- [type Resultado](<#Resultado>)
+  - [func NewIssue\(sessions SessionOpener\) \*Issue](<#NewIssue>)
+  - [func \(i \*Issue\) Get\(ctx context.Context\) \(IssueConfig, error\)](<#Issue.Get>)
+  - [func \(i \*Issue\) Write\(ctx context.Context, config IssueConfig\) \(Outcome, error\)](<#Issue.Write>)
+- [type IssueConfig](<#IssueConfig>)
+- [type Keys](<#Keys>)
+  - [func NewKeys\(config KeysConfig\) \*Keys](<#NewKeys>)
+  - [func \(l \*Keys\) Download\(\) \(name string, content \[\]byte, err error\)](<#Keys.Download>)
+  - [func \(l \*Keys\) Generate\(ctx context.Context\) \(Outcome, error\)](<#Keys.Generate>)
+- [type KeysConfig](<#KeysConfig>)
+- [type Operation](<#Operation>)
+- [type Outcome](<#Outcome>)
+- [type Package](<#Package>)
+- [type Packages](<#Packages>)
+  - [func NewPackages\(sessions SessionOpener\) \*Packages](<#NewPackages>)
+  - [func \(p \*Packages\) Delete\(ctx context.Context, name string\) \(Outcome, error\)](<#Packages.Delete>)
+  - [func \(p \*Packages\) Install\(ctx context.Context, name string\) \(Outcome, error\)](<#Packages.Install>)
+  - [func \(p \*Packages\) List\(ctx context.Context\) \(\[\]Package, error\)](<#Packages.List>)
+- [type Registration](<#Registration>)
 - [type Selector](<#Selector>)
-- [type Servidor](<#Servidor>)
+- [type Server](<#Server>)
+- [type SessionInfo](<#SessionInfo>)
+- [type SessionOpener](<#SessionOpener>)
+- [type Store](<#Store>)
+  - [func NewStore\(pathBD, pathKey string\) \(\*Store, error\)](<#NewStore>)
+  - [func \(a \*Store\) Active\(\) string](<#Store.Active>)
+  - [func \(a \*Store\) Close\(\) error](<#Store.Close>)
+  - [func \(a \*Store\) Delete\(vm string\) error](<#Store.Delete>)
+  - [func \(a \*Store\) Get\(vm string\) \(Credentials, bool\)](<#Store.Get>)
+  - [func \(a \*Store\) Guest\(vm string\) \(user, password string, ok bool\)](<#Store.Guest>)
+  - [func \(a \*Store\) IsRegistered\(vm string\) bool](<#Store.IsRegistered>)
+  - [func \(a \*Store\) Save\(vm string, credentials Credentials\) error](<#Store.Save>)
+  - [func \(a \*Store\) SaveActive\(vm string\) error](<#Store.SaveActive>)
 - [type Systemd](<#Systemd>)
-  - [func NuevoSystemd\(sesiones AbridorSesion\) \*Systemd](<#NuevoSystemd>)
-  - [func \(s \*Systemd\) CambiarEstado\(ctx context.Context, unidad string, activo, habilitado \*bool\) \(Resultado, error\)](<#Systemd.CambiarEstado>)
-  - [func \(s \*Systemd\) Desplegar\(ctx context.Context, unidad string, archivos \[\]ArchivoDespliegue, usuario, grupo string\) \(Resultado, error\)](<#Systemd.Desplegar>)
-  - [func \(s \*Systemd\) Listar\(ctx context.Context\) \(\[\]EstadoUnidad, error\)](<#Systemd.Listar>)
-  - [func \(s \*Systemd\) Obtener\(ctx context.Context, unidad string\) \(EstadoUnidad, error\)](<#Systemd.Obtener>)
-  - [func \(s \*Systemd\) Reiniciar\(ctx context.Context, unidad string\) \(Resultado, error\)](<#Systemd.Reiniciar>)
-- [type Usuario](<#Usuario>)
-- [type Usuarios](<#Usuarios>)
-  - [func NuevoUsuarios\(config ConfigUsuarios\) \*Usuarios](<#NuevoUsuarios>)
-  - [func \(u \*Usuarios\) Crear\(ctx context.Context, nombre string, sudo, llaves bool\) \(Resultado, error\)](<#Usuarios.Crear>)
-  - [func \(u \*Usuarios\) DescargarLlave\(nombre string\) \(archivo string, contenido \[\]byte, err error\)](<#Usuarios.DescargarLlave>)
-  - [func \(u \*Usuarios\) Eliminar\(ctx context.Context, nombre string, archivos bool\) \(Resultado, error\)](<#Usuarios.Eliminar>)
-  - [func \(u \*Usuarios\) Listar\(ctx context.Context\) \(\[\]Usuario, error\)](<#Usuarios.Listar>)
-  - [func \(u \*Usuarios\) Obtener\(ctx context.Context, nombre string\) \(Usuario, error\)](<#Usuarios.Obtener>)
-- [type Vinculacion](<#Vinculacion>)
-  - [func NuevoVinculacion\(config \*ConfigVinculacion\) \*Vinculacion](<#NuevoVinculacion>)
-  - [func \(v \*Vinculacion\) Activa\(\) string](<#Vinculacion.Activa>)
-  - [func \(v \*Vinculacion\) Encender\(ctx context.Context, identificador string\) \(MaquinaVirtual, error\)](<#Vinculacion.Encender>)
-  - [func \(v \*Vinculacion\) Listar\(ctx context.Context, filtro string\) \(\[\]MaquinaVirtual, error\)](<#Vinculacion.Listar>)
-  - [func \(v \*Vinculacion\) Vincular\(ctx context.Context, identificador string\) \(MaquinaVirtual, error\)](<#Vinculacion.Vincular>)
+  - [func NewSystemd\(sessions SessionOpener\) \*Systemd](<#NewSystemd>)
+  - [func \(s \*Systemd\) ChangeState\(ctx context.Context, unit string, active, enabled \*bool\) \(Outcome, error\)](<#Systemd.ChangeState>)
+  - [func \(s \*Systemd\) Deploy\(ctx context.Context, unit string, files \[\]DeploymentFile, user, group string\) \(Outcome, error\)](<#Systemd.Deploy>)
+  - [func \(s \*Systemd\) Get\(ctx context.Context, unit string\) \(UnitState, error\)](<#Systemd.Get>)
+  - [func \(s \*Systemd\) List\(ctx context.Context\) \(\[\]UnitState, error\)](<#Systemd.List>)
+  - [func \(s \*Systemd\) Restart\(ctx context.Context, unit string\) \(Outcome, error\)](<#Systemd.Restart>)
+- [type UnitState](<#UnitState>)
+- [type User](<#User>)
+- [type Users](<#Users>)
+  - [func NewUsers\(config UsersConfig\) \*Users](<#NewUsers>)
+  - [func \(u \*Users\) Create\(ctx context.Context, name string, sudo, keys bool\) \(Outcome, error\)](<#Users.Create>)
+  - [func \(u \*Users\) Delete\(ctx context.Context, name string, files bool\) \(Outcome, error\)](<#Users.Delete>)
+  - [func \(u \*Users\) DownloadKey\(name string\) \(file string, content \[\]byte, err error\)](<#Users.DownloadKey>)
+  - [func \(u \*Users\) Get\(ctx context.Context, name string\) \(User, error\)](<#Users.Get>)
+  - [func \(u \*Users\) List\(ctx context.Context\) \(\[\]User, error\)](<#Users.List>)
+- [type UsersConfig](<#UsersConfig>)
+- [type VirtualMachine](<#VirtualMachine>)
 
 
 ## Constants
 
-<a name="VigenciaSesionConsola"></a>VigenciaSesionConsola es el tiempo que dura una sesión de la consola.
+<a name="SessionLifetime"></a>SessionLifetime es el tiempo que dura una sesión de la consola.
 
 ```go
-const VigenciaSesionConsola = 12 * time.Hour
+const SessionLifetime = 12 * time.Hour
 ```
 
 ## Variables
 
-<a name="ErrBackendNoEncontrado"></a>ErrBackendNoEncontrado indica que la configuración no tiene un bloque backend.
+<a name="ErrBackendNotFound"></a>ErrBackendNotFound indica que la configuración no tiene un bloque backend.
 
 ```go
-var ErrBackendNoEncontrado = errors.New("no se encontró un back-end en la configuración")
+var ErrBackendNotFound = errors.New("no se encontró un back-end en la configuración")
 ```
 
-<a name="ErrConsolaConfigurada"></a>ErrConsolaConfigurada indica que la consola ya tiene una cuenta.
+<a name="ErrConsoleConfigured"></a>ErrConsoleConfigured indica que la consola ya tiene una cuenta.
 
 ```go
-var ErrConsolaConfigurada = errors.New("la consola ya tiene una cuenta")
+var ErrConsoleConfigured = errors.New("la consola ya tiene una cuenta")
 ```
 
-<a name="ErrCredencialesInvalidas"></a>ErrCredencialesInvalidas indica que Guest Additions rechazó el usuario o la contraseña.
+<a name="ErrConsoleData"></a>ErrConsoleData indica que el usuario o la contraseña no cumplen las reglas de validación.
 
 ```go
-var ErrCredencialesInvalidas = errors.New("las credenciales no permiten ejecutar órdenes")
+var ErrConsoleData = errors.New("los datos de la cuenta no son válidos")
 ```
 
-<a name="ErrDatosConsola"></a>ErrDatosConsola indica que el usuario o la contraseña no cumplen las reglas de validación.
+<a name="ErrDiagnosticsUnavailable"></a>ErrDiagnosticsUnavailable envuelve un fallo del diagnóstico.
 
 ```go
-var ErrDatosConsola = errors.New("los datos de la cuenta no son válidos")
+var ErrDiagnosticsUnavailable = errors.New("no se pudo diagnosticar la máquina")
 ```
 
-<a name="ErrDiagnosticoNoDisponible"></a>ErrDiagnosticoNoDisponible envuelve un fallo del diagnóstico.
+<a name="ErrInvalidCredentials"></a>ErrInvalidCredentials indica que Guest Additions rechazó el usuario o la contraseña.
 
 ```go
-var ErrDiagnosticoNoDisponible = errors.New("no se pudo diagnosticar la máquina")
+var ErrInvalidCredentials = errors.New("las credenciales no permiten ejecutar órdenes")
 ```
 
-<a name="ErrLlaveExistente"></a>ErrLlaveExistente indica que la llave privada de root ya está en el anfitrión y no se sobrescribe.
+<a name="ErrKeyExists"></a>ErrKeyExists indica que la llave privada de root ya está en el anfitrión y no se sobrescribe.
 
 ```go
-var ErrLlaveExistente = errors.New("la llave SSH de root ya existe")
+var ErrKeyExists = errors.New("la llave SSH de root ya existe")
 ```
 
-<a name="ErrLlaveNoEncontrada"></a>ErrLlaveNoEncontrada indica que todavía no se ha generado la llave de root.
+<a name="ErrKeyNotFound"></a>ErrKeyNotFound indica que todavía no se ha generado la llave de root.
 
 ```go
-var ErrLlaveNoEncontrada = errors.New("la llave SSH de root no existe")
+var ErrKeyNotFound = errors.New("la llave SSH de root no existe")
 ```
 
-<a name="ErrLlaveUsuarioNoEncontrada"></a>ErrLlaveUsuarioNoEncontrada indica que no se ha generado la llave del usuario.
+<a name="ErrMachineNotFound"></a>ErrMachineNotFound indica que el identificador recibido no corresponde a ninguna máquina del inventario del hipervisor.
 
 ```go
-var ErrLlaveUsuarioNoEncontrada = errors.New("la llave del usuario no existe")
+var ErrMachineNotFound = errors.New("la máquina virtual no está en el inventario")
 ```
 
-<a name="ErrMaquinaEncendida"></a>ErrMaquinaEncendida indica que se pidió encender una máquina que ya está en ejecución.
+<a name="ErrMachineRunning"></a>ErrMachineRunning indica que se pidió encender una máquina que ya está en ejecución.
 
 ```go
-var ErrMaquinaEncendida = errors.New("la máquina virtual ya está encendida")
+var ErrMachineRunning = errors.New("la máquina virtual ya está encendida")
 ```
 
-<a name="ErrMaquinaNoEncontrada"></a>ErrMaquinaNoEncontrada indica que el identificador recibido no corresponde a ninguna máquina del inventario del hipervisor.
+<a name="ErrNoMachine"></a>ErrNoMachine indica que la consola todavía no está vinculada con ninguna máquina del inventario. Se envuelve con ErrSessionUnavailable para que el manejador responda 503 con un mensaje propio.
 
 ```go
-var ErrMaquinaNoEncontrada = errors.New("la máquina virtual no está en el inventario")
+var ErrNoMachine = errors.New("no hay una máquina vinculada")
 ```
 
-<a name="ErrServidorExistente"></a>ErrServidorExistente indica que el servidor ya está en el back\-end.
+<a name="ErrServerExists"></a>ErrServerExists indica que el servidor ya está en el back\-end.
 
 ```go
-var ErrServidorExistente = errors.New("el servidor ya está en el back-end")
+var ErrServerExists = errors.New("el servidor ya está en el back-end")
 ```
 
-<a name="ErrServidorNoEncontrado"></a>ErrServidorNoEncontrado indica que el servidor no está en el back\-end.
+<a name="ErrServerNotFound"></a>ErrServerNotFound indica que el servidor no está en el back\-end.
 
 ```go
-var ErrServidorNoEncontrado = errors.New("el servidor no está en el back-end")
+var ErrServerNotFound = errors.New("el servidor no está en el back-end")
 ```
 
-<a name="ErrSesionNoDisponible"></a>ErrSesionNoDisponible indica que ningún conector puede atender la máquina en este momento \(por ejemplo, la VM está apagada o no hay llave SSH instalada ni Guest Additions disponible\).
+<a name="ErrSessionUnavailable"></a>ErrSessionUnavailable indica que ningún conector puede atender la máquina en este momento \(por ejemplo, la VM está apagada o no hay llave SSH instalada ni Guest Additions disponible\).
 
 ```go
-var ErrSesionNoDisponible = errors.New("no hay una sesión disponible con la máquina")
+var ErrSessionUnavailable = errors.New("no hay una sesión disponible con la máquina")
 ```
 
-<a name="ErrSinMaquina"></a>ErrSinMaquina indica que la consola todavía no está vinculada con ninguna máquina del inventario. Se envuelve con ErrSesionNoDisponible para que el manejador responda 503 con un mensaje propio.
+<a name="ErrUnitNotFound"></a>ErrUnitNotFound indica que la unidad no existe en la máquina.
 
 ```go
-var ErrSinMaquina = errors.New("no hay una máquina vinculada")
+var ErrUnitNotFound = errors.New("la unidad no existe")
 ```
 
-<a name="ErrUnidadNoEncontrada"></a>ErrUnidadNoEncontrada indica que la unidad no existe en la máquina.
+<a name="ErrUserExists"></a>ErrUserExists indica que la cuenta ya está en la máquina.
 
 ```go
-var ErrUnidadNoEncontrada = errors.New("la unidad no existe")
+var ErrUserExists = errors.New("el usuario ya existe")
 ```
 
-<a name="ErrUsuarioExistente"></a>ErrUsuarioExistente indica que la cuenta ya está en la máquina.
+<a name="ErrUserKeyNotFound"></a>ErrUserKeyNotFound indica que no se ha generado la llave del usuario.
 
 ```go
-var ErrUsuarioExistente = errors.New("el usuario ya existe")
+var ErrUserKeyNotFound = errors.New("la llave del usuario no existe")
 ```
 
-<a name="ErrUsuarioNoEncontrado"></a>ErrUsuarioNoEncontrado indica que la cuenta no está en la máquina.
+<a name="ErrUserNotFound"></a>ErrUserNotFound indica que la cuenta no está en la máquina.
 
 ```go
-var ErrUsuarioNoEncontrado = errors.New("el usuario no existe")
+var ErrUserNotFound = errors.New("el usuario no existe")
 ```
 
-<a name="DescribirOperacion"></a>
-## func [DescribirOperacion](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/descripcion.go#L28>)
+<a name="DescribeOperation"></a>
+## func [DescribeOperation](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/descripcion.go#L28>)
 
 ```go
-func DescribirOperacion(metodo, patron, ruta string, datos map[string]any) string
+func DescribeOperation(method, pattern, path string, data map[string]any) string
 ```
 
-DescribirOperacion construye un resumen legible de una operación para el historial. Nunca incluye contraseñas ni cuerpos completos.
+DescribeOperation construye un resumen legible de una operación para el historial. Nunca incluye contraseñas ni cuerpos completos.
 
-<a name="ModuloDe"></a>
-## func [ModuloDe](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/historial.go#L180>)
+<a name="ModuleOf"></a>
+## func [ModuleOf](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/historial.go#L189>)
 
 ```go
-func ModuloDe(ruta string) string
+func ModuleOf(path string) string
 ```
 
-ModuloDe ruta devuelve el nombre del módulo a partir de la ruta HTTP.
+ModuleOf ruta devuelve el nombre del módulo a partir de la ruta HTTP.
 
-<a name="AbridorSesion"></a>
-## type [AbridorSesion](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/paquetes.go#L17-L20>)
+<a name="Access"></a>
+## type [Access](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/acceso.go#L50-L59>)
 
-AbridorSesion obtiene una sesión con la máquina administrada.
-
-```go
-type AbridorSesion interface {
-    // Abrir devuelve una sesión lista para ejecutar órdenes.
-    Abrir(ctx context.Context) (ports.Session, error)
-}
-```
-
-<a name="Acceso"></a>
-## type [Acceso](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/acceso.go#L50-L59>)
-
-Acceso registra una máquina: guarda sus credenciales, prepara SSH y deja constancia del estado para no volver a pedirlas.
+Access registra una máquina: guarda sus credenciales, prepara SSH y deja constancia del estado para no volver a pedirlas.
 
 ```go
-type Acceso struct {
+type Access struct {
     // contains filtered or unexported fields
 }
 ```
 
-<a name="NuevoAcceso"></a>
-### func [NuevoAcceso](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/acceso.go#L62>)
+<a name="NewAccess"></a>
+### func [NewAccess](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/acceso.go#L62>)
 
 ```go
-func NuevoAcceso(config *ConfigAcceso) *Acceso
+func NewAccess(config *AccessConfig) *Access
 ```
 
-NuevoAcceso construye el servicio de registro.
+NewAccess construye el servicio de registro.
 
-<a name="Acceso.Olvidar"></a>
-### func \(\*Acceso\) [Olvidar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/acceso.go#L273>)
+<a name="Access.Forget"></a>
+### func \(\*Access\) [Forget](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/acceso.go#L273>)
 
 ```go
-func (a *Acceso) Olvidar() error
+func (a *Access) Forget() error
 ```
 
-Olvidar elimina el registro y las credenciales de la máquina activa.
+Forget elimina el registro y las credenciales de la máquina activa.
 
-<a name="Acceso.Registrar"></a>
-### func \(\*Acceso\) [Registrar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/acceso.go#L78>)
+<a name="Access.Register"></a>
+### func \(\*Access\) [Register](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/acceso.go#L78>)
 
 ```go
-func (a *Acceso) Registrar(ctx context.Context, usuario, password string) (Resultado, error)
+func (a *Access) Register(ctx context.Context, user, password string) (Outcome, error)
 ```
 
-Registrar guarda las credenciales, instala SSH con la llave de root y verifica la conexión. Si algo falla, deja la máquina sin registrar y restaura las credenciales anteriores.
+Register guarda las credenciales, instala SSH con la llave de root y verifica la conexión. Si algo falla, deja la máquina sin registrar y restaura las credenciales anteriores.
 
-<a name="Almacen"></a>
-## type [Almacen](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/credenciales.go#L94-L97>)
+<a name="AccessConfig"></a>
+## type [AccessConfig](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/acceso.go#L27-L46>)
 
-Almacen guarda las credenciales por máquina en SQLite y cifra la contraseña con una clave local.
-
-```go
-type Almacen struct {
-    // contains filtered or unexported fields
-}
-```
-
-<a name="NuevoAlmacen"></a>
-### func [NuevoAlmacen](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/credenciales.go#L101>)
+AccessConfig reúne las dependencias para registrar una máquina en la consola.
 
 ```go
-func NuevoAlmacen(rutaBD, rutaClave string) (*Almacen, error)
-```
-
-NuevoAlmacen abre la base SQLite, crea el esquema y carga o genera la clave de cifrado.
-
-<a name="Almacen.Activa"></a>
-### func \(\*Almacen\) [Activa](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/credenciales.go#L329>)
-
-```go
-func (a *Almacen) Activa() string
-```
-
-Activa devuelve la máquina vinculada que se guardó al cerrar.
-
-<a name="Almacen.Borrar"></a>
-### func \(\*Almacen\) [Borrar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/credenciales.go#L320>)
-
-```go
-func (a *Almacen) Borrar(vm string) error
-```
-
-Borrar elimina las credenciales de una máquina.
-
-<a name="Almacen.Close"></a>
-### func \(\*Almacen\) [Close](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/credenciales.go#L153>)
-
-```go
-func (a *Almacen) Close() error
-```
-
-Close cierra la conexión con la base de datos SQLite.
-
-<a name="Almacen.Guardar"></a>
-### func \(\*Almacen\) [Guardar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/credenciales.go#L293>)
-
-```go
-func (a *Almacen) Guardar(vm string, credenciales Credenciales) error
-```
-
-Guardar registra o actualiza las credenciales de una máquina.
-
-<a name="Almacen.GuardarActiva"></a>
-### func \(\*Almacen\) [GuardarActiva](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/credenciales.go#L343>)
-
-```go
-func (a *Almacen) GuardarActiva(vm string) error
-```
-
-GuardarActiva persiste la máquina vinculada para el próximo arranque.
-
-<a name="Almacen.Guest"></a>
-### func \(\*Almacen\) [Guest](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/credenciales.go#L369>)
-
-```go
-func (a *Almacen) Guest(vm string) (usuario, password string, ok bool)
-```
-
-Guest implementa la resolución de credenciales de Guest Additions.
-
-<a name="Almacen.Obtener"></a>
-### func \(\*Almacen\) [Obtener](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/credenciales.go#L260>)
-
-```go
-func (a *Almacen) Obtener(vm string) (Credenciales, bool)
-```
-
-Obtener devuelve las credenciales de una máquina.
-
-<a name="Almacen.Registrada"></a>
-### func \(\*Almacen\) [Registrada](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/credenciales.go#L357>)
-
-```go
-func (a *Almacen) Registrada(vm string) bool
-```
-
-Registrada informa si la máquina ya fue registrada en la consola.
-
-<a name="ArchivoDespliegue"></a>
-## type [ArchivoDespliegue](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L26-L33>)
-
-ArchivoDespliegue describe un archivo que se transfiere a la máquina.
-
-```go
-type ArchivoDespliegue struct {
-    // Origen es la ruta del archivo en el anfitrión.
-    Origen string
-    // Destino es la ruta absoluta en la máquina.
-    Destino string
-    // Modo son los permisos en octal.
-    Modo string
-}
-```
-
-<a name="ConfigAcceso"></a>
-## type [ConfigAcceso](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/acceso.go#L27-L46>)
-
-ConfigAcceso reúne las dependencias para registrar una máquina en la consola.
-
-```go
-type ConfigAcceso struct {
-    // Almacen guarda las credenciales y el estado de registro.
-    Almacen *Almacen
-    // Maquina consulta el estado y la dirección de la máquina activa.
-    Maquina ports.Machine
+type AccessConfig struct {
+    // Store guarda las credenciales y el estado de registro.
+    Store *Store
+    // Machine consulta el estado y la dirección de la máquina activa.
+    Machine ports.Machine
     // Guest abre una sesión por Guest Additions con las credenciales
     // guardadas.
     Guest ports.Connector
@@ -426,306 +306,230 @@ type ConfigAcceso struct {
     // Ejecutor genera la llave de root en el anfitrión.
     Ejecutor ports.Executor
     // RutaLlave es la llave privada de root en el anfitrión.
-    RutaLlave string
-    // Objetivo devuelve la máquina vinculada.
-    Objetivo func() domain.Target
+    PathSSHKey string
+    // CurrentTarget devuelve la máquina vinculada.
+    CurrentTarget func() domain.Target
 }
 ```
 
-<a name="ConfigDescubridor"></a>
-## type [ConfigDescubridor](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/sesion.go#L39-L49>)
+<a name="ActivePersistence"></a>
+## type [ActivePersistence](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L78-L81>)
 
-ConfigDescubridor reúne las dependencias del descubridor de sesión.
+ActivePersistence guarda y recupera la máquina vinculada.
 
 ```go
-type ConfigDescubridor struct {
-    // Maquina consulta el estado y la dirección de la VM.
-    Maquina ports.Machine
-    // Objetivo identifica la máquina que se va a administrar.
-    Objetivo domain.Target
-    // Conectores son los conectores candidatos, en orden de preferencia.
-    Conectores []ports.Connector
-    // Registro informa si una máquina ya fue preparada para SSH. Una
-    // máquina registrada no vuelve a usar Guest Additions.
-    Registro Registro
+type ActivePersistence interface {
+    Active() string
+    SaveActive(vm string) error
 }
 ```
 
-<a name="ConfigDiagnostico"></a>
-## type [ConfigDiagnostico](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/diagnostico.go#L49-L55>)
+<a name="Binding"></a>
+## type [Binding](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L85-L92>)
 
-ConfigDiagnostico reúne las dependencias del diagnóstico.
-
-```go
-type ConfigDiagnostico struct {
-    Maquina        ports.Machine
-    Registro       Registro
-    Objetivo       func() domain.Target
-    VersionSistema func(ctx context.Context) (string, error)
-    ProbarSSH      func(ctx context.Context, direccion netip.Addr) bool
-}
-```
-
-<a name="ConfigLlaves"></a>
-## type [ConfigLlaves](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/llaves.go#L28-L35>)
-
-ConfigLlaves reúne las dependencias del servicio de llaves.
+Binding busca máquinas en el inventario y cambia la que administra la consola.
 
 ```go
-type ConfigLlaves struct {
-    // Sesiones abre la sesión con la máquina para instalar la llave.
-    Sesiones AbridorSesion
-    // Ejecutor lanza ssh-keygen en el equipo anfitrión.
-    Ejecutor ports.Executor
-    // Ruta es la ruta de la llave privada en el anfitrión.
-    Ruta string
-}
-```
-
-<a name="ConfigUsuarios"></a>
-## type [ConfigUsuarios](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L31-L38>)
-
-ConfigUsuarios reúne las dependencias del servicio de usuarios.
-
-```go
-type ConfigUsuarios struct {
-    // Sesiones abre la sesión con la máquina.
-    Sesiones AbridorSesion
-    // Ejecutor lanza ssh-keygen en el anfitrión.
-    Ejecutor ports.Executor
-    // Directorio guarda las llaves privadas de los usuarios.
-    Directorio string
-}
-```
-
-<a name="ConfigVinculacion"></a>
-## type [ConfigVinculacion](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L61-L75>)
-
-ConfigVinculacion reúne las dependencias de la vinculación.
-
-```go
-type ConfigVinculacion struct {
-    // Inventario enumera las máquinas del hipervisor.
-    Inventario ports.Inventory
-    // Seleccion es la máquina con la que trabaja la consola.
-    Seleccion Selector
-    // Energia enciende las máquinas del hipervisor.
-    Energia ports.Power
-    // Maquina comprueba si una máquina en ejecución publica Guest
-    // Additions y, por tanto, puede administrarse.
-    Maquina ports.Machine
-    // Registro consulta el estado de registro de las máquinas.
-    Registro Registro
-    // Persistencia guarda la máquina vinculada entre arranques.
-    Persistencia PersistenciaActiva
-}
-```
-
-<a name="ConfiguracionHostname"></a>
-## type [ConfiguracionHostname](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/hostname.go#L19-L26>)
-
-ConfiguracionHostname describe el nombre de la máquina y su entrada en /etc/hosts.
-
-```go
-type ConfiguracionHostname struct {
-    // Nombre es el nombre de host actual o deseado.
-    Nombre string
-    // IP es la dirección IPv4 asociada.
-    IP  string
-    // ActualizarHosts indica si el nombre está registrado en /etc/hosts.
-    ActualizarHosts bool
-}
-```
-
-<a name="ConfiguracionIssue"></a>
-## type [ConfiguracionIssue](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/issue.go#L15-L28>)
-
-ConfiguracionIssue describe el banner previo al inicio de sesión.
-
-```go
-type ConfiguracionIssue struct {
-    // Mensaje es el texto personalizado.
-    Mensaje string
-    // NombreHost indica si se incluye el nombre de host.
-    NombreHost bool
-    // Fecha indica si se incluye la fecha.
-    Fecha bool
-    // Hora indica si se incluye la hora.
-    Hora bool
-    // IP indica si se incluye la dirección IPv4.
-    IP  bool
-    // Contenido es el texto completo del archivo, solo en las lecturas.
-    Contenido string
-}
-```
-
-<a name="Consola"></a>
-## type [Consola](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/consola.go#L57-L60>)
-
-Consola autentica a los usuarios de la consola con una cuenta guardada en SQLite y emite cookies de sesión firmadas.
-
-```go
-type Consola struct {
+type Binding struct {
     // contains filtered or unexported fields
 }
 ```
 
-<a name="NuevoConsola"></a>
-### func [NuevoConsola](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/consola.go#L63>)
+<a name="NewBinding"></a>
+### func [NewBinding](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L95>)
 
 ```go
-func NuevoConsola(almacen *Almacen) *Consola
+func NewBinding(config *BindingConfig) *Binding
 ```
 
-NuevoConsola construye el servicio de autenticación sobre el almacén.
+NewBinding construye el servicio con las dependencias dadas.
 
-<a name="Consola.AbrirSesion"></a>
-### func \(\*Consola\) [AbrirSesion](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/consola.go#L138>)
+<a name="Binding.Active"></a>
+### func \(\*Binding\) [Active](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L268>)
 
 ```go
-func (c *Consola) AbrirSesion(usuario string) (string, error)
+func (v *Binding) Active() string
 ```
 
-AbrirSesion emite una cookie de sesión firmada para el usuario.
+Active devuelve el nombre de la máquina vinculada, o una cadena vacía si la consola todavía no está vinculada con ninguna.
 
-<a name="Consola.Autenticar"></a>
-### func \(\*Consola\) [Autenticar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/consola.go#L113>)
+<a name="Binding.Bind"></a>
+### func \(\*Binding\) [Bind](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L176>)
 
 ```go
-func (c *Consola) Autenticar(ctx context.Context, usuario, password string) (bool, error)
+func (v *Binding) Bind(ctx context.Context, identifier string) (VirtualMachine, error)
 ```
 
-Autenticar comprueba el usuario y la contraseña. Devuelve false sin error cuando no coinciden, para no revelar cuál de los dos falló.
+Bind establece la máquina que administra la consola. Acepta el nombre o el UUID del inventario y guarda siempre el nombre, que es el identificador estable que usan los adaptadores. Bind una máquina apagada es válido: solo impide abrir sesión con ella.
 
-<a name="Consola.Configurada"></a>
-### func \(\*Consola\) [Configurada](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/consola.go#L68>)
+<a name="Binding.List"></a>
+### func \(\*Binding\) [List](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L109>)
 
 ```go
-func (c *Consola) Configurada() (bool, error)
+func (v *Binding) List(ctx context.Context, filter string) ([]VirtualMachine, error)
 ```
 
-Configurada informa si ya existe una cuenta de la consola.
+List devuelve las máquinas del inventario marcando la vinculada. Si filtro no está vacío, se compara, sin distinguir mayúsculas, contra el nombre y el UUID.
 
-<a name="Consola.Configurar"></a>
-### func \(\*Consola\) [Configurar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/consola.go#L82>)
+<a name="Binding.PowerOn"></a>
+### func \(\*Binding\) [PowerOn](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L207>)
 
 ```go
-func (c *Consola) Configurar(ctx context.Context, usuario, password string) error
+func (v *Binding) PowerOn(ctx context.Context, identifier string) (VirtualMachine, error)
 ```
 
-Configurar crea la primera cuenta de la consola. Falla con ErrConsolaConfigurada si ya existe una y con ErrDatosConsola si el usuario o la contraseña no son válidos.
+PowerOn arranca una máquina del inventario. Rechaza con ErrMachineRunning la que ya está en ejecución, para no informar un éxito que no ocurrió, y devuelve la máquina ya en estado «running».
 
-<a name="Consola.Validar"></a>
-### func \(\*Consola\) [Validar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/consola.go#L152>)
+<a name="BindingConfig"></a>
+## type [BindingConfig](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L61-L75>)
+
+BindingConfig reúne las dependencias de la vinculación.
 
 ```go
-func (c *Consola) Validar(token string) (string, bool)
+type BindingConfig struct {
+    // Inventory enumera las máquinas del hipervisor.
+    Inventory ports.Inventory
+    // Selection es la máquina con la que trabaja la consola.
+    Selection Selector
+    // Power enciende las máquinas del hipervisor.
+    Power ports.Power
+    // Machine comprueba si una máquina en ejecución publica Guest
+    // Additions y, por tanto, puede administrarse.
+    Machine ports.Machine
+    // Registration consulta el estado de registro de las máquinas.
+    Registration Registration
+    // Persistence guarda la máquina vinculada entre arranques.
+    Persistence ActivePersistence
+}
 ```
 
-Validar comprueba la firma y la vigencia de una cookie de sesión y devuelve el usuario cuando es válida.
+<a name="Console"></a>
+## type [Console](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/consola.go#L57-L60>)
 
-<a name="Credenciales"></a>
-## type [Credenciales](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/credenciales.go#L41-L53>)
-
-Credenciales son los datos de acceso a una máquina virtual. La contraseña se cifra con AES\-GCM antes de guardarse en SQLite.
+Console autentica a los usuarios de la consola con una cuenta guardada en SQLite y emite cookies de sesión firmadas.
 
 ```go
-type Credenciales struct {
-    // Usuario es el usuario con el que se abre la sesión.
-    Usuario string
+type Console struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="NewConsole"></a>
+### func [NewConsole](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/consola.go#L63>)
+
+```go
+func NewConsole(store *Store) *Console
+```
+
+NewConsole construye el servicio de autenticación sobre el almacén.
+
+<a name="Console.Authenticate"></a>
+### func \(\*Console\) [Authenticate](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/consola.go#L113>)
+
+```go
+func (c *Console) Authenticate(ctx context.Context, user, password string) (bool, error)
+```
+
+Authenticate comprueba el usuario y la contraseña. Devuelve false sin error cuando no coinciden, para no revelar cuál de los dos falló.
+
+<a name="Console.Configure"></a>
+### func \(\*Console\) [Configure](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/consola.go#L82>)
+
+```go
+func (c *Console) Configure(ctx context.Context, user, password string) error
+```
+
+Configure crea la primera cuenta de la consola. Falla con ErrConsoleConfigured si ya existe una y con ErrConsoleData si el usuario o la contraseña no son válidos.
+
+<a name="Console.IsConfigured"></a>
+### func \(\*Console\) [IsConfigured](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/consola.go#L68>)
+
+```go
+func (c *Console) IsConfigured() (bool, error)
+```
+
+IsConfigured informa si ya existe una cuenta de la consola.
+
+<a name="Console.OpenSession"></a>
+### func \(\*Console\) [OpenSession](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/consola.go#L138>)
+
+```go
+func (c *Console) OpenSession(user string) (string, error)
+```
+
+OpenSession emite una cookie de sesión firmada para el usuario.
+
+<a name="Console.Validate"></a>
+### func \(\*Console\) [Validate](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/consola.go#L152>)
+
+```go
+func (c *Console) Validate(token string) (string, bool)
+```
+
+Validate comprueba la firma y la vigencia de una cookie de sesión y devuelve el usuario cuando es válida.
+
+<a name="Credentials"></a>
+## type [Credentials](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/credenciales.go#L41-L53>)
+
+Credentials son los datos de acceso a una máquina virtual. La contraseña se cifra con AES\-GCM antes de guardarse en SQLite.
+
+```go
+type Credentials struct {
+    // User es el usuario con el que se abre la sesión.
+    User string
     // Password es la contraseña del usuario.
     Password string
-    // Puerto es el puerto SSH; cero significa el puerto por omisión.
-    Puerto uint16
-    // Direccion es una dirección alternativa (por ejemplo, un reenvío
+    // Port es el puerto SSH; cero significa el puerto por omisión.
+    Port uint16
+    // Address es una dirección alternativa (por ejemplo, un reenvío
     // de puertos); vacía significa descubrirla con Guest Additions.
-    Direccion string
-    // Registrada indica que la consola ya preparó SSH en la máquina.
-    Registrada bool
+    Address string
+    // IsRegistered indica que la consola ya preparó SSH en la máquina.
+    IsRegistered bool
 }
 ```
 
-<a name="Descubridor"></a>
-## type [Descubridor](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/sesion.go#L53-L62>)
+<a name="DeploymentFile"></a>
+## type [DeploymentFile](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L26-L33>)
 
-Descubridor elige, en tiempo de ejecución, el conector con el que la consola puede administrar la máquina virtual.
+DeploymentFile describe un archivo que se transfiere a la máquina.
 
 ```go
-type Descubridor struct {
-    // contains filtered or unexported fields
+type DeploymentFile struct {
+    // Source es la ruta del archivo en el anfitrión.
+    Source string
+    // Destination es la ruta absoluta en la máquina.
+    Destination string
+    // Mode son los permisos en octal.
+    Mode string
 }
 ```
 
-<a name="NuevoDescubridor"></a>
-### func [NuevoDescubridor](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/sesion.go#L65>)
+<a name="Diagnostics"></a>
+## type [Diagnostics](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/diagnostico.go#L23-L46>)
+
+Diagnostics reúne el estado de una máquina para explicar por qué no se puede registrar.
 
 ```go
-func NuevoDescubridor(config *ConfigDescubridor) *Descubridor
-```
-
-NuevoDescubridor construye un descubridor con las dependencias dadas.
-
-<a name="Descubridor.Abrir"></a>
-### func \(\*Descubridor\) [Abrir](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/sesion.go#L112>)
-
-```go
-func (d *Descubridor) Abrir(ctx context.Context) (ports.Session, error)
-```
-
-Abrir implementa AbridorSesion: resuelve el conector disponible y establece una sesión con la máquina. La sesión queda a cargo del llamador, que debe cerrarla.
-
-<a name="Descubridor.Descubrir"></a>
-### func \(\*Descubridor\) [Descubrir](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/sesion.go#L96>)
-
-```go
-func (d *Descubridor) Descubrir(ctx context.Context) (InfoSesion, error)
-```
-
-Descubrir resuelve el conector disponible para la máquina. Verifica primero que la máquina esté en ejecución, descubre su dirección si falta y sondea los conectores en orden de preferencia. Devuelve ErrSesionNoDisponible cuando la máquina no puede atenderse o ningún conector supera el sondeo.
-
-<a name="Descubridor.Establecer"></a>
-### func \(\*Descubridor\) [Establecer](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/sesion.go#L84>)
-
-```go
-func (d *Descubridor) Establecer(nombre string)
-```
-
-Establecer vincula la consola con la máquina indicada. La dirección descubierta se descarta porque pertenece a la máquina anterior.
-
-<a name="Descubridor.Objetivo"></a>
-### func \(\*Descubridor\) [Objetivo](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/sesion.go#L75>)
-
-```go
-func (d *Descubridor) Objetivo() domain.Target
-```
-
-Objetivo devuelve la máquina con la que trabaja la consola.
-
-<a name="Diagnostico"></a>
-## type [Diagnostico](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/diagnostico.go#L23-L46>)
-
-Diagnostico reúne el estado de una máquina para explicar por qué no se puede registrar.
-
-```go
-type Diagnostico struct {
+type Diagnostics struct {
     // VM es la máquina vinculada.
     VM  string
-    // Estado es el estado de encendido.
-    Estado domain.MachineState
-    // Red es el modo de la primera interfaz.
-    Red domain.NetworkMode
+    // State es el estado de encendido.
+    State domain.MachineState
+    // Network es el modo de la primera interfaz.
+    Network domain.NetworkMode
     // IP es la dirección descubierta.
     IP  netip.Addr
-    // Registrada indica si ya está registrada.
-    Registrada bool
+    // IsRegistered indica si ya está registrada.
+    IsRegistered bool
     // GuestAdditionsVersion es la versión que informa la VM.
     GuestAdditionsVersion string
     // GuestAdditionsRunLevel es el nivel de Guest Additions.
     GuestAdditionsRunLevel int
-    // UsuarioSugerido es el primer usuario con sesión iniciada.
-    UsuarioSugerido string
-    // SSHAbierto indica si el puerto 22 responde.
-    SSHAbierto bool
+    // UserSugerido es el primer usuario con sesión iniciada.
+    UserSugerido string
+    // SSHOpen indica si el puerto 22 responde.
+    SSHOpen bool
     // Problemas describe lo que impide el registro.
     Problemas []string
     // Sugerencias indica qué hacer para resolverlo.
@@ -733,157 +537,242 @@ type Diagnostico struct {
 }
 ```
 
-<a name="DiagnosticoServicio"></a>
-## type [DiagnosticoServicio](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/diagnostico.go#L58-L64>)
+<a name="DiagnosticsConfig"></a>
+## type [DiagnosticsConfig](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/diagnostico.go#L49-L61>)
 
-DiagnosticoServicio explica el estado de la máquina vinculada.
+DiagnosticsConfig reúne las dependencias del diagnóstico.
 
 ```go
-type DiagnosticoServicio struct {
+type DiagnosticsConfig struct {
+    // Machine consulta el estado, la red, la dirección y Guest Additions.
+    Machine ports.Machine
+    // Registration informa si la máquina ya está registrada en la consola.
+    Registration Registration
+    // CurrentTarget devuelve la máquina vinculada.
+    CurrentTarget func() domain.Target
+    // VersionSystem devuelve la versión de VirtualBox del anfitrión.
+    VersionSystem func(ctx context.Context) (string, error)
+    // TestSSH comprueba si el puerto 22 responde; si es nil se usa la
+    // prueba TCP por omisión.
+    TestSSH func(ctx context.Context, address netip.Addr) bool
+}
+```
+
+<a name="DiagnosticsService"></a>
+## type [DiagnosticsService](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/diagnostico.go#L64-L70>)
+
+DiagnosticsService explica el estado de la máquina vinculada.
+
+```go
+type DiagnosticsService struct {
     // contains filtered or unexported fields
 }
 ```
 
-<a name="NuevoDiagnostico"></a>
-### func [NuevoDiagnostico](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/diagnostico.go#L67>)
+<a name="NewDiagnostics"></a>
+### func [NewDiagnostics](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/diagnostico.go#L73>)
 
 ```go
-func NuevoDiagnostico(config *ConfigDiagnostico) *DiagnosticoServicio
+func NewDiagnostics(config *DiagnosticsConfig) *DiagnosticsService
 ```
 
-NuevoDiagnostico construye el servicio.
+NewDiagnostics construye el servicio.
 
-<a name="DiagnosticoServicio.Obtener"></a>
-### func \(\*DiagnosticoServicio\) [Obtener](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/diagnostico.go#L83>)
+<a name="DiagnosticsService.Get"></a>
+### func \(\*DiagnosticsService\) [Get](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/diagnostico.go#L89>)
 
 ```go
-func (d *DiagnosticoServicio) Obtener(ctx context.Context) (Diagnostico, error)
+func (d *DiagnosticsService) Get(ctx context.Context) (Diagnostics, error)
 ```
 
-Obtener devuelve el diagnóstico de la máquina vinculada.
+Get devuelve el diagnóstico de la máquina vinculada.
 
-<a name="EstadoUnidad"></a>
-## type [EstadoUnidad](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L36-L47>)
+<a name="Discoverer"></a>
+## type [Discoverer](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/sesion.go#L53-L62>)
 
-EstadoUnidad describe una unidad de systemd.
-
-```go
-type EstadoUnidad struct {
-    // Unidad es el nombre de la unidad, con extensión .service.
-    Unidad string
-    // Activo indica si está en ejecución.
-    Activo bool
-    // Habilitado indica si arranca con el sistema.
-    Habilitado bool
-    // Estado es active, inactive, failed o unknown.
-    Estado string
-    // Detalle es el subestado informado por systemd.
-    Detalle string
-}
-```
-
-<a name="FiltroHistorial"></a>
-## type [FiltroHistorial](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/historial.go#L35-L44>)
-
-FiltroHistorial reúne los filtros de la consulta del historial.
+Discoverer elige, en tiempo de ejecución, el conector con el que la consola puede administrar la máquina virtual.
 
 ```go
-type FiltroHistorial struct {
-    Texto     string
-    VM        string
-    Modulo    string
-    Desde     string
-    Hasta     string
-    HoraDesde string
-    HoraHasta string
-    Limite    int
-}
-```
-
-<a name="Haproxy"></a>
-## type [Haproxy](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L60-L62>)
-
-Haproxy implementa el caso de uso del back\-end de HAProxy.
-
-```go
-type Haproxy struct {
+type Discoverer struct {
     // contains filtered or unexported fields
 }
 ```
 
-<a name="NuevoHaproxy"></a>
-### func [NuevoHaproxy](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L65>)
+<a name="NewDiscoverer"></a>
+### func [NewDiscoverer](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/sesion.go#L65>)
 
 ```go
-func NuevoHaproxy(sesiones AbridorSesion) *Haproxy
+func NewDiscoverer(config *DiscovererConfig) *Discoverer
 ```
 
-NuevoHaproxy construye el servicio con el abridor de sesiones dado.
+NewDiscoverer construye un descubridor con las dependencias dadas.
 
-<a name="Haproxy.Agregar"></a>
-### func \(\*Haproxy\) [Agregar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L157>)
+<a name="Discoverer.CurrentTarget"></a>
+### func \(\*Discoverer\) [CurrentTarget](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/sesion.go#L75>)
 
 ```go
-func (h *Haproxy) Agregar(ctx context.Context, direccion string, puerto int) (Resultado, error)
+func (d *Discoverer) CurrentTarget() domain.Target
 ```
 
-Agregar agrega un servidor al back\-end y recarga HAProxy.
+CurrentTarget devuelve la máquina con la que trabaja la consola.
 
-<a name="Haproxy.Eliminar"></a>
-### func \(\*Haproxy\) [Eliminar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L179>)
+<a name="Discoverer.Discover"></a>
+### func \(\*Discoverer\) [Discover](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/sesion.go#L96>)
 
 ```go
-func (h *Haproxy) Eliminar(ctx context.Context, direccion string, puerto int) (Resultado, error)
+func (d *Discoverer) Discover(ctx context.Context) (SessionInfo, error)
 ```
 
-Eliminar elimina un servidor del back\-end y recarga HAProxy.
+Discover resuelve el conector disponible para la máquina. Verifica primero que la máquina esté en ejecución, descubre su dirección si falta y sondea los conectores en orden de preferencia. Devuelve ErrSessionUnavailable cuando la máquina no puede atenderse o ningún conector supera el sondeo.
 
-<a name="Haproxy.Listar"></a>
-### func \(\*Haproxy\) [Listar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L70>)
+<a name="Discoverer.Open"></a>
+### func \(\*Discoverer\) [Open](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/sesion.go#L112>)
 
 ```go
-func (h *Haproxy) Listar(ctx context.Context) ([]Servidor, error)
+func (d *Discoverer) Open(ctx context.Context) (ports.Session, error)
 ```
 
-Listar devuelve los servidores del primer bloque backend.
+Open implementa SessionOpener: resuelve el conector disponible y establece una sesión con la máquina. La sesión queda a cargo del llamador, que debe cerrarla.
 
-<a name="Historial"></a>
-## type [Historial](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/historial.go#L50-L52>)
-
-Historial registra las operaciones y las consulta desde SQLite.
+<a name="Discoverer.Set"></a>
+### func \(\*Discoverer\) [Set](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/sesion.go#L84>)
 
 ```go
-type Historial struct {
+func (d *Discoverer) Set(name string)
+```
+
+Set vincula la consola con la máquina indicada. La dirección descubierta se descarta porque pertenece a la máquina anterior.
+
+<a name="DiscovererConfig"></a>
+## type [DiscovererConfig](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/sesion.go#L39-L49>)
+
+DiscovererConfig reúne las dependencias del descubridor de sesión.
+
+```go
+type DiscovererConfig struct {
+    // Machine consulta el estado y la dirección de la VM.
+    Machine ports.Machine
+    // CurrentTarget identifica la máquina que se va a administrar.
+    CurrentTarget domain.Target
+    // Connectors son los conectores candidatos, en orden de preferencia.
+    Connectors []ports.Connector
+    // Registration informa si una máquina ya fue preparada para SSH. Una
+    // máquina registrada no vuelve a usar Guest Additions.
+    Registration Registration
+}
+```
+
+<a name="HAProxy"></a>
+## type [HAProxy](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L61-L63>)
+
+HAProxy implementa el caso de uso del back\-end de HAProxy.
+
+```go
+type HAProxy struct {
     // contains filtered or unexported fields
 }
 ```
 
-<a name="NuevoHistorial"></a>
-### func [NuevoHistorial](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/historial.go#L55>)
+<a name="NewHAProxy"></a>
+### func [NewHAProxy](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L66>)
 
 ```go
-func NuevoHistorial(almacen *Almacen) *Historial
+func NewHAProxy(sessions SessionOpener) *HAProxy
 ```
 
-NuevoHistorial construye el historial sobre la base de la consola.
+NewHAProxy construye el servicio con el abridor de sesiones dado.
 
-<a name="Historial.Listar"></a>
-### func \(\*Historial\) [Listar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/historial.go#L80>)
+<a name="HAProxy.Add"></a>
+### func \(\*HAProxy\) [Add](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L158>)
 
 ```go
-func (h *Historial) Listar(ctx context.Context, filtro *FiltroHistorial) ([]Operacion, error)
+func (h *HAProxy) Add(ctx context.Context, address string, port int) (Outcome, error)
 ```
 
-Listar devuelve las operaciones que cumplen el filtro, de la más reciente a la más antigua.
+Add agrega un servidor al back\-end y recarga HAProxy.
 
-<a name="Historial.Registrar"></a>
-### func \(\*Historial\) [Registrar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/historial.go#L60>)
+<a name="HAProxy.Delete"></a>
+### func \(\*HAProxy\) [Delete](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L180>)
 
 ```go
-func (h *Historial) Registrar(ctx context.Context, operacion *Operacion) error
+func (h *HAProxy) Delete(ctx context.Context, address string, port int) (Outcome, error)
 ```
 
-Registrar agrega una operación al historial.
+Delete elimina un servidor del back\-end y recarga HAProxy.
+
+<a name="HAProxy.List"></a>
+### func \(\*HAProxy\) [List](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L71>)
+
+```go
+func (h *HAProxy) List(ctx context.Context) ([]Server, error)
+```
+
+List devuelve los servidores del primer bloque backend.
+
+<a name="History"></a>
+## type [History](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/historial.go#L59-L61>)
+
+History registra las operaciones y las consulta desde SQLite.
+
+```go
+type History struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="NewHistory"></a>
+### func [NewHistory](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/historial.go#L64>)
+
+```go
+func NewHistory(store *Store) *History
+```
+
+NewHistory construye el historial sobre la base de la consola.
+
+<a name="History.List"></a>
+### func \(\*History\) [List](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/historial.go#L89>)
+
+```go
+func (h *History) List(ctx context.Context, filter *HistoryFilter) ([]Operation, error)
+```
+
+List devuelve las operaciones que cumplen el filtro, de la más reciente a la más antigua.
+
+<a name="History.Register"></a>
+### func \(\*History\) [Register](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/historial.go#L69>)
+
+```go
+func (h *History) Register(ctx context.Context, operation *Operation) error
+```
+
+Register agrega una operación al historial.
+
+<a name="HistoryFilter"></a>
+## type [HistoryFilter](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/historial.go#L35-L53>)
+
+HistoryFilter reúne los filtros de la consulta del historial.
+
+```go
+type HistoryFilter struct {
+    // Text busca en la máquina, el módulo, la operación, la descripción y
+    // el detalle.
+    Text string
+    // VM filtra por el nombre de la máquina.
+    VM  string
+    // Module filtra por el módulo que originó la operación.
+    Module string
+    // From acota por la fecha inicial (AAAA-MM-DD), inclusive.
+    From string
+    // To acota por la fecha final (AAAA-MM-DD), inclusive.
+    To  string
+    // HourFrom acota por la hora inicial del día (HH:MM), inclusive.
+    HourFrom string
+    // HourTo acota por la hora final del día (HH:MM), inclusive.
+    HourTo string
+    // Limit es el máximo de filas; cero usa el límite por omisión.
+    Limit int
+}
+```
 
 <a name="Hostname"></a>
 ## type [Hostname](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/hostname.go#L29-L31>)
@@ -896,46 +785,46 @@ type Hostname struct {
 }
 ```
 
-<a name="NuevoHostname"></a>
-### func [NuevoHostname](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/hostname.go#L35>)
+<a name="NewHostname"></a>
+### func [NewHostname](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/hostname.go#L35>)
 
 ```go
-func NuevoHostname(sesiones AbridorSesion) *Hostname
+func NewHostname(sessions SessionOpener) *Hostname
 ```
 
-NuevoHostname construye el servicio de nombre de host con el abridor de sesiones dado.
+NewHostname construye el servicio de nombre de host con el abridor de sesiones dado.
 
-<a name="Hostname.Escribir"></a>
-### func \(\*Hostname\) [Escribir](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/hostname.go#L74>)
+<a name="Hostname.Get"></a>
+### func \(\*Hostname\) [Get](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/hostname.go#L41>)
 
 ```go
-func (h *Hostname) Escribir(ctx context.Context, config ConfiguracionHostname) (Resultado, error)
+func (h *Hostname) Get(ctx context.Context) (HostnameConfig, error)
 ```
 
-Escribir cambia el nombre de host y, si se pide, actualiza /etc/hosts.
+Get lee el nombre, la primera IPv4 y la presencia del nombre en /etc/hosts.
 
-<a name="Hostname.Obtener"></a>
-### func \(\*Hostname\) [Obtener](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/hostname.go#L41>)
+<a name="Hostname.Write"></a>
+### func \(\*Hostname\) [Write](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/hostname.go#L74>)
 
 ```go
-func (h *Hostname) Obtener(ctx context.Context) (ConfiguracionHostname, error)
+func (h *Hostname) Write(ctx context.Context, config HostnameConfig) (Outcome, error)
 ```
 
-Obtener lee el nombre, la primera IPv4 y la presencia del nombre en /etc/hosts.
+Write cambia el nombre de host y, si se pide, actualiza /etc/hosts.
 
-<a name="InfoSesion"></a>
-## type [InfoSesion](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/sesion.go#L29-L36>)
+<a name="HostnameConfig"></a>
+## type [HostnameConfig](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/hostname.go#L19-L26>)
 
-InfoSesion describe el resultado del descubrimiento: el conector elegido, la dirección de la máquina y su estado de encendido.
+HostnameConfig describe el nombre de la máquina y su entrada en /etc/hosts.
 
 ```go
-type InfoSesion struct {
-    // Conector es el nombre publicado por el conector seleccionado.
-    Conector string
-    // IP es la dirección descubierta de la máquina.
-    IP  netip.Addr
-    // Estado es el estado de encendido observado.
-    Estado domain.MachineState
+type HostnameConfig struct {
+    // Name es el nombre de host actual o deseado.
+    Name string
+    // IP es la dirección IPv4 asociada.
+    IP  string
+    // UpdateHosts indica si el nombre está registrado en /etc/hosts.
+    UpdateHosts bool
 }
 ```
 
@@ -950,221 +839,227 @@ type Issue struct {
 }
 ```
 
-<a name="NuevoIssue"></a>
-### func [NuevoIssue](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/issue.go#L37>)
+<a name="NewIssue"></a>
+### func [NewIssue](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/issue.go#L37>)
 
 ```go
-func NuevoIssue(sesiones AbridorSesion) *Issue
+func NewIssue(sessions SessionOpener) *Issue
 ```
 
-NuevoIssue construye el servicio de /etc/issue con el abridor de sesiones dado.
+NewIssue construye el servicio de /etc/issue con el abridor de sesiones dado.
 
-<a name="Issue.Escribir"></a>
-### func \(\*Issue\) [Escribir](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/issue.go#L71>)
+<a name="Issue.Get"></a>
+### func \(\*Issue\) [Get](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/issue.go#L51>)
 
 ```go
-func (i *Issue) Escribir(ctx context.Context, config ConfiguracionIssue) (Resultado, error)
+func (i *Issue) Get(ctx context.Context) (IssueConfig, error)
 ```
 
-Escribir reemplaza /etc/issue con el mensaje y las opciones dadas.
+Get lee /etc/issue y reconstruye el mensaje y las opciones.
 
-<a name="Issue.Obtener"></a>
-### func \(\*Issue\) [Obtener](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/issue.go#L51>)
+<a name="Issue.Write"></a>
+### func \(\*Issue\) [Write](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/issue.go#L71>)
 
 ```go
-func (i *Issue) Obtener(ctx context.Context) (ConfiguracionIssue, error)
+func (i *Issue) Write(ctx context.Context, config IssueConfig) (Outcome, error)
 ```
 
-Obtener lee /etc/issue y reconstruye el mensaje y las opciones.
+Write reemplaza /etc/issue con el mensaje y las opciones dadas.
 
-<a name="Llaves"></a>
-## type [Llaves](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/llaves.go#L38-L42>)
+<a name="IssueConfig"></a>
+## type [IssueConfig](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/issue.go#L15-L28>)
 
-Llaves implementa el caso de uso de las llaves SSH de root.
+IssueConfig describe el banner previo al inicio de sesión.
 
 ```go
-type Llaves struct {
+type IssueConfig struct {
+    // Message es el texto personalizado.
+    Message string
+    // NameHost indica si se incluye el nombre de host.
+    NameHost bool
+    // Date indica si se incluye la fecha.
+    Date bool
+    // Hour indica si se incluye la hora.
+    Hour bool
+    // IP indica si se incluye la dirección IPv4.
+    IP  bool
+    // Content es el texto completo del archivo, solo en las lecturas.
+    Content string
+}
+```
+
+<a name="Keys"></a>
+## type [Keys](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/llaves.go#L38-L42>)
+
+Keys implementa el caso de uso de las llaves SSH de root.
+
+```go
+type Keys struct {
     // contains filtered or unexported fields
 }
 ```
 
-<a name="NuevoLlaves"></a>
-### func [NuevoLlaves](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/llaves.go#L45>)
+<a name="NewKeys"></a>
+### func [NewKeys](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/llaves.go#L45>)
 
 ```go
-func NuevoLlaves(config ConfigLlaves) *Llaves
+func NewKeys(config KeysConfig) *Keys
 ```
 
-NuevoLlaves construye el servicio de llaves con las dependencias dadas.
+NewKeys construye el servicio de llaves con las dependencias dadas.
 
-<a name="Llaves.Descargar"></a>
-### func \(\*Llaves\) [Descargar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/llaves.go#L105>)
+<a name="Keys.Download"></a>
+### func \(\*Keys\) [Download](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/llaves.go#L105>)
 
 ```go
-func (l *Llaves) Descargar() (nombre string, contenido []byte, err error)
+func (l *Keys) Download() (name string, content []byte, err error)
 ```
 
-Descargar devuelve el nombre y el contenido de la llave privada, sin exponerla en los logs.
+Download devuelve el nombre y el contenido de la llave privada, sin exponerla en los logs.
 
-<a name="Llaves.Generar"></a>
-### func \(\*Llaves\) [Generar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/llaves.go#L56>)
+<a name="Keys.Generate"></a>
+### func \(\*Keys\) [Generate](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/llaves.go#L56>)
 
 ```go
-func (l *Llaves) Generar(ctx context.Context) (Resultado, error)
+func (l *Keys) Generate(ctx context.Context) (Outcome, error)
 ```
 
-Generar crea el par de llaves en el anfitrión, instala la pública en authorized\_keys y deshabilita el acceso por contraseña. Devuelve ErrLlaveExistente si la llave privada ya está presente.
+Generate crea el par de llaves en el anfitrión, instala la pública en authorized\_keys y deshabilita el acceso por contraseña. Devuelve ErrKeyExists si la llave privada ya está presente.
 
-<a name="MaquinaVirtual"></a>
-## type [MaquinaVirtual](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L33-L44>)
+<a name="KeysConfig"></a>
+## type [KeysConfig](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/llaves.go#L28-L35>)
 
-MaquinaVirtual es una máquina del inventario tal como la publica la consola: el nombre, el UUID, su estado y si es la vinculada.
+KeysConfig reúne las dependencias del servicio de llaves.
 
 ```go
-type MaquinaVirtual struct {
-    // Nombre es el nombre con el que el hipervisor registra la máquina.
-    Nombre string
-    // UUID es el identificador único de la máquina.
-    UUID string
-    // Estado es el estado de encendido observado.
-    Estado domain.MachineState
-    // Activa indica que la consola está vinculada con esta máquina.
-    Activa bool
-    // Registrada indica que la consola ya preparó SSH en la máquina.
-    Registrada bool
+type KeysConfig struct {
+    // Sessions abre la sesión con la máquina para instalar la llave.
+    Sessions SessionOpener
+    // Ejecutor lanza ssh-keygen en el equipo anfitrión.
+    Ejecutor ports.Executor
+    // Path es la ruta de la llave privada en el anfitrión.
+    Path string
 }
 ```
 
-<a name="Operacion"></a>
-## type [Operacion](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/historial.go#L15-L32>)
+<a name="Operation"></a>
+## type [Operation](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/historial.go#L15-L32>)
 
-Operacion es una entrada del historial de la consola.
+Operation es una entrada del historial de la consola.
 
 ```go
-type Operacion struct {
+type Operation struct {
     // ID es el identificador incremental.
     ID  int64
-    // FechaHora es la marca temporal en RFC 3339 (UTC).
-    FechaHora string
+    // DateHour es la marca temporal en RFC 3339 (UTC).
+    DateHour string
     // VM es la máquina sobre la que se actuó.
     VM  string
-    // Modulo identifica el módulo (paquetes, usuarios, systemd, etc.).
-    Modulo string
-    // Operacion es el método y la ruta ejecutados.
-    Operacion string
-    // Descripcion es el resumen legible de la operación.
-    Descripcion string
-    // Resultado es «ok» o «error».
-    Resultado string
-    // Detalle conserva información técnica breve.
-    Detalle string
+    // Module identifica el módulo (paquetes, usuarios, systemd, etc.).
+    Module string
+    // Operation es el método y la ruta ejecutados.
+    Operation string
+    // Description es el resumen legible de la operación.
+    Description string
+    // Outcome es «ok» o «error».
+    Outcome string
+    // Detail conserva información técnica breve.
+    Detail string
 }
 ```
 
-<a name="Paquete"></a>
-## type [Paquete](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/paquetes.go#L23-L31>)
+<a name="Outcome"></a>
+## type [Outcome](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/paquetes.go#L35-L46>)
 
-Paquete describe un paquete instalado en la máquina.
+Outcome resume el desenlace de una operación ejecutada en la máquina, con la información necesaria para notificar y diagnosticar.
 
 ```go
-type Paquete struct {
-    // Nombre es el nombre del paquete.
-    Nombre string
+type Outcome struct {
+    // Message es el texto comprensible para el usuario.
+    Message string
+    // Operation es la orden ejecutada.
+    Operation string
+    // Output es la salida estándar relevante.
+    Output string
+    // Stderr es la salida de error de la orden.
+    Stderr string
+    // Code es el código de salida del proceso remoto.
+    Code int
+}
+```
+
+<a name="Package"></a>
+## type [Package](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/paquetes.go#L23-L31>)
+
+Package describe un paquete instalado en la máquina.
+
+```go
+type Package struct {
+    // Name es el nombre del paquete.
+    Name string
     // Version es la versión instalada.
     Version string
-    // Estado es la presencia del paquete; siempre «installed» en los
+    // State es la presencia del paquete; siempre «installed» en los
     // resultados del listado.
-    Estado string
+    State string
 }
 ```
 
-<a name="Paquetes"></a>
-## type [Paquetes](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/paquetes.go#L49-L51>)
+<a name="Packages"></a>
+## type [Packages](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/paquetes.go#L49-L51>)
 
-Paquetes implementa el caso de uso de gestión de paquetes APT.
+Packages implementa el caso de uso de gestión de paquetes APT.
 
 ```go
-type Paquetes struct {
+type Packages struct {
     // contains filtered or unexported fields
 }
 ```
 
-<a name="NuevoPaquetes"></a>
-### func [NuevoPaquetes](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/paquetes.go#L55>)
+<a name="NewPackages"></a>
+### func [NewPackages](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/paquetes.go#L55>)
 
 ```go
-func NuevoPaquetes(sesiones AbridorSesion) *Paquetes
+func NewPackages(sessions SessionOpener) *Packages
 ```
 
-NuevoPaquetes construye el servicio de paquetes con el abridor de sesiones dado.
+NewPackages construye el servicio de paquetes con el abridor de sesiones dado.
 
-<a name="Paquetes.Eliminar"></a>
-### func \(\*Paquetes\) [Eliminar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/paquetes.go#L71>)
+<a name="Packages.Delete"></a>
+### func \(\*Packages\) [Delete](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/paquetes.go#L71>)
 
 ```go
-func (p *Paquetes) Eliminar(ctx context.Context, nombre string) (Resultado, error)
+func (p *Packages) Delete(ctx context.Context, name string) (Outcome, error)
 ```
 
-Eliminar elimina el paquete indicado con APT.
+Delete elimina el paquete indicado con APT.
 
-<a name="Paquetes.Instalar"></a>
-### func \(\*Paquetes\) [Instalar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/paquetes.go#L60>)
+<a name="Packages.Install"></a>
+### func \(\*Packages\) [Install](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/paquetes.go#L60>)
 
 ```go
-func (p *Paquetes) Instalar(ctx context.Context, nombre string) (Resultado, error)
+func (p *Packages) Install(ctx context.Context, name string) (Outcome, error)
 ```
 
-Instalar instala el paquete indicado con APT.
+Install instala el paquete indicado con APT.
 
-<a name="Paquetes.Listar"></a>
-### func \(\*Paquetes\) [Listar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/paquetes.go#L82>)
+<a name="Packages.List"></a>
+### func \(\*Packages\) [List](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/paquetes.go#L82>)
 
 ```go
-func (p *Paquetes) Listar(ctx context.Context) ([]Paquete, error)
+func (p *Packages) List(ctx context.Context) ([]Package, error)
 ```
 
-Listar devuelve los paquetes instalados en la máquina.
+List devuelve los paquetes instalados en la máquina.
 
-<a name="PersistenciaActiva"></a>
-## type [PersistenciaActiva](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L78-L81>)
+<a name="Registration"></a>
+## type [Registration](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L56-L58>)
 
-PersistenciaActiva guarda y recupera la máquina vinculada.
-
-```go
-type PersistenciaActiva interface {
-    Activa() string
-    GuardarActiva(vm string) error
-}
-```
-
-<a name="Registro"></a>
-## type [Registro](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L56-L58>)
-
-Registro informa si una máquina ya fue registrada en la consola.
+Registration informa si una máquina ya fue registrada en la consola.
 
 ```go
-type Registro interface {
-    Registrada(vm string) bool
-}
-```
-
-<a name="Resultado"></a>
-## type [Resultado](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/paquetes.go#L35-L46>)
-
-Resultado describe el resultado de una operación ejecutada en la máquina, con la información necesaria para notificar y diagnosticar.
-
-```go
-type Resultado struct {
-    // Mensaje es el texto comprensible para el usuario.
-    Mensaje string
-    // Operacion es la orden ejecutada.
-    Operacion string
-    // Salida es la salida estándar relevante.
-    Salida string
-    // Stderr es la salida de error de la orden.
-    Stderr string
-    // Codigo es el código de salida del proceso remoto.
-    Codigo int
+type Registration interface {
+    IsRegistered(vm string) bool
 }
 ```
 
@@ -1175,30 +1070,150 @@ Selector es la máquina con la que trabaja la consola. El descubridor de sesión
 
 ```go
 type Selector interface {
-    // Objetivo devuelve la máquina vinculada.
-    Objetivo() domain.Target
-    // Establecer vincula la máquina indicada por su nombre.
-    Establecer(nombre string)
+    // CurrentTarget devuelve la máquina vinculada.
+    CurrentTarget() domain.Target
+    // Set vincula la máquina indicada por su nombre.
+    Set(name string)
 }
 ```
 
-<a name="Servidor"></a>
-## type [Servidor](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L46-L57>)
+<a name="Server"></a>
+## type [Server](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L47-L58>)
 
-Servidor describe un servidor del back\-end de HAProxy.
+Server describe un servidor del back\-end de HAProxy.
 
 ```go
-type Servidor struct {
-    // Direccion es la dirección IPv4 del servidor.
-    Direccion string
-    // Puerto es el puerto TCP.
-    Puerto int
-    // Estado es el estado informado por HAProxy: up, down o unknown
+type Server struct {
+    // Address es la dirección IPv4 del servidor.
+    Address string
+    // Port es el puerto TCP.
+    Port int
+    // State es el estado informado por HAProxy: up, down o unknown
     // cuando el socket de estadísticas no responde.
-    Estado string
+    State string
     // contains filtered or unexported fields
 }
 ```
+
+<a name="SessionInfo"></a>
+## type [SessionInfo](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/sesion.go#L29-L36>)
+
+SessionInfo describe el resultado del descubrimiento: el conector elegido, la dirección de la máquina y su estado de encendido.
+
+```go
+type SessionInfo struct {
+    // Connector es el nombre publicado por el conector seleccionado.
+    Connector string
+    // IP es la dirección descubierta de la máquina.
+    IP  netip.Addr
+    // State es el estado de encendido observado.
+    State domain.MachineState
+}
+```
+
+<a name="SessionOpener"></a>
+## type [SessionOpener](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/paquetes.go#L17-L20>)
+
+SessionOpener obtiene una sesión con la máquina administrada.
+
+```go
+type SessionOpener interface {
+    // Open devuelve una sesión lista para ejecutar órdenes.
+    Open(ctx context.Context) (ports.Session, error)
+}
+```
+
+<a name="Store"></a>
+## type [Store](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/credenciales.go#L94-L97>)
+
+Store guarda las credenciales por máquina en SQLite y cifra la contraseña con una clave local.
+
+```go
+type Store struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="NewStore"></a>
+### func [NewStore](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/credenciales.go#L101>)
+
+```go
+func NewStore(pathBD, pathKey string) (*Store, error)
+```
+
+NewStore abre la base SQLite, crea el esquema y carga o genera la clave de cifrado.
+
+<a name="Store.Active"></a>
+### func \(\*Store\) [Active](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/credenciales.go#L329>)
+
+```go
+func (a *Store) Active() string
+```
+
+Active devuelve la máquina vinculada que se guardó al cerrar.
+
+<a name="Store.Close"></a>
+### func \(\*Store\) [Close](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/credenciales.go#L153>)
+
+```go
+func (a *Store) Close() error
+```
+
+Close cierra la conexión con la base de datos SQLite.
+
+<a name="Store.Delete"></a>
+### func \(\*Store\) [Delete](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/credenciales.go#L320>)
+
+```go
+func (a *Store) Delete(vm string) error
+```
+
+Delete elimina las credenciales de una máquina.
+
+<a name="Store.Get"></a>
+### func \(\*Store\) [Get](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/credenciales.go#L260>)
+
+```go
+func (a *Store) Get(vm string) (Credentials, bool)
+```
+
+Get devuelve las credenciales de una máquina.
+
+<a name="Store.Guest"></a>
+### func \(\*Store\) [Guest](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/credenciales.go#L369>)
+
+```go
+func (a *Store) Guest(vm string) (user, password string, ok bool)
+```
+
+Guest implementa la resolución de credenciales de Guest Additions.
+
+<a name="Store.IsRegistered"></a>
+### func \(\*Store\) [IsRegistered](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/credenciales.go#L357>)
+
+```go
+func (a *Store) IsRegistered(vm string) bool
+```
+
+IsRegistered informa si la máquina ya fue registrada en la consola.
+
+<a name="Store.Save"></a>
+### func \(\*Store\) [Save](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/credenciales.go#L293>)
+
+```go
+func (a *Store) Save(vm string, credentials Credentials) error
+```
+
+Save registra o actualiza las credenciales de una máquina.
+
+<a name="Store.SaveActive"></a>
+### func \(\*Store\) [SaveActive](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/credenciales.go#L343>)
+
+```go
+func (a *Store) SaveActive(vm string) error
+```
+
+SaveActive persiste la máquina vinculada para el próximo arranque.
 
 <a name="Systemd"></a>
 ## type [Systemd](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L50-L52>)
@@ -1211,73 +1226,93 @@ type Systemd struct {
 }
 ```
 
-<a name="NuevoSystemd"></a>
-### func [NuevoSystemd](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L55>)
+<a name="NewSystemd"></a>
+### func [NewSystemd](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L55>)
 
 ```go
-func NuevoSystemd(sesiones AbridorSesion) *Systemd
+func NewSystemd(sessions SessionOpener) *Systemd
 ```
 
-NuevoSystemd construye el servicio con el abridor de sesiones dado.
+NewSystemd construye el servicio con el abridor de sesiones dado.
 
-<a name="Systemd.CambiarEstado"></a>
-### func \(\*Systemd\) [CambiarEstado](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L184-L186>)
+<a name="Systemd.ChangeState"></a>
+### func \(\*Systemd\) [ChangeState](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L184-L186>)
 
 ```go
-func (s *Systemd) CambiarEstado(ctx context.Context, unidad string, activo, habilitado *bool) (Resultado, error)
+func (s *Systemd) ChangeState(ctx context.Context, unit string, active, enabled *bool) (Outcome, error)
 ```
 
-CambiarEstado activa o desactiva la unidad, o su arranque con el sistema.
+ChangeState activa o desactiva la unidad, o su arranque con el sistema.
 
-<a name="Systemd.Desplegar"></a>
-### func \(\*Systemd\) [Desplegar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L142-L144>)
+<a name="Systemd.Deploy"></a>
+### func \(\*Systemd\) [Deploy](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L142-L144>)
 
 ```go
-func (s *Systemd) Desplegar(ctx context.Context, unidad string, archivos []ArchivoDespliegue, usuario, grupo string) (Resultado, error)
+func (s *Systemd) Deploy(ctx context.Context, unit string, files []DeploymentFile, user, group string) (Outcome, error)
 ```
 
-Desplegar transfiere los archivos de una unidad, ajusta permisos y recarga systemd.
+Deploy transfiere los archivos de una unidad, ajusta permisos y recarga systemd.
 
-<a name="Systemd.Listar"></a>
-### func \(\*Systemd\) [Listar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L60>)
+<a name="Systemd.Get"></a>
+### func \(\*Systemd\) [Get](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L107>)
 
 ```go
-func (s *Systemd) Listar(ctx context.Context) ([]EstadoUnidad, error)
+func (s *Systemd) Get(ctx context.Context, unit string) (UnitState, error)
 ```
 
-Listar devuelve las unidades de servicio con su estado.
+Get devuelve el estado de una unidad.
 
-<a name="Systemd.Obtener"></a>
-### func \(\*Systemd\) [Obtener](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L107>)
+<a name="Systemd.List"></a>
+### func \(\*Systemd\) [List](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L60>)
 
 ```go
-func (s *Systemd) Obtener(ctx context.Context, unidad string) (EstadoUnidad, error)
+func (s *Systemd) List(ctx context.Context) ([]UnitState, error)
 ```
 
-Obtener devuelve el estado de una unidad.
+List devuelve las unidades de servicio con su estado.
 
-<a name="Systemd.Reiniciar"></a>
-### func \(\*Systemd\) [Reiniciar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L213>)
+<a name="Systemd.Restart"></a>
+### func \(\*Systemd\) [Restart](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L213>)
 
 ```go
-func (s *Systemd) Reiniciar(ctx context.Context, unidad string) (Resultado, error)
+func (s *Systemd) Restart(ctx context.Context, unit string) (Outcome, error)
 ```
 
-Reiniciar reinicia una unidad.
+Restart reinicia una unidad.
 
-<a name="Usuario"></a>
-## type [Usuario](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L41-L52>)
+<a name="UnitState"></a>
+## type [UnitState](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L36-L47>)
 
-Usuario describe una cuenta local de la máquina.
+UnitState describe una unidad de systemd.
 
 ```go
-type Usuario struct {
-    // Nombre es el nombre de la cuenta.
-    Nombre string
+type UnitState struct {
+    // Unit es el nombre de la unidad, con extensión .service.
+    Unit string
+    // Active indica si está en ejecución.
+    Active bool
+    // Enabled indica si arranca con el sistema.
+    Enabled bool
+    // State es active, inactive, failed o unknown.
+    State string
+    // Detail es el subestado informado por systemd.
+    Detail string
+}
+```
+
+<a name="User"></a>
+## type [User](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L41-L52>)
+
+User describe una cuenta local de la máquina.
+
+```go
+type User struct {
+    // Name es el nombre de la cuenta.
+    Name string
     // Sudo indica si pertenece al grupo sudo.
     Sudo bool
-    // Llaves indica si tiene un par de llaves generado.
-    Llaves bool
+    // Keys indica si tiene un par de llaves generado.
+    Keys bool
     // UID es el identificador numérico.
     UID int
     // Home es el directorio personal.
@@ -1285,125 +1320,105 @@ type Usuario struct {
 }
 ```
 
-<a name="Usuarios"></a>
-## type [Usuarios](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L55-L59>)
+<a name="Users"></a>
+## type [Users](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L55-L59>)
 
-Usuarios implementa el caso de uso de gestión de cuentas locales.
+Users implementa el caso de uso de gestión de cuentas locales.
 
 ```go
-type Usuarios struct {
+type Users struct {
     // contains filtered or unexported fields
 }
 ```
 
-<a name="NuevoUsuarios"></a>
-### func [NuevoUsuarios](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L63>)
+<a name="NewUsers"></a>
+### func [NewUsers](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L63>)
 
 ```go
-func NuevoUsuarios(config ConfigUsuarios) *Usuarios
+func NewUsers(config UsersConfig) *Users
 ```
 
-NuevoUsuarios construye el servicio de usuarios con las dependencias dadas.
+NewUsers construye el servicio de usuarios con las dependencias dadas.
 
-<a name="Usuarios.Crear"></a>
-### func \(\*Usuarios\) [Crear](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L148>)
+<a name="Users.Create"></a>
+### func \(\*Users\) [Create](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L148>)
 
 ```go
-func (u *Usuarios) Crear(ctx context.Context, nombre string, sudo, llaves bool) (Resultado, error)
+func (u *Users) Create(ctx context.Context, name string, sudo, keys bool) (Outcome, error)
 ```
 
-Crear crea una cuenta, la agrega a sudo si se pide y genera sus llaves cuando corresponde.
+Create crea una cuenta, la agrega a sudo si se pide y genera sus llaves cuando corresponde.
 
-<a name="Usuarios.DescargarLlave"></a>
-### func \(\*Usuarios\) [DescargarLlave](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L283>)
+<a name="Users.Delete"></a>
+### func \(\*Users\) [Delete](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L235>)
 
 ```go
-func (u *Usuarios) DescargarLlave(nombre string) (archivo string, contenido []byte, err error)
+func (u *Users) Delete(ctx context.Context, name string, files bool) (Outcome, error)
 ```
 
-DescargarLlave devuelve el nombre y el contenido de la llave privada del usuario.
+Delete elimina una cuenta y, opcionalmente, sus archivos.
 
-<a name="Usuarios.Eliminar"></a>
-### func \(\*Usuarios\) [Eliminar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L235>)
+<a name="Users.DownloadKey"></a>
+### func \(\*Users\) [DownloadKey](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L283>)
 
 ```go
-func (u *Usuarios) Eliminar(ctx context.Context, nombre string, archivos bool) (Resultado, error)
+func (u *Users) DownloadKey(name string) (file string, content []byte, err error)
 ```
 
-Eliminar elimina una cuenta y, opcionalmente, sus archivos.
+DownloadKey devuelve el nombre y el contenido de la llave privada del usuario.
 
-<a name="Usuarios.Listar"></a>
-### func \(\*Usuarios\) [Listar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L72>)
+<a name="Users.Get"></a>
+### func \(\*Users\) [Get](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L117>)
 
 ```go
-func (u *Usuarios) Listar(ctx context.Context) ([]Usuario, error)
+func (u *Users) Get(ctx context.Context, name string) (User, error)
 ```
 
-Listar devuelve las cuentas regulares \(UID entre 1000 y 65533\).
+Get devuelve una cuenta de la máquina.
 
-<a name="Usuarios.Obtener"></a>
-### func \(\*Usuarios\) [Obtener](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L117>)
+<a name="Users.List"></a>
+### func \(\*Users\) [List](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L72>)
 
 ```go
-func (u *Usuarios) Obtener(ctx context.Context, nombre string) (Usuario, error)
+func (u *Users) List(ctx context.Context) ([]User, error)
 ```
 
-Obtener devuelve una cuenta de la máquina.
+List devuelve las cuentas regulares \(UID entre 1000 y 65533\).
 
-<a name="Vinculacion"></a>
-## type [Vinculacion](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L85-L92>)
+<a name="UsersConfig"></a>
+## type [UsersConfig](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L31-L38>)
 
-Vinculacion busca máquinas en el inventario y cambia la que administra la consola.
+UsersConfig reúne las dependencias del servicio de usuarios.
 
 ```go
-type Vinculacion struct {
-    // contains filtered or unexported fields
+type UsersConfig struct {
+    // Sessions abre la sesión con la máquina.
+    Sessions SessionOpener
+    // Ejecutor lanza ssh-keygen en el anfitrión.
+    Ejecutor ports.Executor
+    // Directory guarda las llaves privadas de los usuarios.
+    Directory string
 }
 ```
 
-<a name="NuevoVinculacion"></a>
-### func [NuevoVinculacion](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L95>)
+<a name="VirtualMachine"></a>
+## type [VirtualMachine](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L33-L44>)
+
+VirtualMachine es una máquina del inventario tal como la publica la consola: el nombre, el UUID, su estado y si es la vinculada.
 
 ```go
-func NuevoVinculacion(config *ConfigVinculacion) *Vinculacion
+type VirtualMachine struct {
+    // Name es el nombre con el que el hipervisor registra la máquina.
+    Name string
+    // UUID es el identificador único de la máquina.
+    UUID string
+    // State es el estado de encendido observado.
+    State domain.MachineState
+    // Active indica que la consola está vinculada con esta máquina.
+    Active bool
+    // IsRegistered indica que la consola ya preparó SSH en la máquina.
+    IsRegistered bool
+}
 ```
-
-NuevoVinculacion construye el servicio con las dependencias dadas.
-
-<a name="Vinculacion.Activa"></a>
-### func \(\*Vinculacion\) [Activa](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L268>)
-
-```go
-func (v *Vinculacion) Activa() string
-```
-
-Activa devuelve el nombre de la máquina vinculada, o una cadena vacía si la consola todavía no está vinculada con ninguna.
-
-<a name="Vinculacion.Encender"></a>
-### func \(\*Vinculacion\) [Encender](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L207>)
-
-```go
-func (v *Vinculacion) Encender(ctx context.Context, identificador string) (MaquinaVirtual, error)
-```
-
-Encender arranca una máquina del inventario. Rechaza con ErrMaquinaEncendida la que ya está en ejecución, para no informar un éxito que no ocurrió, y devuelve la máquina ya en estado «running».
-
-<a name="Vinculacion.Listar"></a>
-### func \(\*Vinculacion\) [Listar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L109>)
-
-```go
-func (v *Vinculacion) Listar(ctx context.Context, filtro string) ([]MaquinaVirtual, error)
-```
-
-Listar devuelve las máquinas del inventario marcando la vinculada. Si filtro no está vacío, se compara, sin distinguir mayúsculas, contra el nombre y el UUID.
-
-<a name="Vinculacion.Vincular"></a>
-### func \(\*Vinculacion\) [Vincular](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L176>)
-
-```go
-func (v *Vinculacion) Vincular(ctx context.Context, identificador string) (MaquinaVirtual, error)
-```
-
-Vincular establece la máquina que administra la consola. Acepta el nombre o el UUID del inventario y guarda siempre el nombre, que es el identificador estable que usan los adaptadores. Vincular una máquina apagada es válido: solo impide abrir sesión con ella.
 
 Generated by [gomarkdoc](<https://github.com/princjef/gomarkdoc>)

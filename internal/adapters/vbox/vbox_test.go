@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	vmID             = "debian13"
+	vmID             = "vm1"
 	vmRunning        = `VMState="running"`
-	salidaInstalado  = "instalado\n"
+	outputInstalado  = "instalado\n"
 	credRoot         = "root"
 	credPass         = "secreto"
 	binAptGet        = "/usr/bin/apt-get"
@@ -150,7 +150,7 @@ func TestStateParsesMachineReadableOutput(t *testing.T) {
 	t.Parallel()
 
 	fake := newFakeExecutor()
-	fake.results["showvminfo"] = domain.Result{Stdout: `name="debian13"
+	fake.results["showvminfo"] = domain.Result{Stdout: `name="vm1"
 ` + vmRunning + `
 memory=2048
 `}
@@ -189,7 +189,7 @@ func TestGuestSessionRunBuildsGuestControlCommand(t *testing.T) {
 	t.Parallel()
 
 	fake := runningFake()
-	fake.results[subGuestControl] = domain.Result{Stdout: salidaInstalado}
+	fake.results[subGuestControl] = domain.Result{Stdout: outputInstalado}
 
 	client := New(fake, WithGuestCredentials(credRoot, credPass))
 
@@ -206,8 +206,8 @@ func TestGuestSessionRunBuildsGuestControlCommand(t *testing.T) {
 		t.Fatalf(msgRunOK, err)
 	}
 
-	if result.Stdout != salidaInstalado {
-		t.Errorf("Run().Stdout = %q, want %q", result.Stdout, salidaInstalado)
+	if result.Stdout != outputInstalado {
+		t.Errorf("Run().Stdout = %q, want %q", result.Stdout, outputInstalado)
 	}
 
 	want := []string{
@@ -360,13 +360,13 @@ func TestNetworkParsesNICMode(t *testing.T) {
 ` + vmRunning + `
 `}
 
-	modo, err := New(fake).Network(context.Background(), domain.Target{ID: vmID})
+	mode, err := New(fake).Network(context.Background(), domain.Target{ID: vmID})
 	if err != nil {
 		t.Fatalf("Network() error = %v, want nil", err)
 	}
 
-	if modo != domain.NetworkBridged {
-		t.Errorf("Network() = %q, want %q", modo, domain.NetworkBridged)
+	if mode != domain.NetworkBridged {
+		t.Errorf("Network() = %q, want %q", mode, domain.NetworkBridged)
 	}
 }
 
@@ -374,7 +374,7 @@ func TestNetworkParsesNICMode(t *testing.T) {
 func TestMapNetwork(t *testing.T) {
 	t.Parallel()
 
-	casos := map[string]domain.NetworkMode{
+	testCases := map[string]domain.NetworkMode{
 		"bridged":    domain.NetworkBridged,
 		"nat":        domain.NetworkNAT,
 		"natnetwork": domain.NetworkNAT,
@@ -384,23 +384,23 @@ func TestMapNetwork(t *testing.T) {
 		"otro":       domain.NetworkUnknown,
 	}
 
-	for entrada, esperado := range casos {
-		if obtenido := mapNetwork(entrada); obtenido != esperado {
-			t.Errorf("mapNetwork(%q) = %q, want %q", entrada, obtenido, esperado)
+	for entry, expected := range testCases {
+		if obtained := mapNetwork(entry); obtained != expected {
+			t.Errorf("mapNetwork(%q) = %q, want %q", entry, obtained, expected)
 		}
 	}
 }
 
-// fakeCredenciales devuelve un usuario y una contraseña fijos.
-type fakeCredenciales struct {
-	usuario  string
+// fakeCredentials devuelve un usuario y una contraseña fijos.
+type fakeCredentials struct {
+	user     string
 	password string
 	ok       bool
 }
 
 // Guest implementa la resolución de credenciales.
-func (f fakeCredenciales) Guest(string) (usuario, password string, ok bool) {
-	return f.usuario, f.password, f.ok
+func (f fakeCredentials) Guest(string) (user, password string, ok bool) {
+	return f.user, f.password, f.ok
 }
 
 // TestGuestSessionUsesStoredCredentials comprueba que la sesión usa las
@@ -413,7 +413,7 @@ func TestGuestSessionUsesStoredCredentials(t *testing.T) {
 
 	client := New(fake,
 		WithGuestCredentials("root", "global"),
-		WithCredenciales(fakeCredenciales{usuario: "admin", password: "clave", ok: true}),
+		WithCredentials(fakeCredentials{user: "admin", password: "clave", ok: true}),
 	)
 
 	session, err := client.Connect(context.Background(), domain.Target{ID: vmID})
@@ -426,15 +426,15 @@ func TestGuestSessionUsesStoredCredentials(t *testing.T) {
 	}
 
 	got := fake.lastCall()
-	if !contieneValor(got, "admin") || !contieneValor(got, "clave") {
+	if !contieneValue(got, "admin") || !contieneValue(got, "clave") {
 		t.Errorf("argumentos = %v, want las credenciales del almacén", got)
 	}
 }
 
-// contieneValor informa si la lista incluye el valor.
-func contieneValor(valores []string, buscado string) bool {
-	for _, valor := range valores {
-		if valor == buscado {
+// contieneValue informa si la lista incluye el valor.
+func contieneValue(values []string, buscado string) bool {
+	for _, value := range values {
+		if value == buscado {
 			return true
 		}
 	}
@@ -442,15 +442,15 @@ func contieneValor(valores []string, buscado string) bool {
 	return false
 }
 
-// TestGuestSessionSanitizaElError comprueba que la contraseña no aparece
+// TestGuestSessionSanitizesError comprueba que la contraseña no aparece
 // en el error devuelto.
-func TestGuestSessionSanitizaElError(t *testing.T) {
+func TestGuestSessionSanitizesError(t *testing.T) {
 	t.Parallel()
 
 	fake := runningFake()
 	fake.errs["guestcontrol"] = &domain.ExitError{
 		Code:    1,
-		Command: "VBoxManage guestcontrol debian13 run --password secreto",
+		Command: "VBoxManage guestcontrol vm1 run --password secreto",
 	}
 
 	client := New(fake, WithGuestCredentials(credRoot, "secreto"))

@@ -12,64 +12,64 @@ import (
 )
 
 const (
-	claveNombre  = "nombre"
-	claveVM      = "vm"
-	rutaPaquetes = "/api/packages"
-	rutaIssue    = "/api/issue"
-	rutaUsuarios = "/api/users"
-	rutaUnidades = "/api/units"
-	rutaBackend  = "/api/haproxy/backend/servers"
-	rutaSesion   = "/api/session"
-	rutaVMs      = "/api/vms"
+	keyName      = "nombre"
+	keyVM        = "vm"
+	pathPackages = "/api/packages"
+	pathIssue    = "/api/issue"
+	pathUsers    = "/api/users"
+	pathUnits    = "/api/units"
+	pathBackend  = "/api/haproxy/backend/servers"
+	pathSession  = "/api/session"
+	pathVMs      = "/api/vms"
 )
 
-// DescribirOperacion construye un resumen legible de una operación para
+// DescribeOperation construye un resumen legible de una operación para
 // el historial. Nunca incluye contraseñas ni cuerpos completos.
-func DescribirOperacion(metodo, patron, ruta string, datos map[string]any) string {
-	partes := segmentos(ruta)
+func DescribeOperation(method, pattern, path string, data map[string]any) string {
+	parts := segments(path)
 
 	switch {
-	case strings.HasPrefix(ruta, rutaPaquetes):
-		return describirPaquete(metodo, partes, datos)
-	case strings.HasPrefix(ruta, "/api/keys/root"),
-		strings.HasPrefix(ruta, rutaIssue),
-		strings.HasPrefix(ruta, "/api/hostname"):
-		return describirSistema(metodo, ruta, datos)
-	case strings.HasPrefix(ruta, rutaUsuarios):
-		return describirUsuario(metodo, partes, datos)
-	case strings.HasPrefix(ruta, rutaUnidades):
-		return describirUnidad(metodo, partes, datos)
-	case strings.HasPrefix(ruta, rutaBackend):
-		return describirHaproxy(metodo, partes, datos)
-	case strings.HasPrefix(ruta, rutaSesion):
-		return describirSesion(metodo, ruta, datos)
-	case strings.HasPrefix(ruta, rutaVMs):
-		return describirMaquina(metodo, partes)
-	case strings.HasPrefix(ruta, "/api/historial"):
-		if metodo == http.MethodGet {
+	case strings.HasPrefix(path, pathPackages):
+		return describePkg(method, parts, data)
+	case strings.HasPrefix(path, "/api/keys/root"),
+		strings.HasPrefix(path, pathIssue),
+		strings.HasPrefix(path, "/api/hostname"):
+		return describeSystem(method, path, data)
+	case strings.HasPrefix(path, pathUsers):
+		return describeUser(method, parts, data)
+	case strings.HasPrefix(path, pathUnits):
+		return describeUnit(method, parts, data)
+	case strings.HasPrefix(path, pathBackend):
+		return describeHAProxy(method, parts, data)
+	case strings.HasPrefix(path, pathSession):
+		return describeSession(method, path, data)
+	case strings.HasPrefix(path, pathVMs):
+		return describeMachine(method, parts)
+	case strings.HasPrefix(path, "/api/historial"):
+		if method == http.MethodGet {
 			return "Consultar el historial de operaciones"
 		}
 
-		return sinDescripcion(metodo, patron, ruta)
+		return withoutDescription(method, pattern, path)
 	default:
-		return sinDescripcion(metodo, patron, ruta)
+		return withoutDescription(method, pattern, path)
 	}
 }
 
-// describirPaquete resume las operaciones sobre paquetes.
-func describirPaquete(metodo string, partes []string, datos map[string]any) string {
-	switch metodo {
+// describePkg resume las operaciones sobre paquetes.
+func describePkg(method string, parts []string, data map[string]any) string {
+	switch method {
 	case http.MethodPost:
-		if nombre := texto(datos, claveNombre); nombre != "" {
-			return fmt.Sprintf("Instalar el paquete «%s»", nombre)
+		if name := text(data, keyName); name != "" {
+			return fmt.Sprintf("Instalar el paquete «%s»", name)
 		}
 
 		return "Instalar un paquete"
 	case http.MethodDelete:
-		return fmt.Sprintf("Eliminar el paquete «%s»", ultimo(partes))
+		return fmt.Sprintf("Eliminar el paquete «%s»", last(parts))
 	case http.MethodGet:
-		if len(partes) >= 3 {
-			return fmt.Sprintf("Consultar el paquete «%s»", elemento(partes))
+		if len(parts) >= 3 {
+			return fmt.Sprintf("Consultar el paquete «%s»", element(parts))
 		}
 
 		return "Listar los paquetes instalados"
@@ -78,114 +78,114 @@ func describirPaquete(metodo string, partes []string, datos map[string]any) stri
 	}
 }
 
-// describirSistema agrupa las lecturas y escrituras de preparación.
-func describirSistema(metodo, ruta string, datos map[string]any) string {
+// describeSystem agrupa las lecturas y escrituras de preparación.
+func describeSystem(method, path string, data map[string]any) string {
 	switch {
-	case strings.HasPrefix(ruta, "/api/keys/root"):
-		return describirLlave(metodo)
-	case strings.HasPrefix(ruta, rutaIssue):
-		return describirIssue(metodo)
+	case strings.HasPrefix(path, "/api/keys/root"):
+		return describeSSHKey(method)
+	case strings.HasPrefix(path, pathIssue):
+		return describeIssue(method)
 	default:
-		return describirHostname(metodo, datos)
+		return describeHostname(method, data)
 	}
 }
 
-// describirLlave resume la generación de la llave de root.
-func describirLlave(metodo string) string {
-	if metodo == http.MethodPost {
+// describeSSHKey resume la generación de la llave de root.
+func describeSSHKey(method string) string {
+	if method == http.MethodPost {
 		return "Generar la llave SSH de root"
 	}
 
 	return "Descargar la llave privada de root"
 }
 
-// describirIssue resume la personalización de /etc/issue.
-func describirIssue(metodo string) string {
-	if metodo == http.MethodPut {
+// describeIssue resume la personalización de /etc/issue.
+func describeIssue(method string) string {
+	if method == http.MethodPut {
 		return "Personalizar /etc/issue"
 	}
 
 	return "Consultar /etc/issue"
 }
 
-// describirHostname resume el cambio de nombre de host.
-func describirHostname(metodo string, datos map[string]any) string {
-	if metodo != http.MethodPut {
+// describeHostname resume el cambio de nombre de host.
+func describeHostname(method string, data map[string]any) string {
+	if method != http.MethodPut {
 		return "Consultar el nombre de host"
 	}
 
-	if nombre := texto(datos, claveNombre); nombre != "" {
-		return fmt.Sprintf("Cambiar el nombre de host a «%s»", nombre)
+	if name := text(data, keyName); name != "" {
+		return fmt.Sprintf("Cambiar el nombre de host a «%s»", name)
 	}
 
 	return "Cambiar el nombre de host"
 }
 
-// describirUsuario resume las operaciones sobre cuentas de usuario.
-func describirUsuario(metodo string, partes []string, datos map[string]any) string {
-	usuario := elemento(partes)
+// describeUser resume las operaciones sobre cuentas de usuario.
+func describeUser(method string, parts []string, data map[string]any) string {
+	user := element(parts)
 
-	switch metodo {
+	switch method {
 	case http.MethodPost:
-		if nombre := texto(datos, claveNombre); nombre != "" {
-			return fmt.Sprintf("Crear el usuario «%s»", nombre)
+		if name := text(data, keyName); name != "" {
+			return fmt.Sprintf("Crear el usuario «%s»", name)
 		}
 
 		return "Crear un usuario"
 	case http.MethodDelete:
-		if archivos, ok := datos["archivos"].(bool); ok && archivos {
-			return fmt.Sprintf("Eliminar el usuario «%s» y sus archivos", usuario)
+		if files, ok := data["archivos"].(bool); ok && files {
+			return fmt.Sprintf("Eliminar el usuario «%s» y sus archivos", user)
 		}
 
-		return fmt.Sprintf("Eliminar el usuario «%s»", usuario)
+		return fmt.Sprintf("Eliminar el usuario «%s»", user)
 	case http.MethodGet:
-		if len(partes) >= 4 && ultimo(partes) == "key" {
-			return fmt.Sprintf("Descargar la llave privada de «%s»", usuario)
+		if len(parts) >= 4 && last(parts) == "key" {
+			return fmt.Sprintf("Descargar la llave privada de «%s»", user)
 		}
 
-		if len(partes) >= 3 {
-			return fmt.Sprintf("Consultar el usuario «%s»", usuario)
+		if len(parts) >= 3 {
+			return fmt.Sprintf("Consultar el usuario «%s»", user)
 		}
 
 		return "Listar los usuarios"
 	default:
-		return fmt.Sprintf("Gestionar el usuario «%s»", usuario)
+		return fmt.Sprintf("Gestionar el usuario «%s»", user)
 	}
 }
 
-// describirUnidad resume el despliegue y el control de una unidad.
-func describirUnidad(metodo string, partes []string, datos map[string]any) string {
-	unidad := elemento(partes)
+// describeUnit resume el despliegue y el control de una unidad.
+func describeUnit(method string, parts []string, data map[string]any) string {
+	unit := element(parts)
 
-	switch metodo {
+	switch method {
 	case http.MethodPut:
-		return fmt.Sprintf("Desplegar la unidad «%s»", unidad)
+		return fmt.Sprintf("Desplegar la unidad «%s»", unit)
 	case http.MethodPatch:
-		return describirEstadoUnidad(unidad, datos)
+		return describeStateUnit(unit, data)
 	case http.MethodPost:
-		return fmt.Sprintf("Reiniciar la unidad «%s»", unidad)
+		return fmt.Sprintf("Reiniciar la unidad «%s»", unit)
 	case http.MethodGet:
-		if len(partes) >= 3 {
-			return fmt.Sprintf("Consultar la unidad «%s»", unidad)
+		if len(parts) >= 3 {
+			return fmt.Sprintf("Consultar la unidad «%s»", unit)
 		}
 
 		return "Listar las unidades de systemd"
 	default:
-		return fmt.Sprintf("Consultar la unidad «%s»", unidad)
+		return fmt.Sprintf("Consultar la unidad «%s»", unit)
 	}
 }
 
-// describirHaproxy resume los cambios del back-end.
-func describirHaproxy(metodo string, partes []string, datos map[string]any) string {
-	switch metodo {
+// describeHAProxy resume los cambios del back-end.
+func describeHAProxy(method string, parts []string, data map[string]any) string {
+	switch method {
 	case http.MethodPost:
-		if destino := servidor(datos); destino != "" {
-			return fmt.Sprintf("Agregar el servidor «%s» al back-end", destino)
+		if destination := server(data); destination != "" {
+			return fmt.Sprintf("Agregar el servidor «%s» al back-end", destination)
 		}
 
 		return "Agregar un servidor al back-end"
 	case http.MethodDelete:
-		return fmt.Sprintf("Eliminar el servidor «%s» del back-end", ultimo(partes))
+		return fmt.Sprintf("Eliminar el servidor «%s» del back-end", last(parts))
 	case http.MethodGet:
 		return "Listar los servidores del back-end"
 	default:
@@ -193,30 +193,30 @@ func describirHaproxy(metodo string, partes []string, datos map[string]any) stri
 	}
 }
 
-// describirSesion resume el registro y la vinculación de máquinas.
-func describirSesion(metodo, ruta string, datos map[string]any) string {
-	switch metodo {
+// describeSession resume el registro y la vinculación de máquinas.
+func describeSession(method, path string, data map[string]any) string {
+	switch method {
 	case http.MethodPost:
-		maquina := texto(datos, claveVM)
-		if maquina == "" {
+		machine := text(data, keyVM)
+		if machine == "" {
 			return "Registrar una máquina"
 		}
 
-		if usuario := texto(datos, "usuario"); usuario != "" {
-			return fmt.Sprintf("Registrar la máquina «%s» (usuario %s)", maquina, usuario)
+		if user := text(data, "usuario"); user != "" {
+			return fmt.Sprintf("Registrar la máquina «%s» (usuario %s)", machine, user)
 		}
 
-		return fmt.Sprintf("Registrar la máquina «%s»", maquina)
+		return fmt.Sprintf("Registrar la máquina «%s»", machine)
 	case http.MethodDelete:
 		return "Olvidar el registro de la máquina"
 	case http.MethodPut:
-		if maquina := texto(datos, claveVM); maquina != "" {
-			return fmt.Sprintf("Vincular la máquina «%s»", maquina)
+		if machine := text(data, keyVM); machine != "" {
+			return fmt.Sprintf("Vincular la máquina «%s»", machine)
 		}
 
 		return "Vincular una máquina"
 	case http.MethodGet:
-		if strings.Contains(ruta, "/diagnostico") {
+		if strings.Contains(path, "/diagnostico") {
 			return "Diagnosticar el registro de la máquina"
 		}
 
@@ -226,99 +226,99 @@ func describirSesion(metodo, ruta string, datos map[string]any) string {
 	}
 }
 
-// describirMaquina resume el encendido de una máquina virtual.
-func describirMaquina(metodo string, partes []string) string {
-	if metodo == http.MethodPost {
-		return fmt.Sprintf("Encender la máquina «%s»", elemento(partes))
+// describeMachine resume el encendido de una máquina virtual.
+func describeMachine(method string, parts []string) string {
+	if method == http.MethodPost {
+		return fmt.Sprintf("Encender la máquina «%s»", element(parts))
 	}
 
 	return "Listar las máquinas virtuales"
 }
 
-// describirEstadoUnidad distingue activar, detener, habilitar y
+// describeStateUnit distingue activar, detener, habilitar y
 // deshabilitar.
-func describirEstadoUnidad(unidad string, datos map[string]any) string {
-	if activo, ok := datos["activo"].(bool); ok {
-		if activo {
-			return fmt.Sprintf("Activar la unidad «%s»", unidad)
+func describeStateUnit(unit string, data map[string]any) string {
+	if active, ok := data["activo"].(bool); ok {
+		if active {
+			return fmt.Sprintf("Activar la unidad «%s»", unit)
 		}
 
-		return fmt.Sprintf("Detener la unidad «%s»", unidad)
+		return fmt.Sprintf("Detener la unidad «%s»", unit)
 	}
 
-	if habilitado, ok := datos["habilitado"].(bool); ok {
-		if habilitado {
-			return fmt.Sprintf("Habilitar el arranque de la unidad «%s»", unidad)
+	if enabled, ok := data["habilitado"].(bool); ok {
+		if enabled {
+			return fmt.Sprintf("Habilitar el arranque de la unidad «%s»", unit)
 		}
 
-		return fmt.Sprintf("Deshabilitar el arranque de la unidad «%s»", unidad)
+		return fmt.Sprintf("Deshabilitar el arranque de la unidad «%s»", unit)
 	}
 
-	return fmt.Sprintf("Cambiar el estado de la unidad «%s»", unidad)
+	return fmt.Sprintf("Cambiar el estado de la unidad «%s»", unit)
 }
 
-// servidor arma «direccion:puerto» a partir del cuerpo.
-func servidor(datos map[string]any) string {
-	direccion := texto(datos, "direccion")
-	if direccion == "" {
+// server arma «direccion:puerto» a partir del cuerpo.
+func server(data map[string]any) string {
+	address := text(data, "direccion")
+	if address == "" {
 		return ""
 	}
 
-	puerto, ok := datos["puerto"].(float64)
+	port, ok := data["puerto"].(float64)
 	if !ok {
-		return direccion
+		return address
 	}
 
-	return direccion + ":" + strconv.Itoa(int(puerto))
+	return address + ":" + strconv.Itoa(int(port))
 }
 
-// segmentos divide una ruta en sus partes no vacías y decodificadas.
-func segmentos(ruta string) []string {
-	partes := strings.Split(strings.Trim(ruta, "/"), "/")
-	for i, parte := range partes {
-		if decodificada, err := url.PathUnescape(parte); err == nil {
-			partes[i] = decodificada
+// segments divide una ruta en sus partes no vacías y decodificadas.
+func segments(path string) []string {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	for i, part := range parts {
+		if decodificada, err := url.PathUnescape(part); err == nil {
+			parts[i] = decodificada
 		}
 	}
 
-	return partes
+	return parts
 }
 
-// elemento devuelve el identificador del recurso en la tercera parte
+// element devuelve el identificador del recurso en la tercera parte
 // de la ruta: /api/{recurso}/{id}.
-func elemento(partes []string) string {
-	if len(partes) < 3 {
+func element(parts []string) string {
+	if len(parts) < 3 {
 		return ""
 	}
 
-	return partes[2]
+	return parts[2]
 }
 
-// ultimo devuelve la última parte de la ruta.
-func ultimo(partes []string) string {
-	if len(partes) == 0 {
+// last devuelve la última parte de la ruta.
+func last(parts []string) string {
+	if len(parts) == 0 {
 		return ""
 	}
 
-	return partes[len(partes)-1]
+	return parts[len(parts)-1]
 }
 
-// texto extrae una cadena del cuerpo y recorta los espacios.
-func texto(datos map[string]any, clave string) string {
-	valor, ok := datos[clave].(string)
+// text extrae una cadena del cuerpo y recorta los espacios.
+func text(data map[string]any, key string) string {
+	value, ok := data[key].(string)
 	if !ok {
 		return ""
 	}
 
-	return strings.TrimSpace(valor)
+	return strings.TrimSpace(value)
 }
 
-// sinDescripcion usa el patrón o la ruta cuando no hay un resumen
+// withoutDescription usa el patrón o la ruta cuando no hay un resumen
 // específico.
-func sinDescripcion(metodo, patron, ruta string) string {
-	if patron != "" {
-		return metodo + " " + patron
+func withoutDescription(method, pattern, path string) string {
+	if pattern != "" {
+		return method + " " + pattern
 	}
 
-	return metodo + " " + ruta
+	return method + " " + path
 }

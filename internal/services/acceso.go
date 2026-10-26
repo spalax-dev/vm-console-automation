@@ -18,17 +18,17 @@ import (
 	"consola-vm/internal/core/ports"
 )
 
-// ErrCredencialesInvalidas indica que Guest Additions rechazó el
+// ErrInvalidCredentials indica que Guest Additions rechazó el
 // usuario o la contraseña.
-var ErrCredencialesInvalidas = errors.New("las credenciales no permiten ejecutar órdenes")
+var ErrInvalidCredentials = errors.New("las credenciales no permiten ejecutar órdenes")
 
-// ConfigAcceso reúne las dependencias para registrar una máquina en la
+// AccessConfig reúne las dependencias para registrar una máquina en la
 // consola.
-type ConfigAcceso struct {
-	// Almacen guarda las credenciales y el estado de registro.
-	Almacen *Almacen
-	// Maquina consulta el estado y la dirección de la máquina activa.
-	Maquina ports.Machine
+type AccessConfig struct {
+	// Store guarda las credenciales y el estado de registro.
+	Store *Store
+	// Machine consulta el estado y la dirección de la máquina activa.
+	Machine ports.Machine
 	// Guest abre una sesión por Guest Additions con las credenciales
 	// guardadas.
 	Guest ports.Connector
@@ -40,267 +40,267 @@ type ConfigAcceso struct {
 	// Ejecutor genera la llave de root en el anfitrión.
 	Ejecutor ports.Executor
 	// RutaLlave es la llave privada de root en el anfitrión.
-	RutaLlave string
-	// Objetivo devuelve la máquina vinculada.
-	Objetivo func() domain.Target
+	PathSSHKey string
+	// CurrentTarget devuelve la máquina vinculada.
+	CurrentTarget func() domain.Target
 }
 
-// Acceso registra una máquina: guarda sus credenciales, prepara SSH y
+// Access registra una máquina: guarda sus credenciales, prepara SSH y
 // deja constancia del estado para no volver a pedirlas.
-type Acceso struct {
-	almacen     *Almacen
-	maquina     ports.Machine
+type Access struct {
+	store       *Store
+	machine     ports.Machine
 	guest       ports.Connector
 	ssh         ports.Connector
 	sshPassword ports.PasswordConnector
 	ejecutor    ports.Executor
-	rutaLlave   string
-	objetivo    func() domain.Target
+	sshKeyPath  string
+	target      func() domain.Target
 }
 
-// NuevoAcceso construye el servicio de registro.
-func NuevoAcceso(config *ConfigAcceso) *Acceso {
-	return &Acceso{
-		almacen:     config.Almacen,
-		maquina:     config.Maquina,
+// NewAccess construye el servicio de registro.
+func NewAccess(config *AccessConfig) *Access {
+	return &Access{
+		store:       config.Store,
+		machine:     config.Machine,
 		guest:       config.Guest,
 		ssh:         config.SSH,
 		sshPassword: config.SSHPassword,
 		ejecutor:    config.Ejecutor,
-		rutaLlave:   config.RutaLlave,
-		objetivo:    config.Objetivo,
+		sshKeyPath:  config.PathSSHKey,
+		target:      config.CurrentTarget,
 	}
 }
 
-// Registrar guarda las credenciales, instala SSH con la llave de root y
+// Register guarda las credenciales, instala SSH con la llave de root y
 // verifica la conexión. Si algo falla, deja la máquina sin registrar y
 // restaura las credenciales anteriores.
-func (a *Acceso) Registrar(ctx context.Context, usuario, password string) (Resultado, error) {
-	objetivo, direccion, err := a.resolver(ctx)
+func (a *Access) Register(ctx context.Context, user, password string) (Outcome, error) {
+	target, address, err := a.resolve(ctx)
 	if err != nil {
-		return Resultado{}, err
+		return Outcome{}, err
 	}
 
-	anterior, existia := a.almacen.Obtener(objetivo.ID)
+	previous, existia := a.store.Get(target.ID)
 
-	if err := a.almacen.Guardar(objetivo.ID, Credenciales{
-		Usuario:    usuario,
-		Password:   password,
-		Puerto:     22,
-		Registrada: false,
+	if err := a.store.Save(target.ID, Credentials{
+		User:         user,
+		Password:     password,
+		Port:         22,
+		IsRegistered: false,
 	}); err != nil {
-		return Resultado{}, err
+		return Outcome{}, err
 	}
 
-	exito := false
+	success := false
 
 	defer func() {
-		if !exito {
-			a.restaurar(objetivo.ID, anterior, existia)
+		if !success {
+			a.restore(target.ID, previous, existia)
 		}
 	}()
 
-	salida, err := a.prepararSSH(ctx, objetivo, direccion, password)
-	if errors.Is(err, ErrCredencialesInvalidas) {
+	output, err := a.prepareSSH(ctx, target, address, password)
+	if errors.Is(err, ErrInvalidCredentials) {
 		errorGuest := err
 
-		salida, err = a.prepararSSHPassword(ctx, objetivo, direccion, usuario, password)
+		output, err = a.prepareSSHPassword(ctx, target, address, user, password)
 		if err != nil {
-			err = fmt.Errorf("%w (Guest Additions: %w; SSH: %w)", ErrCredencialesInvalidas, errorGuest, err)
+			err = fmt.Errorf("%w (Guest Additions: %w; SSH: %w)", ErrInvalidCredentials, errorGuest, err)
 		}
 	}
 
 	if err != nil {
-		slog.Warn("registrar la máquina", "vm", objetivo.ID, "usuario", usuario, claveErrorLog, err)
+		slog.Warn("registrar la máquina", "vm", target.ID, "usuario", user, logErrorKey, err)
 
-		return salida, err
+		return output, err
 	}
 
-	if err := a.almacen.Guardar(objetivo.ID, Credenciales{
-		Usuario:    usuario,
-		Password:   password,
-		Puerto:     22,
-		Registrada: true,
+	if err := a.store.Save(target.ID, Credentials{
+		User:         user,
+		Password:     password,
+		Port:         22,
+		IsRegistered: true,
 	}); err != nil {
-		return salida, err
+		return output, err
 	}
 
-	exito = true
+	success = true
 
-	return salida, nil
+	return output, nil
 }
 
-// prepararSSH valida las credenciales, instala SSH con la llave de root
+// prepareSSH valida las credenciales, instala SSH con la llave de root
 // y comprueba que la conexión por llave funcione.
-func (a *Acceso) prepararSSH(
-	ctx context.Context, objetivo domain.Target, direccion netip.Addr, password string,
-) (Resultado, error) {
-	clave, err := a.asegurarLlave(ctx)
+func (a *Access) prepareSSH(
+	ctx context.Context, target domain.Target, address netip.Addr, password string,
+) (Outcome, error) {
+	key, err := a.ensureSSHKey(ctx)
 	if err != nil {
-		return Resultado{}, err
+		return Outcome{}, err
 	}
 
-	sesion, err := a.guest.Connect(ctx, domain.Target{ID: objetivo.ID, Address: direccion})
+	session, err := a.guest.Connect(ctx, domain.Target{ID: target.ID, Address: address})
 	if err != nil {
-		return Resultado{}, fmt.Errorf("abrir la sesión de Guest Additions: %w", err)
+		return Outcome{}, fmt.Errorf("abrir la sesión de Guest Additions: %w", err)
 	}
 
-	defer cerrarSesion(sesion)
+	defer closeSession(session)
 
-	verificacion, err := sesion.Run(ctx, &domain.Command{Path: "/usr/bin/id", Args: []string{"-u"}})
+	verificacion, err := session.Run(ctx, &domain.Command{Path: "/usr/bin/id", Args: []string{"-u"}})
 	if err != nil {
-		return errorDeCredenciales(verificacion, err)
+		return credentialsError(verificacion, err)
 	}
 
-	return a.instalarConSesion(ctx, sesion, objetivo, direccion, clave, strings.TrimSpace(verificacion.Stdout), password)
+	return a.installWithSession(ctx, session, target, address, key, strings.TrimSpace(verificacion.Stdout), password)
 }
 
-// prepararSSHPassword registra una máquina usando SSH con contraseña,
+// prepareSSHPassword registra una máquina usando SSH con contraseña,
 // como respaldo cuando Guest Additions rechaza las credenciales.
-func (a *Acceso) prepararSSHPassword(
-	ctx context.Context, objetivo domain.Target, direccion netip.Addr, usuario, password string,
-) (Resultado, error) {
+func (a *Access) prepareSSHPassword(
+	ctx context.Context, target domain.Target, address netip.Addr, user, password string,
+) (Outcome, error) {
 	if a.sshPassword == nil {
-		return Resultado{}, fmt.Errorf("%w: no hay respaldo SSH disponible", ErrCredencialesInvalidas)
+		return Outcome{}, fmt.Errorf("%w: no hay respaldo SSH disponible", ErrInvalidCredentials)
 	}
 
-	clave, err := a.asegurarLlave(ctx)
+	key, err := a.ensureSSHKey(ctx)
 	if err != nil {
-		return Resultado{}, err
+		return Outcome{}, err
 	}
 
-	sesion, err := a.sshPassword.ConnectPassword(
-		ctx, domain.Target{ID: objetivo.ID, Address: direccion}, usuario, password,
+	session, err := a.sshPassword.ConnectPassword(
+		ctx, domain.Target{ID: target.ID, Address: address}, user, password,
 	)
 	if err != nil {
-		return Resultado{}, fmt.Errorf("%w: %w", ErrCredencialesInvalidas, err)
+		return Outcome{}, fmt.Errorf("%w: %w", ErrInvalidCredentials, err)
 	}
 
-	defer cerrarSesion(sesion)
+	defer closeSession(session)
 
-	verificacion, err := sesion.Run(ctx, &domain.Command{Path: "/usr/bin/id", Args: []string{"-u"}})
+	verificacion, err := session.Run(ctx, &domain.Command{Path: "/usr/bin/id", Args: []string{"-u"}})
 	if err != nil {
-		return errorDeCredenciales(verificacion, err)
+		return credentialsError(verificacion, err)
 	}
 
-	return a.instalarConSesion(ctx, sesion, objetivo, direccion, clave, strings.TrimSpace(verificacion.Stdout), password)
+	return a.installWithSession(ctx, session, target, address, key, strings.TrimSpace(verificacion.Stdout), password)
 }
 
-// instalarConSesion ejecuta la adecuación dentro de una sesión ya
+// installWithSession ejecuta la adecuación dentro de una sesión ya
 // autenticada y verifica la llave.
-func (a *Acceso) instalarConSesion(
-	ctx context.Context, sesion ports.Session, objetivo domain.Target, direccion netip.Addr,
-	clave, uid, password string,
-) (Resultado, error) {
-	cmd := guionInstalacion(clave)
-	operacion := cmd.ShellLine()
+func (a *Access) installWithSession(
+	ctx context.Context, session ports.Session, target domain.Target, address netip.Addr,
+	key, uid, password string,
+) (Outcome, error) {
+	cmd := installScript(key)
+	operation := cmd.ShellLine()
 
 	if uid != "0" {
-		cmd = guionInstalacionSudo(clave, password)
-		operacion = "instalar SSH y configurar sshd con sudo"
+		cmd = sudoInstallScript(key, password)
+		operation = "instalar SSH y configurar sshd con sudo"
 	}
 
-	resultado, err := sesion.Run(ctx, cmd)
-	salida := Resultado{
-		Mensaje:   "Máquina registrada: SSH quedó preparado para su administración.",
-		Operacion: operacion,
-		Salida:    resultado.Stdout,
-		Stderr:    resultado.Stderr,
-		Codigo:    resultado.ExitCode,
+	result, err := session.Run(ctx, cmd)
+	output := Outcome{
+		Message:   "Máquina registrada: SSH quedó preparado para su administración.",
+		Operation: operation,
+		Output:    result.Stdout,
+		Stderr:    result.Stderr,
+		Code:      result.ExitCode,
 	}
 
 	if err != nil {
-		return salida, fmt.Errorf("preparar SSH en la máquina: %w", err)
+		return output, fmt.Errorf("preparar SSH en la máquina: %w", err)
 	}
 
-	if err := a.ssh.Probe(ctx, domain.Target{ID: objetivo.ID, Address: direccion}); err != nil {
-		return salida, fmt.Errorf("verificar el acceso SSH: %w", err)
+	if err := a.ssh.Probe(ctx, domain.Target{ID: target.ID, Address: address}); err != nil {
+		return output, fmt.Errorf("verificar el acceso SSH: %w", err)
 	}
 
-	return salida, nil
+	return output, nil
 }
 
-// errorDeCredenciales arma el error de autenticación con el stderr de la
+// credentialsError arma el error de autenticación con el stderr de la
 // orden de verificación.
-func errorDeCredenciales(resultado domain.Result, err error) (Resultado, error) {
-	detalle := strings.TrimSpace(resultado.Stderr)
-	if detalle == "" {
-		detalle = err.Error()
+func credentialsError(result domain.Result, err error) (Outcome, error) {
+	detail := strings.TrimSpace(result.Stderr)
+	if detail == "" {
+		detail = err.Error()
 	}
 
-	return Resultado{
-		Codigo: resultado.ExitCode,
-		Stderr: resultado.Stderr,
-	}, fmt.Errorf("%w: %s", ErrCredencialesInvalidas, detalle)
+	return Outcome{
+		Code:   result.ExitCode,
+		Stderr: result.Stderr,
+	}, fmt.Errorf("%w: %s", ErrInvalidCredentials, detail)
 }
 
-// restaurar deja el almacén como estaba antes del intento de registro.
-func (a *Acceso) restaurar(vm string, anterior Credenciales, existia bool) {
+// restore deja el almacén como estaba antes del intento de registro.
+func (a *Access) restore(vm string, previous Credentials, existia bool) {
 	if existia {
-		if err := a.almacen.Guardar(vm, anterior); err != nil {
-			slog.Warn("restaurar las credenciales", claveErrorLog, err)
+		if err := a.store.Save(vm, previous); err != nil {
+			slog.Warn("restaurar las credenciales", logErrorKey, err)
 		}
 
 		return
 	}
 
-	if err := a.almacen.Borrar(vm); err != nil {
-		slog.Warn("borrar las credenciales", claveErrorLog, err)
+	if err := a.store.Delete(vm); err != nil {
+		slog.Warn("borrar las credenciales", logErrorKey, err)
 	}
 }
 
-// asegurarLlave devuelve la llave pública de root, generando el par si
+// ensureSSHKey devuelve la llave pública de root, generando el par si
 // todavía no existe en el anfitrión.
-func (a *Acceso) asegurarLlave(ctx context.Context) (string, error) {
-	if _, err := os.Stat(a.rutaLlave); err == nil {
-		return leerClavePublica(a.rutaLlave)
+func (a *Access) ensureSSHKey(ctx context.Context) (string, error) {
+	if _, err := os.Stat(a.sshKeyPath); err == nil {
+		return readPublicKey(a.sshKeyPath)
 	} else if !errors.Is(err, fs.ErrNotExist) {
-		return "", fmt.Errorf("comprobar la llave %q: %w", a.rutaLlave, err)
+		return "", fmt.Errorf("comprobar la llave %q: %w", a.sshKeyPath, err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(a.rutaLlave), 0o700); err != nil {
-		return "", fmt.Errorf(msgCrearDirLlaves, err)
+	if err := os.MkdirAll(filepath.Dir(a.sshKeyPath), 0o700); err != nil {
+		return "", fmt.Errorf(msgCreateKeyDir, err)
 	}
 
-	if err := generarPar(ctx, a.ejecutor, a.rutaLlave, "vmcons-root"); err != nil {
+	if err := generateKeyPair(ctx, a.ejecutor, a.sshKeyPath, "vmcons-root"); err != nil {
 		return "", err
 	}
 
-	return leerClavePublica(a.rutaLlave)
+	return readPublicKey(a.sshKeyPath)
 }
 
-// Olvidar elimina el registro y las credenciales de la máquina activa.
-func (a *Acceso) Olvidar() error {
-	objetivo := a.objetivo()
-	if objetivo.ID == "" {
-		return ErrSinMaquina
+// Forget elimina el registro y las credenciales de la máquina activa.
+func (a *Access) Forget() error {
+	target := a.target()
+	if target.ID == "" {
+		return ErrNoMachine
 	}
 
-	return a.almacen.Borrar(objetivo.ID)
+	return a.store.Delete(target.ID)
 }
 
-// resolver comprueba la máquina activa y devuelve su dirección.
-func (a *Acceso) resolver(ctx context.Context) (domain.Target, netip.Addr, error) {
-	objetivo := a.objetivo()
-	if objetivo.ID == "" {
-		return domain.Target{}, netip.Addr{}, fmt.Errorf("%w: elige una máquina del inventario", ErrSinMaquina)
+// resolve comprueba la máquina activa y devuelve su dirección.
+func (a *Access) resolve(ctx context.Context) (domain.Target, netip.Addr, error) {
+	target := a.target()
+	if target.ID == "" {
+		return domain.Target{}, netip.Addr{}, fmt.Errorf("%w: elige una máquina del inventario", ErrNoMachine)
 	}
 
-	estado, err := a.maquina.State(ctx, objetivo)
+	state, err := a.machine.State(ctx, target)
 	if err != nil {
-		return domain.Target{}, netip.Addr{}, fmt.Errorf(msgEstadoMaquina, err)
+		return domain.Target{}, netip.Addr{}, fmt.Errorf(msgStateMachine, err)
 	}
 
-	if estado != domain.StateRunning {
+	if state != domain.StateRunning {
 		return domain.Target{}, netip.Addr{}, fmt.Errorf(
-			"%w: la máquina %q está en estado %q", ErrSesionNoDisponible, objetivo.ID, estado,
+			"%w: la máquina %q está en estado %q", ErrSessionUnavailable, target.ID, state,
 		)
 	}
 
-	direccion, err := a.maquina.Address(ctx, objetivo)
+	address, err := a.machine.Address(ctx, target)
 	if err != nil {
 		return domain.Target{}, netip.Addr{}, fmt.Errorf("descubrir la dirección de la máquina: %w", err)
 	}
 
-	return objetivo, direccion, nil
+	return target, address, nil
 }
