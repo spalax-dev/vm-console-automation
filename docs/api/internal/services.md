@@ -103,6 +103,7 @@ Package services implementa los casos de uso de la consola: descubre el conector
   - [func \(s \*Systemd\) Get\(ctx context.Context, unit string\) \(UnitState, error\)](<#Systemd.Get>)
   - [func \(s \*Systemd\) List\(ctx context.Context\) \(\[\]UnitState, error\)](<#Systemd.List>)
   - [func \(s \*Systemd\) Restart\(ctx context.Context, unit string\) \(Outcome, error\)](<#Systemd.Restart>)
+  - [func \(s \*Systemd\) Status\(ctx context.Context, unit string\) \(Outcome, error\)](<#Systemd.Status>)
 - [type UnitState](<#UnitState>)
 - [type User](<#User>)
 - [type Users](<#Users>)
@@ -110,6 +111,7 @@ Package services implementa los casos de uso de la consola: descubre el conector
   - [func \(u \*Users\) Create\(ctx context.Context, name string, sudo, keys bool\) \(Outcome, error\)](<#Users.Create>)
   - [func \(u \*Users\) Delete\(ctx context.Context, name string, files bool\) \(Outcome, error\)](<#Users.Delete>)
   - [func \(u \*Users\) DownloadKey\(name string\) \(file string, content \[\]byte, err error\)](<#Users.DownloadKey>)
+  - [func \(u \*Users\) GenerateKey\(ctx context.Context, name string\) \(Outcome, error\)](<#Users.GenerateKey>)
   - [func \(u \*Users\) Get\(ctx context.Context, name string\) \(User, error\)](<#Users.Get>)
   - [func \(u \*Users\) List\(ctx context.Context\) \(\[\]User, error\)](<#Users.List>)
 - [type UsersConfig](<#UsersConfig>)
@@ -216,6 +218,12 @@ var ErrUnitNotFound = errors.New("la unidad no existe")
 var ErrUserExists = errors.New("el usuario ya existe")
 ```
 
+<a name="ErrUserKeyExists"></a>ErrUserKeyExists indica que el usuario ya tiene un par de llaves.
+
+```go
+var ErrUserKeyExists = errors.New("el usuario ya tiene un par de llaves")
+```
+
 <a name="ErrUserKeyNotFound"></a>ErrUserKeyNotFound indica que no se ha generado la llave del usuario.
 
 ```go
@@ -313,7 +321,7 @@ type AccessConfig struct {
 ```
 
 <a name="ActivePersistence"></a>
-## type [ActivePersistence](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L78-L81>)
+## type [ActivePersistence](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L83-L86>)
 
 ActivePersistence guarda y recupera la máquina vinculada.
 
@@ -325,7 +333,7 @@ type ActivePersistence interface {
 ```
 
 <a name="Binding"></a>
-## type [Binding](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L85-L92>)
+## type [Binding](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L90-L97>)
 
 Binding busca máquinas en el inventario y cambia la que administra la consola.
 
@@ -336,7 +344,7 @@ type Binding struct {
 ```
 
 <a name="NewBinding"></a>
-### func [NewBinding](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L95>)
+### func [NewBinding](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L100>)
 
 ```go
 func NewBinding(config *BindingConfig) *Binding
@@ -345,7 +353,7 @@ func NewBinding(config *BindingConfig) *Binding
 NewBinding construye el servicio con las dependencias dadas.
 
 <a name="Binding.Active"></a>
-### func \(\*Binding\) [Active](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L264>)
+### func \(\*Binding\) [Active](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L283>)
 
 ```go
 func (v *Binding) Active() string
@@ -354,7 +362,7 @@ func (v *Binding) Active() string
 Active devuelve el nombre de la máquina vinculada, o una cadena vacía si la consola todavía no está vinculada con ninguna.
 
 <a name="Binding.Bind"></a>
-### func \(\*Binding\) [Bind](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L172>)
+### func \(\*Binding\) [Bind](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L191>)
 
 ```go
 func (v *Binding) Bind(ctx context.Context, identifier string) (VirtualMachine, error)
@@ -363,7 +371,7 @@ func (v *Binding) Bind(ctx context.Context, identifier string) (VirtualMachine, 
 Bind establece la máquina que administra la consola. Acepta el nombre o el UUID del inventario y guarda siempre el nombre, que es el identificador estable que usan los adaptadores. Bind una máquina apagada es válido: solo impide abrir sesión con ella.
 
 <a name="Binding.List"></a>
-### func \(\*Binding\) [List](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L109>)
+### func \(\*Binding\) [List](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L114>)
 
 ```go
 func (v *Binding) List(ctx context.Context, filter string) ([]VirtualMachine, error)
@@ -372,7 +380,7 @@ func (v *Binding) List(ctx context.Context, filter string) ([]VirtualMachine, er
 List devuelve las máquinas del inventario marcando la vinculada. Si filtro no está vacío, se compara, sin distinguir mayúsculas, contra el nombre y el UUID.
 
 <a name="Binding.PowerOn"></a>
-### func \(\*Binding\) [PowerOn](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L203>)
+### func \(\*Binding\) [PowerOn](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L222>)
 
 ```go
 func (v *Binding) PowerOn(ctx context.Context, identifier string) (VirtualMachine, error)
@@ -381,7 +389,7 @@ func (v *Binding) PowerOn(ctx context.Context, identifier string) (VirtualMachin
 PowerOn arranca una máquina del inventario. Rechaza con ErrMachineRunning la que ya está en ejecución, para no informar un éxito que no ocurrió, y devuelve la máquina ya en estado «running».
 
 <a name="BindingConfig"></a>
-## type [BindingConfig](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L61-L75>)
+## type [BindingConfig](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L66-L80>)
 
 BindingConfig reúne las dependencias de la vinculación.
 
@@ -1053,7 +1061,7 @@ func (p *Packages) List(ctx context.Context) ([]Package, error)
 List devuelve los paquetes instalados en la máquina.
 
 <a name="Registration"></a>
-## type [Registration](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L56-L58>)
+## type [Registration](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L61-L63>)
 
 Registration informa si una máquina ya fue registrada en la consola.
 
@@ -1064,7 +1072,7 @@ type Registration interface {
 ```
 
 <a name="Selector"></a>
-## type [Selector](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L48-L53>)
+## type [Selector](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L53-L58>)
 
 Selector es la máquina con la que trabaja la consola. El descubridor de sesión lo implementa: vincular es cambiar su objetivo.
 
@@ -1236,7 +1244,7 @@ func NewSystemd(sessions SessionOpener) *Systemd
 NewSystemd construye el servicio con el abridor de sesiones dado.
 
 <a name="Systemd.ChangeState"></a>
-### func \(\*Systemd\) [ChangeState](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L184-L186>)
+### func \(\*Systemd\) [ChangeState](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L226-L228>)
 
 ```go
 func (s *Systemd) ChangeState(ctx context.Context, unit string, active, enabled *bool) (Outcome, error)
@@ -1245,7 +1253,7 @@ func (s *Systemd) ChangeState(ctx context.Context, unit string, active, enabled 
 ChangeState activa o desactiva la unidad, o su arranque con el sistema.
 
 <a name="Systemd.Deploy"></a>
-### func \(\*Systemd\) [Deploy](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L142-L144>)
+### func \(\*Systemd\) [Deploy](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L184-L186>)
 
 ```go
 func (s *Systemd) Deploy(ctx context.Context, unit string, files []DeploymentFile, user, group string) (Outcome, error)
@@ -1272,13 +1280,22 @@ func (s *Systemd) List(ctx context.Context) ([]UnitState, error)
 List devuelve las unidades de servicio con su estado.
 
 <a name="Systemd.Restart"></a>
-### func \(\*Systemd\) [Restart](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L213>)
+### func \(\*Systemd\) [Restart](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L255>)
 
 ```go
 func (s *Systemd) Restart(ctx context.Context, unit string) (Outcome, error)
 ```
 
 Restart reinicia una unidad.
+
+<a name="Systemd.Status"></a>
+### func \(\*Systemd\) [Status](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L141>)
+
+```go
+func (s *Systemd) Status(ctx context.Context, unit string) (Outcome, error)
+```
+
+Status devuelve la salida de «systemctl status» para una unidad.
 
 <a name="UnitState"></a>
 ## type [UnitState](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/systemd.go#L36-L47>)
@@ -1301,7 +1318,7 @@ type UnitState struct {
 ```
 
 <a name="User"></a>
-## type [User](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L41-L52>)
+## type [User](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L44-L55>)
 
 User describe una cuenta local de la máquina.
 
@@ -1321,7 +1338,7 @@ type User struct {
 ```
 
 <a name="Users"></a>
-## type [Users](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L55-L59>)
+## type [Users](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L58-L62>)
 
 Users implementa el caso de uso de gestión de cuentas locales.
 
@@ -1332,7 +1349,7 @@ type Users struct {
 ```
 
 <a name="NewUsers"></a>
-### func [NewUsers](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L63>)
+### func [NewUsers](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L66>)
 
 ```go
 func NewUsers(config UsersConfig) *Users
@@ -1341,7 +1358,7 @@ func NewUsers(config UsersConfig) *Users
 NewUsers construye el servicio de usuarios con las dependencias dadas.
 
 <a name="Users.Create"></a>
-### func \(\*Users\) [Create](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L148>)
+### func \(\*Users\) [Create](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L151>)
 
 ```go
 func (u *Users) Create(ctx context.Context, name string, sudo, keys bool) (Outcome, error)
@@ -1350,7 +1367,7 @@ func (u *Users) Create(ctx context.Context, name string, sudo, keys bool) (Outco
 Create crea una cuenta, la agrega a sudo si se pide y genera sus llaves cuando corresponde.
 
 <a name="Users.Delete"></a>
-### func \(\*Users\) [Delete](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L235>)
+### func \(\*Users\) [Delete](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L286>)
 
 ```go
 func (u *Users) Delete(ctx context.Context, name string, files bool) (Outcome, error)
@@ -1359,7 +1376,7 @@ func (u *Users) Delete(ctx context.Context, name string, files bool) (Outcome, e
 Delete elimina una cuenta y, opcionalmente, sus archivos.
 
 <a name="Users.DownloadKey"></a>
-### func \(\*Users\) [DownloadKey](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L283>)
+### func \(\*Users\) [DownloadKey](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L334>)
 
 ```go
 func (u *Users) DownloadKey(name string) (file string, content []byte, err error)
@@ -1367,8 +1384,17 @@ func (u *Users) DownloadKey(name string) (file string, content []byte, err error
 
 DownloadKey devuelve el nombre y el contenido de la llave privada del usuario.
 
+<a name="Users.GenerateKey"></a>
+### func \(\*Users\) [GenerateKey](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L239>)
+
+```go
+func (u *Users) GenerateKey(ctx context.Context, name string) (Outcome, error)
+```
+
+GenerateKey crea el par de llaves de un usuario existente, instala la pública en su authorized\_keys y deshabilita el acceso por contraseña.
+
 <a name="Users.Get"></a>
-### func \(\*Users\) [Get](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L117>)
+### func \(\*Users\) [Get](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L120>)
 
 ```go
 func (u *Users) Get(ctx context.Context, name string) (User, error)
@@ -1377,7 +1403,7 @@ func (u *Users) Get(ctx context.Context, name string) (User, error)
 Get devuelve una cuenta de la máquina.
 
 <a name="Users.List"></a>
-### func \(\*Users\) [List](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L72>)
+### func \(\*Users\) [List](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L75>)
 
 ```go
 func (u *Users) List(ctx context.Context) ([]User, error)
@@ -1386,7 +1412,7 @@ func (u *Users) List(ctx context.Context) ([]User, error)
 List devuelve las cuentas regulares \(UID entre 1000 y 65533\).
 
 <a name="UsersConfig"></a>
-## type [UsersConfig](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L31-L38>)
+## type [UsersConfig](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L34-L41>)
 
 UsersConfig reúne las dependencias del servicio de usuarios.
 
@@ -1402,7 +1428,7 @@ type UsersConfig struct {
 ```
 
 <a name="VirtualMachine"></a>
-## type [VirtualMachine](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L33-L44>)
+## type [VirtualMachine](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L33-L49>)
 
 VirtualMachine es una máquina del inventario tal como la publica la consola: el nombre, el UUID, su estado y si es la vinculada.
 
@@ -1418,6 +1444,11 @@ type VirtualMachine struct {
     Active bool
     // IsRegistered indica que la consola ya preparó SSH en la máquina.
     IsRegistered bool
+    // Administrable indica si la consola puede abrir una sesión con la
+    // máquina en su estado actual.
+    Administrable bool
+    // Warning explica por qué la máquina no es administrable.
+    Warning string
 }
 ```
 

@@ -9,6 +9,8 @@ import { renderPaquetes } from './views/paquetes.js';
 import { renderUsuarios } from './views/usuarios.js';
 import { renderHaproxy } from './views/haproxy.js';
 import { renderHistorial } from './views/historial.js';
+import { renderIssue } from './views/issue.js';
+import { renderLlaves } from './views/llaves.js';
 
 /**
  * Sustituye `fetch` por un doble que responde con el cuerpo dado.
@@ -37,6 +39,7 @@ function prepararRanura() {
 afterEach(() => {
   vi.unstubAllGlobals();
   document.body.innerHTML = '';
+  window.localStorage.clear();
 });
 
 describe('iconos', () => {
@@ -103,6 +106,104 @@ describe('selector de máquina virtual', () => {
     expect(selector.querySelectorAll('[data-maquina]')).toHaveLength(2);
     expect(selector.querySelector('[aria-selected="true"]').dataset.maquina).toBe('debian-1');
     expect(selector.querySelector('#vm-olvidar').classList.contains('hidden')).toBe(true);
+  });
+
+
+  it('muestra las máquinas sin Guest Additions con un aviso', async () => {
+    simularFetch({
+      maquinas: [{
+        nombre: 'debian-1', uuid: 'uuid-1', estado: 'running', activa: false,
+        administrable: false, advertencia: 'Guest Additions no está disponible',
+      }],
+    });
+
+    const selector = VMSelector();
+    document.body.appendChild(selector);
+
+    await vi.waitFor(() => {
+      expect(selector.querySelector('#vm-lista').textContent).toContain('Sin Guest Additions');
+    });
+
+    expect(selector.querySelector('[data-maquina]')).toBeNull();
+
+    selector.querySelector('[data-ocultar]').click();
+
+    await vi.waitFor(() => {
+      expect(selector.querySelector('#vm-pie').textContent).toContain('1 oculta');
+    });
+  });
+
+  it('oculta una máquina no administrable y permite mostrarla de nuevo', async () => {
+    window.localStorage.setItem('vmcons:maquinas-ocultas', JSON.stringify(['debian-1']));
+
+    simularFetch({
+      maquinas: [{
+        nombre: 'debian-1', uuid: 'uuid-1', estado: 'running', activa: false,
+        administrable: false, advertencia: 'Guest Additions no está disponible',
+      }],
+    });
+
+    const selector = VMSelector();
+    document.body.appendChild(selector);
+
+    await vi.waitFor(() => {
+      expect(selector.querySelector('#vm-pie').textContent).toContain('1 oculta');
+    });
+
+    expect(selector.querySelector('[data-maquina]')).toBeNull();
+
+    selector.querySelector('#vm-mostrar-ocultas').click();
+
+    await vi.waitFor(() => {
+      expect(selector.querySelector('#vm-lista').textContent).toContain('Sin Guest Additions');
+    });
+  });
+
+  it('conserva el inventario si una recarga falla', async () => {
+    let fallar = false;
+
+    vi.stubGlobal('fetch', async () => {
+      if (fallar) {
+        return {
+          ok: false,
+          status: 500,
+          headers: { get: (clave) => (clave.toLowerCase() === 'content-type' ? 'application/json' : null) },
+          json: async () => ({ mensaje: 'No fue posible consultar las máquinas virtuales del hipervisor.' }),
+          text: async () => '{"mensaje":"No fue posible consultar las máquinas virtuales del hipervisor."}',
+          blob: async () => new Blob(['x']),
+        };
+      }
+
+      const cuerpo = {
+        maquinas: [{ nombre: 'debian-1', uuid: 'uuid-1', estado: 'running', activa: true }],
+      };
+
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' },
+        json: async () => cuerpo,
+        text: async () => JSON.stringify(cuerpo),
+        blob: async () => new Blob(['x']),
+      };
+    });
+
+    const selector = VMSelector();
+    document.body.appendChild(selector);
+
+    await vi.waitFor(() => {
+      expect(selector.querySelector('[data-maquina]')).not.toBeNull();
+    });
+
+    fallar = true;
+    selector.querySelector('#vm-boton').click();
+
+    await vi.waitFor(() => {
+      expect(selector.querySelector('#vm-pie').textContent).toContain('No se pudo actualizar');
+    });
+
+    expect(selector.querySelector('[data-maquina]')).not.toBeNull();
+    expect(selector.querySelector('#vm-lista').textContent).toContain('debian-1');
   });
 
   it('olvida el registro de la máquina vinculada tras confirmar', async () => {
@@ -247,7 +348,7 @@ describe('encendido de la máquina', () => {
 });
 
 describe('cambio de máquina', () => {
-  it('avisa aunque la máquina no tenga credenciales registradas', async () => {
+  it('notifies the caller without opening registration for an unregistered machine', async () => {
     const alVincular = vi.fn();
 
     vi.stubGlobal('fetch', async (url, opciones) => {
@@ -279,6 +380,9 @@ describe('cambio de máquina', () => {
     await vi.waitFor(() => {
       expect(alVincular).toHaveBeenCalled();
     });
+
+    expect(document.querySelector('#registro-form')).toBeNull();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 });
 
@@ -322,16 +426,28 @@ describe('vistas conectadas', () => {
     });
   });
 
-  it('avisa sobre el resguardo de la llave privada de un usuario', async () => {
+  it('no muestra el bloque de descarga de llaves y conserva la descarga por fila', async () => {
     prepararRanura();
-    simularFetch({ usuarios: [] });
+    simularFetch({
+      usuarios: [{
+        nombre: 'alumno',
+        sudo: false,
+        llaves: true,
+        uid: '1001',
+        home: '/home/alumno',
+      }],
+    });
 
     const vista = renderUsuarios();
     document.body.appendChild(vista);
 
     await vi.waitFor(() => {
-      expect(vista.textContent).toContain('Guarda la llave privada en un lugar seguro');
+      expect(vista.textContent).toContain('alumno');
     });
+
+    expect(vista.textContent).not.toContain('Descarga de llaves');
+    expect(vista.querySelector('#descarga-nombre')).toBeNull();
+    expect(vista.querySelector('[data-descargar="alumno"]')).not.toBeNull();
   });
 
   it('muestra el resumen legible de cada operación del historial', async () => {
@@ -359,5 +475,137 @@ describe('vistas conectadas', () => {
     const celdas = vista.querySelectorAll('#historial-filas tr td');
     expect(celdas).toHaveLength(6);
     expect(celdas[4].textContent).toBe('POST /api/packages');
+  });
+});
+
+describe('configuración de /etc/issue', () => {
+  it('renderiza la vista previa con los valores y conserva el mensaje', async () => {
+    vi.stubGlobal('fetch', async (url) => {
+      const cuerpo = url.includes('/hostname')
+        ? { nombre: 'vm1', ip: '192.168.1.16', actualizar_hosts: true }
+        : {
+            mensaje: 'Bienvenido',
+            nombre_host: true,
+            fecha: true,
+            hora: true,
+            ip: true,
+            contenido: 'Bienvenido\nHostname: \\n\nFecha: \\d\nHora: \\t\nIP: \\4\n',
+          };
+
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' },
+        json: async () => cuerpo,
+        text: async () => JSON.stringify(cuerpo),
+        blob: async () => new Blob(['x']),
+      };
+    });
+
+    const vista = renderIssue();
+    document.body.appendChild(vista);
+
+    await vi.waitFor(() => {
+      expect(vista.querySelector('#issue-mensaje').value).toContain('Hostname: \\n');
+    });
+
+    const campo = vista.querySelector('#issue-mensaje').value;
+
+    expect(campo).toContain('Bienvenido');
+    expect(campo).toContain('Fecha: \\d');
+    expect(campo).toContain('Hora: \\t');
+    expect(campo).toContain('IP: \\4');
+
+    const preview = vista.querySelector('#issue-preview').textContent;
+
+    expect(preview).toContain('Hostname: vm1');
+    expect(preview).toContain('IP: 192.168.1.16');
+    expect(preview).not.toContain('\\4');
+    expect(preview).not.toContain('\\n');
+  });
+
+  it('inserta y quita el bloque de una casilla en el mensaje', async () => {
+    vi.stubGlobal('fetch', async (url) => {
+      const cuerpo = url.includes('/hostname')
+        ? { nombre: 'vm1', ip: '192.168.1.16', actualizar_hosts: true }
+        : {
+            mensaje: 'Bienvenido',
+            nombre_host: false,
+            fecha: false,
+            hora: false,
+            ip: false,
+            contenido: 'Bienvenido\n',
+          };
+
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' },
+        json: async () => cuerpo,
+        text: async () => JSON.stringify(cuerpo),
+        blob: async () => new Blob(['x']),
+      };
+    });
+
+    const vista = renderIssue();
+    document.body.appendChild(vista);
+
+    await vi.waitFor(() => {
+      expect(vista.querySelector('#issue-mensaje').value).toBe('Bienvenido');
+    });
+
+    const casilla = vista.querySelector('input[name="hora"]');
+    casilla.click();
+
+    await vi.waitFor(() => {
+      expect(vista.querySelector('#issue-mensaje').value).toContain('Hora: \\t');
+    });
+
+    expect(casilla.checked).toBe(true);
+
+    casilla.click();
+
+    await vi.waitFor(() => {
+      expect(vista.querySelector('#issue-mensaje').value).not.toContain('Hora: \\t');
+    });
+
+    expect(casilla.checked).toBe(false);
+  });
+});
+
+describe('llaves SSH', () => {
+  it('permite elegir root o un usuario y muestra su ruta', async () => {
+    vi.stubGlobal('fetch', async (url) => {
+      const cuerpo = url.includes('/users')
+        ? { usuarios: [{ nombre: 'alumno', sudo: false, llaves: false, uid: '1001', home: '/home/alumno' }] }
+        : {};
+
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' },
+        json: async () => cuerpo,
+        text: async () => JSON.stringify(cuerpo),
+        blob: async () => new Blob(['x']),
+      };
+    });
+
+    const vista = renderLlaves();
+    document.body.appendChild(vista);
+
+    await vi.waitFor(() => {
+      expect(vista.querySelector('#llave-usuario').options).toHaveLength(2);
+    });
+
+    const select = vista.querySelector('#llave-usuario');
+
+    expect(select.options[0].textContent).toContain('root (conexión)');
+
+    select.value = 'alumno';
+    select.dispatchEvent(new Event('change'));
+
+    expect(vista.querySelector('#llave-titulo').textContent).toContain('alumno');
+    expect(vista.querySelector('#llave-descripcion').textContent).toContain('/home/alumno/.ssh/authorized_keys');
+    expect(vista.querySelector('#llave-estado').textContent).toBe('no generada');
   });
 });

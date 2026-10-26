@@ -5,10 +5,10 @@ import { ejecutar, escapar, inhabilitar, mensajeDeError } from '../ui.js';
 
 /** Opciones del banner y su escape de `agetty`. */
 const OPCIONES = [
-  ['nombre_host', 'Mostrar nombre del host', '\\n'],
-  ['fecha', 'Mostrar fecha', '\\d'],
-  ['hora', 'Mostrar hora', '\\t'],
-  ['ip', 'Mostrar dirección IP', '\\4'],
+  ['nombre_host', 'Mostrar nombre del host', 'Hostname: \\n'],
+  ['fecha', 'Mostrar fecha', 'Fecha: \\d'],
+  ['hora', 'Mostrar hora', 'Hora: \\t'],
+  ['ip', 'Mostrar dirección IP', 'IP: \\4'],
 ];
 
 /**
@@ -29,10 +29,11 @@ export function renderIssue() {
         <div class="flex flex-col gap-1">
           <label class="label" for="issue-mensaje">Mensaje personalizado</label>
           <textarea id="issue-mensaje" name="mensaje" class="input h-auto py-1 font-mono" rows="2" maxlength="512" placeholder="Debian GNU/Linux 13"></textarea>
-          <span class="text-[11px] text-vm-fgSecondary">Hasta 512 caracteres. No se admite el carácter nulo.</span>
+          <span class="text-[11px] text-vm-fgSecondary">Hasta 512 caracteres. Se permiten saltos de línea.</span>
         </div>
         <div class="flex flex-col gap-1 text-[12px]">
           ${OPCIONES.map(([clave, etiqueta]) => `<label class="flex items-center gap-1.5"><input type="checkbox" name="${clave}"> ${etiqueta}</label>`).join('')}
+          <span class="text-[11px] text-vm-fgSecondary">Al marcar una casilla se agrega su bloque al mensaje; puedes editarlo o quitarlo.</span>
         </div>
         <section class="card">
           <header class="px-3 py-1 border-b border-vm-border bg-[#f7f7f7]"><div class="flex items-center gap-1.5"><i data-lucide="eye" class="w-3 h-3"></i><span class="text-[11px]">Vista previa</span></div></header>
@@ -56,34 +57,92 @@ export function renderIssue() {
   /** Última configuración confirmada por el servidor. */
   let confirmada = { mensaje: '', nombre_host: false, fecha: false, hora: false, ip: false, contenido: '' };
 
+  /** Datos de la máquina para renderizar la vista previa. */
+  let contexto = { nombre: '', ip: '' };
+
   /**
-   * Lee el formulario y devuelve la solicitud del contrato.
+   * Sustituye las secuencias de agetty por valores visibles.
+   *
+   * @param {string} texto Texto del banner.
+   * @param {Record<string, string>} valores Valores por secuencia.
+   * @returns {string} Texto renderizado.
+   */
+  const renderizar = (texto, valores) =>
+    texto.replace(/\\([a-zA-Z0-9])/g, (original, clave) => valores[clave] ?? original);
+
+  /** Valores de las secuencias para la vista previa. */
+  const valoresPreview = () => ({
+    n: contexto.nombre || 'nombre-host',
+    d: new Intl.DateTimeFormat('es-CO').format(new Date()),
+    t: new Date().toLocaleTimeString('es-CO', { hour12: false }),
+    4: contexto.ip || '192.168.1.10',
+    l: 'tty1',
+    s: 'Linux',
+    S: 'Debian GNU/Linux',
+  });
+
+  /**
+   * Agrega un bloque de opción al mensaje si todavía no está.
+   *
+   * @param {string} texto Mensaje actual.
+   * @param {string} bloque Línea que se agrega.
+   * @returns {string} Mensaje con el bloque.
+   */
+  const agregarBloque = (texto, bloque) => {
+    const lineas = texto.split('\n').map((linea) => linea.trim());
+
+    if (lineas.includes(bloque.trim())) {
+      return texto;
+    }
+
+    return texto.trimEnd() ? `${texto.trimEnd()}\n${bloque}` : bloque;
+  };
+
+  /**
+   * Quita un bloque de opción del mensaje.
+   *
+   * @param {string} texto Mensaje actual.
+   * @param {string} bloque Línea que se quita.
+   * @returns {string} Mensaje sin el bloque.
+   */
+  const quitarBloque = (texto, bloque) =>
+    texto
+      .split('\n')
+      .filter((linea) => linea.trim() !== bloque.trim())
+      .join('\n');
+
+  /** Sincroniza las casillas con los bloques presentes en el mensaje. */
+  const sincronizarCasillas = () => {
+    const lineas = mensaje.value.split('\n').map((linea) => linea.trim());
+
+    for (const [clave, , bloque] of OPCIONES) {
+      formulario.elements[clave].checked = lineas.includes(bloque.trim());
+    }
+  };
+
+  /**
+   * Lee el formulario y devuelve la solicitud del contrato. El mensaje
+   * contiene también los bloques de las casillas, así que las opciones
+   * booleanas van desactivadas para no duplicarlas.
    *
    * @returns {{mensaje: string, nombre_host: boolean, fecha: boolean, hora: boolean, ip: boolean}}
    */
   const leer = () => ({
     mensaje: mensaje.value,
-    nombre_host: formulario.elements.nombre_host.checked,
-    fecha: formulario.elements.fecha.checked,
-    hora: formulario.elements.hora.checked,
-    ip: formulario.elements.ip.checked,
+    nombre_host: false,
+    fecha: false,
+    hora: false,
+    ip: false,
   });
 
   /** Repinta la vista previa local a partir del formulario. */
   const previsualizar = () => {
     const configuracion = leer();
-    const marcas = OPCIONES.filter(([clave]) => configuracion[clave]).map(([, , escape]) => escape);
-    const lineas = [];
+    const valores = valoresPreview();
+    const texto = configuracion.mensaje.replace(/\r\n/g, '\n');
+    const lineas = texto.split('\n').map((linea) => renderizar(linea, valores));
 
-    if (configuracion.mensaje.trim()) {
-      lineas.push(configuracion.mensaje);
-    }
-
-    if (marcas.length > 0) {
-      lineas.push(marcas.join(' '));
-    }
-
-    vistaPrevia.textContent = lineas.length > 0 ? lineas.join('\n') : '(banner vacío)';
+    vistaPrevia.textContent = lineas.some((linea) => linea.trim()) ? lineas.join('\n') : '(banner vacío)';
   };
 
   /**
@@ -93,17 +152,18 @@ export function renderIssue() {
    */
   const volcar = (configuracion) => {
     confirmada = { ...confirmada, ...configuracion };
-    mensaje.value = configuracion.mensaje ?? '';
-    formulario.elements.nombre_host.checked = Boolean(configuracion.nombre_host);
-    formulario.elements.fecha.checked = Boolean(configuracion.fecha);
-    formulario.elements.hora.checked = Boolean(configuracion.hora);
-    formulario.elements.ip.checked = Boolean(configuracion.ip);
 
-    if (configuracion.contenido) {
-      vistaPrevia.textContent = configuracion.contenido;
-    } else {
-      previsualizar();
+    let texto = configuracion.mensaje ?? '';
+
+    for (const [clave, , bloque] of OPCIONES) {
+      if (configuracion[clave]) {
+        texto = agregarBloque(texto, bloque);
+      }
     }
+
+    mensaje.value = texto;
+    sincronizarCasillas();
+    previsualizar();
   };
 
   const cargar = async () => {
@@ -111,7 +171,17 @@ export function renderIssue() {
     vistaPrevia.textContent = 'Consultando…';
 
     try {
-      volcar(await api.issue.obtener());
+      const [configuracion, hostname] = await Promise.all([
+        api.issue.obtener(),
+        api.hostname.obtener().catch(() => null),
+      ]);
+
+      contexto = {
+        nombre: hostname?.nombre ?? '',
+        ip: hostname?.ip ?? '',
+      };
+
+      volcar(configuracion);
     } catch (error) {
       vistaPrevia.textContent = mensajeDeError(error);
     } finally {
@@ -119,8 +189,30 @@ export function renderIssue() {
     }
   };
 
-  formulario.addEventListener('input', previsualizar);
-  formulario.addEventListener('change', previsualizar);
+  formulario.addEventListener('input', (evento) => {
+    // Solo el textarea sincroniza las casillas. En un checkbox, el evento
+    // input llega antes que change y desmarcaría la casilla antes de
+    // insertar su bloque.
+    if (evento.target === mensaje) {
+      sincronizarCasillas();
+    }
+
+    previsualizar();
+  });
+
+  formulario.addEventListener('change', (evento) => {
+    const opcion = OPCIONES.find(([clave]) => clave === evento.target.name);
+
+    if (opcion && evento.target.type === 'checkbox') {
+      const [, , bloque] = opcion;
+      mensaje.value = evento.target.checked
+        ? agregarBloque(mensaje.value, bloque)
+        : quitarBloque(mensaje.value, bloque);
+    }
+
+    sincronizarCasillas();
+    previsualizar();
+  });
   el.querySelector('#issue-refresh').addEventListener('click', cargar);
   el.querySelector('#issue-restablecer').addEventListener('click', () => volcar(confirmada));
 

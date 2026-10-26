@@ -37,11 +37,13 @@ func NewMachines(service MachinesService) *Machines {
 
 // machineResponse es una máquina del inventario en la respuesta JSON.
 type machineResponse struct {
-	Name         string `json:"nombre"`
-	UUID         string `json:"uuid"`
-	State        string `json:"estado"`
-	Active       bool   `json:"activa"`
-	IsRegistered bool   `json:"registrada"`
+	Name          string `json:"nombre"`
+	UUID          string `json:"uuid"`
+	State         string `json:"estado"`
+	Active        bool   `json:"activa"`
+	IsRegistered  bool   `json:"registrada"`
+	Administrable bool   `json:"administrable"`
+	Warning       string `json:"advertencia,omitempty"`
 }
 
 // machineList es el cuerpo de GET /api/vms.
@@ -52,11 +54,13 @@ type machineList struct {
 // newMachineResponse traduce la máquina del servicio al contrato.
 func newMachineResponse(machine services.VirtualMachine) machineResponse {
 	return machineResponse{
-		Name:         machine.Name,
-		UUID:         machine.UUID,
-		State:        string(machine.State),
-		Active:       machine.Active,
-		IsRegistered: machine.IsRegistered,
+		Name:          machine.Name,
+		UUID:          machine.UUID,
+		State:         string(machine.State),
+		Active:        machine.Active,
+		IsRegistered:  machine.IsRegistered,
+		Administrable: machine.Administrable,
+		Warning:       machine.Warning,
 	}
 }
 

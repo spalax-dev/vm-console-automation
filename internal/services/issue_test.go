@@ -72,6 +72,16 @@ func TestIssueWriteGeneratesContent(t *testing.T) {
 	}
 }
 
+// TestBuildIssueKeepsLineBreaks comprueba que el mensaje multilínea se
+// conserva tal cual en el archivo.
+func TestBuildIssueKeepsLineBreaks(t *testing.T) {
+	t.Parallel()
+
+	if got := buildIssue(IssueConfig{Message: "linea1\nlinea2"}); got != "linea1\nlinea2\n" {
+		t.Errorf("buildIssue() = %q, want el mensaje multilínea", got)
+	}
+}
+
 // TestIssueGetReconoceOptions comprueba la lectura del formato de la
 // consola.
 func TestIssueGetReconoceOptions(t *testing.T) {

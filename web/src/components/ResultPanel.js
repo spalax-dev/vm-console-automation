@@ -156,6 +156,107 @@ function alFinal(cuerpo) {
 }
 
 /**
+ * Decide si una salida corresponde a `systemctl status` por sus cabeceras.
+ *
+ * @param {string} salida Texto capturado.
+ * @returns {boolean} `true` si se puede pintar con el formato de systemd.
+ */
+function esSalidaSystemctl(salida) {
+  return /(^|\n)\s*(Loaded|Active):\s/.test(salida);
+}
+
+/**
+ * Pinta una salida de `systemctl status` con etiquetas y estados
+ * resaltados. Todo el contenido se escapa antes de insertarse.
+ *
+ * @param {string} salida Texto capturado.
+ * @returns {string} HTML seguro.
+ */
+function formatearSalidaSystemctl(salida) {
+  return salida
+    .split('\n')
+    .map((linea) => {
+      if (linea.trim() === '') {
+        return '<div class="h-2"></div>';
+      }
+
+      const cabecera = linea.match(/^(\s*)●\s+(.*)$/);
+
+      if (cabecera) {
+        return `<div class="whitespace-pre-wrap">${cabecera[1]}<span class="text-vm-accent">●</span> <span class="font-medium text-[#E8E8E8]">${escapar(cabecera[2])}</span></div>`;
+      }
+
+      const journal = linea.match(/^(\s*)([A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\s+(\S+)\s+([^:]+):\s*(.*)$/);
+
+      if (journal) {
+        return `<div class="whitespace-pre-wrap">${journal[1]}<span class="text-vm-fgSecondary">${escapar(journal[2])}</span> <span class="text-vm-fgSecondary">${escapar(journal[3])}</span> <span class="text-vm-fgSecondary">${escapar(journal[4])}:</span> ${resaltarEstado(journal[5])}</div>`;
+      }
+
+      const propiedad = linea.match(/^(\s*)([A-Z][A-Za-z0-9 ]*?):(.*)$/);
+
+      if (propiedad) {
+        return `<div class="whitespace-pre-wrap">${propiedad[1]}<span class="text-vm-fgSecondary">${escapar(propiedad[2])}:</span>${resaltarEstado(propiedad[3])}</div>`;
+      }
+
+      return `<div class="whitespace-pre-wrap">${resaltarEstado(linea)}</div>`;
+    })
+    .join('');
+}
+
+/**
+ * Colorea los estados habituales de systemd sin alterar el texto.
+ *
+ * @param {string} texto Fragmento de una línea.
+ * @returns {string} HTML seguro.
+ */
+function resaltarEstado(texto) {
+  const clases = {
+    active: 'text-vm-success',
+    running: 'text-vm-success',
+    loaded: 'text-vm-success',
+    enabled: 'text-vm-success',
+    listening: 'text-vm-success',
+    plugged: 'text-vm-success',
+    mounted: 'text-vm-success',
+    exited: 'text-vm-success',
+    inactive: 'text-vm-warning',
+    dead: 'text-vm-warning',
+    disabled: 'text-vm-warning',
+    static: 'text-vm-warning',
+    waiting: 'text-vm-warning',
+    skipped: 'text-vm-warning',
+    activating: 'text-vm-warning',
+    deactivating: 'text-vm-warning',
+    reloading: 'text-vm-warning',
+    failed: 'text-vm-accent',
+    error: 'text-vm-accent',
+  };
+
+  return texto
+    .split(/(\b(?:active|running|loaded|enabled|listening|plugged|mounted|exited|inactive|dead|disabled|static|waiting|skipped|activating|deactivating|reloading|failed|error)\b)/gi)
+    .map((parte) => {
+      const clase = clases[parte.toLowerCase()];
+
+      return clase ? `<span class="${clase}">${escapar(parte)}</span>` : escapar(parte);
+    })
+    .join('');
+}
+
+/**
+ * Elige entre la salida formateada de systemd y un bloque de texto plano.
+ *
+ * @param {string} salida Texto capturado.
+ * @returns {string} HTML seguro.
+ */
+function salidaHtml(salida) {
+  if (esSalidaSystemctl(salida)) {
+    return `<div class="salida-systemctl border p-2 overflow-auto text-[11px] font-mono max-h-[180px] whitespace-pre-wrap ${BLOQUE}">${formatearSalidaSystemctl(salida)}</div>`;
+  }
+
+  return `<pre class="border p-2 overflow-auto text-[11px] font-mono max-h-[120px] whitespace-pre-wrap ${BLOQUE}">${escapar(salida)}</pre>`;
+}
+
+/**
  * Construye la ficha de un resultado del historial.
  *
  * @param {object} resultado Resultado guardado.
@@ -183,10 +284,22 @@ function entrada(resultado, reciente) {
         <div class="px-2 py-2 flex flex-col gap-1 text-[11px] ${TEXTO}">
           <div><span class="${TEXTO_TENUE}">Orden ejecutada:</span> <span class="font-mono break-all">${escapar(resultado.operacion) || '-'}</span></div>
           <div><span class="${TEXTO_TENUE}">Código de salida:</span> <span class="font-mono">${escapar(resultado.codigo)}</span></div>
-          <div><span class="${TEXTO_TENUE}">Salida:</span></div>
-          <pre class="border p-2 overflow-auto text-[11px] font-mono max-h-[120px] whitespace-pre-wrap ${BLOQUE}">${escapar(resultado.salida) || '(vacío)'}</pre>
-          <div><span class="${TEXTO_TENUE}">stderr:</span></div>
-          <pre class="border p-2 overflow-auto text-[11px] font-mono max-h-[120px] whitespace-pre-wrap ${BLOQUE}">${escapar(resultado.stderr) || '(vacío)'}</pre>
+          ${
+            resultado.salida
+              ? `<div><span class="${TEXTO_TENUE}">Salida:</span></div>${salidaHtml(resultado.salida)}`
+              : ''
+          }
+          ${
+            resultado.stderr
+              ? `<div><span class="${TEXTO_TENUE}">stderr:</span></div>
+                 <pre class="border p-2 overflow-auto text-[11px] font-mono max-h-[120px] whitespace-pre-wrap ${BLOQUE}">${escapar(resultado.stderr)}</pre>`
+              : ''
+          }
+          ${
+            !resultado.salida && !resultado.stderr
+              ? `<div class="${TEXTO_TENUE}">La orden no produjo salida.</div>`
+              : ''
+          }
           ${
             resultado.tecnico
               ? `<div><span class="${TEXTO_TENUE}">Diagnóstico:</span> <span class="font-mono break-all">${escapar(resultado.tecnico)}</span></div>`

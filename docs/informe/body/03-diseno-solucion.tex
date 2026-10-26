@@ -143,12 +143,13 @@ el usuario y la contraseña y ejecuta una adecuación que prepara SSH. Las
 máquinas ya registradas no vuelven a pedir login: usan la llave y las
 credenciales guardadas en un archivo privado por máquina.
 
-El selector de máquina filtra por red: muestra las máquinas con la primera
-interfaz en modo puente u host-only, más las apagadas para poder
-encenderlas. Las encendidas se mantienen visibles aunque Guest Additions
-todavía no publique la dirección, para poder diagnosticarlas o registrarlas
-mientras arrancan. En NAT, red interna o sin adaptador el anfitrión no
-alcanza la IP y la máquina se omite.
+El selector de máquina filtra por red: incluye las máquinas con la primera
+interfaz en modo puente u host-only y marca cada una como administrable o
+no. Las apagadas se listan para encenderlas, las registradas usan SSH y las
+encendidas sin registro necesitan Guest Additions. Si una encendida no las
+tiene, se muestra con el aviso «Sin Guest Additions» y la interfaz pregunta
+si ocultarla o mantenerla; la preferencia se guarda en el navegador. En NAT,
+red interna o sin adaptador el anfitrión no alcanza la IP.
 
 Toda operación sigue el ciclo de la \cref{fig:flujo-proceso}: validación
 en el cliente para dar respuesta inmediata, validación en el servidor
@@ -190,9 +191,9 @@ en la \cref{tab:api-rest}, y el estado de implementación se describe en la
     por qué falla el acceso y olvidar el registro. \\
     Paquetes & Listar los paquetes instalados, instalar uno nuevo y
     eliminar uno existente con APT. \\
-    Llaves SSH & Generar el par de llaves de \texttt{root}, instalar la
-    pública, deshabilitar el acceso por contraseña y descargar la llave
-    privada. \\
+    Llaves SSH & Generar el par de llaves de \texttt{root} (conexión) o de
+    cualquier usuario, instalar la pública, deshabilitar el acceso por
+    contraseña y descargar la llave privada. \\
     \texttt{/etc/issue} & Consultar el banner actual y personalizarlo con
     un mensaje y con el nombre de host, la fecha, la hora y la dirección
     IP. \\
@@ -286,7 +287,7 @@ la ruta y las operaciones se expresan con los métodos HTTP estándar
     Hostname & \texttt{/api/\allowbreak hostname} (GET, PUT) \\
     Usuarios & \texttt{/api/\allowbreak users} (GET, POST) \\
     Usuario & \texttt{/api/\allowbreak users/\allowbreak\{name\}} (GET, DELETE) \\
-    Llave de usuario & \texttt{/api/\allowbreak users/\allowbreak\{name\}/\allowbreak key} (GET) \\
+    Llave de usuario & \texttt{/api/\allowbreak users/\allowbreak\{name\}/\allowbreak key} (GET, POST) \\
     Unidades & \texttt{/api/\allowbreak units} (GET) \\
     Unidad & \texttt{/api/\allowbreak units/\allowbreak\{unit\}} (GET, PUT, PATCH) \\
     Reinicio & \texttt{/api/\allowbreak units/\allowbreak\{unit\}/\allowbreak restarts} (POST) \\

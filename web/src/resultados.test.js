@@ -190,3 +190,86 @@ describe('panel de resultado', () => {
     expect(segundo.querySelector('#result-body').textContent).toContain('Se instaló nano');
   });
 });
+
+describe('detalle técnico del resultado', () => {
+  it('omits empty output blocks and explains when there is no output', () => {
+    const panel = ResultPanel();
+    document.body.appendChild(panel);
+
+    showResult({ ok: true, mensaje: 'Hecho', operacion: 'systemctl start demo.service', codigo: 0 });
+
+    const cuerpo = panel.querySelector('#result-body');
+
+    expect(cuerpo.textContent).toContain('La orden no produjo salida.');
+    expect(cuerpo.textContent).not.toContain('stderr:');
+  });
+
+  it('shows stdout and stderr when the command produces them', () => {
+    const panel = ResultPanel();
+    document.body.appendChild(panel);
+
+    showResult({
+      ok: true,
+      mensaje: 'Hecho',
+      operacion: 'systemctl status demo.service',
+      codigo: 0,
+      salida: 'active (running)',
+      stderr: 'warning',
+    });
+
+    const cuerpo = panel.querySelector('#result-body');
+
+    expect(cuerpo.textContent).toContain('active (running)');
+    expect(cuerpo.textContent).toContain('stderr:');
+    expect(cuerpo.textContent).toContain('warning');
+  });
+});
+
+describe('formato de la salida de systemd', () => {
+  it('highlights labels and states and escapes the output', () => {
+    const salida = [
+      '● getty-static.service - getty on tty2-tty6 if dbus and logind are not available',
+      '     Loaded: loaded (/usr/lib/systemd/system/getty-static.service; static)',
+      '     Active: inactive (dead)',
+      '  Condition: start condition unmet at Mon 2026-10-26 18:22:10 -05; 30min ago',
+      '',
+      'Oct 26 18:22:10 base systemd[1]: getty-static.service skipped <script>alert(1)</script>',
+    ].join('\n');
+
+    const panel = ResultPanel();
+    document.body.appendChild(panel);
+
+    showResult({
+      ok: true,
+      mensaje: 'Estado de la unidad.',
+      operacion: 'systemctl status getty-static.service',
+      codigo: 0,
+      salida,
+    });
+
+    const bloque = panel.querySelector('.salida-systemctl');
+
+    expect(bloque).not.toBeNull();
+    expect(bloque.querySelectorAll('span').length).toBeGreaterThan(3);
+    expect(bloque.textContent).toContain('Active: inactive (dead)');
+    expect(bloque.textContent).toContain('skipped');
+    expect(bloque.querySelector('script')).toBeNull();
+    expect(panel.innerHTML).not.toContain('<script>');
+  });
+
+  it('keeps ordinary output in a plain preformatted block', () => {
+    const panel = ResultPanel();
+    document.body.appendChild(panel);
+
+    showResult({
+      ok: true,
+      mensaje: 'Hecho',
+      operacion: 'echo hola',
+      codigo: 0,
+      salida: 'hola',
+    });
+
+    expect(panel.querySelector('.salida-systemctl')).toBeNull();
+    expect(panel.querySelector('pre').textContent).toBe('hola');
+  });
+});

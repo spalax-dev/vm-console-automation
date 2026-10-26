@@ -24,6 +24,8 @@ type UsersService interface {
 	Delete(ctx context.Context, name string, files bool) (services.Outcome, error)
 	// DownloadKey devuelve la llave privada de la cuenta.
 	DownloadKey(name string) (file string, content []byte, err error)
+	// GenerateKey genera e instala un par de llaves para la cuenta.
+	GenerateKey(ctx context.Context, name string) (services.Outcome, error)
 }
 
 // Users agrupa los recursos de gestión de usuarios (numeral 3.2).
@@ -201,16 +203,22 @@ func (h *Users) delete(w http.ResponseWriter, r *http.Request, name string) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// Key atiende GET /api/users/{name}/key: entrega la llave privada
-// generada para el usuario.
+// Key atiende GET y POST /api/users/{name}/key: descarga la llave
+// privada o genera un par nuevo para el usuario.
 func (h *Users) Key(w http.ResponseWriter, r *http.Request) {
-	if !requireMethod(w, r, http.MethodGet) {
+	if !requireMethod(w, r, http.MethodGet, http.MethodPost) {
 		return
 	}
 
 	name := r.PathValue(nameParam)
 	if err := validateUser(nameParam, name); err != nil {
 		respondValidacion(w, err)
+
+		return
+	}
+
+	if r.Method == http.MethodPost {
+		h.generateKey(w, r, name)
 
 		return
 	}
@@ -244,4 +252,36 @@ func (h *Users) Key(w http.ResponseWriter, r *http.Request) {
 	if _, err := w.Write(content); err != nil {
 		slog.Error("escribir la llave del usuario", errorKey, err)
 	}
+}
+
+// generateKey atiende POST /api/users/{name}/key.
+func (h *Users) generateKey(w http.ResponseWriter, r *http.Request, name string) {
+	if name == "root" {
+		respondValidacion(w, invalidField(nameParam, "la llave de root se administra en /api/keys/root"))
+
+		return
+	}
+
+	result, err := h.service.GenerateKey(r.Context(), name)
+	if errors.Is(err, services.ErrUserNotFound) {
+		writeJSON(w, http.StatusNotFound,
+			responseFromError(result, "El usuario «"+name+"» no existe.", err))
+
+		return
+	}
+
+	if errors.Is(err, services.ErrUserKeyExists) {
+		writeJSON(w, http.StatusConflict, responseFromError(result,
+			"El usuario «"+name+"» ya tiene un par de llaves.", err))
+
+		return
+	}
+
+	if err != nil {
+		respondErrorOperation(w, result, err)
+
+		return
+	}
+
+	writeResult(w, http.StatusCreated, result)
 }

@@ -227,3 +227,23 @@ describe('cliente de la API', () => {
     expect(error.tecnico).toBe('sin conector');
   });
 });
+
+describe('estado detallado de una unidad', () => {
+  it('consulta la salida de systemctl status por el subrecurso', async () => {
+    const { llamada } = simularFetch({
+      cuerpo: {
+        ok: true,
+        mensaje: 'Estado de la unidad.',
+        operacion: 'systemctl status catalogo.service',
+        codigo: 0,
+        salida: 'active (running)',
+      },
+    });
+
+    const resultado = await api.unidades.estadoDetallado('catalogo.service');
+
+    expect(resultado.salida).toBe('active (running)');
+    expect(llamada().url).toBe('/api/units/catalogo.service/status');
+    expect(llamada().opciones.method).toBe('GET');
+  });
+});

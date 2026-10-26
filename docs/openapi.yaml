@@ -21,7 +21,7 @@ info:
     | Hostname | `/api/hostname` | `GET`, `PUT` |
     | Usuarios | `/api/users` | `GET`, `POST` |
     | Usuario | `/api/users/{name}` | `GET`, `DELETE` |
-    | Llave de usuario | `/api/users/{name}/key` | `GET` |
+    | Llave de usuario | `/api/users/{name}/key` | `GET`, `POST` |
     | Unidades | `/api/units` | `GET` |
     | Unidad | `/api/units/{unit}` | `GET`, `PUT`, `PATCH` |
     | Reinicios | `/api/units/{unit}/restarts` | `POST` |
@@ -612,6 +612,30 @@ paths:
         '500':
           $ref: '#/components/responses/ErrorInterno'
 
+    post:
+      tags: [users]
+      summary: Generar e instalar un par de llaves para un usuario
+      operationId: generateUserKey
+      parameters:
+        - $ref: '#/components/parameters/UserName'
+      responses:
+        '201':
+          $ref: '#/components/responses/OperacionCorrecta'
+        '400':
+          $ref: '#/components/responses/EntradaInvalida'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: El usuario ya tiene un par de llaves en el anfitrión.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoOperacion'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
   /api/units:
     get:
       tags: [systemd]
@@ -696,6 +720,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EstadoUnidad'
+        '400':
+          $ref: '#/components/responses/EntradaInvalida'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
+  /api/units/{unit}/status:
+    get:
+      tags: [systemd]
+      summary: Consultar la salida de systemctl status
+      description: |
+        Ejecuta `systemctl status --no-pager --full` sobre la unidad y
+        devuelve su salida estándar, su salida de error y el código de
+        salida. Un código 3 (unidad inactiva o fallida) se considera una
+        consulta válida; un código 4 se traduce en `404`.
+      operationId: getUnitStatus
+      parameters:
+        - $ref: '#/components/parameters/Unit'
+      responses:
+        '200':
+          $ref: '#/components/responses/OperacionCorrecta'
         '400':
           $ref: '#/components/responses/EntradaInvalida'
         '404':
@@ -1405,7 +1453,7 @@ components:
         mensaje:
           type: string
           maxLength: 512
-          description: Mensaje personalizado, sin NUL.
+          description: Mensaje personalizado, sin NUL. Puede contener saltos de línea.
         nombre_host:
           type: boolean
         fecha:
@@ -1551,7 +1599,7 @@ components:
           description: Estado informado por systemd.
         detalle:
           type: string
-          description: Salida de `systemctl status` para diagnóstico.
+          description: Subestado informado por systemd (`running`, `dead`, `exited`, etc.).
 
     ListaUnidades:
       type: object
@@ -1624,7 +1672,7 @@ components:
 
     MaquinaVirtual:
       type: object
-      required: [nombre, uuid, estado, activa, registrada]
+      required: [nombre, uuid, estado, activa, registrada, administrable]
       properties:
         nombre:
           type: string
@@ -1643,6 +1691,16 @@ components:
         registrada:
           type: boolean
           description: La consola ya preparó SSH en esta máquina.
+        administrable:
+          type: boolean
+          description: |
+            La consola puede abrir una sesión con la máquina en su estado
+            actual. Una máquina encendida y sin registro SSH necesita Guest
+            Additions para ser administrable.
+        advertencia:
+          type: string
+          description: Motivo por el que la máquina no es administrable.
+          examples: [Guest Additions no está disponible]
 
     ListaMaquinas:
       type: object

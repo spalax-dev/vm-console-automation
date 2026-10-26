@@ -172,8 +172,8 @@ ejecutan con las tareas del proyecto (\texttt{task test},
     \texttt{core/domain} & 100.0\,\% \\
     \texttt{adapters/localproc} & 100.0\,\% \\
     \texttt{httpcache} & 100.0\,\% \\
-    \texttt{handlers} & 100.0\,\% \\
-    \texttt{services} & 98.7\,\% \\
+    \texttt{handlers} & 99.5\,\% \\
+    \texttt{services} & 98.6\,\% \\
     \texttt{adapters/ssh} & 100.0\,\% \\
     \texttt{adapters/vbox} & 100.0\,\% \\
     Ejecutable (\texttt{main}) & 82.2\,\% \\
@@ -182,11 +182,10 @@ ejecutan con las tareas del proyecto (\texttt{task test},
 \end{table}
 
 Las pruebas automatizadas terminan sin fallos y el análisis estático no
-reporta incidencias. Salvo \texttt{services}, todos los paquetes
-internos ---núcleo, adaptadores, caché y manejadores--- alcanzan el
-100\,\% de cobertura de sentencias; \texttt{services} llega al
-98.7\,\%, y las sentencias restantes son ramas de error de restauración,
-cifrado y cierre de sesión que exigen fallos encadenados. Los adaptadores
+reporta incidencias. Los paquetes internos alcanzan el 100\,\% salvo
+\texttt{handlers} (99.5\,\%) y \texttt{services} (98.6\,\%), donde las
+sentencias restantes son ramas de error de restauración, cifrado y cierre
+de sesión que exigen fallos encadenados. Los adaptadores
 y los servicios se prueban con ejecutores y sesiones falsos que devuelven
 salidas realistas de \texttt{VBoxManage} y \texttt{ssh}, y los
 manejadores con peticiones HTTP simuladas; las pruebas de campo P01 a P18

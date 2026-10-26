@@ -137,6 +137,48 @@ func (s *Systemd) Get(ctx context.Context, unit string) (UnitState, error) {
 	}, nil
 }
 
+// Status devuelve la salida de «systemctl status» para una unidad.
+func (s *Systemd) Status(ctx context.Context, unit string) (Outcome, error) {
+	session, err := s.sessions.Open(ctx)
+	if err != nil {
+		return Outcome{}, fmt.Errorf("abrir la sesión para consultar el estado de la unidad: %w", err)
+	}
+
+	defer closeSession(session)
+
+	cmd := &domain.Command{Path: binSystemctl, Args: []string{"status", unit, "--no-pager", "--full"}}
+
+	result, err := session.Run(ctx, cmd)
+
+	outcome := Outcome{
+		Message:   "Estado de la unidad «" + unit + "».",
+		Operation: cmd.ShellLine(),
+		Output:    result.Stdout,
+		Stderr:    result.Stderr,
+		Code:      result.ExitCode,
+	}
+
+	if err != nil {
+		var exitErr *domain.ExitError
+		if errors.As(err, &exitErr) {
+			switch exitErr.Code {
+			case 4:
+				return Outcome{}, ErrUnitNotFound
+			case 3:
+				// systemctl status devuelve 3 para una unidad inactiva o
+				// fallida; la salida sigue siendo válida para el usuario.
+				outcome.Code = 0
+
+				return outcome, nil
+			}
+		}
+
+		return outcome, fmt.Errorf("consultar el estado de la unidad %q: %w", unit, err)
+	}
+
+	return outcome, nil
+}
+
 // Deploy transfiere los archivos de una unidad, ajusta permisos y
 // recarga systemd.
 func (s *Systemd) Deploy(

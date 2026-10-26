@@ -36,7 +36,7 @@ export function renderInicio() {
         </div>
       </section>
       <p class="text-[11px] text-vm-fgSecondary px-1">
-        Solo se muestran las máquinas con Guest Additions y red puente/host-only (o apagadas, para poder encenderlas).
+        Se muestran las máquinas registradas, las que publican Guest Additions y las apagadas para poder encenderlas. Una encendida sin Guest Additions aparece con un aviso y puedes ocultarla o mantenerla en la lista.
       </p>
       <section class="card">
         <header class="px-3 py-1.5 border-b border-vm-border bg-[#f7f7f7]"><div class="flex items-center gap-1.5"><i data-lucide="layout-grid" class="w-4 h-4"></i><span class="text-[12px] font-medium">Módulos</span></div></header>

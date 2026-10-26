@@ -107,8 +107,8 @@ func (i *Issue) Write(ctx context.Context, config IssueConfig) (Outcome, error) 
 func buildIssue(config IssueConfig) string {
 	lines := []string{}
 
-	if strings.TrimSpace(config.Message) != "" {
-		lines = append(lines, config.Message)
+	if message := strings.ReplaceAll(config.Message, "\r\n", "\n"); strings.TrimSpace(message) != "" {
+		lines = append(lines, message)
 	}
 
 	if config.NameHost {

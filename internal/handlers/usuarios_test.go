@@ -32,6 +32,7 @@ type stubUsers struct {
 	downloadsErr error
 	created      int
 	deleted      int
+	generated    int
 }
 
 // List devuelve la lista preprogramada.
@@ -61,6 +62,14 @@ func (s *stubUsers) Delete(_ context.Context, name string, files bool) (services
 	s.name = name
 	s.files = files
 	s.deleted++
+
+	return s.result, s.err
+}
+
+// GenerateKey registra la generación y devuelve el resultado.
+func (s *stubUsers) GenerateKey(_ context.Context, name string) (services.Outcome, error) {
+	s.name = name
+	s.generated++
 
 	return s.result, s.err
 }
@@ -355,15 +364,70 @@ func TestUserDeleteError(t *testing.T) {
 	}
 }
 
-// TestUserSSHKeyMethod cubre el método no permitido al descargar.
+// TestUserSSHKeyMethod cubre un método no permitido en la llave.
 func TestUserSSHKeyMethod(t *testing.T) {
 	t.Parallel()
 
 	rec := runTestCaseWithPath(t, NewUsers(&stubUsers{}).Key, pathUserJorge+"/key", nameParam, userJorge, testCaseRequest{
-		name: testCaseMethodNotPermitido, method: http.MethodPost,
+		name: testCaseMethodNotPermitido, method: http.MethodPut,
 	})
 
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Fatalf(msgCode, rec.Code, http.StatusMethodNotAllowed)
 	}
+}
+
+// TestUsersGenerateKey comprueba la generación de la llave de un usuario.
+func TestUsersGenerateKey(t *testing.T) {
+	t.Parallel()
+
+	service := &stubUsers{result: services.Outcome{Message: "Llave generada."}}
+	rec := runTestCaseWithPath(t, NewUsers(service).Key, pathUserJorge+"/key", nameParam, userJorge, testCaseRequest{
+		name:   "generar llave",
+		method: http.MethodPost,
+		code:   http.StatusCreated,
+	})
+
+	if service.generated != 1 || service.name != userJorge {
+		t.Errorf("GenerateKey() = %d, %q, want 1, %q", service.generated, service.name, userJorge)
+	}
+
+	if rec.Code != http.StatusCreated {
+		t.Errorf("código = %d, want %d", rec.Code, http.StatusCreated)
+	}
+}
+
+// TestUsersGenerateKeyExisting comprueba el conflicto de una llave existente.
+func TestUsersGenerateKeyExisting(t *testing.T) {
+	t.Parallel()
+
+	service := &stubUsers{err: services.ErrUserKeyExists}
+	runTestCaseWithPath(t, NewUsers(service).Key, pathUserJorge+"/key", nameParam, userJorge, testCaseRequest{
+		name:   "llave existente",
+		method: http.MethodPost,
+		code:   http.StatusConflict,
+	})
+}
+
+// TestUsersGenerateKeyNotFound comprueba el usuario inexistente.
+func TestUsersGenerateKeyNotFound(t *testing.T) {
+	t.Parallel()
+
+	service := &stubUsers{err: services.ErrUserNotFound}
+	runTestCaseWithPath(t, NewUsers(service).Key, pathUserJorge+"/key", nameParam, userJorge, testCaseRequest{
+		name:   "usuario inexistente",
+		method: http.MethodPost,
+		code:   http.StatusNotFound,
+	})
+}
+
+// TestUsersGenerateKeyRoot rechaza la generación por la ruta de usuarios.
+func TestUsersGenerateKeyRoot(t *testing.T) {
+	t.Parallel()
+
+	runTestCaseWithPath(t, NewUsers(&stubUsers{}).Key, pathUsers+"/root/key", nameParam, "root", testCaseRequest{
+		name:   "root no se genera aquí",
+		method: http.MethodPost,
+		code:   http.StatusBadRequest,
+	})
 }

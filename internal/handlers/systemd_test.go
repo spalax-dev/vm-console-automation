@@ -19,18 +19,20 @@ var errUnit = errors.New("fallo de systemd")
 // stubSystemd es un servicio de systemd falso con resultados
 // preprogramados.
 type stubSystemd struct {
-	lists    []services.UnitState
-	state    services.UnitState
-	result   services.Outcome
-	err      error
-	getErr   error
-	unit     string
-	files    []services.DeploymentFile
-	user     string
-	group    string
-	active   *bool
-	enabled  *bool
-	restarts int
+	lists     []services.UnitState
+	state     services.UnitState
+	result    services.Outcome
+	status    services.Outcome
+	err       error
+	getErr    error
+	statusErr error
+	unit      string
+	files     []services.DeploymentFile
+	user      string
+	group     string
+	active    *bool
+	enabled   *bool
+	restarts  int
 }
 
 // List devuelve la lista preprogramada.
@@ -74,6 +76,13 @@ func (s *stubSystemd) Restart(_ context.Context, unit string) (services.Outcome,
 	s.restarts++
 
 	return s.result, s.err
+}
+
+// Status registra la unidad y devuelve la salida preprogramada.
+func (s *stubSystemd) Status(_ context.Context, unit string) (services.Outcome, error) {
+	s.unit = unit
+
+	return s.status, s.statusErr
 }
 
 // TestUnitsList cubre el listado de unidades.
@@ -458,4 +467,117 @@ func TestRestartsValidacion(t *testing.T) {
 		name: testCaseUnitInvalida, method: http.MethodPost,
 	})
 	checkTestCase(t, invalida, testCaseRequest{name: testCaseUnitInvalida, code: http.StatusBadRequest, field: unitParam})
+}
+
+// TestUnitStatus devuelve la salida real de systemctl status.
+func TestUnitStatus(t *testing.T) {
+	t.Parallel()
+
+	service := &stubSystemd{status: services.Outcome{
+		Message:   "Estado de la unidad «catalogo.service».",
+		Operation: "systemctl status catalogo.service --no-pager --full",
+		Output:    "● catalogo.service - Catálogo\n     Active: active (running)\n",
+		Code:      0,
+	}}
+
+	rec := runTestCaseWithPath(t, NewSystemd(service).Status, pathUnit+"/status",
+		unitParam, unitCatalogo, testCaseRequest{
+			name: "estado detallado", method: http.MethodGet,
+		})
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf(msgCode, rec.Code, http.StatusOK)
+	}
+
+	var body struct {
+		OK        bool   `json:"ok"`
+		Message   string `json:"mensaje"`
+		Operation string `json:"operacion"`
+		Output    string `json:"salida"`
+		Code      int    `json:"codigo"`
+	}
+
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf(msgJSONInvalid, err)
+	}
+
+	if !body.OK || body.Message == "" {
+		t.Errorf("respuesta = %+v, want ok y mensaje", body)
+	}
+
+	if body.Operation != service.status.Operation {
+		t.Errorf("operacion = %q, want %q", body.Operation, service.status.Operation)
+	}
+
+	if body.Output != service.status.Output {
+		t.Errorf("salida = %q, want %q", body.Output, service.status.Output)
+	}
+
+	if body.Code != 0 {
+		t.Errorf("codigo = %d, want 0", body.Code)
+	}
+
+	if service.unit != unitCatalogo {
+		t.Errorf("unidad = %q, want %q", service.unit, unitCatalogo)
+	}
+}
+
+// TestUnitStatusNotFound responde 404 si la unidad no existe.
+func TestUnitStatusNotFound(t *testing.T) {
+	t.Parallel()
+
+	service := &stubSystemd{statusErr: services.ErrUnitNotFound}
+
+	rec := runTestCaseWithPath(t, NewSystemd(service).Status, pathUnit+"/status",
+		unitParam, unitCatalogo, testCaseRequest{
+			name: "unidad inexistente", method: http.MethodGet,
+		})
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf(msgCode, rec.Code, http.StatusNotFound)
+	}
+}
+
+// TestUnitStatusError responde 500 ante un fallo inesperado.
+func TestUnitStatusError(t *testing.T) {
+	t.Parallel()
+
+	service := &stubSystemd{statusErr: errUnit}
+
+	rec := runTestCaseWithPath(t, NewSystemd(service).Status, pathUnit+"/status",
+		unitParam, unitCatalogo, testCaseRequest{
+			name: "error", method: http.MethodGet,
+		})
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
+	}
+}
+
+// TestUnitStatusMethod rechaza métodos distintos de GET.
+func TestUnitStatusMethod(t *testing.T) {
+	t.Parallel()
+
+	rec := runTestCaseWithPath(t, NewSystemd(&stubSystemd{}).Status, pathUnit+"/status",
+		unitParam, unitCatalogo, testCaseRequest{
+			name: testCaseMethodNotPermitido, method: http.MethodPost,
+		})
+
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf(msgCode, rec.Code, http.StatusMethodNotAllowed)
+	}
+}
+
+// TestUnitStatusInvalidUnit rechaza el nombre de unidad antes de consultar.
+func TestUnitStatusInvalidUnit(t *testing.T) {
+	t.Parallel()
+
+	rec := runTestCaseWithPath(t, NewSystemd(&stubSystemd{}).Status, pathUnit+"/status",
+		unitParam, "../etc/passwd", testCaseRequest{
+			name: "unidad inválida", method: http.MethodGet,
+		})
+
+	checkTestCase(t, rec, testCaseRequest{
+		name: "unidad inválida", method: http.MethodGet, code: http.StatusBadRequest, field: unitParam,
+	})
 }

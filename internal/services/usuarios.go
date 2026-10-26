@@ -27,6 +27,9 @@ var ErrUserNotFound = errors.New("el usuario no existe")
 // usuario.
 var ErrUserKeyNotFound = errors.New("la llave del usuario no existe")
 
+// ErrUserKeyExists indica que el usuario ya tiene un par de llaves.
+var ErrUserKeyExists = errors.New("el usuario ya tiene un par de llaves")
+
 // UsersConfig reúne las dependencias del servicio de usuarios.
 type UsersConfig struct {
 	// Sessions abre la sesión con la máquina.
@@ -229,6 +232,54 @@ func (u *Users) installSSHKeys(ctx context.Context, session ports.Session, name 
 	}
 
 	return nil
+}
+
+// GenerateKey crea el par de llaves de un usuario existente, instala la
+// pública en su authorized_keys y deshabilita el acceso por contraseña.
+func (u *Users) GenerateKey(ctx context.Context, name string) (Outcome, error) {
+	session, err := u.sessions.Open(ctx)
+	if err != nil {
+		return Outcome{}, fmt.Errorf("abrir la sesión para generar la llave: %w", err)
+	}
+
+	defer closeSession(session)
+
+	existing, err := findUser(ctx, session, name)
+	if err != nil {
+		return Outcome{}, err
+	}
+
+	if existing == "" {
+		return Outcome{}, ErrUserNotFound
+	}
+
+	if u.sshKeyExists(name) {
+		return Outcome{}, ErrUserKeyExists
+	}
+
+	if err := u.installSSHKeys(ctx, session, name); err != nil {
+		u.deleteSSHKeys(name)
+
+		return Outcome{}, err
+	}
+
+	cmd := &domain.Command{Path: binPasswd, Args: []string{"-l", name}}
+
+	result, err := session.Run(ctx, cmd)
+
+	output := Outcome{
+		Message:   "Llave SSH de «" + name + "» generada e instalada; el acceso por contraseña quedó deshabilitado.",
+		Operation: cmd.ShellLine(),
+		Output:    result.Stdout,
+		Stderr:    result.Stderr,
+		Code:      result.ExitCode,
+	}
+
+	if err != nil {
+		return output, fmt.Errorf("deshabilitar la contraseña del usuario %q: %w", name, err)
+	}
+
+	return output, nil
 }
 
 // Delete elimina una cuenta y, opcionalmente, sus archivos.

@@ -537,3 +537,164 @@ func TestUsersListLimitesOfUID(t *testing.T) {
 		}
 	}
 }
+
+// TestUsersGenerateKey comprueba la generación e instalación de la llave
+// de un usuario existente.
+func TestUsersGenerateKey(t *testing.T) {
+	t.Parallel()
+
+	session := &stubSession{results: []domain.Result{
+		{Stdout: "jorge:x:1000:1000:Jorge:/home/jorge:/bin/bash\n"},
+		{},
+		{},
+	}}
+	ejecutor := &stubExecutor{}
+
+	users, opener, directory := newUsersForTest(t, ejecutor, session, nil)
+	ejecutor.onExecute = func() {
+		if err := os.WriteFile(filepath.Join(directory, "jorge_ed25519"), []byte(contentPrivate), 0o600); err != nil {
+			t.Fatalf("crear la llave privada: %v", err)
+		}
+
+		if err := os.WriteFile(filepath.Join(directory, "jorge_ed25519.pub"), []byte(keyPublic+"\n"), 0o600); err != nil {
+			t.Fatalf(msgWritePub, err)
+		}
+	}
+
+	result, err := users.GenerateKey(context.Background(), nameJorge)
+	if err != nil {
+		t.Fatalf("GenerateKey() error = %v, want nil", err)
+	}
+
+	if opener.open != 1 {
+		t.Errorf(msgOpen, opener.open)
+	}
+
+	if len(session.commands) != 3 {
+		t.Fatalf("la sesión ejecutó %d órdenes, want 3", len(session.commands))
+	}
+
+	install := session.commands[1].ShellLine()
+	if !strings.Contains(install, "authorized_keys") || !strings.Contains(install, keyPublic) {
+		t.Errorf("orden de instalación = %q, want authorized_keys con la pública", install)
+	}
+
+	password := session.commands[2].ShellLine()
+	if !strings.Contains(password, binPasswd) || !strings.Contains(password, "'-l'") {
+		t.Errorf("orden de contraseña = %q, want passwd -l", password)
+	}
+
+	if _, err := os.Stat(filepath.Join(directory, "jorge_ed25519")); err != nil {
+		t.Errorf("la llave privada no quedó en el anfitrión: %v", err)
+	}
+
+	if result.Message == "" {
+		t.Error("Mensaje vacío, want confirmación")
+	}
+}
+
+// TestUsersGenerateKeyNotFound comprueba el usuario inexistente.
+func TestUsersGenerateKeyNotFound(t *testing.T) {
+	t.Parallel()
+
+	session := &stubSession{results: []domain.Result{{Stdout: ""}}}
+	users, _, _ := newUsersForTest(t, &stubExecutor{}, session, nil)
+
+	if _, err := users.GenerateKey(context.Background(), nameJorge); !errors.Is(err, ErrUserNotFound) {
+		t.Fatalf("GenerateKey() error = %v, want ErrUserNotFound", err)
+	}
+}
+
+// TestUsersGenerateKeyExisting comprueba el conflicto si ya hay llave.
+func TestUsersGenerateKeyExisting(t *testing.T) {
+	t.Parallel()
+
+	session := &stubSession{results: []domain.Result{
+		{Stdout: "jorge:x:1000:1000:Jorge:/home/jorge:/bin/bash\n"},
+	}}
+	users, _, directory := newUsersForTest(t, &stubExecutor{}, session, nil)
+
+	if err := os.WriteFile(filepath.Join(directory, "jorge_ed25519"), []byte(contentPrivate), 0o600); err != nil {
+		t.Fatalf("crear la llave privada: %v", err)
+	}
+
+	if _, err := users.GenerateKey(context.Background(), nameJorge); !errors.Is(err, ErrUserKeyExists) {
+		t.Fatalf("GenerateKey() error = %v, want ErrUserKeyExists", err)
+	}
+}
+
+// TestUsersGenerateKeyInstallError limpia el par si falla la instalación.
+func TestUsersGenerateKeyInstallError(t *testing.T) {
+	t.Parallel()
+
+	session := &stubSession{
+		results: []domain.Result{
+			{Stdout: "jorge:x:1000:1000:Jorge:/home/jorge:/bin/bash\n"},
+			{},
+		},
+		errs: []error{nil, errors.New("sin espacio")},
+	}
+	ejecutor := &stubExecutor{}
+
+	users, _, directory := newUsersForTest(t, ejecutor, session, nil)
+	ejecutor.onExecute = func() {
+		if err := os.WriteFile(filepath.Join(directory, "jorge_ed25519"), []byte(contentPrivate), 0o600); err != nil {
+			t.Fatalf("crear la llave privada: %v", err)
+		}
+
+		if err := os.WriteFile(filepath.Join(directory, "jorge_ed25519.pub"), []byte(keyPublic+"\n"), 0o600); err != nil {
+			t.Fatalf(msgWritePub, err)
+		}
+	}
+
+	if _, err := users.GenerateKey(context.Background(), nameJorge); err == nil {
+		t.Fatal("GenerateKey() error = nil, want el fallo de instalación")
+	}
+
+	for _, file := range []string{"jorge_ed25519", "jorge_ed25519.pub"} {
+		if _, err := os.Stat(filepath.Join(directory, file)); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("%s quedó en el anfitrión", file)
+		}
+	}
+}
+
+// TestUsersGenerateKeyWithoutSession propaga el fallo al abrir la sesión.
+func TestUsersGenerateKeyWithoutSession(t *testing.T) {
+	t.Parallel()
+
+	users, _, _ := newUsersForTest(t, &stubExecutor{}, nil, errors.New("sin sesión"))
+
+	if _, err := users.GenerateKey(context.Background(), nameJorge); err == nil {
+		t.Fatal("GenerateKey() error = nil, want el fallo de sesión")
+	}
+}
+
+// TestUsersGenerateKeyPasswordError propaga el fallo de passwd -l.
+func TestUsersGenerateKeyPasswordError(t *testing.T) {
+	t.Parallel()
+
+	session := &stubSession{
+		results: []domain.Result{
+			{Stdout: "jorge:x:1000:1000:Jorge:/home/jorge:/bin/bash\n"},
+			{},
+			{},
+		},
+		errs: []error{nil, nil, errors.New("passwd caído")},
+	}
+	ejecutor := &stubExecutor{}
+
+	users, _, directory := newUsersForTest(t, ejecutor, session, nil)
+	ejecutor.onExecute = func() {
+		if err := os.WriteFile(filepath.Join(directory, "jorge_ed25519"), []byte(contentPrivate), 0o600); err != nil {
+			t.Fatalf("crear la llave privada: %v", err)
+		}
+
+		if err := os.WriteFile(filepath.Join(directory, "jorge_ed25519.pub"), []byte(keyPublic+"\n"), 0o600); err != nil {
+			t.Fatalf(msgWritePub, err)
+		}
+	}
+
+	if _, err := users.GenerateKey(context.Background(), nameJorge); err == nil {
+		t.Fatal("GenerateKey() error = nil, want el fallo de passwd")
+	}
+}

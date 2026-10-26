@@ -9,15 +9,17 @@ un endpoint en `docs/openapi.yaml` y una vista que lo consume en `web/`.
 | Consultar sesión, conector e IP | `GET /api/session` | `Header`, `views/inicio.js` | Completo |
 | Vincular una máquina | `PUT /api/session` | `components/VMSelector.js` | Completo |
 | Registrar una máquina (modal) | `POST /api/session/register` | `components/RegistroModal.js` | Completo |
-| Diagnosticar el registro | `GET /api/session/diagnostico` | `components/RegistroModal.js` | Completo |
+| Diagnosticar el registro | `GET /api/session/diagnostico` | — | API disponible |
 | Listar y encender máquinas | `GET /api/vms`, `POST /api/vms/{vm}/poweron` | `components/VMSelector.js` | Completo |
 | Listar, instalar y eliminar paquetes | `GET/POST /api/packages`, `DELETE /api/packages/{name}` | `views/paquetes.js` | Completo |
 | Generar y descargar la llave de root | `POST/GET /api/keys/root` | `views/llaves.js` | Completo |
+| Generar y descargar la llave de un usuario | `POST/GET /api/users/{name}/key` | `views/llaves.js` | Completo |
 | Consultar y personalizar `/etc/issue` | `GET/PUT /api/issue` | `views/issue.js` | Completo |
 | Consultar y cambiar el nombre de host | `GET/PUT /api/hostname` | `views/hostname.js` | Completo |
 | Listar, crear, consultar y eliminar usuarios | `/api/users`, `/api/users/{name}` | `views/usuarios.js` | Completo |
 | Descargar la llave privada de un usuario | `GET /api/users/{name}/key` | `views/usuarios.js` | Completo |
 | Listar, consultar y desplegar unidades | `GET /api/units`, `/api/units/{unit}` | `views/systemd.js` | Completo |
+| Consultar la salida de `systemctl status` | `GET /api/units/{unit}/status` | `views/systemd.js` | Completo |
 | Iniciar, detener, habilitar, deshabilitar y reiniciar | `PATCH /api/units/{unit}`, `POST /api/units/{unit}/restarts` | `views/systemd.js` | Completo |
 | Listar, agregar y eliminar servidores del back-end | `/api/haproxy/backend/servers` | `views/haproxy.js` | Completo |
 | Consultar el historial con filtros y exportarlo | `GET /api/historial` | `views/historial.js` | Completo |

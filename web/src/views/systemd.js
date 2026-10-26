@@ -129,11 +129,30 @@ export function renderSystemd() {
     insignia.title = `activa: ${estado.activo} · habilitada: ${estado.habilitado}`;
   };
 
+  /**
+   * Resalta en la tabla la unidad seleccionada.
+   *
+   * @param {string} seleccionada Nombre de la unidad.
+   */
+  const resaltar = (seleccionada) => {
+    for (const fila of filas.querySelectorAll('tr[data-unidad]')) {
+      const activa = fila.dataset.unidad === seleccionada;
+      fila.classList.toggle('bg-vm-bg', activa);
+      fila.setAttribute('aria-selected', String(activa));
+    }
+  };
+
   const pintar = () => {
     cuenta.textContent = String(unidades.length);
+
+    const seleccionada = unidades.find((unidad) => unidad.unidad === select.value)?.unidad
+      ?? unidades[0]?.unidad
+      ?? '';
+
     select.innerHTML = unidades.length
       ? unidades.map((unidad) => `<option value="${escapar(unidad.unidad)}">${escapar(unidad.unidad)}</option>`).join('')
       : '<option value="">Sin unidades</option>';
+    select.value = seleccionada;
 
     if (unidades.length === 0) {
       filas.innerHTML = filaTabla(3, 'No hay unidades para mostrar');
@@ -146,7 +165,8 @@ export function renderSystemd() {
         const presentacion = presentarEstadoUnidad(unidad.estado);
 
         return `
-        <tr class="border-t border-vm-border hover:bg-vm-bg">
+        <tr data-unidad="${escapar(unidad.unidad)}" tabindex="0" aria-selected="false"
+          class="border-t border-vm-border hover:bg-vm-bg cursor-pointer outline-none focus:bg-vm-bg">
           <td class="px-3 py-1.5 font-mono">${escapar(unidad.unidad)}</td>
           <td class="px-3 py-1.5"><span class="px-1.5 py-0.5 border text-[10px] rounded-sm ${presentacion.clase}">${presentacion.texto}</span></td>
           <td class="px-3 py-1.5">${unidad.habilitado ? '<i data-lucide="check" class="w-4 h-4 text-vm-success"></i>' : '<span class="text-vm-fgSecondary">—</span>'}</td>
@@ -156,7 +176,8 @@ export function renderSystemd() {
       .join('');
 
     renderIcons(filas);
-    marcarEstado(unidades[0]);
+    marcarEstado(unidades.find((unidad) => unidad.unidad === seleccionada) ?? null);
+    resaltar(seleccionada);
   };
 
   const cargar = async () => {
@@ -166,10 +187,10 @@ export function renderSystemd() {
       const respuesta = await api.unidades.listar();
       unidades = respuesta.unidades ?? [];
       pintar();
-      consultarEstado();
     } catch (error) {
       unidades = [];
       cuenta.textContent = '';
+      select.innerHTML = '<option value="">Sin unidades</option>';
       filas.innerHTML = filaTabla(3, mensajeDeError(error), 'text-vm-accent');
       marcarEstado(null);
     }
@@ -194,54 +215,116 @@ export function renderSystemd() {
     }
   };
 
+  /**
+   * Selecciona una unidad desde la tabla y actualiza el control.
+   *
+   * @param {string} nombre Nombre de la unidad.
+   */
+  const seleccionarUnidad = (nombre) => {
+    if (!nombre) {
+      return;
+    }
+
+    select.value = nombre;
+    marcarEstado(unidades.find((unidad) => unidad.unidad === nombre) ?? null);
+    resaltar(nombre);
+    consultarEstado();
+  };
+
   el.querySelector('#agregar-archivo').addEventListener('click', () => agregarArchivo());
   el.querySelector('#unidades-refresh').addEventListener('click', cargar);
-  select.addEventListener('change', consultarEstado);
+
+  select.addEventListener('change', () => {
+    resaltar(select.value);
+    consultarEstado();
+  });
+
+  filas.addEventListener('click', (evento) => {
+    const fila = evento.target.closest('tr[data-unidad]');
+
+    if (fila) {
+      seleccionarUnidad(fila.dataset.unidad);
+    }
+  });
+
+  filas.addEventListener('keydown', (evento) => {
+    if (evento.key !== 'Enter' && evento.key !== ' ') {
+      return;
+    }
+
+    const fila = evento.target.closest('tr[data-unidad]');
+
+    if (fila) {
+      evento.preventDefault();
+      seleccionarUnidad(fila.dataset.unidad);
+    }
+  });
+
+  /** Acciones de control y el verbo real de systemctl que representan. */
+  const ACCIONES = {
+    iniciar: { verbo: 'start', cambio: { activo: true }, mensaje: (unidad) => `Se activó la unidad «${unidad}».` },
+    detener: { verbo: 'stop', cambio: { activo: false }, mensaje: (unidad) => `Se desactivó la unidad «${unidad}».` },
+    reiniciar: { verbo: 'restart', mensaje: (unidad) => `Se reinició la unidad «${unidad}».` },
+    habilitar: { verbo: 'enable', cambio: { habilitado: true }, mensaje: (unidad) => `Se habilitó el arranque de «${unidad}».` },
+    deshabilitar: { verbo: 'disable', cambio: { habilitado: false }, mensaje: (unidad) => `Se deshabilitó el arranque de «${unidad}».` },
+    estado: { verbo: 'status' },
+  };
 
   el.querySelectorAll('[data-accion]').forEach((boton) => {
     boton.addEventListener('click', async () => {
       const unidad = select.value;
+      const accion = ACCIONES[boton.dataset.accion];
 
-      if (!unidad) {
+      if (!unidad || !accion) {
         showResult({ ok: false, mensaje: 'Selecciona una unidad para operar.', operacion: 'systemctl' });
         return;
       }
 
-      const accion = boton.dataset.accion;
       inhabilitar(el, true);
 
-      const exito = await ejecutar({
+      await ejecutar({
         accion: async () => {
-          switch (accion) {
-            case 'iniciar':
-              await api.unidades.cambiarEstado(unidad, { activo: true });
-              return { mensaje: `Se activó la unidad «${unidad}».` };
-            case 'detener':
-              await api.unidades.cambiarEstado(unidad, { activo: false });
-              return { mensaje: `Se desactivó la unidad «${unidad}».` };
-            case 'habilitar':
-              await api.unidades.cambiarEstado(unidad, { habilitado: true });
-              return { mensaje: `Se habilitó el arranque de «${unidad}».` };
-            case 'deshabilitar':
-              await api.unidades.cambiarEstado(unidad, { habilitado: false });
-              return { mensaje: `Se deshabilitó el arranque de «${unidad}».` };
-            case 'reiniciar':
-              await api.unidades.reiniciar(unidad);
-              return { mensaje: `Se reinició la unidad «${unidad}».` };
-            default:
-              return api.unidades.obtener(unidad);
+          if (accion.verbo === 'status') {
+            const [estado, detalle] = await Promise.all([
+              api.unidades.obtener(unidad),
+              api.unidades.estadoDetallado(unidad),
+            ]);
+
+            marcarEstado(estado);
+
+            const habilitacion = estado.habilitado ? 'habilitada al arranque' : 'deshabilitada al arranque';
+
+            return {
+              mensaje: `Estado de «${unidad}»: ${presentarEstadoUnidad(estado.estado).texto}, ${habilitacion}.`,
+              operacion: `systemctl status ${unidad}`,
+              codigo: 0,
+              salida: detalle.salida,
+              stderr: detalle.stderr,
+            };
           }
+
+          if (accion.verbo === 'restart') {
+            await api.unidades.reiniciar(unidad);
+          } else {
+            await api.unidades.cambiarEstado(unidad, accion.cambio);
+          }
+
+          const detalle = await api.unidades.estadoDetallado(unidad).catch(() => null);
+
+          return {
+            mensaje: accion.mensaje(unidad),
+            operacion: `systemctl ${accion.verbo} ${unidad}`,
+            codigo: 0,
+            salida: detalle?.salida ?? '',
+            stderr: detalle?.stderr ?? '',
+          };
         },
-        operacion: `systemctl ${accion} ${unidad}`,
+        operacion: `systemctl ${accion.verbo} ${unidad}`,
         informar: showResult,
-        recargar: accion === 'estado' ? undefined : cargar,
+        recargar: accion.verbo === 'status' ? undefined : cargar,
       });
 
       inhabilitar(el, false);
-
-      if (accion === 'estado' && exito) {
-        marcarEstado(await api.unidades.obtener(unidad));
-      }
     });
   });
 
@@ -287,9 +370,12 @@ export function renderSystemd() {
 
     await ejecutar({
       accion: async () => {
-        await api.unidades.desplegar(unidad, { archivos });
+        const resultado = await api.unidades.desplegar(unidad, { archivos });
 
-        return { mensaje: `Se desplegó la unidad «${unidad}» con ${archivos.length} archivo(s).` };
+        return {
+          ...resultado,
+          mensaje: `Se desplegó la unidad «${unidad}» con ${archivos.length} archivo(s).`,
+        };
       },
       operacion: `PUT /api/units/${unidad}`,
       informar: showResult,

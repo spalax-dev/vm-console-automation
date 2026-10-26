@@ -360,3 +360,99 @@ func TestSystemdDeployWithoutPropietario(t *testing.T) {
 		t.Errorf("última orden = %v, want systemctl daemon-reload", session.commands[1])
 	}
 }
+
+// TestSystemdStatus ejecuta systemctl status y conserva su salida.
+func TestSystemdStatus(t *testing.T) {
+	t.Parallel()
+
+	session := &stubSession{result: domain.Result{
+		Stdout: "● anacron.service - Anacron\n     Active: active (running)\n",
+	}}
+	systemd := newSystemdOfTests(session, nil)
+
+	result, err := systemd.Status(context.Background(), unitTests)
+	if err != nil {
+		t.Fatalf("Status() error = %v, want nil", err)
+	}
+
+	if len(session.commands) != 1 {
+		t.Fatalf("la sesión ejecutó %d órdenes, want 1", len(session.commands))
+	}
+
+	cmd := session.commands[0]
+	if cmd.Path != binSystemctl || strings.Join(cmd.Args, " ") != "status "+unitTests+" --no-pager --full" {
+		t.Errorf("orden = %v, want systemctl status %s --no-pager --full", cmd.Args, unitTests)
+	}
+
+	if result.Code != 0 {
+		t.Errorf("Code = %d, want 0", result.Code)
+	}
+
+	if !strings.Contains(result.Output, "active (running)") {
+		t.Errorf("Output = %q, want la salida de systemctl status", result.Output)
+	}
+
+	if result.Message == "" || result.Operation == "" {
+		t.Errorf("resultado = %+v, want mensaje y operación", result)
+	}
+
+	if !session.closed {
+		t.Error(msgSessionOpen)
+	}
+}
+
+// TestSystemdStatusInactive acepta el código 3 de systemctl status.
+func TestSystemdStatusInactive(t *testing.T) {
+	t.Parallel()
+
+	session := &stubSession{
+		result: domain.Result{Stdout: "● anacron.service - Anacron\n     Active: inactive (dead)\n", ExitCode: 3},
+		err:    &domain.ExitError{Code: 3, Command: binSystemctl},
+	}
+
+	result, err := newSystemdOfTests(session, nil).Status(context.Background(), unitTests)
+	if err != nil {
+		t.Fatalf("Status() error = %v, want nil para una unidad inactiva", err)
+	}
+
+	if result.Code != 0 {
+		t.Errorf("Code = %d, want 0 (la consulta HTTP fue correcta)", result.Code)
+	}
+
+	if !strings.Contains(result.Output, "inactive (dead)") {
+		t.Errorf("Output = %q, want la salida de la unidad inactiva", result.Output)
+	}
+}
+
+// TestSystemdStatusNotFound traduce el código 4 a ErrUnitNotFound.
+func TestSystemdStatusNotFound(t *testing.T) {
+	t.Parallel()
+
+	session := &stubSession{err: &domain.ExitError{Code: 4, Command: binSystemctl}}
+
+	if _, err := newSystemdOfTests(session, nil).Status(context.Background(), unitTests); !errors.Is(err, ErrUnitNotFound) {
+		t.Fatalf("Status() error = %v, want ErrUnitNotFound", err)
+	}
+}
+
+// TestSystemdStatusError propaga un fallo inesperado de systemctl.
+func TestSystemdStatusError(t *testing.T) {
+	t.Parallel()
+
+	session := &stubSession{err: errors.New("systemctl caído")}
+
+	if _, err := newSystemdOfTests(session, nil).Status(context.Background(), unitTests); err == nil {
+		t.Fatal("Status() error = nil, want el fallo de systemctl")
+	}
+}
+
+// TestSystemdStatusWithoutSession propaga la ausencia de sesión.
+func TestSystemdStatusWithoutSession(t *testing.T) {
+	t.Parallel()
+
+	systemd := newSystemdOfTests(nil, ErrSessionUnavailable)
+
+	if _, err := systemd.Status(context.Background(), unitTests); !errors.Is(err, ErrSessionUnavailable) {
+		t.Fatalf("Status() error = %v, want ErrSessionUnavailable", err)
+	}
+}

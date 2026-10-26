@@ -187,6 +187,24 @@ de los módulos del numeral 3.
   Guest Additions rechaza la orden pero la llave del anfitrión ya abre SSH, la
   máquina se marca como registrada sin pedir la contraseña ni volver a instalar
   la llave. Cubre el caso de una VM ya preparada cuyo registro se perdió.
+- **26 oct 2026** — Módulo systemd: el botón **Estado** ejecuta
+  `systemctl status --no-pager --full` a través de
+  `GET /api/units/{unit}/status` y muestra la salida real en el panel de
+  resultados. Las acciones de control usan los verbos reales (`start`,
+  `stop`, `restart`, `enable`, `disable`) y, al terminar, consultan el
+  estado detallado para que la ficha no quede con la salida vacía. Al
+  pulsar una fila de **Unidades administradas** se selecciona esa unidad en
+  **Control de servicios** de inmediato. La salida de `systemctl status` se
+  pinta con las etiquetas (`Loaded`, `Active`, `Condition`, etc.) y los
+  estados (`active`, `inactive`, `failed`, `skipped`, etc.) resaltados,
+  manteniendo el escape de todo el contenido.
+- **26 oct 2026** — Registro de máquinas: se retiró del modal el panel de
+  diagnóstico (Guest Additions, SSH, usuario sugerido, problemas y
+  sugerencias) y ya no se consulta `GET /api/session/diagnostico` al abrirlo
+  ni tras un fallo. Al seleccionar una máquina sin registrar solo se muestra
+  el botón **Registrar esta máquina** en la vista de inicio; el modal se abre
+  únicamente cuando el usuario lo pulsa. El endpoint de diagnóstico sigue
+  disponible para consultas directas.
 - **26 oct 2026** — Corrección en HAProxy: al agregar un servidor al último
   `backend`, la concatenación de líneas perdía el salto de línea final y
   HAProxy rechazaba la configuración con «Missing LF on last line». `write()`

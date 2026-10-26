@@ -66,6 +66,7 @@ Package handlers expone la API HTTP de la consola: la sesión y el registro de l
 - [type Systemd](<#Systemd>)
   - [func NewSystemd\(service SystemdService\) \*Systemd](<#NewSystemd>)
   - [func \(h \*Systemd\) Restarts\(w http.ResponseWriter, r \*http.Request\)](<#Systemd.Restarts>)
+  - [func \(h \*Systemd\) Status\(w http.ResponseWriter, r \*http.Request\)](<#Systemd.Status>)
   - [func \(h \*Systemd\) Unit\(w http.ResponseWriter, r \*http.Request\)](<#Systemd.Unit>)
   - [func \(h \*Systemd\) Units\(w http.ResponseWriter, r \*http.Request\)](<#Systemd.Units>)
 - [type SystemdService](<#SystemdService>)
@@ -431,7 +432,7 @@ func NewMachines(service MachinesService) *Machines
 NewMachines construye el handler del inventario.
 
 <a name="Machines.PowerOn"></a>
-### func \(\*Machines\) [PowerOn](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/maquinas.go#L91>)
+### func \(\*Machines\) [PowerOn](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/maquinas.go#L95>)
 
 ```go
 func (h *Machines) PowerOn(w http.ResponseWriter, r *http.Request)
@@ -440,7 +441,7 @@ func (h *Machines) PowerOn(w http.ResponseWriter, r *http.Request)
 PowerOn atiende POST /api/vms/\{vm\}/poweron: arranca la máquina sin interfaz gráfica y devuelve su estado actualizado.
 
 <a name="Machines.ServeHTTP"></a>
-### func \(\*Machines\) [ServeHTTP](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/maquinas.go#L64>)
+### func \(\*Machines\) [ServeHTTP](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/maquinas.go#L68>)
 
 ```go
 func (h *Machines) ServeHTTP(w http.ResponseWriter, r *http.Request)
@@ -638,7 +639,7 @@ func (h *System) RootKey(w http.ResponseWriter, r *http.Request)
 RootKey atiende GET y POST /api/keys/root: descarga la llave privada de root o genera un par nuevo.
 
 <a name="Systemd"></a>
-## type [Systemd](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/systemd.go#L30-L32>)
+## type [Systemd](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/systemd.go#L32-L34>)
 
 Systemd agrupa los recursos de gestión de unidades con systemd \(numeral 3.3\).
 
@@ -649,7 +650,7 @@ type Systemd struct {
 ```
 
 <a name="NewSystemd"></a>
-### func [NewSystemd](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/systemd.go#L35>)
+### func [NewSystemd](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/systemd.go#L37>)
 
 ```go
 func NewSystemd(service SystemdService) *Systemd
@@ -658,7 +659,7 @@ func NewSystemd(service SystemdService) *Systemd
 NewSystemd construye el handler de gestión de unidades systemd.
 
 <a name="Systemd.Restarts"></a>
-### func \(\*Systemd\) [Restarts](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/systemd.go#L260>)
+### func \(\*Systemd\) [Restarts](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/systemd.go#L290>)
 
 ```go
 func (h *Systemd) Restarts(w http.ResponseWriter, r *http.Request)
@@ -666,8 +667,17 @@ func (h *Systemd) Restarts(w http.ResponseWriter, r *http.Request)
 
 Restarts atiende POST /api/units/\{unit\}/restarts: reinicia la unidad indicada.
 
+<a name="Systemd.Status"></a>
+### func \(\*Systemd\) [Status](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/systemd.go#L262>)
+
+```go
+func (h *Systemd) Status(w http.ResponseWriter, r *http.Request)
+```
+
+Status atiende GET /api/units/\{unit\}/status: devuelve la salida de systemctl status para la unidad indicada.
+
 <a name="Systemd.Unit"></a>
-### func \(\*Systemd\) [Unit](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/systemd.go#L97>)
+### func \(\*Systemd\) [Unit](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/systemd.go#L99>)
 
 ```go
 func (h *Systemd) Unit(w http.ResponseWriter, r *http.Request)
@@ -676,7 +686,7 @@ func (h *Systemd) Unit(w http.ResponseWriter, r *http.Request)
 Unit atiende GET, PUT y PATCH /api/units/\{unit\}: consulta la unidad, despliega sus archivos o cambia su estado.
 
 <a name="Systemd.Units"></a>
-### func \(\*Systemd\) [Units](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/systemd.go#L75>)
+### func \(\*Systemd\) [Units](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/systemd.go#L77>)
 
 ```go
 func (h *Systemd) Units(w http.ResponseWriter, r *http.Request)
@@ -685,7 +695,7 @@ func (h *Systemd) Units(w http.ResponseWriter, r *http.Request)
 Units atiende GET /api/units: lista las unidades administradas.
 
 <a name="SystemdService"></a>
-## type [SystemdService](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/systemd.go#L15-L26>)
+## type [SystemdService](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/systemd.go#L15-L28>)
 
 SystemdService ejecuta las operaciones sobre las unidades de systemd.
 
@@ -695,6 +705,8 @@ type SystemdService interface {
     List(ctx context.Context) ([]services.UnitState, error)
     // Get devuelve el estado de una unidad.
     Get(ctx context.Context, unit string) (services.UnitState, error)
+    // Status devuelve la salida de systemctl status para una unidad.
+    Status(ctx context.Context, unit string) (services.Outcome, error)
     // Deploy transfiere los archivos de la unidad.
     Deploy(ctx context.Context, unit string, files []services.DeploymentFile, user, group string) (services.Outcome, error)
     // ChangeState activa, desactiva, habilita o deshabilita la unidad.
@@ -705,7 +717,7 @@ type SystemdService interface {
 ```
 
 <a name="Users"></a>
-## type [Users](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L30-L32>)
+## type [Users](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L32-L34>)
 
 Users agrupa los recursos de gestión de usuarios \(numeral 3.2\).
 
@@ -716,7 +728,7 @@ type Users struct {
 ```
 
 <a name="NewUsers"></a>
-### func [NewUsers](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L35>)
+### func [NewUsers](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L37>)
 
 ```go
 func NewUsers(service UsersService) *Users
@@ -725,7 +737,7 @@ func NewUsers(service UsersService) *Users
 NewUsers construye el handler de gestión de usuarios.
 
 <a name="Users.Collection"></a>
-### func \(\*Users\) [Collection](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L62>)
+### func \(\*Users\) [Collection](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L64>)
 
 ```go
 func (h *Users) Collection(w http.ResponseWriter, r *http.Request)
@@ -734,16 +746,16 @@ func (h *Users) Collection(w http.ResponseWriter, r *http.Request)
 Collection atiende GET y POST /api/users: lista los usuarios o crea uno nuevo.
 
 <a name="Users.Key"></a>
-### func \(\*Users\) [Key](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L206>)
+### func \(\*Users\) [Key](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L208>)
 
 ```go
 func (h *Users) Key(w http.ResponseWriter, r *http.Request)
 ```
 
-Key atiende GET /api/users/\{name\}/key: entrega la llave privada generada para el usuario.
+Key atiende GET y POST /api/users/\{name\}/key: descarga la llave privada o genera un par nuevo para el usuario.
 
 <a name="Users.User"></a>
-### func \(\*Users\) [User](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L135>)
+### func \(\*Users\) [User](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L137>)
 
 ```go
 func (h *Users) User(w http.ResponseWriter, r *http.Request)
@@ -752,7 +764,7 @@ func (h *Users) User(w http.ResponseWriter, r *http.Request)
 User atiende GET y DELETE /api/users/\{name\}: consulta o elimina la cuenta indicada en la ruta.
 
 <a name="UsersService"></a>
-## type [UsersService](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L16-L27>)
+## type [UsersService](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L16-L29>)
 
 UsersService ejecuta las operaciones sobre las cuentas locales.
 
@@ -768,6 +780,8 @@ type UsersService interface {
     Delete(ctx context.Context, name string, files bool) (services.Outcome, error)
     // DownloadKey devuelve la llave privada de la cuenta.
     DownloadKey(name string) (file string, content []byte, err error)
+    // GenerateKey genera e instala un par de llaves para la cuenta.
+    GenerateKey(ctx context.Context, name string) (services.Outcome, error)
 }
 ```
 

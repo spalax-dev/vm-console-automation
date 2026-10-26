@@ -161,6 +161,10 @@ func TestValidateMessageIssue(t *testing.T) {
 	if err := validateMessageIssue("mensaje\x00oculto"); err == nil {
 		t.Error("mensaje con NUL: error = nil, want un error")
 	}
+
+	if err := validateMessageIssue("linea1\nlinea2"); err != nil {
+		t.Errorf("mensaje con salto de línea: error = %v, want nil", err)
+	}
 }
 
 // TestValidateIPv4 comprueba la regla de direcciones IPv4.

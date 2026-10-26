@@ -569,13 +569,6 @@ func TestIssueValidacion(t *testing.T) {
 			field:  messageField,
 		},
 		{
-			name:   "mensaje con salto de línea",
-			method: http.MethodPut,
-			body:   `{"mensaje":"linea1\nlinea2","nombre_host":false,"fecha":false,"hora":false,"ip":false}`,
-			code:   http.StatusBadRequest,
-			field:  messageField,
-		},
-		{
 			name:   "sin mensaje ni opciones",
 			method: http.MethodPut,
 			body:   `{"mensaje":"","nombre_host":false,"fecha":false,"hora":false,"ip":false}`,

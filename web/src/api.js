@@ -307,6 +307,13 @@ export const api = {
      * @returns {Promise<Blob>} Llave privada.
      */
     descargarLlave: (nombre) => pedir('GET', `/users/${encodeURIComponent(nombre)}/key`, { descarga: true }),
+    /**
+     * Genera e instala un par de llaves para el usuario.
+     *
+     * @param {string} nombre Nombre del usuario.
+     * @returns {Promise<object>} Resultado de la operación.
+     */
+    generarLlave: (nombre) => pedir('POST', `/users/${encodeURIComponent(nombre)}/key`),
   },
 
   /** Unidades systemd (numeral 3.3). */
@@ -318,6 +325,13 @@ export const api = {
      * @returns {Promise<object>} Estado de la unidad.
      */
     obtener: (unidad) => pedir('GET', `/units/${encodeURIComponent(unidad)}`),
+    /**
+     * Devuelve la salida de `systemctl status` para una unidad.
+     *
+     * @param {string} unidad Nombre de la unidad.
+     * @returns {Promise<object>} Resultado de la orden.
+     */
+    estadoDetallado: (unidad) => pedir('GET', `/units/${encodeURIComponent(unidad)}/status`),
     /**
      * @param {string} unidad Nombre de la unidad.
      * @param {object} solicitud Archivos que se despliegan.

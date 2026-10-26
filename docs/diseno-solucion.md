@@ -59,13 +59,15 @@ el núcleo conozca los adaptadores:
 El orden de preferencia lo fija `main.go` al inyectar la lista, no el servicio: así se
 puede probar con conectores falsos y cambiar la política sin tocar el caso de uso.
 
-El **inventario del selector** filtra por red: solo muestra las máquinas cuya
-primera interfaz está en modo puente u host-only. Las apagadas se listan para
-poder encenderlas y las encendidas se mantienen visibles aunque Guest
-Additions todavía no publique la dirección, de modo que el usuario pueda
-diagnosticarlas o registrarlas mientras arrancan. En NAT, red interna o sin
-adaptador el anfitrión no alcanza la dirección y la máquina se omite, porque
-no habría forma de ejecutar la primera orden.
+El **inventario del selector** filtra por red: solo incluye las máquinas con
+la primera interfaz en modo puente u host-only. Cada entrada informa
+`administrable` y, si no lo es, una `advertencia`. Las apagadas se listan para
+poder encenderlas; las registradas usan SSH; y las encendidas sin registro
+necesitan Guest Additions. Una encendida sin Guest Additions se muestra con el
+aviso «Sin Guest Additions» y, al encenderla, la interfaz pregunta si ocultarla
+o mantenerla en la lista. La preferencia se guarda en el navegador y se puede
+revertir con «Mostrar». En NAT, red interna o sin adaptador el anfitrión no
+alcanza la dirección y la máquina no se incluye.
 
 La instalación de SSH cuando aún no hay llave es responsabilidad del módulo 3.1.2
 (`GET/POST /api/keys/root`); el descubridor solo informa qué conector está disponible.
@@ -132,6 +134,13 @@ escribe en los logs ni en el cuerpo JSON: solo se entrega como descarga con
 `Content-Disposition: attachment`. La interfaz muestra un aviso recomendando
 su resguardo y el uso exclusivo por parte del administrador.
 
+El módulo **Llaves SSH** permite elegir entre la llave de `root` —la de
+conexión de la consola— y cualquier usuario regular de la máquina. Para un
+usuario, `POST /api/users/{name}/key` genera el par en el anfitrión, instala
+la pública en `/home/<usuario>/.ssh/authorized_keys`, deshabilita la
+contraseña y devuelve `201`; `GET` descarga la privada. Una llave ya existente
+responde `409` para no sobrescribirla.
+
 ### 2.4 Entrada del sistema (`/etc/issue`)
 
 El recurso `/api/issue` lee y reemplaza el banner que `agetty` muestra antes
@@ -161,7 +170,10 @@ como mensaje y las opciones quedan desactivadas.
 
 La escritura se hace con `printf` en una sola orden POSIX y deja permisos
 `644`. El mensaje se valida en el servidor: máximo 512 caracteres, sin NUL y
-sin saltos de línea, para que no rompa el formato de una línea por elemento.
+con saltos de línea permitidos; cada línea del mensaje se escribe tal cual y
+las opciones se agregan después. La vista previa de la interfaz sustituye las
+secuencias de `agetty` por el nombre, la fecha, la hora y la IP actuales, en
+lugar de mostrar los códigos.
 
 ### 2.5 Nombre de host y `/etc/hosts`
 
@@ -224,6 +236,7 @@ El recurso `/api/units` administra los servicios de la máquina:
 | --- | --- | --- |
 | `GET /api/units` | lista las unidades de servicio y su estado | `200` con `{unidades: [...]}` |
 | `GET /api/units/{unit}` | consulta una unidad | `200`; `404` si no existe |
+| `GET /api/units/{unit}/status` | devuelve la salida de `systemctl status` | `200` con el resultado de la orden |
 | `PUT /api/units/{unit}` | transfiere la unidad y sus archivos | `200` con el resultado |
 | `PATCH /api/units/{unit}` | cambia `activo` o `habilitado` | `200` con el estado resultante |
 | `POST /api/units/{unit}/restarts` | reinicia la unidad | `202` con el resultado |
@@ -235,6 +248,12 @@ no interactiva:
   ejecución) con `systemctl list-unit-files --type=service` (habilitación).
 - **Consulta:** `systemctl show` con `LoadState`, `ActiveState`,
   `UnitFileState` y `SubState`; si `LoadState` es `not-found`, responde `404`.
+- **Estado detallado:** `systemctl status --no-pager --full` devuelve la
+  salida completa de la unidad para mostrarla en el panel de resultados.
+  Un código 3 (unidad inactiva o fallida) se considera una consulta válida;
+  solo el código 4 se traduce en `404`. La interfaz resalta las etiquetas
+  (`Loaded`, `Active`, `Condition`, etc.) y los estados (`active`, `inactive`,
+  `failed`, `skipped`, etc.) sin dejar de escapar el contenido.
 - **Despliegue:** transfiere cada archivo con `Session.Put`, aplica el modo
   solicitado con `chmod`, ajusta propietario con `chown` si se indica y
   termina con `systemctl daemon-reload`.
@@ -253,7 +272,7 @@ Una máquina administrable tiene dos estados en `vmcons`:
 
 | Estado | Criterio | Comportamiento |
 | --- | --- | --- |
-| **Sin registrar** | tiene Guest Additions y red puente u host-only, pero no hay registro | al seleccionarla se abre un modal flotante de usuario y contraseña; al enviarlo se ejecuta la adecuación |
+| **Sin registrar** | tiene Guest Additions y red puente u host-only, pero no hay registro | la vista de inicio muestra el botón **Registrar esta máquina**; al pulsarlo se abre el modal flotante de usuario y contraseña |
 | **Registrada** | credenciales guardadas y SSH verificado | no pide login; usa la llave de root y las credenciales almacenadas |
 
 El registro se expone en `POST /api/session/register` y sigue esta secuencia:
@@ -283,14 +302,16 @@ nuevo en estado **sin registrar**. En la interfaz, esa operación se ofrece
 como **Olvidar registro** en el selector de máquina, detrás de una
 confirmación; la llave de `root` del anfitrión se conserva porque es común a
 todas las máquinas y su pérdida obligaría a regenerarla en cada registro.
-`GET /api/session/diagnostico` explica el fallo: estado, modo de red,
-versión y nivel de Guest Additions, usuarios con sesión iniciada y si el
-puerto 22 responde, junto con problemas y sugerencias.
+`GET /api/session/diagnostico` sigue disponible para consultar el estado, el
+modo de red, la versión y el nivel de Guest Additions, los usuarios con
+sesión iniciada y si el puerto 22 responde, junto con problemas y
+sugerencias; el modal de registro ya no lo consulta automáticamente.
 `GET /api/session` y `GET /api/vms` informan el campo `registrada` para que
-la interfaz decida si abre el modal. La contraseña se conserva porque las
-órdenes se ejecutan de forma no interactiva; la base y la clave quedan fuera
-del repositorio, con permisos `0600`. El detalle de la persistencia y de la
-dependencia `modernc.org/sqlite` está en `docs/persistencia.md`.
+la interfaz decida si muestra el botón de registro. La contraseña se
+conserva porque las órdenes se ejecutan de forma no interactiva; la base y
+la clave quedan fuera del repositorio, con permisos `0600`. El detalle de la
+persistencia y de la dependencia `modernc.org/sqlite` está en
+`docs/persistencia.md`.
 
 ### 2.9 Servidores del back-end de HAProxy
 

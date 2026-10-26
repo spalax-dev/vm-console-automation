@@ -17,6 +17,8 @@ type SystemdService interface {
 	List(ctx context.Context) ([]services.UnitState, error)
 	// Get devuelve el estado de una unidad.
 	Get(ctx context.Context, unit string) (services.UnitState, error)
+	// Status devuelve la salida de systemctl status para una unidad.
+	Status(ctx context.Context, unit string) (services.Outcome, error)
 	// Deploy transfiere los archivos de la unidad.
 	Deploy(ctx context.Context, unit string, files []services.DeploymentFile, user, group string) (services.Outcome, error)
 	// ChangeState activa, desactiva, habilita o deshabilita la unidad.
@@ -253,6 +255,34 @@ func validateFiles(files []fileDespliegue) error {
 	}
 
 	return nil
+}
+
+// Status atiende GET /api/units/{unit}/status: devuelve la salida de
+// systemctl status para la unidad indicada.
+func (h *Systemd) Status(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+
+	unit := r.PathValue(unitParam)
+	if err := validateUnit(unit); err != nil {
+		respondValidacion(w, err)
+
+		return
+	}
+
+	result, err := h.service.Status(r.Context(), unit)
+	if h.respondNotFound(w, unit, err) {
+		return
+	}
+
+	if err != nil {
+		respondErrorOperation(w, result, err)
+
+		return
+	}
+
+	writeResult(w, http.StatusOK, result)
 }
 
 // Restarts atiende POST /api/units/{unit}/restarts: reinicia la

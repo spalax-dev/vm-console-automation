@@ -20,12 +20,11 @@ La interfaz web consume el contrato completo desde las nueve vistas
 historial y el acceso con cuenta propia. La mayoría de las funciones
 tienen pruebas automáticas: los adaptadores y los servicios se ejercitan
 con ejecutores y sesiones falsos, los manejadores con peticiones HTTP
-simuladas y la persistencia sobre bases SQLite temporales. Todos los
-paquetes internos salvo \texttt{services} ---núcleo, adaptadores, caché y
-manejadores--- alcanzan el 100\,\% de cobertura de sentencias;
-\texttt{services} llega al 98.7\,\% y el paquete del ejecutable queda en
-el 82.2\,\% porque su función de arranque y el servidor en escucha no se
-ejercitan en las pruebas unitarias. El análisis
+simuladas y la persistencia sobre bases SQLite temporales. Los paquetes internos alcanzan
+el 100\,\% salvo \texttt{handlers} (99.5\,\%) y \texttt{services}
+(98.6\,\%); el paquete del ejecutable queda en el 82.2\,\% porque su
+función de arranque y el servidor en escucha no se ejercitan en las pruebas
+unitarias. El análisis
 estático con \texttt{golangci-lint} no reporta incidencias.
 
 % ------------------------------------------------------------
@@ -100,8 +99,9 @@ los logs ni en el cuerpo JSON; si todavía no existe, la respuesta es
 compartirla.
 
 Una máquina con red puente u host-only aparece como \emph{sin registrar}
-hasta que el usuario la registra; se mantiene en el selector aunque esté
-encendida y Guest Additions aún no publique la dirección. Al elegirla, la
+hasta que el usuario la registra. Si está encendida y no tiene Guest
+Additions se muestra con un aviso y la interfaz permite ocultarla o
+mantenerla en la lista. Al elegirla, la
 interfaz abre un modal flotante y \texttt{POST /api/session/register}
 guarda las credenciales en SQLite (\texttt{data/vmcons.db}); la
 contraseña se cifra con AES-256-GCM y se apoya en una clave local
@@ -400,8 +400,8 @@ del armazón aparece la pantalla de acceso mientras no haya sesión. La
     IP, y accesos directos a los módulos. \\
     Paquetes & Instalar o eliminar un paquete y consultar los instalados con
     su versión y estado. \\
-    Llaves SSH & Generar la llave de \texttt{root}, descargar la privada y
-    recordar su resguardo. \\
+    Llaves SSH & Elegir \texttt{root} (conexión) o un usuario regular, generar
+    su par, descargar la privada y recordar su resguardo. \\
     \texttt{/etc/issue} & Mensaje de bienvenida y casillas de nombre de
     host, fecha, hora y dirección IP, con vista previa. \\
     Hostname & Nombre de la máquina, dirección IP y actualización de

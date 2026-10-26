@@ -26,25 +26,9 @@ export function abrirRegistro({ maquina, alRegistrar }) {
       </header>
       <form id="registro-form" class="p-3 flex flex-col gap-2">
         <p class="text-[11px] text-vm-fgSecondary">
-          La máquina tiene Guest Additions pero aún no está registrada. Ingresa un usuario con permisos
-          para preparar SSH; las credenciales se guardan solo en este equipo.
+          La máquina aún no está registrada. Ingresa un usuario con permisos para preparar SSH; las
+          credenciales se guardan solo en este equipo.
         </p>
-        <div id="registro-diagnostico" class="border border-vm-border p-2 flex flex-col gap-1 text-[11px]">
-          <div class="flex items-center justify-between">
-            <span class="text-vm-fgSecondary">Guest Additions</span>
-            <span id="diag-ga" class="font-mono">consultando…</span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-vm-fgSecondary">SSH (puerto 22)</span>
-            <span id="diag-ssh" class="font-mono">consultando…</span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-vm-fgSecondary">Usuario sugerido</span>
-            <span id="diag-usuario" class="font-mono">—</span>
-          </div>
-          <ul id="diag-problemas" class="list-disc pl-4 text-vm-accent"></ul>
-          <ul id="diag-sugerencias" class="list-disc pl-4 text-vm-fgSecondary"></ul>
-        </div>
         <label class="flex flex-col gap-1">
           <span class="label">Usuario</span>
           <input name="usuario" value="root" class="input font-mono" autocomplete="username" required>
@@ -91,12 +75,6 @@ export function abrirRegistro({ maquina, alRegistrar }) {
   const ayudaEl = overlay.querySelector('#registro-ayuda');
   const cerrarBoton = overlay.querySelector('#registro-cerrar');
   const cancelarBoton = overlay.querySelector('#registro-cancelar');
-  const diagGA = overlay.querySelector('#diag-ga');
-  const diagSSH = overlay.querySelector('#diag-ssh');
-  const diagUsuario = overlay.querySelector('#diag-usuario');
-  const diagProblemas = overlay.querySelector('#diag-problemas');
-  const diagSugerencias = overlay.querySelector('#diag-sugerencias');
-  const campoUsuario = form.querySelector('input[name=usuario]');
 
   /** Indica que hay una petición en curso y el modal no debe cerrarse. */
   let ocupado = false;
@@ -107,37 +85,6 @@ export function abrirRegistro({ maquina, alRegistrar }) {
   const cerrar = () => {
     if (!ocupado) {
       cerrarForzado();
-    }
-  };
-
-  /**
-   * Consulta el diagnóstico de la máquina y lo muestra en el modal.
-   *
-   * @returns {Promise<void>}
-   */
-  const cargarDiagnostico = async () => {
-    try {
-      const informe = await api.sesion.diagnostico();
-
-      diagGA.textContent = informe.guest_additions_version || 'no informa';
-      diagSSH.textContent = informe.ssh_abierto ? 'abierto' : 'cerrado';
-      diagSSH.className = `font-mono ${informe.ssh_abierto ? 'text-vm-success' : 'text-vm-accent'}`;
-      diagUsuario.textContent = informe.usuario_sugerido || '—';
-
-      diagProblemas.innerHTML = (informe.problemas ?? [])
-        .map((problema) => `<li>${escapar(problema)}</li>`)
-        .join('');
-      diagSugerencias.innerHTML = (informe.sugerencias ?? [])
-        .map((sugerencia) => `<li>${escapar(sugerencia)}</li>`)
-        .join('');
-
-      if (informe.usuario_sugerido && campoUsuario.value === 'root') {
-        campoUsuario.value = informe.usuario_sugerido;
-      }
-    } catch {
-      diagGA.textContent = 'no disponible';
-      diagSSH.textContent = 'no disponible';
-      diagSSH.className = 'font-mono text-vm-fgSecondary';
     }
   };
 
@@ -238,7 +185,6 @@ export function abrirRegistro({ maquina, alRegistrar }) {
     } catch (fallo) {
       terminarProgreso(false, 'No fue posible registrar la máquina.');
       errorEl.textContent = mensajeDeError(fallo);
-      await cargarDiagnostico();
 
       if (fallo.tecnico) {
         const detalle = document.createElement('pre');
@@ -260,5 +206,4 @@ export function abrirRegistro({ maquina, alRegistrar }) {
 
   document.body.appendChild(overlay);
   form.querySelector('input[name=usuario]').focus();
-  cargarDiagnostico();
 }

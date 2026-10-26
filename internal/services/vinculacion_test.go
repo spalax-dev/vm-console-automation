@@ -327,9 +327,10 @@ func TestBindingPropagatesFailureOfPowerOn(t *testing.T) {
 	}
 }
 
-// TestBindingListsWithoutGuestAdditions comprueba que una máquina en
-// ejecución sin Guest Additions se lista igual que la apagada.
-func TestBindingListsWithoutGuestAdditions(t *testing.T) {
+// TestBindingMarksWithoutGuestAdditions comprueba que una máquina en
+// ejecución sin Guest Additions se lista con el aviso y la apagada como
+// administrable.
+func TestBindingMarksWithoutGuestAdditions(t *testing.T) {
 	t.Parallel()
 
 	machine := &stubGuestAdditions{accesibles: map[string]bool{}}
@@ -345,11 +346,55 @@ func TestBindingListsWithoutGuestAdditions(t *testing.T) {
 	}
 
 	if len(visibles) != 2 {
+		t.Fatalf("visibles = %+v, want las dos máquinas", visibles)
+	}
+
+	porNombre := map[string]VirtualMachine{}
+	for _, visible := range visibles {
+		porNombre[visible.Name] = visible
+	}
+
+	if porNombre[testMachineName].Administrable {
+		t.Error("la máquina encendida sin Guest Additions no debería ser administrable")
+	}
+
+	if porNombre[testMachineName].Warning == "" {
+		t.Error("falta el aviso de Guest Additions")
+	}
+
+	if !porNombre[nameUbuntu].Administrable {
+		t.Error("la máquina apagada debería ser administrable")
+	}
+
+	if machine.consultas != 1 {
+		t.Errorf("Address() se llamó %d veces, want 1 (solo la encendida)", machine.consultas)
+	}
+}
+
+// TestBindingListsRegisteredWithoutGuestAdditions comprueba que una máquina
+// registrada se lista aunque Guest Additions no publique la dirección.
+func TestBindingListsRegisteredWithoutGuestAdditions(t *testing.T) {
+	t.Parallel()
+
+	machine := &stubGuestAdditions{accesibles: map[string]bool{}}
+	binding := NewBinding(&BindingConfig{
+		Inventory:    inventoryOfTests(),
+		Selection:    &stubSelection{},
+		Machine:      machine,
+		Registration: &stubRegistration{registradas: map[string]bool{testMachineName: true}},
+	})
+
+	visibles, err := binding.List(context.Background(), "")
+	if err != nil {
+		t.Fatalf(msgListOK, err)
+	}
+
+	if len(visibles) != 2 {
 		t.Errorf("visibles = %+v, want las dos máquinas", visibles)
 	}
 
 	if machine.consultas != 0 {
-		t.Errorf("Address() se llamó %d veces, want 0", machine.consultas)
+		t.Errorf("Address() se llamó %d veces, want 0 (la registrada usa SSH)", machine.consultas)
 	}
 }
 

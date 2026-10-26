@@ -41,6 +41,11 @@ type VirtualMachine struct {
 	Active bool
 	// IsRegistered indica que la consola ya preparó SSH en la máquina.
 	IsRegistered bool
+	// Administrable indica si la consola puede abrir una sesión con la
+	// máquina en su estado actual.
+	Administrable bool
+	// Warning explica por qué la máquina no es administrable.
+	Warning string
 }
 
 // Selector es la máquina con la que trabaja la consola. El descubridor
@@ -121,48 +126,62 @@ func (v *Binding) List(ctx context.Context, filter string) ([]VirtualMachine, er
 			continue
 		}
 
-		if !v.administrable(ctx, machine) {
+		visible, administrable, warning := v.administrable(ctx, machine)
+		if !visible {
 			continue
 		}
 
 		visibles = append(visibles, VirtualMachine{
-			Name:         machine.Name,
-			UUID:         machine.UUID,
-			State:        machine.State,
-			Active:       machine.Name == target.ID || machine.UUID == target.ID,
-			IsRegistered: v.estaRegistered(machine.Name),
+			Name:          machine.Name,
+			UUID:          machine.UUID,
+			State:         machine.State,
+			Active:        machine.Name == target.ID || machine.UUID == target.ID,
+			IsRegistered:  v.estaRegistered(machine.Name),
+			Administrable: administrable,
+			Warning:       warning,
 		})
 	}
 
 	return visibles, nil
 }
 
-// administrable informa si la máquina tiene una red alcanzable desde el
-// anfitrión. Las apagadas se listan para poder encenderlas y las encendidas
-// se mantienen visibles aunque Guest Additions todavía no publique la
-// dirección: mientras arrancan, el selector debe permitir diagnosticarlas o
-// registrarlas.
-func (v *Binding) administrable(ctx context.Context, machine domain.VM) bool {
+// administrable informa si la máquina puede administrarse. Las apagadas se
+// listan para poder encenderlas; las registradas se listan porque usan SSH; y
+// las encendidas sin registro deben publicar Guest Additions, único canal para
+// preparar SSH. Una encendida sin ninguno de los dos canales se oculta.
+func (v *Binding) administrable(ctx context.Context, machine domain.VM) (visible, administrable bool, warning string) {
 	if v.machine == nil {
-		return true
+		return true, true, ""
 	}
 
 	target := domain.Target{ID: machine.Name}
 
 	mode, err := v.machine.Network(ctx, target)
 	if err != nil {
-		return false
+		return false, false, ""
 	}
 
 	switch mode {
 	case domain.NetworkNAT, domain.NetworkInternal, domain.NetworkNone:
-		return false
+		return false, false, ""
 	case domain.NetworkBridged, domain.NetworkHostOnly:
 	default:
-		return false
+		return false, false, ""
 	}
 
-	return true
+	if machine.State != domain.StateRunning {
+		return true, true, ""
+	}
+
+	if v.estaRegistered(machine.Name) {
+		return true, true, ""
+	}
+
+	if _, err := v.machine.Address(ctx, target); err != nil {
+		return true, false, "Guest Additions no está disponible"
+	}
+
+	return true, true, ""
 }
 
 // Bind establece la máquina que administra la consola. Acepta el

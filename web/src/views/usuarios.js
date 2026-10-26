@@ -42,18 +42,6 @@ export function renderUsuarios() {
         </form>
       </section>
       <section class="card">
-        <header class="px-3 py-1.5 border-b border-vm-border bg-[#f7f7f7]"><div class="flex items-center gap-1.5"><i data-lucide="download" class="w-4 h-4"></i><span class="text-[12px] font-medium">Descarga de llaves</span></div></header>
-        <div class="p-3 flex flex-col gap-2">
-          <div class="flex items-center gap-2">
-            <select id="descarga-nombre" class="input w-[200px]"></select>
-            <button id="descarga-boton" class="btn"><i data-lucide="download"></i> Descargar llave privada</button>
-          </div>
-          <div class="text-[11px] text-vm-fgSecondary">
-            Guarda la llave privada en un lugar seguro y no la compartas; quien la posea tendrá acceso a la cuenta del usuario.
-          </div>
-        </div>
-      </section>
-      <section class="card">
         <header class="px-3 py-1.5 border-b border-vm-border bg-[#f7f7f7] flex items-center justify-between">
           <div class="flex items-center gap-1.5"><i data-lucide="users" class="w-4 h-4"></i><span class="text-[12px] font-medium">Usuarios de la máquina</span></div>
           <div class="flex items-center gap-1.5">
@@ -89,7 +77,6 @@ export function renderUsuarios() {
   const filas = el.querySelector('#usuarios-filas');
   const cuenta = el.querySelector('#usuarios-cuenta');
   const selectEliminar = el.querySelector('#eliminar-nombre');
-  const selectDescarga = el.querySelector('#descarga-nombre');
   const formularioCrear = el.querySelector('#form-crear');
   const formularioEliminar = el.querySelector('#form-eliminar');
 
@@ -114,7 +101,6 @@ export function renderUsuarios() {
   const pintar = () => {
     cuenta.textContent = String(usuarios.length);
     llenarSelect(selectEliminar, usuarios.length ? 'Seleccionar usuario' : 'Sin usuarios');
-    llenarSelect(selectDescarga, usuarios.length ? 'Seleccionar usuario' : 'Sin usuarios');
 
     if (usuarios.length === 0) {
       filas.innerHTML = filaTabla(6, 'No hay usuarios para mostrar');
@@ -217,7 +203,6 @@ export function renderUsuarios() {
   });
 
   el.querySelector('#usuarios-refresh').addEventListener('click', cargar);
-  el.querySelector('#descarga-boton').addEventListener('click', () => descargarLlave(selectDescarga.value));
 
   formularioEliminar.addEventListener('submit', (evento) => {
     evento.preventDefault();
