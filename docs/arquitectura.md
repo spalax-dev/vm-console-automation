@@ -84,9 +84,11 @@ elige con `VMCONS_LOG` (`text` por omisión o `json`) y el nivel con
 Los adaptadores `vbox` y `ssh` sustituyen la orden completa por una versión
 sin argumentos sensibles cuando exponen un `domain.ExitError`, de modo que
 la contraseña de Guest Additions o el script de `sudo` no aparecen en los
-logs ni en el campo `tecnico` de la respuesta. La respuesta de error
-conserva `mensaje`, `operacion`, `codigo`, `salida`, `stderr`, `tecnico` y
-el `X-Request-ID` para correlacionar con el servidor.
+logs ni en el campo `tecnico` de la respuesta. La respuesta de error usa la
+misma envoltura que la de éxito: `mensaje` siempre y `tecnico` cuando
+existe, y `operacion`, `codigo`, `salida` y `stderr` solo cuando la orden
+llegó a ejecutarse; el `X-Request-ID` viaja en la cabecera para correlacionar con
+el servidor.
 
 ## Documentación y calidad del código
 

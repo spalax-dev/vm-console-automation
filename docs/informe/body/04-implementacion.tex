@@ -17,13 +17,15 @@ systemd y HAProxy--- ejecutan operaciones reales sobre la máquina. No quedan
 respuestas \texttt{501}: todas las rutas del contrato están conectadas.
 La interfaz web consume el contrato completo desde las nueve vistas
 (\cref{sec:interfaz}), incluidos el registro con diagnóstico y el
-historial y el acceso con cuenta propia. Las 494 pruebas de Go cubren el
-100\,\% de los paquetes internos ---núcleo, adaptadores, caché, servicios y
-manejadores---; el paquete del ejecutable queda en el 85.7\,\% porque su
-función de arranque y el servidor en escucha no se ejercitan en las
-pruebas unitarias. Las 72 pruebas del cliente se describen en la
-\cref{sec:interfaz}. El análisis estático con \texttt{golangci-lint} no
-reporta incidencias.
+historial y el acceso con cuenta propia. La mayoría de las funciones
+tienen pruebas automáticas: los adaptadores y los servicios se ejercitan
+con ejecutores y sesiones falsos, los manejadores con peticiones HTTP
+simuladas y la persistencia sobre bases SQLite temporales. Todos los
+paquetes internos ---núcleo, adaptadores, caché, servicios y
+manejadores--- alcanzan el 100\,\% de cobertura de sentencias; el paquete
+del ejecutable queda por debajo porque su función de arranque y el
+servidor en escucha no se ejercitan en las pruebas unitarias. El análisis
+estático con \texttt{golangci-lint} no reporta incidencias.
 
 % ------------------------------------------------------------
 % 4.1 Preparación del sistema
@@ -55,8 +57,8 @@ confirmaciones aunque la sesión no sea interactiva.
 
 Cada operación abre una sesión con el conector disponible, la cierra al
 terminar y clasifica el resultado. Si el código de salida es cero,
-responde \texttt{201} al instalar (con \texttt{Location}) o
-\texttt{204} al eliminar, e incluye la salida relevante; si es distinto
+responde \texttt{201} al instalar, con \texttt{Location} y la salida
+relevante, o \texttt{204} al eliminar, sin cuerpo; si es distinto
 de cero, responde \texttt{500} conservando la orden ejecutada, el
 código de salida y el \texttt{stderr} para el diagnóstico. El listado
 usa \texttt{dpkg-query} y filtra por el estado
@@ -185,7 +187,7 @@ contraseña con \texttt{passwd -l}. La llave privada queda en
 \texttt{GET /api/users/\{name\}/key} como archivo adjunto. La respuesta
 de creación es \texttt{201} con \texttt{Location}, o \texttt{409} si
 la cuenta ya existe. El listado filtra las cuentas regulares
-(\texttt{UID} mayor o igual a 1000) y consulta la pertenencia a
+(\texttt{UID} entre 1000 y 65533) y consulta la pertenencia a
 \texttt{sudo} y la existencia de la llave.
 
 \subsubsection{Eliminación de Usuarios}
@@ -252,7 +254,9 @@ agrega \texttt{server srv\_<ip>\_<puerto> <ip>:<puerto> check} y la
 baja elimina la línea cuyo destino coincide con \texttt{direccion:puerto}.
 
 Cada cambio se valida antes de aplicarse: la configuración propuesta se
-escribe en un archivo temporal, se comprueba con
+codifica en Base64 y se transfiere así al invitado, de modo que el shell
+remoto no interprete comillas ni secuencias de la configuración; allí se
+descodifica en un archivo temporal, se comprueba con
 \texttt{haproxy -c -f} y solo si es correcta se mueve a
 \texttt{/etc/haproxy/haproxy.cfg}; después se recarga el servicio con
 \texttt{systemctl reload haproxy}. Un error de sintaxis deja intacta la
@@ -287,7 +291,7 @@ La consola no administra la máquina sin una cuenta local
 arranque la tabla \texttt{usuarios\_consola} está vacía y la interfaz pide
 crear la cuenta; después, \texttt{POST /api/auth/setup} responde
 \texttt{409} y solo queda iniciar sesión. La contraseña no se guarda: se
-deriva con \texttt{bcrypt} ---sal por cuenta y costo configurable--- y se
+deriva con \texttt{bcrypt} ---con sal por cuenta y costo de trabajo--- y se
 almacena el hash, de modo que una copia de la base no permite probar
 contraseñas a gran velocidad. El servicio \texttt{Consola} valida las
 credenciales y emite una cookie \texttt{HttpOnly} con el valor
@@ -297,12 +301,9 @@ secreto de 32 bytes que se genera en el primer uso y vive en la tabla
 vence la cookie en el navegador.
 
 Un middleware envuelve el enrutador y responde \texttt{401} a cualquier
-\texttt{/api/\ldots} que no traiga una cookie válida, salvo las cuatro
-rutas de \texttt{/api/auth}. La interfaz consulta
-\texttt{GET /api/auth/estado} al arrancar y solo monta el armazón cuando
-hay sesión; si no, muestra el formulario de creación o el de acceso. Los
-archivos estáticos se sirven sin cookie a propósito: son el código que
-dibuja ese formulario, y cualquier dato pasa por la API protegida.
+\texttt{/api/\ldots} que no traiga una cookie válida, salvo las rutas que
+empiezan por \texttt{/api/auth/}. La interfaz muestra el formulario de
+creación de la cuenta o el de acceso hasta que hay sesión.
 
 \subsection{Historial y Persistencia}
 \label{sec:historial}
@@ -349,14 +350,19 @@ Cada petición a la API recibe un identificador \texttt{X-Request-ID} y se
 registra con el método, la ruta, una descripción legible de la operación,
 el estado, la duración, el tamaño de la respuesta y la máquina activa. En
 los errores se añade el motivo comprensible devuelto al cliente. Los
-errores del cliente se anotan como advertencia y los del servidor como error; el formato se elige con
+errores del cliente se anotan como advertencia, igual que el \texttt{503}
+de indisponibilidad temporal, y el resto de los errores del servidor como
+error; el formato se elige con
 \texttt{VMCONS\_LOG} (texto o JSON) y el nivel con
-\texttt{VMCONS\_LOG\_LEVEL}. Las respuestas de error conservan
-\texttt{mensaje}, \texttt{operacion}, \texttt{codigo}, \texttt{salida},
-\texttt{stderr}, \texttt{tecnico} y el identificador para correlacionar
-con el servidor. Los adaptadores de VirtualBox y SSH sustituyen la orden
-completa por una versión sin argumentos sensibles, de modo que las
-contraseñas no aparecen ni en los logs ni en el detalle técnico.
+\texttt{VMCONS\_LOG\_LEVEL}. Todas las respuestas de error comparten la
+misma envoltura: \texttt{mensaje} y, cuando exista, \texttt{tecnico};
+\texttt{campo} cuando falla la validación de un dato y, si la orden llegó a
+ejecutarse, \texttt{operacion}, \texttt{codigo}, \texttt{salida} y
+\texttt{stderr}. El identificador \texttt{X-Request-ID} viaja en la
+cabecera para correlacionar con el servidor. Los adaptadores de
+VirtualBox y SSH sustituyen la orden completa por una versión sin
+argumentos sensibles, de modo que las contraseñas no aparecen ni en los
+logs ni en el detalle técnico.
 
 \subsection{Interfaz Web}
 \label{sec:interfaz}
@@ -364,139 +370,47 @@ contraseñas no aparecen ni en los logs ni en el detalle técnico.
 \begin{figure*}[!t]
   \centering
   \includegraphics[width=\textwidth]{images/ui-selector}
-  \caption{Selector de máquina de la barra superior: inventario descubierto
-  con \texttt{VBoxManage list vms}, estado de encendido, marca de registro
-  y máquina activa.}
+  \caption{Selector de máquina de la barra superior, con el inventario
+  descubierto, el estado de encendido y la marca de registro.}
   \label{fig:ui-selector}
 \end{figure*}
 
-La interfaz es una aplicación de una sola página construida con Vite,
-JavaScript sin \emph{framework} y Tailwind CSS. Antes del armazón se
-interpone la pantalla de acceso (\cref{sec:acceso-consola}); una vez
-dentro, la barra superior muestra la cuenta y ofrece cerrar sesión. Se prescindió de una
-biblioteca de componentes porque la interfaz es un conjunto fijo de
-formularios y tablas: un enrutador por fragmento de URL y funciones que
-construyen el árbol del documento bastan para el alcance del enunciado y
-evitan incorporar un \emph{runtime} adicional.
+La interfaz es una sola página con una barra superior fija y nueve
+pestañas: la vista de inicio, los siete módulos del enunciado y el
+historial. La barra concentra el selector de máquina, su dirección y el
+estado de la sesión; el panel lateral muestra el resultado de cada
+operación con su mensaje, la orden ejecutada y el detalle técnico. Antes
+del armazón aparece la pantalla de acceso mientras no haya sesión. La
+\cref{tab:vistas} describe el contenido de cada vista.
 
-\emph{Armazón.} Una sola página con nueve pestañas ---los ocho módulos
-del enunciado y el historial---, una barra superior fija con el selector de
-máquina virtual, su dirección y el estado de la sesión, y un panel
-lateral con el resultado de las operaciones: mensaje, orden ejecutada,
-código de salida, salida estándar, salida de error y diagnóstico. El panel
-acumula las operaciones en orden ---cada ficha con su mensaje, su hora y el
-detalle técnico plegable--- dentro de un área con desplazamiento propio y
-fondo gris oscuro ---la tarjeta no crece con cada operación---, se mantiene fijado a la
-última ficha con su detalle técnico desplegado, conserva las últimas
-cincuenta en el almacenamiento del navegador, de modo que no se pierden al
-cambiar de módulo ni al recargar, y ofrece un botón para vaciarlas. Cuando
-la respuesta no trae un mensaje ---por ejemplo, un borrado sin cuerpo---, la
-ficha describe la orden ejecutada en lugar de un texto genérico. Las pestañas no recargan el documento: cada vista consulta
-su recurso del \cref{sec:contrato-rest} al montarse. La pestaña
-Historial consulta \texttt{GET /api/historial}, filtra por texto, fecha,
-hora, máquina y módulo, y exporta el resultado a CSV, como se detalla en
-la \cref{sec:historial}.
-
-\emph{Selección de la máquina.} El selector de la barra superior
-(\cref{fig:ui-selector}) consulta el inventario del hipervisor
-(\cref{tab:api-rest}) y permite
-buscar por nombre o UUID mientras se escribe. Elegir una máquina la
-vincula con la consola mediante \texttt{PUT /api/session}: la selección
-se aplica en memoria, el inventario vuelve a marcarla como activa y la
-barra actualiza la dirección y el estado. Vincular una máquina apagada
-es válido ---solo impide abrir sesión con ella---, de modo que el
-operador puede preparar la consola antes de encender el laboratorio. La
-vinculación se guarda en el mismo objeto que resuelve la sesión, con un
-cerrojo de lectura y escritura porque los manejadores la consultan y la
-modifican en paralelo.
-
-Cuando la máquina está registrada, el selector ofrece \emph{olvidar el
-registro}: borra sus credenciales y la marca como \emph{sin registrar},
-de modo que la próxima vez pida usuario y contraseña. La operación pide
-confirmación porque obliga a repetir el registro, y conserva la llave de
-\texttt{root} del anfitrión, que es común a todas las máquinas.
-
-Cuando la máquina vinculada está apagada, el selector ofrece encenderla.
-La operación ejecuta \texttt{VBoxManage startvm} en modo sin interfaz
-gráfica ---el que corresponde a una consola de administración--- y es
-síncrona, así que la respuesta ya trae el estado \texttt{running} y la
-barra actualiza la dirección y el conector. Encender una máquina que ya
-corre responde \texttt{409} en lugar de simular un éxito. La consola no
-apaga máquinas: un apagado desde la interfaz podría interrumpir los
-servicios que el usuario está administrando, de modo que esa operación
-queda en el hipervisor.
-
-\emph{Sistema de diseño.} La apariencia adopta la ergonomía de una
-herramienta de escritorio en lugar de la de un sitio web: lienzo gris,
-blanco reservado para las superficies operativas, bordes de un píxel,
-sin sombras ni degradados, controles de 26 píxeles y un rojo
-(\texttt{\#C0392B}) que marca la pestaña activa, el foco y las acciones
-destructivas. Los valores ---color, tipografía, radios y espaciado---
-quedaron en \texttt{docs/stitch/DESIGN.md} como tokens, de modo que la
-vista previa del diseño y la implementación comparten la misma paleta.
-Los iconos son Lucide de 16 píxeles con trazo de 1.5.
-
-\emph{Cliente de la API.} Un único módulo (\texttt{web/src/api.js})
-concentra las rutas, los cuerpos y los errores del contrato; ninguna
-vista invoca \texttt{fetch} directamente. Los fallos se normalizan en
-un tipo \texttt{ApiError} que conserva el código HTTP, el mensaje
-comprensible, el campo rechazado y el detalle técnico. Una respuesta
-\texttt{501} se presenta como módulo aún no conectado, no como error de
-red, lo que permitió integrar las ocho vistas mientras los casos de uso
-del servidor se completaban uno por uno. Las llaves privadas se
-descargan como \emph{Blob} y se entregan con el nombre de archivo
-sugerido, y las opciones de una operación viajan en la cadena de
-consulta, por ejemplo \texttt{?files=true}.
-
-\emph{Estados de las vistas.} Toda vista con datos remotos sigue el
-mismo ciclo: consulta al montarse, fila de espera, mensaje de lista
-vacía, mensaje de error con la causa y, por último, los datos. Las
-operaciones de escritura envían su resultado al panel lateral y, si
-terminan bien, vuelven a consultar el recurso afectado, de modo que la
-tabla nunca queda desactualizada respecto de la máquina.
-
-\emph{Validación en el cliente.} Las expresiones del contrato
----nombre de paquete, nombre de usuario, nombre de host, unidad
-\texttt{.service}, IPv4, puerto y modo octal--- se replican en
-\texttt{web/src/validacion.js} para dar respuesta inmediata; la
-validación del servidor sigue siendo la que decide.
-
-\emph{Empaquetado.} Vite compila la interfaz en \texttt{web/dist}, que se
-versiona y se embebe en el binario con \texttt{//go:embed}: la consola
-sirve la aplicación en la raíz y los recursos con huella en
-\texttt{/assets/}, en el mismo origen que la API. Las tipografías y los
-iconos viajan dentro del binario, de modo que la interfaz se ve igual en
-un equipo sin salida a Internet. La tarea \texttt{build} del
-\texttt{Taskfile} recompila el cliente antes de enlazar el binario de Go,
-para que el ejecutable nunca quede con una versión anterior de la vista.
-
-La interfaz también puede servirse desde disco: si se define
-\texttt{VMCONS\_WEB}, el binario publica ese directorio en lugar de la
-copia embebida y valida al arrancar que contenga \texttt{index.html}.
-Eso habilita la instalación en el entorno del usuario ---\texttt{task
-install} deja el ejecutable en \texttt{\textasciitilde/.local/bin} y la
-interfaz en \texttt{\textasciitilde/.local/share/vmcons/web}---, con la
-ventaja de que actualizar la vista no obliga a recompilar Go. El arranque
-anuncia en la terminal el nombre en arte ASCII y la URL de la consola.
-
-\emph{Caché de lectura.} Cada listado abre una sesión con la máquina y
-ejecuta órdenes dentro de ella, de modo que repetirlo al abrir cada
-pestaña resulta caro y casi siempre innecesario. El servidor guarda las
-respuestas correctas de \texttt{GET} sobre la API durante una vigencia
-corta por recurso ---tres segundos la sesión, cinco el inventario y las
-unidades, quince los listados y treinta la configuración--- y descarta
-la caché completa ante cualquier operación de escritura, que es la
-situación en la que los datos cambian. Los errores no se guardan, para
-que un módulo recién conectado o una máquina recién encendida se vean de
-inmediato; opcionalmente, \texttt{Cache-Control: no-cache} fuerza una
-lectura fresca. La memoria está acotada y cada respuesta anuncia
-\texttt{X-Cache} con \texttt{HIT} o \texttt{MISS} para el diagnóstico.
-
-\emph{Pruebas.} El cliente se verifica con Vitest: sesenta y siete casos sobre
-la construcción de las peticiones, la traducción de errores, las reglas
-de validación, las utilidades de presentación, el historial de
-resultados y el montaje de las vistas
-en un DOM simulado. El empaquetado importa solo los iconos utilizados,
-con lo que el JavaScript entregado al navegador es de 64\,kB en lugar de
-los 528\,kB que resultaban de importar el catálogo completo.
-
+\begin{table*}[!t]
+  \centering
+  \caption{Vistas de la interfaz y su contenido.}
+  \label{tab:vistas}
+  \footnotesize
+  \begin{tabularx}{\textwidth}{@{}l X@{}}
+    \hline
+    Vista & Contenido \\
+    \hline
+    Acceso & Crear la cuenta de la consola o iniciar sesión; sin sesión no
+    se muestra el resto de la aplicación. \\
+    Inicio & Estado de la sesión con la máquina, el conector y la dirección
+    IP, y accesos directos a los módulos. \\
+    Paquetes & Instalar o eliminar un paquete y consultar los instalados con
+    su versión y estado. \\
+    Llaves SSH & Generar la llave de \texttt{root}, descargar la privada y
+    recordar su resguardo. \\
+    \texttt{/etc/issue} & Mensaje de bienvenida y casillas de nombre de
+    host, fecha, hora y dirección IP, con vista previa. \\
+    Hostname & Nombre de la máquina, dirección IP y actualización de
+    \texttt{/etc/hosts}. \\
+    Usuarios & Crear cuentas con \texttt{sudo} y llaves, eliminarlas con o
+    sin sus archivos y descargar la llave privada. \\
+    systemd & Desplegar una unidad con sus archivos y operar su ciclo de
+    vida. \\
+    HAProxy & Listar, agregar y eliminar servidores del back-end con su
+    estado. \\
+    Historial & Consultar las operaciones con filtros y exportarlas a CSV. \\
+    \hline
+  \end{tabularx}
+\end{table*}

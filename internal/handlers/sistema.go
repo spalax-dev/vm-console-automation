@@ -203,10 +203,8 @@ func (h *Sistema) LlaveRoot(w http.ResponseWriter, r *http.Request) {
 
 	resultado, err := h.llaves.Generar(r.Context())
 	if errors.Is(err, services.ErrLlaveExistente) {
-		escribirJSON(w, http.StatusConflict, respuestaOperacion{
-			Mensaje: "La llave SSH de root ya existe en el anfitrión.",
-			Tecnico: err.Error(),
-		})
+		escribirJSON(w, http.StatusConflict,
+			respuestaDeError(resultado, "La llave SSH de root ya existe en el anfitrión.", err))
 
 		return
 	}
@@ -225,7 +223,7 @@ func (h *Sistema) LlaveRoot(w http.ResponseWriter, r *http.Request) {
 func (h *Sistema) descargarLlaveRoot(w http.ResponseWriter) {
 	nombre, contenido, err := h.llaves.Descargar()
 	if errors.Is(err, services.ErrLlaveNoEncontrada) {
-		escribirJSON(w, http.StatusNotFound, respuestaOperacion{
+		escribirJSON(w, http.StatusNotFound, respuestaError{
 			Mensaje: "No hay una llave SSH de root generada.",
 		})
 
@@ -234,7 +232,7 @@ func (h *Sistema) descargarLlaveRoot(w http.ResponseWriter) {
 
 	if err != nil {
 		slog.Error("descargar la llave de root", claveError, err)
-		escribirJSON(w, http.StatusInternalServerError, respuestaOperacion{
+		escribirJSON(w, http.StatusInternalServerError, respuestaError{
 			Mensaje: "No fue posible leer la llave privada.",
 			Tecnico: err.Error(),
 		})

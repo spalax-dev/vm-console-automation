@@ -25,11 +25,11 @@ Documento de seguimiento del proyecto. Se actualiza conforme se avanza.
 | Ensamblaje (`main.go`: rutas + inyección de dependencias) | [x] Servidor, `web/` embebido, rutas, historial y observabilidad |
 | Interfaz web (`web/src`, Vite) | [x] Vistas por módulo, historial, registro y diagnóstico |
 | Observabilidad y logs | [x] `X-Request-ID`, logs estructurados y errores sanitizados |
-| Pruebas de `services` y `handlers` | [x] 100 % en todos los paquetes internos; 494 casos Go y 72 del cliente |
+| Pruebas de `services` y `handlers` | [x] 100 % de cobertura en los paquetes internos; pruebas en verde |
 | Escenario: diagrama (numeral 5) | [x] Hecho en PlantUML (`docs/diagramas/`), en §3.1 del informe |
 | Pruebas manuales en video (numeral 4) | [~] Diseño listo (§5.1) y capturas de la interfaz en §4; los videos se entregan por separado |
 | Informe (`docs/informe`) | [x] §3 a §6, resumen y capturas de la interfaz; los videos van fuera del documento |
-| Resumen / index terms | [x] Redactado (225 palabras) |
+| Resumen / index terms | [x] Redactado (244 palabras) |
 
 ---
 
@@ -127,10 +127,10 @@ Estructura modular lista: `main.tex` (resumen, index terms, introducción, bibli
 
 - [x] `body/02-marco-teorico.tex` — completar secciones con TODO: Debian, APT, systemd, HAProxy.
 - [x] `body/03-diseno-solucion.tex` — diagrama + descripción del escenario; visión general, estructura del proyecto y decisiones tomadas.
-- [x] `body/04-implementacion.tex` — capa HTTP, contrato REST, paquetes, llaves SSH, `/etc/issue`, hostname, usuarios, systemd, HAProxy, historial, observabilidad e interfaz web, con las cifras de prueba y cobertura medidas el 25 oct 2026.
-- [~] `body/05-pruebas.tex` — §5.1 con las 18 pruebas diseñadas (estado anterior → operación → estado posterior) y §5.2 con los resultados automáticos; falta grabar V01–V18 y sustituir las marcas `\pendiente{por grabar}` del cuadro de evidencias.
+- [x] `body/04-implementacion.tex` — capa HTTP, contrato REST, paquetes, llaves SSH, `/etc/issue`, hostname, usuarios, systemd, HAProxy, historial, observabilidad y tabla de vistas de la interfaz.
+- [x] `body/05-pruebas.tex` — §5.1 con las 18 pruebas diseñadas (estado anterior → operación → estado posterior) y §5.2 con los resultados automáticos; los videos V01–V18 se entregan fuera del documento.
 - [x] `body/06-conclusiones.tex` — problemas y soluciones, herramientas de IA y conclusiones.
-- [x] **Resumen (abstract) y index terms** — 225 palabras, con las palabras clave del trabajo.
+- [x] **Resumen (abstract) y index terms** — 244 palabras, con las palabras clave del trabajo.
 - [x] Revisar referencias bibliográficas en `ref.bib` y citas \parencite.
 - [x] Verificar compilación limpia con `latexmk` (LuaLaTeX): 13 páginas, sin citas ni referencias indefinidas y sin *overfull* (25 oct 2026).
 - [x] Detallar problemas encontrados durante el desarrollo y cómo se solucionaron (§6.1).
@@ -142,8 +142,8 @@ Estructura modular lista: `main.tex` (resumen, index terms, introducción, bibli
 
 - [x] `task fmt` → sin archivos pendientes.
 - [x] `task lint` → 0 issues (25 oct 2026).
-- [x] `task test` → verde: 494 casos Go; 100 % de cobertura en los paquetes internos y 85.7 % en el ejecutable.
-- [x] `pnpm test` en `web/` → 72 casos en verde.
+- [x] `task test` → verde; 100 % de cobertura en los paquetes internos y 85.7 % en el ejecutable.
+- [x] `pnpm test` en `web/` → pruebas del cliente en verde.
 - [x] `latexmk` → PDF de 13 páginas sin errores, sin referencias indefinidas ni *overfull*.
 - [ ] Commits incrementales en español, uno por bloque funcional.
 - [ ] Confirmar registro del equipo en Classroom (respuesta al mensaje del docente).
@@ -201,13 +201,12 @@ de los módulos del numeral 3.
   cookie HMAC de doce horas, middleware que exige sesión en toda la API),
   botón para olvidar el registro de una máquina y estado real de los
   servidores del back-end desde el socket de estadísticas de HAProxy. La
-  cobertura de los paquetes internos llegó al 100 % con 494 casos de Go y
-  72 del cliente; el ejecutable queda en 85.7 % por su arranque y el
-  servidor en escucha.
+  cobertura de los paquetes internos llegó al 100 %; el ejecutable queda
+  en 85.7 % por su arranque y el servidor en escucha.
 
 - **25 oct 2026** — Informe al día con el código: se corrigieron las cifras
-  desactualizadas de §4 (diecinueve rutas, 317 casos Go, 67 del cliente,
-  cobertura real por paquete), se quitó la afirmación de que el historial
+  desactualizadas de §4 (rutas, cobertura real por paquete y cifras de
+  pruebas), se quitó la afirmación de que el historial
   estaba deshabilitado y se ajustó §3 para explicar el `501` en pasado.
   Se escribieron §5.1 (diseño de 18 pruebas con estado anterior, operación
   y estado posterior), §5.2 (resultado de las pruebas automáticas y cuadro
@@ -454,7 +453,7 @@ de los módulos del numeral 3.
   de ejecución. Las ocho vistas consultan su recurso al montarse y
   muestran carga, vacío y error; las operaciones de escritura alimentan
   el panel de resultado. Se documentó en `docs/web-cliente.md`.
-  Pruebas del cliente con Vitest: 42 casos (\texttt{api},
+  Pruebas del cliente con Vitest (\texttt{api},
   \texttt{validacion}, \texttt{ui} y montaje de vistas en DOM).
   Presupuesto: 64 kB de JavaScript (antes 528 kB) al importar solo los
   iconos utilizados.

@@ -387,9 +387,9 @@ vigencia corta, distinta por recurso:
 
 Las reglas que hacen segura la caché:
 
-- **Solo se recuerdan respuestas `200`.** Un `503` por falta de sesión o un
-  `501` de un módulo no conectado se vuelven a pedir siempre, para que el
-  usuario vea el cambio en cuanto arranque la máquina o se conecte el caso de uso.
+- **Solo se recuerdan respuestas `200`.** Un `503` por falta de sesión o
+  cualquier error se vuelven a pedir siempre, para que el usuario vea el
+  cambio en cuanto arranque la máquina o se restablezca el servicio.
 - **Cualquier escritura vacía la caché completa.** Instalar un paquete, crear un
   usuario o cambiar el hostname descartan todas las entradas; así no queda una
   lista vieja después de una operación, que es el riesgo clásico de cachear.
@@ -455,10 +455,11 @@ es la fuente de verdad para el frontend y para las pruebas de los *handlers*.
 Esta sección resume las rutas; el documento OpenAPI detalla esquemas, ejemplos
 y códigos de respuesta.
 
-**Estado de implementación:** todas las rutas están registradas y validan sus
-entradas; las que aún no tienen caso de uso responden `501` con el modelo de
-error común. `GET /api/session` está conectado al descubrimiento y
-`/api/packages` ya ejecuta APT sobre la máquina.
+**Estado de implementación:** todas las rutas del contrato están registradas,
+validan sus entradas y tienen su caso de uso conectado; los errores usan el
+modelo común descrito en §6. La API incluye la sesión y el registro de la
+máquina, los cuatro módulos del enunciado, el historial y la cuenta local de
+la consola.
 
 Todas las respuestas son JSON (`Content-Type: application/json`). Las peticiones
 con cuerpo envían **JSON** (`Content-Type: application/json`), incluidos
@@ -573,7 +574,19 @@ Se valida **siempre** en el servidor, con mensajes que nombran el campo y el mot
   "operacion": "apt-get install -y nano", "codigo": 100,
   "stderr": "E: Unable to locate package nano",
   "tecnico": "exit=100 · stderr=E: Unable to locate package nano" }
+{ "ok": false, "mensaje": "El campo «nombre» no es válido.",
+  "campo": "nombre", "tecnico": "no cumple ^[a-z0-9][a-z0-9+.-]*$" }
 ```
+
+Todas las respuestas comparten una sola envoltura, `ResultadoOperacion`, tanto
+las de éxito como las de error; `ok` y `mensaje` nunca faltan. En un error,
+`campo` aparece únicamente cuando falla la validación de un dato de entrada, y
+`operacion`, `codigo`, `salida` y `stderr` solo se incluyen si la orden llegó a
+ejecutarse; por eso `codigo` está ausente cuando no hay código de salida, como
+en la validación `400`, la falta de autenticación `401` o los errores `404`,
+`409` y `503` que no ejecutaron nada. `tecnico` es opcional y resume el fallo
+para el diagnóstico. El identificador `X-Request-ID` viaja en la cabecera, no
+en el cuerpo, para correlacionar con el servidor.
 
 | Situación | HTTP | Origen |
 | --- | --- | --- |
@@ -582,13 +595,12 @@ Se valida **siempre** en el servidor, con mensajes que nombran el campo y el mot
 | Recurso creado | 201 | `POST` con `Location` |
 | Recurso reemplazado o modificado | 200 | `PUT` y `PATCH` |
 | Recurso eliminado | 204 | `DELETE` |
-| Operación aún no conectada | 501 | *handler* sin caso de uso |
 | Sin sesión posible (VM apagada) | 503 | selección de conector |
 | Orden ejecutada con código ≠ 0 | 500 | `domain.ExitError` |
 
-El campo `mensaje` es el texto que ve el usuario; `operacion`, `codigo`,
-`salida`, `stderr` y `tecnico` son la información conservada para el
-diagnóstico, sin exponer llaves privadas.
+El campo `mensaje` es el texto que ve el usuario; `campo` indica el dato
+rechazado; `operacion`, `codigo`, `salida`, `stderr` y `tecnico` son la
+información conservada para el diagnóstico, sin exponer llaves privadas.
 
 ---
 

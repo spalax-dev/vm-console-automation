@@ -51,15 +51,20 @@ info:
 
     ## Envoltura de respuesta
 
-    Las operaciones con cuerpo devuelven `ResultadoOperacion`:
+    Las operaciones con cuerpo devuelven `ResultadoOperacion`, y los errores
+    usan esa misma envoltura:
 
     - `ok`: indica si la operación terminó correctamente.
     - `mensaje`: texto comprensible para el usuario.
     - `operacion`: orden ejecutada (diagnóstico).
-    - `codigo`: código de salida del proceso remoto.
+    - `codigo`: código de salida del proceso remoto; falta si no existe.
     - `salida` y `stderr`: salida estándar y de error.
     - `tecnico`: resumen para diagnóstico.
     - `campo`: campo que falló la validación, cuando aplica.
+
+    `operacion`, `codigo`, `salida` y `stderr` solo aparecen cuando la orden
+    llegó a ejecutarse. El identificador de correlación viaja en la cabecera
+    `X-Request-ID`, no en el cuerpo.
 
     ## Caché de lectura
 
@@ -1074,7 +1079,7 @@ components:
             campoInvalido:
               value:
                 ok: false
-                mensaje: 'El campo «paquete» no es válido: solo letras, dígitos, + . -'
+                mensaje: 'El campo «nombre» no es válido: debe iniciar con minúscula o guion bajo'
                 campo: nombre
     NoEncontrado:
       description: El recurso indicado no existe en la máquina.
@@ -1222,6 +1227,17 @@ components:
 
     ResultadoOperacion:
       type: object
+      description: |
+        Envoltura única de todas las respuestas de la API, tanto de éxito
+        como de error. `ok` y `mensaje` siempre están presentes; `tecnico`
+        y `campo` son opcionales, y `campo` solo aparece cuando falla la
+        validación de un dato. `operacion`, `codigo`, `salida` y `stderr`
+        solo aparecen cuando la orden llegó a ejecutarse; en particular,
+        `codigo` está ausente cuando no existe un código de salida (por
+        ejemplo, en la validación `400`, en la falta de autenticación `401`
+        o en los errores `404`, `409` y `503` sin orden ejecutada). El
+        identificador de correlación viaja en la cabecera `X-Request-ID`,
+        no en el cuerpo.
       required: [ok, mensaje]
       properties:
         ok:
@@ -1235,7 +1251,10 @@ components:
           description: Orden ejecutada, para diagnóstico.
         codigo:
           type: integer
-          description: Código de salida del proceso remoto (0 si no aplica).
+          description: |
+            Código de salida del proceso remoto. Solo aparece cuando la orden
+            llegó a ejecutarse; si no hay código de salida, el campo está
+            ausente.
         salida:
           type: string
           description: Salida estándar relevante.
@@ -1247,7 +1266,9 @@ components:
           description: Resumen técnico para diagnóstico.
         campo:
           type: string
-          description: Campo que falló la validación, cuando aplica.
+          description: |
+            Campo que falló la validación; solo se envía en las respuestas de
+            validación con estado `400`.
 
     NombrePaquete:
       type: string

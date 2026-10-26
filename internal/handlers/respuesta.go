@@ -28,12 +28,22 @@ const (
 	cabeceraLocation    = "Location"
 )
 
-// respuestaError es el cuerpo JSON común de los errores de la consola.
+// respuestaError es el cuerpo JSON común de todos los errores de la
+// consola. OK siempre es false.
+//
+// Campo solo aparece en los errores de validación. Operacion, Codigo,
+// Salida y Stderr solo aparecen cuando el fallo ocurrió después de ejecutar
+// un comando, de modo que un 400 o un 401 no inventan un código de salida.
+// El código de la operación se omite cuando vale cero.
 type respuestaError struct {
-	OK      bool   `json:"ok"`
-	Mensaje string `json:"mensaje"`
-	Campo   string `json:"campo,omitempty"`
-	Tecnico string `json:"tecnico,omitempty"`
+	OK        bool   `json:"ok"`
+	Mensaje   string `json:"mensaje"`
+	Campo     string `json:"campo,omitempty"`
+	Operacion string `json:"operacion,omitempty"`
+	Codigo    int    `json:"codigo,omitempty"`
+	Salida    string `json:"salida,omitempty"`
+	Stderr    string `json:"stderr,omitempty"`
+	Tecnico   string `json:"tecnico,omitempty"`
 }
 
 // campoError describe un campo que no cumple una regla de validación.
@@ -114,7 +124,8 @@ func responderValidacion(w http.ResponseWriter, err error) {
 	escribirJSON(w, http.StatusBadRequest, respuestaError{Mensaje: err.Error()})
 }
 
-// respuestaOperacion es el cuerpo JSON de una operación de módulo.
+// respuestaOperacion es el cuerpo JSON de una operación de módulo
+// completada con éxito. Los errores usan respuestaError.
 type respuestaOperacion struct {
 	OK        bool   `json:"ok"`
 	Mensaje   string `json:"mensaje"`
@@ -123,6 +134,21 @@ type respuestaOperacion struct {
 	Salida    string `json:"salida,omitempty"`
 	Stderr    string `json:"stderr,omitempty"`
 	Tecnico   string `json:"tecnico,omitempty"`
+}
+
+// respuestaDeError compone el cuerpo de un error a partir del resultado que
+// devolvió el servicio y del error correspondiente. Solo el mensaje y el
+// detalle técnico son obligatorios: los datos de la operación se omiten si
+// el servicio no llegó a ejecutar ningún comando.
+func respuestaDeError(resultado services.Resultado, mensaje string, err error) respuestaError {
+	return respuestaError{
+		Mensaje:   mensaje,
+		Operacion: resultado.Operacion,
+		Codigo:    resultado.Codigo,
+		Salida:    resultado.Salida,
+		Stderr:    resultado.Stderr,
+		Tecnico:   err.Error(),
+	}
 }
 
 // escribirResultado escribe el resultado de una operación con el código
@@ -142,7 +168,7 @@ func escribirResultado(w http.ResponseWriter, codigo int, resultado services.Res
 // respuesta HTTP correspondiente, conservando el detalle técnico.
 func responderErrorOperacion(w http.ResponseWriter, resultado services.Resultado, err error) {
 	if errors.Is(err, services.ErrSesionNoDisponible) {
-		escribirJSON(w, http.StatusServiceUnavailable, respuestaOperacion{
+		escribirJSON(w, http.StatusServiceUnavailable, respuestaError{
 			Mensaje: "No hay una sesión disponible con la máquina: enciéndela o revisa la red.",
 			Tecnico: err.Error(),
 		})
@@ -152,20 +178,13 @@ func responderErrorOperacion(w http.ResponseWriter, resultado services.Resultado
 
 	var exitErr *domain.ExitError
 	if errors.As(err, &exitErr) {
-		escribirJSON(w, http.StatusInternalServerError, respuestaOperacion{
-			Mensaje:   "No fue posible completar la operación.",
-			Operacion: resultado.Operacion,
-			Codigo:    resultado.Codigo,
-			Stderr:    resultado.Stderr,
-			Tecnico:   err.Error(),
-		})
+		escribirJSON(w, http.StatusInternalServerError,
+			respuestaDeError(resultado, "No fue posible completar la operación.", err))
 
 		return
 	}
 
 	slog.Error("ejecutar la operación", claveError, err)
-	escribirJSON(w, http.StatusInternalServerError, respuestaOperacion{
-		Mensaje: "No fue posible completar la operación.",
-		Tecnico: err.Error(),
-	})
+	escribirJSON(w, http.StatusInternalServerError,
+		respuestaDeError(resultado, "No fue posible completar la operación.", err))
 }

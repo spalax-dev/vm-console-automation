@@ -259,7 +259,7 @@ func NuevoHaproxy(servicio ServicioHaproxy) *Haproxy
 NuevoHaproxy construye el handler de balanceo con HAProxy.
 
 <a name="Haproxy.Servidor"></a>
-### func \(\*Haproxy\) [Servidor](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/haproxy.go#L129>)
+### func \(\*Haproxy\) [Servidor](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/haproxy.go#L127>)
 
 ```go
 func (h *Haproxy) Servidor(w http.ResponseWriter, r *http.Request)
@@ -619,7 +619,7 @@ func NuevoSistema(paquetes ServicioPaquetes, llaves ServicioLlaves, issue Servic
 NuevoSistema construye el handler de preparación del sistema con los servicios dados.
 
 <a name="Sistema.Hostname"></a>
-### func \(\*Sistema\) [Hostname](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L348>)
+### func \(\*Sistema\) [Hostname](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L346>)
 
 ```go
 func (h *Sistema) Hostname(w http.ResponseWriter, r *http.Request)
@@ -628,7 +628,7 @@ func (h *Sistema) Hostname(w http.ResponseWriter, r *http.Request)
 Hostname atiende GET y PUT /api/hostname: consulta o reemplaza el nombre de host y su entrada en /etc/hosts.
 
 <a name="Sistema.Issue"></a>
-### func \(\*Sistema\) [Issue](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L268>)
+### func \(\*Sistema\) [Issue](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L266>)
 
 ```go
 func (h *Sistema) Issue(w http.ResponseWriter, r *http.Request)
@@ -740,7 +740,7 @@ func (h *Usuarios) Coleccion(w http.ResponseWriter, r *http.Request)
 Coleccion atiende GET y POST /api/users: lista los usuarios o crea uno nuevo.
 
 <a name="Usuarios.Llave"></a>
-### func \(\*Usuarios\) [Llave](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L210>)
+### func \(\*Usuarios\) [Llave](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L206>)
 
 ```go
 func (h *Usuarios) Llave(w http.ResponseWriter, r *http.Request)
@@ -749,7 +749,7 @@ func (h *Usuarios) Llave(w http.ResponseWriter, r *http.Request)
 Llave atiende GET /api/users/\{name\}/key: entrega la llave privada generada para el usuario.
 
 <a name="Usuarios.Usuario"></a>
-### func \(\*Usuarios\) [Usuario](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L137>)
+### func \(\*Usuarios\) [Usuario](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L135>)
 
 ```go
 func (h *Usuarios) Usuario(w http.ResponseWriter, r *http.Request)

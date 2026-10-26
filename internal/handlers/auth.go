@@ -76,7 +76,7 @@ func (a *Auth) Estado(w http.ResponseWriter, r *http.Request) {
 
 	configurada, err := a.servicio.Configurada()
 	if err != nil {
-		escribirJSON(w, http.StatusInternalServerError, respuestaOperacion{
+		escribirJSON(w, http.StatusInternalServerError, respuestaError{
 			Mensaje: "No fue posible consultar la cuenta de la consola.",
 			Tecnico: err.Error(),
 		})
@@ -109,7 +109,7 @@ func (a *Auth) Configurar(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case errors.Is(err, services.ErrConsolaConfigurada):
-		escribirJSON(w, http.StatusConflict, respuestaOperacion{
+		escribirJSON(w, http.StatusConflict, respuestaError{
 			Mensaje: "La consola ya tiene una cuenta; inicia sesión.",
 			Tecnico: err.Error(),
 		})
@@ -120,7 +120,7 @@ func (a *Auth) Configurar(w http.ResponseWriter, r *http.Request) {
 
 		return
 	case err != nil:
-		escribirJSON(w, http.StatusInternalServerError, respuestaOperacion{
+		escribirJSON(w, http.StatusInternalServerError, respuestaError{
 			Mensaje: "No fue posible crear la cuenta de la consola.",
 			Tecnico: err.Error(),
 		})
@@ -144,7 +144,7 @@ func (a *Auth) Entrar(w http.ResponseWriter, r *http.Request) {
 
 	autenticado, err := a.servicio.Autenticar(r.Context(), credenciales.Usuario, credenciales.Password)
 	if err != nil {
-		escribirJSON(w, http.StatusInternalServerError, respuestaOperacion{
+		escribirJSON(w, http.StatusInternalServerError, respuestaError{
 			Mensaje: "No fue posible comprobar las credenciales.",
 			Tecnico: err.Error(),
 		})
@@ -153,7 +153,7 @@ func (a *Auth) Entrar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !autenticado {
-		escribirJSON(w, http.StatusUnauthorized, respuestaOperacion{
+		escribirJSON(w, http.StatusUnauthorized, respuestaError{
 			Mensaje: "Usuario o contraseña incorrectos.",
 		})
 
@@ -185,7 +185,7 @@ func (a *Auth) Salir(w http.ResponseWriter, r *http.Request) {
 func (a *Auth) entrar(w http.ResponseWriter, usuario string, codigo int) {
 	token, err := a.servicio.AbrirSesion(usuario)
 	if err != nil {
-		escribirJSON(w, http.StatusInternalServerError, respuestaOperacion{
+		escribirJSON(w, http.StatusInternalServerError, respuestaError{
 			Mensaje: "No fue posible abrir la sesión de la consola.",
 			Tecnico: err.Error(),
 		})
@@ -252,7 +252,7 @@ func ConAutenticacion(siguiente http.Handler, servicio ServicioConsola) http.Han
 
 		usuario, ok := servicio.Validar(tokenDe(r))
 		if !ok {
-			escribirJSON(w, http.StatusUnauthorized, respuestaOperacion{
+			escribirJSON(w, http.StatusUnauthorized, respuestaError{
 				Mensaje: "La sesión de la consola no está iniciada.",
 			})
 

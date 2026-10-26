@@ -91,10 +91,8 @@ func (h *Usuarios) Coleccion(w http.ResponseWriter, r *http.Request) {
 
 	resultado, err := h.servicio.Crear(r.Context(), solicitud.Nombre, solicitud.Sudo, solicitud.Llaves)
 	if errors.Is(err, services.ErrUsuarioExistente) {
-		escribirJSON(w, http.StatusConflict, respuestaOperacion{
-			Mensaje: "El usuario «" + solicitud.Nombre + "» ya existe.",
-			Tecnico: err.Error(),
-		})
+		escribirJSON(w, http.StatusConflict,
+			respuestaDeError(resultado, "El usuario «"+solicitud.Nombre+"» ya existe.", err))
 
 		return
 	}
@@ -154,7 +152,7 @@ func (h *Usuarios) Usuario(w http.ResponseWriter, r *http.Request) {
 
 	usuario, err := h.servicio.Obtener(r.Context(), nombre)
 	if errors.Is(err, services.ErrUsuarioNoEncontrado) {
-		escribirJSON(w, http.StatusNotFound, respuestaOperacion{
+		escribirJSON(w, http.StatusNotFound, respuestaError{
 			Mensaje: "El usuario «" + nombre + "» no existe.",
 			Tecnico: err.Error(),
 		})
@@ -188,10 +186,8 @@ func (h *Usuarios) eliminar(w http.ResponseWriter, r *http.Request, nombre strin
 
 	resultado, err := h.servicio.Eliminar(r.Context(), nombre, archivos)
 	if errors.Is(err, services.ErrUsuarioNoEncontrado) {
-		escribirJSON(w, http.StatusNotFound, respuestaOperacion{
-			Mensaje: "El usuario «" + nombre + "» no existe.",
-			Tecnico: err.Error(),
-		})
+		escribirJSON(w, http.StatusNotFound,
+			respuestaDeError(resultado, "El usuario «"+nombre+"» no existe.", err))
 
 		return
 	}
@@ -221,7 +217,7 @@ func (h *Usuarios) Llave(w http.ResponseWriter, r *http.Request) {
 
 	archivo, contenido, err := h.servicio.DescargarLlave(nombre)
 	if errors.Is(err, services.ErrLlaveUsuarioNoEncontrada) {
-		escribirJSON(w, http.StatusNotFound, respuestaOperacion{
+		escribirJSON(w, http.StatusNotFound, respuestaError{
 			Mensaje: "No hay una llave generada para el usuario «" + nombre + "».",
 			Tecnico: err.Error(),
 		})
@@ -231,7 +227,7 @@ func (h *Usuarios) Llave(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		slog.Error("descargar la llave del usuario", claveError, err)
-		escribirJSON(w, http.StatusInternalServerError, respuestaOperacion{
+		escribirJSON(w, http.StatusInternalServerError, respuestaError{
 			Mensaje: "No fue posible leer la llave del usuario.",
 			Tecnico: err.Error(),
 		})

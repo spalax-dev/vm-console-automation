@@ -50,7 +50,7 @@ func (h *Diagnostico) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	informe, err := h.servicio.Obtener(r.Context())
 	if errors.Is(err, services.ErrSinMaquina) {
-		escribirJSON(w, http.StatusConflict, respuestaOperacion{
+		escribirJSON(w, http.StatusConflict, respuestaError{
 			Mensaje: "Primero elige una máquina virtual.",
 			Tecnico: err.Error(),
 		})
@@ -60,7 +60,7 @@ func (h *Diagnostico) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		slog.Error("diagnosticar la máquina", claveError, err)
-		escribirJSON(w, http.StatusInternalServerError, respuestaOperacion{
+		escribirJSON(w, http.StatusInternalServerError, respuestaError{
 			Mensaje: "No fue posible diagnosticar la máquina.",
 			Tecnico: err.Error(),
 		})

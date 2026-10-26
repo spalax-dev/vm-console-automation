@@ -62,9 +62,11 @@ reintenta hasta noventa segundos, con mensajes que distinguen «esperando
 a que arranque» de «esperando Guest Additions o SSH».
 
 \emph{Operaciones no interactivas y validación previa.} APT se ejecuta
-con \texttt{DEBIAN\_FRONTEND=noninteractive} y \texttt{-y}; HAProxy se
-valida con \texttt{haproxy -c} sobre un archivo temporal y solo se mueve
-a \texttt{/etc/haproxy/haproxy.cfg} si la comprobación pasa, de modo que
+con \texttt{DEBIAN\_FRONTEND=noninteractive} y \texttt{-y}; la
+configuración de HAProxy viaja codificada en Base64 para que el shell
+remoto no interprete comillas ni secuencias, se valida con
+\texttt{haproxy -c} sobre un archivo temporal y solo se mueve a
+\texttt{/etc/haproxy/haproxy.cfg} si la comprobación pasa, de modo que
 un error de sintaxis no deja el balanceador sin servicio; el despliegue
 de unidades ajusta modo y propietario y ejecuta \texttt{daemon-reload}.
 La lista de unidades combina \texttt{list-units} y
@@ -121,7 +123,7 @@ con el enunciado y con el entorno real. En concreto, se utilizó para:
   redacción y de las referencias.
   \item \emph{Generar el esqueleto de las pruebas.} Casos de prueba de
   los servicios y de los manejadores con dobles de prueba, y casos del
-  cliente con Vitest, siempre revisados y ajustados a mano.
+  cliente, siempre revisados y ajustados a mano.
   \item \emph{Depurar.} Análisis de trazas, de la orden exacta que se
   enviaba a \texttt{VBoxManage} y de los registros del servidor para
   encontrar la ruta duplicada de \texttt{guestcontrol} y el orden de
@@ -177,10 +179,10 @@ completan la solución: la cuenta local de la consola con cookie firmada,
 el botón para olvidar el registro de una máquina y el estado real de los
 servidores del back-end a partir del socket de estadísticas de HAProxy.
 Con ellas, la cobertura de los paquetes internos llegó al 100\,\% de las
-sentencias, con 494 pruebas de Go y 72 del cliente.
+sentencias y el conjunto de pruebas automatizadas quedó completo.
 
 Quedan mejoras posibles: apagado de la máquina virtual desde la interfaz
 ---deliberadamente fuera de alcance para no interrumpir servicios---,
 recuperación de la contraseña de la consola sin borrar la cuenta y una
-integración continua que ejecute las pruebas y la compilación del cliente
-en cada cambio.
+integración continua que ejecute las pruebas y la compilación de la
+interfaz en cada cambio.

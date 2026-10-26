@@ -85,10 +85,8 @@ func (h *Haproxy) Servidores(w http.ResponseWriter, r *http.Request) {
 
 	resultado, err := h.servicio.Agregar(r.Context(), solicitud.Direccion, solicitud.Puerto)
 	if errors.Is(err, services.ErrServidorExistente) {
-		escribirJSON(w, http.StatusConflict, respuestaOperacion{
-			Mensaje: "El servidor ya está en el back-end.",
-			Tecnico: err.Error(),
-		})
+		escribirJSON(w, http.StatusConflict,
+			respuestaDeError(resultado, "El servidor ya está en el back-end.", err))
 
 		return
 	}
@@ -142,10 +140,8 @@ func (h *Haproxy) Servidor(w http.ResponseWriter, r *http.Request) {
 
 	resultado, err := h.servicio.Eliminar(r.Context(), destino.Addr().String(), int(destino.Port()))
 	if errors.Is(err, services.ErrServidorNoEncontrado) {
-		escribirJSON(w, http.StatusNotFound, respuestaOperacion{
-			Mensaje: "El servidor no está en el back-end.",
-			Tecnico: err.Error(),
-		})
+		escribirJSON(w, http.StatusNotFound,
+			respuestaDeError(resultado, "El servidor no está en el back-end.", err))
 
 		return
 	}

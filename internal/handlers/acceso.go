@@ -72,28 +72,17 @@ func (h *Acceso) registrar(w http.ResponseWriter, r *http.Request) {
 	resultado, err := h.servicio.Registrar(r.Context(), solicitud.Usuario, solicitud.Password)
 	switch {
 	case errors.Is(err, services.ErrSinMaquina):
-		escribirJSON(w, http.StatusConflict, respuestaOperacion{
-			Mensaje: "Primero elige una máquina virtual.",
-			Tecnico: err.Error(),
-		})
+		escribirJSON(w, http.StatusConflict,
+			respuestaDeError(resultado, "Primero elige una máquina virtual.", err))
 	case errors.Is(err, services.ErrCredencialesInvalidas):
-		escribirJSON(w, http.StatusUnauthorized, respuestaOperacion{
-			Mensaje:   "Guest Additions rechazó las credenciales o no pudo ejecutar la orden.",
-			Operacion: resultado.Operacion,
-			Codigo:    resultado.Codigo,
-			Stderr:    resultado.Stderr,
-			Tecnico:   err.Error(),
-		})
+		escribirJSON(w, http.StatusUnauthorized, respuestaDeError(resultado,
+			"Guest Additions rechazó las credenciales o no pudo ejecutar la orden.", err))
 	case errors.Is(err, services.ErrSesionNoDisponible):
-		escribirJSON(w, http.StatusServiceUnavailable, respuestaOperacion{
-			Mensaje: "La máquina no está encendida o no publica Guest Additions.",
-			Tecnico: err.Error(),
-		})
+		escribirJSON(w, http.StatusServiceUnavailable, respuestaDeError(resultado,
+			"La máquina no está encendida o no publica Guest Additions.", err))
 	case err != nil:
-		escribirJSON(w, http.StatusInternalServerError, respuestaOperacion{
-			Mensaje: "No fue posible guardar o verificar las credenciales.",
-			Tecnico: err.Error(),
-		})
+		escribirJSON(w, http.StatusInternalServerError, respuestaDeError(resultado,
+			"No fue posible guardar o verificar las credenciales.", err))
 	default:
 		escribirResultado(w, http.StatusCreated, resultado)
 	}
@@ -107,7 +96,7 @@ func (h *Acceso) olvidar(w http.ResponseWriter) {
 			codigo = http.StatusConflict
 		}
 
-		escribirJSON(w, codigo, respuestaOperacion{
+		escribirJSON(w, codigo, respuestaError{
 			Mensaje: "No fue posible olvidar las credenciales.",
 			Tecnico: err.Error(),
 		})

@@ -290,7 +290,7 @@ func (h *Systemd) responderNoEncontrada(w http.ResponseWriter, unidad string, er
 		return false
 	}
 
-	escribirJSON(w, http.StatusNotFound, respuestaOperacion{
+	escribirJSON(w, http.StatusNotFound, respuestaError{
 		Mensaje: "La unidad «" + unidad + "» no existe.",
 		Tecnico: err.Error(),
 	})

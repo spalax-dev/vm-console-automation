@@ -67,7 +67,7 @@ func (h *Historial) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	operaciones, err := h.servicio.Listar(r.Context(), filtro)
 	if err != nil {
 		slog.Error("consultar el historial", claveError, err)
-		escribirJSON(w, http.StatusInternalServerError, respuestaOperacion{
+		escribirJSON(w, http.StatusInternalServerError, respuestaError{
 			Mensaje: "No fue posible consultar el historial.",
 			Tecnico: err.Error(),
 		})

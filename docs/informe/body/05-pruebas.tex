@@ -99,7 +99,7 @@ repositorios y la baja repetida de un servidor del back-end.
     P10 & Crear usuario con \texttt{sudo} y llaves & \texttt{id alumno}
     responde que no existe la cuenta. & Crear \texttt{alumno} con las
     casillas de \texttt{sudo} y de llaves, y descargar la privada. &
-    UID mayor o igual a 1000, grupo \texttt{sudo},
+    UID entre 1000 y 65533, grupo \texttt{sudo},
     \texttt{authorized\_keys} del usuario con \texttt{700}/\texttt{600}
     y contraseña bloqueada; la cuenta aparece en el listado. & V10 \\
     P11 & Eliminar usuario & \texttt{alumno} existe y tiene
@@ -181,14 +181,14 @@ ejecutan con las tareas del proyecto (\texttt{task test},
   \end{tabularx}
 \end{table}
 
-Las 494 pruebas de Go y las 72 del cliente terminan sin fallos y el
-análisis estático no reporta incidencias. Todos los paquetes internos
----núcleo, adaptadores, caché, servicios y manejadores--- alcanzan el
-100\,\% de cobertura de sentencias. Los adaptadores se prueban con
-ejecutores y sesiones falsos que devuelven salidas reales de
-\texttt{VBoxManage}, \texttt{ssh} y \texttt{systemd}; las pruebas de
-campo P01 a P18 completan lo que solo tiene sentido frente a un
-hipervisor real. El paquete del ejecutable queda en el 85.7\,\%: su
+Las pruebas automatizadas terminan sin fallos y el análisis estático no
+reporta incidencias. Todos los paquetes internos ---núcleo, adaptadores,
+caché, servicios y manejadores--- alcanzan el 100\,\% de cobertura de
+sentencias. Los adaptadores y los servicios se prueban con ejecutores y
+sesiones falsos que devuelven salidas realistas de \texttt{VBoxManage} y
+\texttt{ssh}, y los manejadores con peticiones HTTP simuladas; las
+pruebas de campo P01 a P18 completan lo que solo tiene sentido frente a
+un hipervisor real. El paquete del ejecutable queda en el 85.7\,\%: su
 función de arranque y el servidor que queda escuchando no se pueden
 ejercitar en una prueba unitaria sin abrir un puerto. El contrato
 OpenAPI se valida sin errores y ninguna de sus rutas devuelve
