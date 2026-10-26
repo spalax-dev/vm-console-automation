@@ -173,26 +173,28 @@ ejecutan con las tareas del proyecto (\texttt{task test},
     \texttt{adapters/localproc} & 100.0\,\% \\
     \texttt{httpcache} & 100.0\,\% \\
     \texttt{handlers} & 100.0\,\% \\
-    \texttt{services} & 100.0\,\% \\
+    \texttt{services} & 98.7\,\% \\
     \texttt{adapters/ssh} & 100.0\,\% \\
     \texttt{adapters/vbox} & 100.0\,\% \\
-    Ejecutable (\texttt{main}) & 85.7\,\% \\
+    Ejecutable (\texttt{main}) & 82.2\,\% \\
     \hline
   \end{tabularx}
 \end{table}
 
 Las pruebas automatizadas terminan sin fallos y el análisis estático no
-reporta incidencias. Todos los paquetes internos ---núcleo, adaptadores,
-caché, servicios y manejadores--- alcanzan el 100\,\% de cobertura de
-sentencias. Los adaptadores y los servicios se prueban con ejecutores y
-sesiones falsos que devuelven salidas realistas de \texttt{VBoxManage} y
-\texttt{ssh}, y los manejadores con peticiones HTTP simuladas; las
-pruebas de campo P01 a P18 completan lo que solo tiene sentido frente a
-un hipervisor real. El paquete del ejecutable queda en el 85.7\,\%: su
-función de arranque y el servidor que queda escuchando no se pueden
-ejercitar en una prueba unitaria sin abrir un puerto. El contrato
-OpenAPI se valida sin errores y ninguna de sus rutas devuelve
-\texttt{501}.
+reporta incidencias. Salvo \texttt{services}, todos los paquetes
+internos ---núcleo, adaptadores, caché y manejadores--- alcanzan el
+100\,\% de cobertura de sentencias; \texttt{services} llega al
+98.7\,\%, y las sentencias restantes son ramas de error de restauración,
+cifrado y cierre de sesión que exigen fallos encadenados. Los adaptadores
+y los servicios se prueban con ejecutores y sesiones falsos que devuelven
+salidas realistas de \texttt{VBoxManage} y \texttt{ssh}, y los
+manejadores con peticiones HTTP simuladas; las pruebas de campo P01 a P18
+completan lo que solo tiene sentido frente a un hipervisor real. El
+paquete del ejecutable queda en el 82.2\,\%: su función de arranque y el
+servidor que queda escuchando no se pueden ejercitar en una prueba
+unitaria sin abrir un puerto. El contrato OpenAPI se valida sin errores y
+ninguna de sus rutas devuelve \texttt{501}.
 
 \subsubsection{Pruebas de Campo}
 \label{sec:resultados-campo}
@@ -205,6 +207,49 @@ interfaz ---el formulario, la validación y la ficha del panel de
 resultado--- y termina con la comprobación del estado posterior en la
 misma terminal, de modo que la evidencia cubre el ciclo completo y no
 solo la respuesta de la consola.
+
+La ejecución automatizada del 26 de octubre de 2026 cubrió las
+dieciocho pruebas sobre las máquinas VM1 (\texttt{192.168.1.16}), VM2
+(\texttt{192.168.1.18}) y el balanceador (\texttt{192.168.1.21}). Cada
+prueba comprobó el estado anterior por SSH, ejecutó la operación y
+verificó el estado posterior con la misma conexión. Las dieciocho
+terminaron conformes; la \cref{tab:resultados-campo} resume lo observado
+y el detalle completo, con las salidas y los códigos de cada llamada,
+está en \texttt{docs/resultados-pruebas.md}. Las pruebas restauran el
+estado que modifican: la llave privada del anfitrión, el nombre de host,
+\texttt{/etc/issue}, la unidad temporal y los servidores del
+balanceador quedaron como estaban antes de la ejecución.
+
+\begin{table*}[!t]
+  \centering
+  \caption{Resultados observados en las pruebas de campo.}
+  \label{tab:resultados-campo}
+  \scriptsize
+  \begin{tabularx}{\textwidth}{@{}l >{\hsize=0.8\hsize}X >{\hsize=0.9\hsize}X >{\hsize=1.3\hsize}X c@{}}
+    \hline
+    Prueba & Antes & Operación & Después & Resultado \\
+    \hline
+    P01 & VM2 sin registrar & \texttt{POST /api/session/register} & \texttt{registrada=true}; Guest Additions 6.0.0 & Conforme \\
+    P02 & VM2 registrada & \texttt{GET /api/session/diagnostico} & Red puente, IP \texttt{.18}, SSH abierto y aviso de Guest Additions & Conforme \\
+    P03 & \texttt{tree} no instalado & \texttt{POST /api/packages} & \texttt{install ok installed} & Conforme \\
+    P04 & \texttt{tree} instalado & \texttt{DELETE /api/packages/tree} & \texttt{dpkg-query}: no encontrado & Conforme \\
+    P05 & \texttt{tree} eliminado & Alta de paquete inexistente & \texttt{500} con código 1 y \texttt{stderr} de APT & Conforme \\
+    P06 & Sin llave privada en el anfitrión & \texttt{POST} y \texttt{GET /api/keys/root} & SSH con la llave nueva; \texttt{passwordauthentication no} & Conforme \\
+    P07 & Contraseña deshabilitada & SSH sin autenticación por llave & \texttt{Permission denied (publickey)} & Conforme \\
+    P08 & \texttt{/etc/issue} original & \texttt{PUT /api/issue} & Mensaje con escapes \texttt{\textbackslash n}, \texttt{\textbackslash d}, \texttt{\textbackslash t} y \texttt{\textbackslash 4} & Conforme \\
+    P09 & Nombre de host \texttt{vm1} & \texttt{PUT /api/hostname} & \texttt{vmcons-lab} y entrada en \texttt{/etc/hosts} & Conforme \\
+    P10 & Usuario \texttt{alumno} inexistente & \texttt{POST /api/users} & UID 1001, grupo \texttt{sudo}, llave 0600 y descarga & Conforme \\
+    P11 & \texttt{alumno} con directorio & \texttt{DELETE /api/\allowbreak users/\allowbreak alumno?files=true} & Usuario y \texttt{/home/alumno} eliminados & Conforme \\
+    P12 & Unidad inexistente & \texttt{PUT /api/units/vmcons-demo.service} & Unidad creada; \texttt{daemon-reload} & Conforme \\
+    P13 & Unidad inactiva & Activar, habilitar, reiniciar y detener & \texttt{active}, \texttt{enabled}, \texttt{202}, \texttt{inactive} & Conforme \\
+    P14 & Sin ejecuciones del script & Iniciar y reiniciar la unidad & Cinco líneas con fecha y hora ISO-8601 & Conforme \\
+    P15 & Back-end sin servidores & \texttt{POST /api/\allowbreak haproxy/\allowbreak backend/\allowbreak servers} & Línea \texttt{srv\_192\_168\_1\_18\_8080}; \texttt{haproxy -c} válida y \texttt{curl} 200 & Conforme \\
+    P16 & Servidor \texttt{.18:8080} & \texttt{DELETE /api/\allowbreak haproxy/\allowbreak backend/\allowbreak servers} & Línea eliminada, \texttt{curl} 503 y repetir 404 & Conforme \\
+    P17 & Operaciones anteriores & \texttt{GET /api/historial?q=paquetes} & Operaciones con descripción legible & Conforme \\
+    P18 & VM1 vinculada & \texttt{PUT /api/session} con VM2 & IP \texttt{.16} sustituida por \texttt{.18} & Conforme \\
+    \hline
+  \end{tabularx}
+\end{table*}
 
 Los videos se entregan junto con el trabajo, fuera de este documento,
 con el nombre que indica la tabla. Las capturas de la interfaz que

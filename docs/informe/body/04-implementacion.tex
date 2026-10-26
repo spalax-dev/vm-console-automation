@@ -21,10 +21,11 @@ historial y el acceso con cuenta propia. La mayoría de las funciones
 tienen pruebas automáticas: los adaptadores y los servicios se ejercitan
 con ejecutores y sesiones falsos, los manejadores con peticiones HTTP
 simuladas y la persistencia sobre bases SQLite temporales. Todos los
-paquetes internos ---núcleo, adaptadores, caché, servicios y
-manejadores--- alcanzan el 100\,\% de cobertura de sentencias; el paquete
-del ejecutable queda por debajo porque su función de arranque y el
-servidor en escucha no se ejercitan en las pruebas unitarias. El análisis
+paquetes internos salvo \texttt{services} ---núcleo, adaptadores, caché y
+manejadores--- alcanzan el 100\,\% de cobertura de sentencias;
+\texttt{services} llega al 98.7\,\% y el paquete del ejecutable queda en
+el 82.2\,\% porque su función de arranque y el servidor en escucha no se
+ejercitan en las pruebas unitarias. El análisis
 estático con \texttt{golangci-lint} no reporta incidencias.
 
 % ------------------------------------------------------------
@@ -62,8 +63,8 @@ relevante, o \texttt{204} al eliminar, sin cuerpo; si es distinto
 de cero, responde \texttt{500} conservando la orden ejecutada, el
 código de salida y el \texttt{stderr} para el diagnóstico. El listado
 usa \texttt{dpkg-query} y filtra por el estado
-\texttt{install ok installed}. La cobertura del servicio de paquetes es
-del 100\,\%.
+\texttt{install ok installed}. El servicio de paquetes se prueba con
+ejecutores falsos que simulan APT y \texttt{dpkg-query}.
 
 \subsubsection{Configuración de la Llave de Acceso SSH para el Usuario Root}
 \label{sec:ssh-root}
@@ -208,7 +209,7 @@ Después elimina del anfitrión el par de llaves generado. La respuesta es
 
 \begin{figure*}[!t]
   \centering
-  \includegraphics[width=\textwidth]{images/ui-systemd}
+  \includegraphics[width=0.93\textwidth]{images/ui-systemd}
   \caption{Módulo de systemd: despliegue de la unidad del catálogo con sus
   archivos y permisos, controles de estado y listado de las unidades de la
   máquina con sus marcas de activa y habilitada.}

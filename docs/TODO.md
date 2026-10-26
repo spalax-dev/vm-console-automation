@@ -17,7 +17,7 @@ Documento de seguimiento del proyecto. Se actualiza conforme se avanza.
 | Adaptadores (`localproc`, `vbox`, `ssh`) | [x] Completos — cobertura 100 % |
 | Calidad de código (`task fmt`, `task lint`, `task test`) | [x] 0 issues, todas las pruebas en verde |
 | `docs/arquitectura.md` | [x] Escrito, con persistencia, observabilidad y herramientas |
-| Contrato OpenAPI (`docs/openapi.yaml`) | [x] 19 rutas, validado con Redocly, sin respuestas 501 |
+| Contrato OpenAPI (`docs/openapi.yaml`) | [x] 23 rutas, validado con Redocly, sin respuestas 501 |
 | Controladores HTTP de los módulos | [x] Todos los módulos conectados a los servicios |
 | Servicio de descubrimiento/selección de sesión | [x] Completo — cobertura 100 % |
 | Casos de uso (`internal/services`) | [x] Preparación, usuarios, systemd y HAProxy completos |
@@ -25,7 +25,7 @@ Documento de seguimiento del proyecto. Se actualiza conforme se avanza.
 | Ensamblaje (`main.go`: rutas + inyección de dependencias) | [x] Servidor, `web/` embebido, rutas, historial y observabilidad |
 | Interfaz web (`web/src`, Vite) | [x] Vistas por módulo, historial, registro y diagnóstico |
 | Observabilidad y logs | [x] `X-Request-ID`, logs estructurados y errores sanitizados |
-| Pruebas de `services` y `handlers` | [x] 100 % de cobertura en los paquetes internos; pruebas en verde |
+| Pruebas de `services` y `handlers` | [x] 98.7 % en `services`, 100 % en el resto de paquetes internos; pruebas en verde |
 | Escenario: diagrama (numeral 5) | [x] Hecho en PlantUML (`docs/diagramas/`), en §3.1 del informe |
 | Pruebas manuales en video (numeral 4) | [~] Diseño listo (§5.1) y capturas de la interfaz en §4; los videos se entregan por separado |
 | Informe (`docs/informe`) | [x] §3 a §6, resumen y capturas de la interfaz; los videos van fuera del documento |
@@ -37,12 +37,12 @@ Documento de seguimiento del proyecto. Se actualiza conforme se avanza.
 
 Verificar que el entorno de pruebas exista antes de ejecutar las pruebas registradas en video.
 
-- [ ] **a)** VM Debian 13.7.0 actualizada (`apt update && apt upgrade`), SSH instalado y en ejecución, adaptador de red en modo puente — *pruebas generales*.
-- [ ] **b)** VM Debian con HAPROXY instalado y configuración predeterminada — *pruebas de balanceo*.
-- [ ] **c)** Disco virtual multiconexión con todo lo necesario para crear máquinas listas para el balanceo — *pruebas de despliegue*.
-- [ ] **d)** Ejecutable de la aplicación de catálogo de libros + archivos requeridos — *pruebas de systemd*.
-- [ ] **e)** Script que agrega fecha y hora a un archivo en cada ejecución — *pruebas de systemd*.
-- [ ] Registrar el esquema de red (subred local y DHCP), los nombres de las VM y las rutas de los discos (insumo para el diagrama del escenario). Las direcciones IP se asignan por DHCP, así que no se fijan en el diagrama.
+- [x] **a)** VM Debian 13.7.0 actualizada (`apt update && apt upgrade`), SSH instalado y en ejecución, adaptador de red en modo puente — *pruebas generales*. Verificado el 26 oct 2026 en VM1: Debian 13.7, `ssh` activo, `nic1=bridged` sobre `wlo1` y `apt-get -s upgrade` sin paquetes pendientes.
+- [x] **b)** VM Debian con HAPROXY instalado y configuración predeterminada — *pruebas de balanceo*. Verificado en `balanceador`: HAProxy 3.0.11 activo y `/etc/haproxy/haproxy.cfg` restaurado a su estado predeterminado después de P15–P16.
+- [x] **c)** Disco virtual multiconexión con todo lo necesario para crear máquinas listas para el balanceo — *pruebas de despliegue*. Verificado: disco base `/home/jorge/.mvs/debian/base/servidor1-disk1.qcow` y clones para VM1, VM2, balanceador y servidores 1–3.
+- [ ] **d)** Ejecutable de la aplicación de catálogo de libros + archivos requeridos — *pruebas de systemd*. No se encontró el binario ni el `.service` en el equipo; P12–P14 validaron el mecanismo con una unidad temporal `vmcons-demo.service`.
+- [x] **e)** Script que agrega fecha y hora a un archivo en cada ejecución — *pruebas de systemd*. Validado en P14: cinco líneas ISO-8601 tras iniciar y reiniciar la unidad.
+- [x] Registrar el esquema de red (subred local y DHCP), los nombres de las VM y las rutas de los discos (insumo para el diagrama del escenario). Las direcciones IP se asignan por DHCP, así que no se fijan en el diagrama. Subred `192.168.1.0/24`; VM1 `.16`, VM2 `.18`, balanceador `.21`, servidores `.22` y `.24`.
 
 ---
 
@@ -105,8 +105,8 @@ Orden de trabajo obligatorio: **docs → tests → implementación**.
 ## 5. Pruebas (numeral 4)
 
 - [x] Diseñar una prueba por cada elemento de la solución (estado anterior → operación → estado posterior): P01–P18 en `docs/informe/body/05-pruebas.tex` §5.1.
-- [~] Ejecutar cada prueba y **grabarla en video**, dejando claro el estado anterior y el posterior (V01–V18). Los videos se entregan por otro medio y no van en el informe.
-- [ ] Organizar los videos (nombre, carpeta, índice) para referenciarlos desde el informe.
+- [x] Ejecutar cada prueba y registrar el estado anterior y el posterior: 18 de 18 conformes el 26 oct 2026; el detalle está en `docs/resultados-pruebas.md` y el resumen en la tabla VI de §5.2.
+- [~] **Grabar en video** la ejecución de cada prueba (V01–V18). Los videos se entregan por otro medio y no van en el informe; quedan pendientes de grabación y organización con nombre e índice.
 - [x] Registrar capturas de pantalla de la interfaz e incrustarlas en §4.
 
 
@@ -142,7 +142,7 @@ Estructura modular lista: `main.tex` (resumen, index terms, introducción, bibli
 
 - [x] `task fmt` → sin archivos pendientes.
 - [x] `task lint` → 0 issues (25 oct 2026).
-- [x] `task test` → verde; 100 % de cobertura en los paquetes internos y 85.7 % en el ejecutable.
+- [x] `task test` → verde; 98.7 % en `services`, 100 % en el resto de paquetes internos y 82.2 % en el ejecutable.
 - [x] `pnpm test` en `web/` → pruebas del cliente en verde.
 - [x] `latexmk` → PDF de 13 páginas sin errores, sin referencias indefinidas ni *overfull*.
 - [ ] Commits incrementales en español, uno por bloque funcional.
@@ -183,6 +183,33 @@ de los módulos del numeral 3.
 
 ## Notas de seguimiento
 
+- **26 oct 2026** — Corrección en HAProxy: al agregar un servidor al último
+  `backend`, la concatenación de líneas perdía el salto de línea final y
+  HAProxy rechazaba la configuración con «Missing LF on last line». `write()`
+  normaliza el salto antes de codificar en Base64 y una prueba de regresión
+  decodifica la orden para comprobarlo.
+- **26 oct 2026** — Pruebas de campo P01–P18 ejecutadas de forma automatizada
+  sobre VM1, VM2 y el balanceador: 18 de 18 conformes. El resumen está en la
+  tabla VI de §5.2 y el detalle en `docs/resultados-pruebas.md`; el arnés queda
+  en `scripts/pruebas-campo.py`. P12–P14 usaron una unidad temporal porque no
+  se dispone del binario del catálogo (precondición d).
+- **26 oct 2026** — Cobertura medida tras el refactor: `services` 98.7 %,
+  ejecutable 82.2 % y 100 % en el resto de paquetes internos. Se ajustaron el
+  informe y este documento para no declarar cifras distintas de las medidas.
+
+- **26 oct 2026** — Convenciones de nombres: todos los identificadores de Go
+  (tipos, funciones, métodos, variables, campos y constantes, incluidos los de
+  prueba) pasaron a inglés; los comentarios, la documentación y los mensajes
+  siguen en español, y los nombres del contrato JSON y de las rutas se
+  conservan en español con etiquetas `json`. Los `operationId` de OpenAPI
+  también quedaron en inglés. Se añadió la política a `AGENTS.md` y a
+  `docs/arquitectura.md`.
+- **26 oct 2026** — Debian deja de usarse como sinónimo de máquina virtual:
+  el comentario de HAProxy, el README, la documentación y el contrato hablan
+  de «distribuciones basadas en Debian»; las precondiciones y el escenario
+  conservan Debian 13 porque el enunciado lo exige, y `DEBIAN_FRONTEND` no
+  cambia. Los datos de prueba usan `vm-1` y `vm1`.
+
 - **26 oct 2026** — Transporte Base64 en HAProxy y aislamiento de captura
   en observabilidad: la configuración de HAProxy se codifica en Base64
   antes de transferirla al invitado, lo que evita errores de entrecomillado
@@ -201,8 +228,9 @@ de los módulos del numeral 3.
   cookie HMAC de doce horas, middleware que exige sesión en toda la API),
   botón para olvidar el registro de una máquina y estado real de los
   servidores del back-end desde el socket de estadísticas de HAProxy. La
-  cobertura de los paquetes internos llegó al 100 %; el ejecutable queda
-  en 85.7 % por su arranque y el servidor en escucha.
+  cobertura quedó en 98.7 % para `services`, 100 % para el resto de
+  paquetes internos y 82.2 % para el ejecutable, por su arranque y el
+  servidor en escucha.
 
 - **25 oct 2026** — Informe al día con el código: se corrigieron las cifras
   desactualizadas de §4 (rutas, cobertura real por paquete y cifras de
@@ -370,7 +398,7 @@ de los módulos del numeral 3.
   interfaz y la máquina vinculada, con color solo si la salida es una
   terminal y respetando `NO_COLOR`.
 
-- **25 oct 2026** — Back-end de HAProxy (3.4): el servicio `Haproxy`
+- **25 oct 2026** — Back-end de HAProxy (3.4): el servicio `HAProxy`
   interpreta el primer bloque `backend` de `/etc/haproxy/haproxy.cfg`,
   agrega o quita líneas `server` y valida la configuración propuesta con
   `haproxy -c` antes de moverla e recargar el servicio. `POST` responde
@@ -406,7 +434,7 @@ de los módulos del numeral 3.
   estado de cada máquina. Cobertura de `services` 100 % y `handlers`
   97.8 %; cero incidencias de `golangci-lint`.
 
-- **25 oct 2026** — Gestión de usuarios (3.2): el servicio `Usuarios`
+- **25 oct 2026** — Gestión de usuarios (3.2): el servicio `Users`
   lista cuentas regulares (`UID ≥ 1000`), crea con `useradd -m -s
   /bin/bash`, agrega a `sudo` con `usermod -aG`, genera el par en el
   anfitrión e instala la pública en `authorized_keys` con `700`/`600` y
@@ -458,7 +486,7 @@ de los módulos del numeral 3.
   Presupuesto: 64 kB de JavaScript (antes 528 kB) al importar solo los
   iconos utilizados.
 
-- **24 oct 2026** — Llaves SSH de root (3.1.2): el servicio `Llaves`
+- **24 oct 2026** — Llaves SSH de root (3.1.2): el servicio `Keys`
   abre la sesión por Guest Additions antes de generar la llave, ejecuta
   `ssh-keygen -t ed25519` en el anfitrión, instala la pública en
   `authorized_keys` (700/600) y escribe
@@ -471,7 +499,7 @@ de los módulos del numeral 3.
   `handlers` 99.0 %.
 
 - **24 oct 2026** — Primer módulo conectado: paquetes APT. El servicio
-  `Paquetes` abre una sesión por operación, ejecuta
+  `Packages` abre una sesión por operación, ejecuta
   `apt-get install/remove -y` con `DEBIAN_FRONTEND=noninteractive`,
   lista con `dpkg-query` y traduce `domain.ExitError` a la respuesta
   `500` con código y `stderr`. `POST /api/packages` responde `201` con
@@ -505,10 +533,10 @@ de los módulos del numeral 3.
   conecten los casos de uso. Cobertura de `handlers`: 96.8 %.
 
 - **24 oct 2026** — Descubrimiento de sesión implementado con el ciclo
-  docs → tests → implementación. `Descubridor` verifica el estado de la
+  docs → tests → implementación. `Discoverer` verifica el estado de la
   VM, descubre la dirección si falta y sondea los conectores en orden
   (`ssh`, `guest-additions`); expone `GET /api/session` con
-  `{conector, ip, estado}` y responde 503 con `ErrSesionNoDisponible`.
+  `{conector, ip, estado}` y responde 503 con `ErrSessionUnavailable`.
   `main.go` arma el servidor, embebe `web/` y lee la configuración de
   variables de entorno. Calidad: `services` 100 % y `handlers` 94.7 % de
   cobertura, `golangci-lint` con 0 issues.
