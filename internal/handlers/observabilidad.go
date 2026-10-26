@@ -185,10 +185,14 @@ func nombreVM(vm func() string) string {
 	return vm()
 }
 
+// leerAleatorio llena el identificador de solicitud; es una variable para
+// poder simular su fallo en las pruebas.
+var leerAleatorio = rand.Read
+
 // nuevaSolicitud genera un identificador corto y aleatorio.
 func nuevaSolicitud() string {
 	datos := make([]byte, 8)
-	if _, err := rand.Read(datos); err != nil {
+	if _, err := leerAleatorio(datos); err != nil {
 		return time.Now().UTC().Format("20060102T150405.000000")
 	}
 

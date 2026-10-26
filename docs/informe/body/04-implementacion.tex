@@ -6,7 +6,7 @@
 \section{Implementación}
 \label{sec:implementacion}
 
-La capa HTTP está implementada: los diecinueve recursos de la
+La capa HTTP está implementada: los veintitrés recursos de la
 \cref{tab:api-rest} tienen su manejador, la validación del servidor
 aplica las reglas descritas en la \cref{sec:contrato-rest} y cada
 petición se responde con el modelo JSON de la
@@ -17,11 +17,13 @@ systemd y HAProxy--- ejecutan operaciones reales sobre la máquina. No quedan
 respuestas \texttt{501}: todas las rutas del contrato están conectadas.
 La interfaz web consume el contrato completo desde las nueve vistas
 (\cref{sec:interfaz}), incluidos el registro con diagnóstico y el
-historial. Las 317 pruebas de Go cubren el 92.4\,\% de los manejadores,
-el 89.0\,\% de los servicios, el 100\,\% del núcleo y de
-\texttt{localproc}, el 75.0\,\% de SSH y el 69.1\,\% de VirtualBox; las
-67 pruebas del cliente se describen en la \cref{sec:interfaz}. El
-análisis estático con \texttt{golangci-lint} no reporta incidencias.
+historial y el acceso con cuenta propia. Las 494 pruebas de Go cubren el
+100\,\% de los paquetes internos ---núcleo, adaptadores, caché, servicios y
+manejadores---; el paquete del ejecutable queda en el 85.7\,\% porque su
+función de arranque y el servidor en escucha no se ejercitan en las
+pruebas unitarias. Las 72 pruebas del cliente se describen en la
+\cref{sec:interfaz}. El análisis estático con \texttt{golangci-lint} no
+reporta incidencias.
 
 % ------------------------------------------------------------
 % 4.1 Preparación del sistema
@@ -226,14 +228,41 @@ configuración anterior, de modo que el balanceador no se queda sin
 servicio. El alta responde \texttt{201} con \texttt{Location}
 (\texttt{409} si el servidor ya existe), la baja \texttt{204}
 (\texttt{404} si no está) y el listado \texttt{200} con
-\texttt{\{servidores: [...]\}}. El estado de cada servidor se informa
-como \texttt{unknown} porque la consola no consulta el socket de
-estadísticas de HAProxy; la verificación funcional del balanceo se
-realiza con las back-end del entorno de pruebas.
+\texttt{\{servidores: [...]\}}. El estado de cada servidor se toma del socket de estadísticas de HAProxy:
+la consola ejecuta \texttt{show stat} con \texttt{socat} y traduce el campo
+\texttt{status} de cada fila a \texttt{up} o \texttt{down}. Si el socket no
+responde ---o \texttt{socat} no está instalado--- los servidores se
+informan como \texttt{unknown} sin que el listado falle, y la verificación
+funcional del balanceo se completa con las back-end del entorno de
+pruebas.
 
 % ------------------------------------------------------------
-% 4.5 Interfaz web
+% 4.5 Acceso e interfaz
 % ------------------------------------------------------------
+\subsection{Acceso a la Consola}
+\label{sec:acceso-consola}
+
+La consola no administra la máquina sin una cuenta local. En el primer
+arranque la tabla \texttt{usuarios\_consola} está vacía y la interfaz pide
+crear la cuenta; después, \texttt{POST /api/auth/setup} responde
+\texttt{409} y solo queda iniciar sesión. La contraseña no se guarda: se
+deriva con \texttt{bcrypt} ---sal por cuenta y costo configurable--- y se
+almacena el hash, de modo que una copia de la base no permite probar
+contraseñas a gran velocidad. El servicio \texttt{Consola} valida las
+credenciales y emite una cookie \texttt{HttpOnly} con el valor
+\texttt{usuario|expira|firma}, donde la firma es un HMAC-SHA256 con un
+secreto de 32 bytes que se genera en el primer uso y vive en la tabla
+\texttt{configuracion}. La vigencia es de doce horas y cerrar sesión
+vence la cookie en el navegador.
+
+Un middleware envuelve el enrutador y responde \texttt{401} a cualquier
+\texttt{/api/\ldots} que no traiga una cookie válida, salvo las cuatro
+rutas de \texttt{/api/auth}. La interfaz consulta
+\texttt{GET /api/auth/estado} al arrancar y solo monta el armazón cuando
+hay sesión; si no, muestra el formulario de creación o el de acceso. Los
+archivos estáticos se sirven sin cookie a propósito: son el código que
+dibuja ese formulario, y cualquier dato pasa por la API protegida.
+
 \subsection{Historial y Persistencia}
 \label{sec:historial}
 
@@ -284,7 +313,9 @@ contraseñas no aparecen ni en los logs ni en el detalle técnico.
 \label{sec:interfaz}
 
 La interfaz es una aplicación de una sola página construida con Vite,
-JavaScript sin \emph{framework} y Tailwind CSS. Se prescindió de una
+JavaScript sin \emph{framework} y Tailwind CSS. Antes del armazón se
+interpone la pantalla de acceso (\cref{sec:acceso-consola}); una vez
+dentro, la barra superior muestra la cuenta y ofrece cerrar sesión. Se prescindió de una
 biblioteca de componentes porque la interfaz es un conjunto fijo de
 formularios y tablas: un enrutador por fragmento de URL y funciones que
 construyen el árbol del documento bastan para el alcance del enunciado y
@@ -319,6 +350,12 @@ operador puede preparar la consola antes de encender el laboratorio. La
 vinculación se guarda en el mismo objeto que resuelve la sesión, con un
 cerrojo de lectura y escritura porque los manejadores la consultan y la
 modifican en paralelo.
+
+Cuando la máquina está registrada, el selector ofrece \emph{olvidar el
+registro}: borra sus credenciales y la marca como \emph{sin registrar},
+de modo que la próxima vez pida usuario y contraseña. La operación pide
+confirmación porque obliga a repetir el registro, y conserva la llave de
+\texttt{root} del anfitrión, que es común a todas las máquinas.
 
 Cuando la máquina vinculada está apagada, el selector ofrece encenderla.
 La operación ejecuta \texttt{VBoxManage startvm} en modo sin interfaz

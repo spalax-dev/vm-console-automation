@@ -21,6 +21,21 @@ import (
 	_ "modernc.org/sqlite" // controlador SQLite puro Go, sin CGO
 )
 
+// controladorSQL es el controlador de base de datos; es una variable para
+// poder simular fallos de apertura en las pruebas.
+var controladorSQL = "sqlite"
+
+// ajustarPermisos cambia los permisos de la base; es una variable por la
+// misma razón.
+var ajustarPermisos = os.Chmod
+
+// aleatorio llena los buffers de cifrado y de secretos; es una variable
+// para poder simular fallos de entropía en las pruebas.
+var aleatorio = rand.Read
+
+// nuevoGCM construye el modo GCM; es una variable por la misma razón.
+var nuevoGCM = cipher.NewGCM
+
 // Credenciales son los datos de acceso a una máquina virtual. La
 // contraseña se cifra con AES-GCM antes de guardarse en SQLite.
 type Credenciales struct {
@@ -93,7 +108,7 @@ func NuevoAlmacen(rutaBD, rutaClave string) (*Almacen, error) {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite", rutaBD)
+	db, err := sql.Open(controladorSQL, rutaBD)
 	if err != nil {
 		return nil, fmt.Errorf("abrir la base de datos: %w", err)
 	}
@@ -105,7 +120,7 @@ func NuevoAlmacen(rutaBD, rutaClave string) (*Almacen, error) {
 	}
 
 	// #nosec G302 -- es la base de datos, no un ejecutable.
-	if err := os.Chmod(rutaBD, 0o600); err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if err := ajustarPermisos(rutaBD, 0o600); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		slog.Warn("ajustar permisos de la base de datos", claveErrorLog, err)
 	}
 
@@ -216,7 +231,7 @@ func cargarClave(ruta string) ([]byte, error) {
 	}
 
 	clave := make([]byte, 32)
-	if _, err := rand.Read(clave); err != nil {
+	if _, err := aleatorio(clave); err != nil {
 		return nil, fmt.Errorf("generar la clave de cifrado: %w", err)
 	}
 
@@ -351,13 +366,13 @@ func (a *Almacen) cifrar(texto string) (string, error) {
 		return "", fmt.Errorf("preparar el cifrado: %w", err)
 	}
 
-	gcm, err := cipher.NewGCM(bloque)
+	gcm, err := nuevoGCM(bloque)
 	if err != nil {
 		return "", fmt.Errorf("preparar GCM: %w", err)
 	}
 
 	nonce := make([]byte, gcm.NonceSize())
-	if _, err := rand.Read(nonce); err != nil {
+	if _, err := aleatorio(nonce); err != nil {
 		return "", fmt.Errorf("generar el nonce: %w", err)
 	}
 
@@ -376,7 +391,7 @@ func (a *Almacen) descifrar(texto string) (string, error) {
 		return "", fmt.Errorf("preparar el descifrado: %w", err)
 	}
 
-	gcm, err := cipher.NewGCM(bloque)
+	gcm, err := nuevoGCM(bloque)
 	if err != nil {
 		return "", fmt.Errorf("preparar GCM: %w", err)
 	}

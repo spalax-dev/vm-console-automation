@@ -14,7 +14,7 @@ Documento de seguimiento del proyecto. Se actualiza conforme se avanza.
 | Área | Estado |
 | --- | --- |
 | Núcleo (`internal/core/domain` + `ports`) | [x] Completo — cobertura 100 % |
-| Adaptadores (`localproc`, `vbox`, `ssh`) | [x] Completos — cobertura 100 % / 69.1 % / 75.0 % |
+| Adaptadores (`localproc`, `vbox`, `ssh`) | [x] Completos — cobertura 100 % |
 | Calidad de código (`task fmt`, `task lint`, `task test`) | [x] 0 issues, todas las pruebas en verde |
 | `docs/arquitectura.md` | [x] Escrito, con persistencia, observabilidad y herramientas |
 | Contrato OpenAPI (`docs/openapi.yaml`) | [x] 19 rutas, validado con Redocly, sin respuestas 501 |
@@ -25,10 +25,10 @@ Documento de seguimiento del proyecto. Se actualiza conforme se avanza.
 | Ensamblaje (`main.go`: rutas + inyección de dependencias) | [x] Servidor, `web/` embebido, rutas, historial y observabilidad |
 | Interfaz web (`web/src`, Vite) | [x] Vistas por módulo, historial, registro y diagnóstico |
 | Observabilidad y logs | [x] `X-Request-ID`, logs estructurados y errores sanitizados |
-| Pruebas de `services` y `handlers` | [~] `services` 89.0 %; `handlers` 92.4 %; 317 casos Go y 67 del cliente |
+| Pruebas de `services` y `handlers` | [x] 100 % en todos los paquetes internos; 494 casos Go y 72 del cliente |
 | Escenario: diagrama (numeral 5) | [x] Hecho en PlantUML (`docs/diagramas/`), en §3.1 del informe |
 | Pruebas manuales en video (numeral 4) | [ ] Diseño listo (§5.1); falta ejecutar y grabar V01–V18 |
-| Informe (`docs/informe`) | [~] §3 a §6 y resumen escritos; §5.2 pendiente de las evidencias |
+| Informe (`docs/informe`) | [~] §3 a §6 y resumen escritos; §5.2 pendiente de grabar los videos |
 | Resumen / index terms | [x] Redactado (225 palabras) |
 
 ---
@@ -142,13 +142,13 @@ Estructura modular lista: `main.tex` (resumen, index terms, introducción, bibli
 
 - [x] `task fmt` → sin archivos pendientes.
 - [x] `task lint` → 0 issues (25 oct 2026).
-- [x] `task test` → verde: 317 casos Go; cobertura `services` 89.0 %, `handlers` 92.4 %.
-- [x] `pnpm test` en `web/` → 67 casos en verde.
+- [x] `task test` → verde: 494 casos Go; 100 % de cobertura en los paquetes internos y 85.7 % en el ejecutable.
+- [x] `pnpm test` en `web/` → 72 casos en verde.
 - [x] `latexmk` → PDF de 13 páginas sin errores, sin referencias indefinidas ni *overfull*.
 - [ ] Commits incrementales en español, uno por bloque funcional.
 - [ ] Confirmar registro del equipo en Classroom (respuesta al mensaje del docente).
 - [ ] Preparar guion/orden de la sustentación (27 oct, 6:00 pm).
-- [ ] Opcional: subir la cobertura de `adapters/vbox` (69.1 %) y `adapters/ssh` (75.0 %), que bajó al añadir el encendido, el inventario y el respaldo por `sshpass`.
+
 
 ---
 
@@ -182,6 +182,14 @@ de los módulos del numeral 3.
 ---
 
 ## Notas de seguimiento
+
+- **25 oct 2026** — Cierre funcional: cuenta local de la consola (bcrypt +
+  cookie HMAC de doce horas, middleware que exige sesión en toda la API),
+  botón para olvidar el registro de una máquina y estado real de los
+  servidores del back-end desde el socket de estadísticas de HAProxy. La
+  cobertura de los paquetes internos llegó al 100 % con 494 casos de Go y
+  72 del cliente; el ejecutable queda en 85.7 % por su arranque y el
+  servidor en escucha.
 
 - **25 oct 2026** — Informe al día con el código: se corrigieron las cifras
   desactualizadas de §4 (diecinueve rutas, 317 casos Go, 67 del cliente,

@@ -172,8 +172,15 @@ antes de ejecutar y separar el puerto de ejecución de los adaptadores: el
 núcleo no cambió al pasar de \texttt{VBoxManage} a SSH, y las pruebas
 pudieron ejecutarse con dobles sin una máquina virtual.
 
-Quedan mejoras posibles: autenticación de la consola con usuario y
-contraseña, consulta del socket de estadísticas de HAProxy para informar
-el estado real de cada servidor, apagado de la máquina virtual desde la
-interfaz y una integración continua que ejecute las pruebas y la
-compilación del cliente en cada cambio.
+El cierre incluyó tres piezas que el enunciado no exigía y que
+completan la solución: la cuenta local de la consola con cookie firmada,
+el botón para olvidar el registro de una máquina y el estado real de los
+servidores del back-end a partir del socket de estadísticas de HAProxy.
+Con ellas, la cobertura de los paquetes internos llegó al 100\,\% de las
+sentencias, con 494 pruebas de Go y 72 del cliente.
+
+Quedan mejoras posibles: apagado de la máquina virtual desde la interfaz
+---deliberadamente fuera de alcance para no interrumpir servicios---,
+recuperación de la contraseña de la consola sin borrar la cuenta y una
+integración continua que ejecute las pruebas y la compilación del cliente
+en cada cambio.

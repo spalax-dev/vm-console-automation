@@ -171,20 +171,26 @@ ejecutan con las tareas del proyecto (\texttt{task test},
     \hline
     \texttt{core/domain} & 100.0\,\% \\
     \texttt{adapters/localproc} & 100.0\,\% \\
-    \texttt{httpcache} & 92.1\,\% \\
-    \texttt{handlers} & 92.4\,\% \\
-    \texttt{services} & 89.0\,\% \\
-    \texttt{adapters/ssh} & 75.0\,\% \\
-    \texttt{adapters/vbox} & 69.1\,\% \\
+    \texttt{httpcache} & 100.0\,\% \\
+    \texttt{handlers} & 100.0\,\% \\
+    \texttt{services} & 100.0\,\% \\
+    \texttt{adapters/ssh} & 100.0\,\% \\
+    \texttt{adapters/vbox} & 100.0\,\% \\
+    Ejecutable (\texttt{main}) & 85.7\,\% \\
     \hline
   \end{tabularx}
 \end{table}
 
-Las 317 pruebas de Go y las 67 del cliente terminan sin fallos y el
-análisis estático no reporta incidencias. La cobertura de los adaptadores
-de SSH y de VirtualBox es menor porque su lógica consiste en componer
-órdenes que solo tienen sentido frente a un hipervisor o un servidor
-reales; esa parte la cubren las pruebas de campo P01 a P18. El contrato
+Las 494 pruebas de Go y las 72 del cliente terminan sin fallos y el
+análisis estático no reporta incidencias. Todos los paquetes internos
+---núcleo, adaptadores, caché, servicios y manejadores--- alcanzan el
+100\,\% de cobertura de sentencias. Los adaptadores se prueban con
+ejecutores y sesiones falsos que devuelven salidas reales de
+\texttt{VBoxManage}, \texttt{ssh} y \texttt{systemd}; las pruebas de
+campo P01 a P18 completan lo que solo tiene sentido frente a un
+hipervisor real. El paquete del ejecutable queda en el 85.7\,\%: su
+función de arranque y el servidor que queda escuchando no se pueden
+ejercitar en una prueba unitaria sin abrir un puerto. El contrato
 OpenAPI se valida sin errores y ninguna de sus rutas devuelve
 \texttt{501}.
 

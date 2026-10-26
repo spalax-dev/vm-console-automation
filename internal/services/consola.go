@@ -6,7 +6,6 @@ package services
 import (
 	"context"
 	"crypto/hmac"
-	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
@@ -223,7 +222,7 @@ func (a *Almacen) secretoConsola() ([]byte, error) {
 	}
 
 	secreto := make([]byte, 32)
-	if _, err := rand.Read(secreto); err != nil {
+	if _, err := aleatorio(secreto); err != nil {
 		return nil, fmt.Errorf("generar el secreto de la consola: %w", err)
 	}
 

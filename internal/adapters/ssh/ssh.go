@@ -119,33 +119,33 @@ func (c *Connector) Connect(ctx context.Context, target domain.Target) (ports.Se
 	return &Session{connector: c, target: target}, nil
 }
 
+// archivoTemporal es el subconjunto de *os.File que usa la contraseña
+// temporal; permite simular fallos en las pruebas.
+type archivoTemporal interface {
+	Chmod(modo os.FileMode) error
+	WriteString(texto string) (int, error)
+	Name() string
+	Close() error
+}
+
+// crearTemporal abre el archivo temporal de la contraseña.
+var crearTemporal = func() (*os.File, error) {
+	return os.CreateTemp("", "vmcons-pass-*")
+}
+
 // ConnectPassword implementa ports.PasswordConnector usando sshpass. La
 // contraseña se guarda en un archivo temporal 0600 que la sesión elimina
 // al cerrarse.
 func (c *Connector) ConnectPassword(
 	_ context.Context, target domain.Target, usuario, password string,
 ) (ports.Session, error) {
-	archivo, err := os.CreateTemp("", "vmcons-pass-*")
+	archivo, err := crearTemporal()
 	if err != nil {
 		return nil, fmt.Errorf("ssh: crear el archivo temporal: %w", err)
 	}
 
-	if err := archivo.Chmod(0o600); err != nil {
-		cerrarTemporal(archivo)
-
-		return nil, fmt.Errorf("ssh: proteger el archivo temporal: %w", err)
-	}
-
-	if _, err := archivo.WriteString(password); err != nil {
-		cerrarTemporal(archivo)
-
-		return nil, fmt.Errorf("ssh: guardar la contraseña temporal: %w", err)
-	}
-
-	if err := archivo.Close(); err != nil {
-		eliminarTemporal(archivo.Name())
-
-		return nil, fmt.Errorf("ssh: cerrar el archivo temporal: %w", err)
+	if err := prepararTemporal(archivo, password); err != nil {
+		return nil, err
 	}
 
 	copia := *c
@@ -153,6 +153,30 @@ func (c *Connector) ConnectPassword(
 	copia.passwordFile = archivo.Name()
 
 	return &Session{connector: &copia, target: target, passwordFile: archivo.Name()}, nil
+}
+
+// prepararTemporal protege el archivo, escribe la contraseña y lo cierra.
+// Ante un fallo deja el sistema sin archivos temporales abandonados.
+func prepararTemporal(archivo archivoTemporal, password string) error {
+	if err := archivo.Chmod(0o600); err != nil {
+		cerrarTemporal(archivo)
+
+		return fmt.Errorf("ssh: proteger el archivo temporal: %w", err)
+	}
+
+	if _, err := archivo.WriteString(password); err != nil {
+		cerrarTemporal(archivo)
+
+		return fmt.Errorf("ssh: guardar la contraseña temporal: %w", err)
+	}
+
+	if err := archivo.Close(); err != nil {
+		eliminarTemporal(archivo.Name())
+
+		return fmt.Errorf("ssh: cerrar el archivo temporal: %w", err)
+	}
+
+	return nil
 }
 
 // Session implements ports.Session usando los clientes ssh y scp.
@@ -232,7 +256,7 @@ func (s *Session) destination() string {
 }
 
 // cerrarTemporal cierra y elimina el archivo temporal de la contraseña.
-func cerrarTemporal(archivo *os.File) {
+func cerrarTemporal(archivo archivoTemporal) {
 	if err := archivo.Close(); err != nil {
 		slog.Warn("cerrar el archivo temporal de la contraseña", "error", err)
 	}

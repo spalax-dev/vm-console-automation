@@ -5,6 +5,7 @@ package httpcache
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -363,4 +364,125 @@ func TestRespuestaEnVueloNoContaminaLaCache(t *testing.T) {
 	if total != 3 {
 		t.Errorf("llamadas = %d, want 3 (lectura, cambio y lectura nueva)", total)
 	}
+}
+
+// escritorQueFalla simula un cliente que corta la respuesta.
+type escritorQueFalla struct {
+	cabecera http.Header
+}
+
+// Header devuelve las cabeceras de la respuesta.
+func (e *escritorQueFalla) Header() http.Header {
+	if e.cabecera == nil {
+		e.cabecera = make(http.Header)
+	}
+
+	return e.cabecera
+}
+
+// WriteHeader descarta el estado.
+func (e *escritorQueFalla) WriteHeader(int) {}
+
+// Write siempre falla, como una conexión cerrada.
+func (e *escritorQueFalla) Write([]byte) (int, error) {
+	return 0, errors.New("conexión cerrada")
+}
+
+// TestCacheGuardarSinPolitica comprueba que un recurso sin vigencia no se
+// guarda.
+func TestCacheGuardarSinPolitica(t *testing.T) {
+	t.Parallel()
+
+	cache := Nuevo(nil)
+	cache.guardar("/otra/ruta", entrada{cuerpo: []byte("x")}, cache.generacionActual())
+
+	if _, encontrada := cache.buscar("/otra/ruta"); encontrada {
+		t.Error("buscar() = true, want false para un recurso sin política")
+	}
+}
+
+// TestCacheGuardarIgnoraCuerpoGrande descarta respuestas desmedidas.
+func TestCacheGuardarIgnoraCuerpoGrande(t *testing.T) {
+	t.Parallel()
+
+	cache, _ := nuevoCache(time.Minute)
+	cache.guardar(rutaPaquetes, entrada{cuerpo: make([]byte, maximoCuerpo+1)}, cache.generacionActual())
+
+	if _, encontrada := cache.buscar(rutaPaquetes); encontrada {
+		t.Error("buscar() = true, want false para un cuerpo demasiado grande")
+	}
+}
+
+// TestCacheGuardarDescartaGeneracionVieja evita que una lectura en vuelo
+// repueble la caché después de una invalidación.
+func TestCacheGuardarDescartaGeneracionVieja(t *testing.T) {
+	t.Parallel()
+
+	cache, _ := nuevoCache(time.Minute)
+	generacion := cache.generacionActual()
+
+	cache.vaciar()
+	cache.guardar(rutaPaquetes, entrada{cuerpo: []byte("{")}, generacion)
+
+	if _, encontrada := cache.buscar(rutaPaquetes); encontrada {
+		t.Error("buscar() = true, want false para una generación anterior")
+	}
+}
+
+// TestCacheReciclaEntradas vacía la caché cuando alcanza el límite.
+func TestCacheReciclaEntradas(t *testing.T) {
+	t.Parallel()
+
+	cache, _ := nuevoCache(time.Minute)
+	cache.generacion++
+	generacion := cache.generacionActual()
+
+	for i := 0; i < maximoEntradas; i++ {
+		cache.entradas[rutaPaquetes+strconv.Itoa(i)] = entrada{cuerpo: []byte("x")}
+	}
+
+	cache.guardar(rutaPaquetes, entrada{cuerpo: []byte("y")}, generacion)
+
+	if len(cache.entradas) != 1 {
+		t.Errorf("entradas = %d, want 1 tras reciclar", len(cache.entradas))
+	}
+}
+
+// TestVigenciaDePrefiereElPrefijoMasEspecifico resuelve la política más
+// concreta.
+func TestVigenciaDePrefiereElPrefijoMasEspecifico(t *testing.T) {
+	t.Parallel()
+
+	cache := Nuevo([]Politica{
+		{Prefijo: "/api", TTL: time.Minute},
+		{Prefijo: rutaSesion, TTL: 3 * time.Second},
+	})
+
+	if ttl := cache.vigenciaDe(rutaSesion + "/extra"); ttl != 3*time.Second {
+		t.Errorf("vigenciaDe() = %v, want 3s", ttl)
+	}
+
+	if ttl := cache.vigenciaDe("/otra"); ttl != 0 {
+		t.Errorf("vigenciaDe() = %v, want 0", ttl)
+	}
+}
+
+// TestEscribirEntradaConClienteCaido no propaga el error de escritura.
+func TestEscribirEntradaConClienteCaido(t *testing.T) {
+	t.Parallel()
+
+	escribirEntrada(&escritorQueFalla{}, entrada{cuerpo: []byte("x")}, "HIT")
+}
+
+// TestGrabadorVolcarConClienteCaido no propaga el error de escritura.
+func TestGrabadorVolcarConClienteCaido(t *testing.T) {
+	t.Parallel()
+
+	grabador := nuevoGrabador()
+
+	if _, err := grabador.Write([]byte("x")); err != nil {
+		t.Fatalf("grabador.Write() error = %v", err)
+	}
+
+	grabador.volcar(&escritorQueFalla{}, "MISS")
 }

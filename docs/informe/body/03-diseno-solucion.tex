@@ -182,6 +182,8 @@ en la \cref{tab:api-rest}, y el estado de implementación se describe en la
     \hline
     Módulo & Operaciones \\
     \hline
+    Acceso & Crear la cuenta de la consola, iniciar y cerrar sesión; el
+    resto de la aplicación exige esa sesión. \\
     Sesión & Consultar el estado de la máquina, el conector activo y su
     dirección IP; vincular una máquina y encenderla. \\
     Registro & Registrar una máquina con sus credenciales, diagnosticar
@@ -269,6 +271,10 @@ la ruta y las operaciones se expresan con los métodos HTTP estándar
     \hline
     Recurso & Ruta y métodos \\
     \hline
+    Acceso & \texttt{/api/\allowbreak auth/\allowbreak estado} (GET) \\
+    Cuenta & \texttt{/api/\allowbreak auth/\allowbreak setup} (POST) \\
+    Entrada & \texttt{/api/\allowbreak auth/\allowbreak login} (POST) \\
+    Salida & \texttt{/api/\allowbreak auth/\allowbreak logout} (POST) \\
     Sesión & \texttt{/api/\allowbreak session} (GET, PUT) \\
     Registro & \texttt{/api/\allowbreak session/\allowbreak register} (POST, DELETE) \\
     Diagnóstico & \texttt{/api/\allowbreak session/\allowbreak diagnostico} (GET) \\

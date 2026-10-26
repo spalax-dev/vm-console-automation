@@ -47,6 +47,7 @@ type stubGuestAdditions struct {
 	accesibles map[string]bool
 	redes      map[string]domain.NetworkMode
 	consultas  int
+	errRed     error
 }
 
 // Address devuelve una IP solo si la máquina publica Guest Additions.
@@ -73,6 +74,10 @@ func (s *stubGuestAdditions) GuestAdditions(context.Context, domain.Target) (dom
 // Network devuelve el modo de red preprogramado por máquina («bridged»
 // por omisión).
 func (s *stubGuestAdditions) Network(_ context.Context, target domain.Target) (domain.NetworkMode, error) {
+	if s.errRed != nil {
+		return domain.NetworkUnknown, s.errRed
+	}
+
 	if modo, ok := s.redes[target.ID]; ok {
 		return modo, nil
 	}
@@ -434,6 +439,7 @@ func TestVinculacionMarcaRegistradas(t *testing.T) {
 type stubPersistencia struct {
 	activa    string
 	guardadas []string
+	err       error
 }
 
 // Activa devuelve la máquina guardada.
@@ -443,7 +449,7 @@ func (s *stubPersistencia) Activa() string { return s.activa }
 func (s *stubPersistencia) GuardarActiva(vm string) error {
 	s.guardadas = append(s.guardadas, vm)
 
-	return nil
+	return s.err
 }
 
 // TestVinculacionGuardaLaMaquinaActiva comprueba que vincular persiste

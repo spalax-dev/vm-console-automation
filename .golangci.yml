@@ -116,6 +116,9 @@ linters:
           - funlen
           - gocyclo
           - nestif
+          # Repetir literales en las pruebas hace más legible el caso; los
+          # nombres de los datos ya viven en el propio test.
+          - goconst
 
 formatters:
   enable:

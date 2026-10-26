@@ -220,11 +220,17 @@ func mismaVersionMayor(anfitrion, invitada string) bool {
 	return mayor(anfitrion) == mayor(invitada)
 }
 
-// probarPuertoSSH comprueba si el puerto 22 acepta conexiones.
-func probarPuertoSSH(ctx context.Context, direccion netip.Addr) bool {
+// abrirConexion abre la conexión TCP de la prueba; es una variable para
+// poder simular el resultado en las pruebas.
+var abrirConexion = func(ctx context.Context, direccion string) (net.Conn, error) {
 	dialer := net.Dialer{Timeout: 2 * time.Second}
 
-	conexion, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort(direccion.String(), "22"))
+	return dialer.DialContext(ctx, "tcp", direccion)
+}
+
+// probarPuertoSSH comprueba si el puerto 22 acepta conexiones.
+func probarPuertoSSH(ctx context.Context, direccion netip.Addr) bool {
+	conexion, err := abrirConexion(ctx, net.JoinHostPort(direccion.String(), "22"))
 	if err != nil {
 		return false
 	}

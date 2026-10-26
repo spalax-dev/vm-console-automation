@@ -87,14 +87,15 @@ func validarUnidad(unidad string) error {
 }
 
 // validarServidor comprueba un identificador «direccion:puerto» con IPv4
-// y puerto en el rango 1–65535.
-func validarServidor(campo, servidor string) error {
+// y puerto en el rango 1–65535, y devuelve el destino ya interpretado.
+func validarServidor(campo, servidor string) (netip.AddrPort, error) {
 	direccion, err := netip.ParseAddrPort(servidor)
 	if err != nil || !direccion.Addr().Is4() || direccion.Port() == 0 {
-		return campoInvalido(campo, "debe tener el formato direccion:puerto con IPv4 y puerto entre 1 y 65535")
+		return netip.AddrPort{},
+			campoInvalido(campo, "debe tener el formato direccion:puerto con IPv4 y puerto entre 1 y 65535")
 	}
 
-	return nil
+	return direccion, nil
 }
 
 // validarRuta comprueba que la ruta sea absoluta, sin traversal ni

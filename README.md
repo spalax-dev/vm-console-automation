@@ -8,6 +8,8 @@ Consola web de administración de máquinas virtuales GNU/Linux desarrollada en 
 - VirtualBox 7 con `VBoxManage` en el `PATH`.
 - Cliente OpenSSH (`ssh` y `scp`) en el `PATH`.
 - `sshpass` para el respaldo de registro por SSH con contraseña.
+- `socat` en la VM del balanceador para leer el estado real de los
+  servidores del back-end de HAProxy (sin él se informa `unknown`).
 ### Dependencias de desarrollo
 
 ```bash
@@ -63,6 +65,11 @@ task run
 ```
 
 Las variables son opcionales: la consola arranca en `http://localhost:8080`, restaura la última VM vinculada desde SQLite y la eliges en el selector.
+
+En el primer arranque la consola pide crear la cuenta local con la que se
+administrará (usuario de 3 a 32 caracteres y contraseña de 8 a 128). La
+contraseña se guarda como hash bcrypt y la sesión es una cookie firmada de
+doce horas; a partir de ahí, cada visita pide iniciar sesión.
 
 ## Instalación en el entorno del usuario
 

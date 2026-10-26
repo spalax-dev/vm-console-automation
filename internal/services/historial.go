@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log/slog"
 	"strings"
 	"time"
 )
@@ -91,9 +90,9 @@ func (h *Historial) Listar(ctx context.Context, filtro *FiltroHistorial) ([]Oper
 	}
 
 	defer func() {
-		if err := filas.Close(); err != nil {
-			slog.Warn("cerrar el historial", claveErrorLog, err)
-		}
+		// El cierre tras recorrer las filas no aporta información: el error
+		// del recorrido ya se devolvió arriba.
+		_ = filas.Close() //nolint:errcheck // el cierre no cambia el resultado.
 	}()
 
 	operaciones := []Operacion{}

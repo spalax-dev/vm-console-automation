@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"net/netip"
 	"strconv"
 
 	"consola-vm/internal/services"
@@ -133,15 +132,10 @@ func (h *Haproxy) Servidor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	servidor := r.PathValue(campoServer)
-	if err := validarServidor(campoServer, servidor); err != nil {
-		responderValidacion(w, err)
 
-		return
-	}
-
-	destino, err := netip.ParseAddrPort(servidor)
+	destino, err := validarServidor(campoServer, servidor)
 	if err != nil {
-		responderValidacion(w, campoInvalido(campoServer, "debe tener el formato direccion:puerto"))
+		responderValidacion(w, err)
 
 		return
 	}
