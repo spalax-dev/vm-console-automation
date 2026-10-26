@@ -315,6 +315,11 @@ configuración y opera sobre sus líneas `server`:
   `haproxy -c -f` y, solo si es válida, la mueve a `/etc/haproxy/haproxy.cfg`;
   después recarga el servicio con `systemctl reload haproxy`. Un error de sintaxis
   deja intacta la configuración anterior.
+- **Salto de línea final:** antes de codificar, el servicio garantiza que la
+  configuración termine en `\n`. Cuando el `backend` es la última sección del
+  archivo, `cat` puede devolver la última línea sin salto y la concatenación
+  posterior lo perdería; HAProxy rechaza esa configuración con «Missing LF on
+  last line» aunque el resto sea válido.
 
 El identificador del servidor en la ruta es `direccion:puerto`
 (por ejemplo, `192.168.1.61:8080`). El estado de cada servidor se toma del

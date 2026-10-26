@@ -203,6 +203,13 @@ func (h *HAProxy) Delete(ctx context.Context, address string, port int) (Outcome
 func (h *HAProxy) write(
 	ctx context.Context, session ports.Session, config, message string,
 ) (Outcome, error) {
+	// HAProxy rechaza la configuración si la última línea no termina en
+	// salto de línea; al agregar un servidor al último backend la
+	// concatenación puede perderlo.
+	if !strings.HasSuffix(config, "\n") {
+		config += "\n"
+	}
+
 	b64 := base64.StdEncoding.EncodeToString([]byte(config))
 	guion := "printf '%s' " + domain.Quote(b64) + " | base64 -d > /tmp/haproxy.cfg.vmcons && " +
 		binHaproxy + " -c -f /tmp/haproxy.cfg.vmcons && " +

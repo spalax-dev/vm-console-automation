@@ -5,6 +5,7 @@ package services
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"strings"
 	"testing"
@@ -83,6 +84,49 @@ func TestHaproxyAdd(t *testing.T) {
 
 	if result.Code != 0 {
 		t.Errorf("Codigo = %d, want 0", result.Code)
+	}
+}
+
+// TestHaproxyWriteKeepsFinalLF comprueba que la configuración enviada a
+// HAProxy termina en salto de línea aunque la recibida no lo tenga.
+func TestHaproxyWriteKeepsFinalLF(t *testing.T) {
+	t.Parallel()
+
+	session := &stubSession{result: domain.Result{}}
+
+	if _, err := newHAProxyForTest(session, nil).write(
+		context.Background(), session, "global\n    daemon", "Configuración escrita.",
+	); err != nil {
+		t.Fatalf("write() error = %v, want nil", err)
+	}
+
+	if len(session.commands) != 1 {
+		t.Fatalf(msgCommandUnica, len(session.commands))
+	}
+
+	script := session.commands[0].Args[1]
+
+	const prefix = "printf '%s' '"
+
+	start := strings.Index(script, prefix)
+	if start < 0 {
+		t.Fatalf("orden = %q, want el Base64 precedido de printf", script)
+	}
+
+	encoded := script[start+len(prefix):]
+
+	end := strings.Index(encoded, "'")
+	if end < 0 {
+		t.Fatalf("orden = %q, want el Base64 entre comillas", script)
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(encoded[:end])
+	if err != nil {
+		t.Fatalf("decodificar Base64: %v", err)
+	}
+
+	if !strings.HasSuffix(string(decoded), "\n") {
+		t.Errorf("configuración = %q, want el salto de línea final", decoded)
 	}
 }
 
