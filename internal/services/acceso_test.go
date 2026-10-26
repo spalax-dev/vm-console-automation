@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"consola-vm/internal/core/domain"
@@ -86,7 +87,7 @@ func TestAccessRegisterCredentialsInvalid(t *testing.T) {
 	t.Parallel()
 
 	session := &stubSession{err: &domain.ExitError{Code: 1, Command: "id"}}
-	access, store := newAccessForTest(t, domain.StateRunning, session, nil)
+	access, store := newAccessForTest(t, domain.StateRunning, session, errors.New("ssh no responde"))
 
 	if _, err := access.Register(context.Background(), userRoot, passwordTests); !errors.Is(err, ErrInvalidCredentials) {
 		t.Fatalf("Registrar() error = %v, want ErrCredencialesInvalidas", err)
@@ -161,6 +162,45 @@ func TestAccessForget(t *testing.T) {
 	}
 }
 
+// TestAccessRegisterAlreadyPrepared comprueba que una máquina cuya llave
+// ya abre SSH se marca como registrada sin probar la contraseña.
+func TestAccessRegisterAlreadyPrepared(t *testing.T) {
+	t.Parallel()
+
+	store, _, _ := newTestDB(t)
+	machine := &stubMachine{addr: netip.MustParseAddr(ipTests), state: domain.StateRunning}
+	guest := &stubConnector{name: connectorGuest, session: &stubSession{err: &domain.ExitError{Code: 1, Command: "id"}}}
+	sshPassword := &stubPasswordConnector{session: &stubSession{}}
+
+	access := NewAccess(&AccessConfig{
+		Store:         store,
+		Machine:       machine,
+		Guest:         guest,
+		SSH:           &stubConnector{name: connectorSSH},
+		SSHPassword:   sshPassword,
+		Ejecutor:      &stubExecutor{},
+		PathSSHKey:    newSSHKeyOfTests(t),
+		CurrentTarget: func() domain.Target { return domain.Target{ID: testMachineName} },
+	})
+
+	result, err := access.Register(context.Background(), userRoot, passwordTests)
+	if err != nil {
+		t.Fatalf("Registrar() error = %v, want nil", err)
+	}
+
+	if sshPassword.llamadas != 0 {
+		t.Errorf("ConnectPassword() se llamó %d veces, want 0", sshPassword.llamadas)
+	}
+
+	if !store.IsRegistered(testMachineName) {
+		t.Error("la máquina ya preparada no quedó registrada")
+	}
+
+	if !strings.Contains(result.Message, "ya tenía SSH preparado") {
+		t.Errorf("Mensaje = %q, want la confirmación de máquina preparada", result.Message)
+	}
+}
+
 // stubPasswordConnector abre una sesión falsa con contraseña.
 type stubPasswordConnector struct {
 	session  ports.Session
@@ -196,7 +236,7 @@ func TestAccessRegisterWithSSHPassword(t *testing.T) {
 		Store:         store,
 		Machine:       machine,
 		Guest:         guest,
-		SSH:           &stubConnector{name: connectorSSH},
+		SSH:           &stubConnector{name: connectorSSH, probeErrs: []error{errors.New("sin llave"), nil}},
 		SSHPassword:   sshPassword,
 		Ejecutor:      &stubExecutor{},
 		PathSSHKey:    newSSHKeyOfTests(t),

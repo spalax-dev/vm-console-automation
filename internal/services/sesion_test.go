@@ -154,11 +154,12 @@ func (s *stubSession) Close() error {
 // stubConnector es un conector falso con nombre, sondeo y conexión
 // preprogramados.
 type stubConnector struct {
-	name    string
-	probe   error
-	connect error
-	session ports.Session
-	probed  int
+	name      string
+	probe     error
+	probeErrs []error
+	connect   error
+	session   ports.Session
+	probed    int
 }
 
 // Name devuelve el nombre preprogramado del conector.
@@ -167,6 +168,13 @@ func (c *stubConnector) Name() string { return c.name }
 // Probe devuelve el error preprogramado y cuenta el sondeo.
 func (c *stubConnector) Probe(context.Context, domain.Target) error {
 	c.probed++
+
+	if len(c.probeErrs) > 0 {
+		err := c.probeErrs[0]
+		c.probeErrs = c.probeErrs[1:]
+
+		return err
+	}
 
 	return c.probe
 }

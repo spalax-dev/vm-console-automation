@@ -102,11 +102,19 @@ func (a *Access) Register(ctx context.Context, user, password string) (Outcome, 
 
 	output, err := a.prepareSSH(ctx, target, address, password)
 	if errors.Is(err, ErrInvalidCredentials) {
-		errorGuest := err
+		// Si la llave del anfitrión ya abre SSH, la máquina estaba
+		// preparada y solo falta guardar el registro. Ocurre cuando Guest
+		// Additions no está disponible y la contraseña ya se deshabilitó.
+		if a.ssh != nil && a.ssh.Probe(ctx, domain.Target{ID: target.ID, Address: address}) == nil {
+			output = Outcome{Message: "La máquina ya tenía SSH preparado; se guardó el registro."}
+			err = nil
+		} else {
+			errorGuest := err
 
-		output, err = a.prepareSSHPassword(ctx, target, address, user, password)
-		if err != nil {
-			err = fmt.Errorf("%w (Guest Additions: %w; SSH: %w)", ErrInvalidCredentials, errorGuest, err)
+			output, err = a.prepareSSHPassword(ctx, target, address, user, password)
+			if err != nil {
+				err = fmt.Errorf("%w (Guest Additions: %w; SSH: %w)", ErrInvalidCredentials, errorGuest, err)
+			}
 		}
 	}
 

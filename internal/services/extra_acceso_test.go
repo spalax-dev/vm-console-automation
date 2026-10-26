@@ -119,7 +119,7 @@ func TestAccessRespaldoSSHFails(t *testing.T) {
 	// intentar el respaldo por contraseña.
 	pathImpossible := filepath.Join(fileWithText(t), "id_ed25519")
 	access := accessWith(t, store, &stubMachine{addr: netip.MustParseAddr(ipTests), state: domain.StateRunning},
-		guest, &stubConnector{}, &stubPasswordConnector{}, pathImpossible)
+		guest, &stubConnector{probe: errors.New("sin llave")}, &stubPasswordConnector{}, pathImpossible)
 
 	if _, err := access.Register(context.Background(), userRoot, passwordTests); err == nil {
 		t.Error("Registrar() error = nil, want el fallo al comprobar la llave")
@@ -134,7 +134,7 @@ func TestAccessRespaldoSSHFails(t *testing.T) {
 	// El conector de contraseña falla al abrir la sesión.
 	otherStore, _, _ := newTestDB(t)
 	withError := accessWith(t, otherStore, &stubMachine{addr: netip.MustParseAddr(ipTests), state: domain.StateRunning},
-		guest, &stubConnector{}, &stubPasswordConnector{err: errors.New("sin sshpass")}, newSSHKeyOfTests(t))
+		guest, &stubConnector{probe: errors.New("sin llave")}, &stubPasswordConnector{err: errors.New("sin sshpass")}, newSSHKeyOfTests(t))
 
 	if _, err := withError.Register(context.Background(), userRoot, passwordTests); !errors.Is(err, ErrInvalidCredentials) {
 		t.Errorf("Registrar() error = %v, want ErrCredencialesInvalidas", err)
@@ -144,7 +144,7 @@ func TestAccessRespaldoSSHFails(t *testing.T) {
 	tercerStore, _, _ := newTestDB(t)
 	sessionRota := &stubSession{err: &domain.ExitError{Code: 1, Command: "id"}}
 	withSessionRota := accessWith(t, tercerStore, &stubMachine{addr: netip.MustParseAddr(ipTests), state: domain.StateRunning},
-		guest, &stubConnector{}, &stubPasswordConnector{session: sessionRota}, newSSHKeyOfTests(t))
+		guest, &stubConnector{probe: errors.New("sin llave")}, &stubPasswordConnector{session: sessionRota}, newSSHKeyOfTests(t))
 
 	if _, err := withSessionRota.Register(context.Background(), userRoot, passwordTests); !errors.Is(err, ErrInvalidCredentials) {
 		t.Errorf("Registrar() error = %v, want ErrCredencialesInvalidas", err)
@@ -186,7 +186,7 @@ func TestAccessRegisterFailedRestoresCredentialsPrevious(t *testing.T) {
 
 	guest := &stubConnector{session: &stubSession{err: &domain.ExitError{Code: 1, Command: "id"}}}
 	access := accessWith(t, store, &stubMachine{addr: netip.MustParseAddr(ipTests), state: domain.StateRunning},
-		guest, &stubConnector{}, &stubPasswordConnector{err: errors.New("sin sshpass")}, newSSHKeyOfTests(t))
+		guest, &stubConnector{probe: errors.New("sin llave")}, &stubPasswordConnector{err: errors.New("sin sshpass")}, newSSHKeyOfTests(t))
 
 	if _, err := access.Register(context.Background(), userRoot, passwordTests); !errors.Is(err, ErrInvalidCredentials) {
 		t.Fatalf("Registrar() error = %v, want ErrCredencialesInvalidas", err)

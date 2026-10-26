@@ -183,6 +183,10 @@ de los módulos del numeral 3.
 
 ## Notas de seguimiento
 
+- **26 oct 2026** — Registro tolerante a Guest Additions no disponible: si
+  Guest Additions rechaza la orden pero la llave del anfitrión ya abre SSH, la
+  máquina se marca como registrada sin pedir la contraseña ni volver a instalar
+  la llave. Cubre el caso de una VM ya preparada cuyo registro se perdió.
 - **26 oct 2026** — Corrección en HAProxy: al agregar un servidor al último
   `backend`, la concatenación de líneas perdía el salto de línea final y
   HAProxy rechazaba la configuración con «Missing LF on last line». `write()`

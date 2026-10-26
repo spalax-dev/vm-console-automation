@@ -267,7 +267,7 @@ func NewAccess(config *AccessConfig) *Access
 NewAccess construye el servicio de registro.
 
 <a name="Access.Forget"></a>
-### func \(\*Access\) [Forget](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/acceso.go#L273>)
+### func \(\*Access\) [Forget](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/acceso.go#L281>)
 
 ```go
 func (a *Access) Forget() error
