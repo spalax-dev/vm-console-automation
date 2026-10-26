@@ -27,8 +27,8 @@ Documento de seguimiento del proyecto. Se actualiza conforme se avanza.
 | Observabilidad y logs | [x] `X-Request-ID`, logs estructurados y errores sanitizados |
 | Pruebas de `services` y `handlers` | [x] 100 % en todos los paquetes internos; 494 casos Go y 72 del cliente |
 | Escenario: diagrama (numeral 5) | [x] Hecho en PlantUML (`docs/diagramas/`), en §3.1 del informe |
-| Pruebas manuales en video (numeral 4) | [ ] Diseño listo (§5.1); falta ejecutar y grabar V01–V18 |
-| Informe (`docs/informe`) | [~] §3 a §6 y resumen escritos; §5.2 pendiente de grabar los videos |
+| Pruebas manuales en video (numeral 4) | [~] Diseño listo (§5.1) y capturas de la interfaz en §4; los videos se entregan por separado |
+| Informe (`docs/informe`) | [x] §3 a §6, resumen y capturas de la interfaz; los videos van fuera del documento |
 | Resumen / index terms | [x] Redactado (225 palabras) |
 
 ---
@@ -105,10 +105,10 @@ Orden de trabajo obligatorio: **docs → tests → implementación**.
 ## 5. Pruebas (numeral 4)
 
 - [x] Diseñar una prueba por cada elemento de la solución (estado anterior → operación → estado posterior): P01–P18 en `docs/informe/body/05-pruebas.tex` §5.1.
-- [ ] Ejecutar cada prueba y **grabarla en video**, dejando claro el estado anterior y el posterior (V01–V18).
+- [~] Ejecutar cada prueba y **grabarla en video**, dejando claro el estado anterior y el posterior (V01–V18). Los videos se entregan por otro medio y no van en el informe.
 - [ ] Organizar los videos (nombre, carpeta, índice) para referenciarlos desde el informe.
-- [ ] Registrar capturas de pantalla de apoyo para el informe.
-- [ ] Sustituir las marcas `\pendiente{por grabar}` del cuadro de evidencias (§5.2) por el resultado de cada prueba.
+- [x] Registrar capturas de pantalla de la interfaz e incrustarlas en §4.
+
 
 ---
 
@@ -182,6 +182,12 @@ de los módulos del numeral 3.
 ---
 
 ## Notas de seguimiento
+
+- **25 oct 2026** — Capturas de la interfaz: la consola se ejecutó contra la
+  VM1 real y se tomaron capturas con Chromium (2×) de la pantalla de
+  acceso, paquetes, usuarios, systemd, el selector de máquina y el
+  historial filtrado por módulo. Se incrustaron en §4 y el informe compila
+  en 16 páginas; los videos de las pruebas se entregan por separado.
 
 - **25 oct 2026** — Cierre funcional: cuenta local de la consola (bcrypt +
   cookie HMAC de doce horas, middleware que exige sesión en toda la API),
