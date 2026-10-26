@@ -6,3 +6,6 @@
 
 format: github
 include-unexported: true
+repository:
+  url: https://github.com/spalax-dev/vm-console-automation
+  default-branch: main

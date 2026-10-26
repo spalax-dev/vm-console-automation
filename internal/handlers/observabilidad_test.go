@@ -100,3 +100,33 @@ func TestConObservabilidadOmitaEstaticos(t *testing.T) {
 		t.Errorf("log = %q, want vacío para un recurso estático", registro.String())
 	}
 }
+
+// TestConObservabilidadNoMutilaCuerpoDeErrorLargo comprueba que un cuerpo
+// de error mayor a 512 bytes no se trunca al entregarse al cliente HTTP.
+func TestConObservabilidadNoMutilaCuerpoDeErrorLargo(t *testing.T) {
+	t.Parallel()
+
+	var registro bytes.Buffer
+
+	cuerpoLargo := `{"mensaje":"` + strings.Repeat("a", 800) + `"}`
+	logger := slog.New(slog.NewTextHandler(&registro, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	handler := ConObservabilidad(
+		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+
+			if _, err := w.Write([]byte(cuerpoLargo)); err != nil {
+				t.Errorf("escribir cuerpo: %v", err)
+			}
+		}),
+		nil,
+		logger,
+	)
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/test", http.NoBody)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Body.String() != cuerpoLargo {
+		t.Errorf("cuerpo entregado = %d bytes, want %d bytes (se mutiló la respuesta)", rec.Body.Len(), len(cuerpoLargo))
+	}
+}

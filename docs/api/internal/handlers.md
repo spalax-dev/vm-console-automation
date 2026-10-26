@@ -78,7 +78,7 @@ Package handlers expone los endpoints HTTP de la consola de administración: pre
 
 
 <a name="ConAutenticacion"></a>
-## func ConAutenticacion
+## func [ConAutenticacion](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/auth.go#L245>)
 
 ```go
 func ConAutenticacion(siguiente http.Handler, servicio ServicioConsola) http.Handler
@@ -87,7 +87,7 @@ func ConAutenticacion(siguiente http.Handler, servicio ServicioConsola) http.Han
 ConAutenticacion exige la cookie de sesión en la API, salvo en las rutas de acceso. Los archivos de la interfaz se sirven sin cookie: la propia aplicación muestra el formulario cuando \`estado\` no está autenticado.
 
 <a name="ConHistorial"></a>
-## func ConHistorial
+## func [ConHistorial](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/historial.go#L275>)
 
 ```go
 func ConHistorial(siguiente http.Handler, historial ServicioHistorial, vm func() string) http.Handler
@@ -96,7 +96,7 @@ func ConHistorial(siguiente http.Handler, historial ServicioHistorial, vm func()
 ConHistorial envuelve el mux para registrar las operaciones mutantes.
 
 <a name="ConObservabilidad"></a>
-## func ConObservabilidad
+## func [ConObservabilidad](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/observabilidad.go#L81>)
 
 ```go
 func ConObservabilidad(siguiente http.Handler, vm func() string, logger *slog.Logger) http.Handler
@@ -105,7 +105,7 @@ func ConObservabilidad(siguiente http.Handler, vm func() string, logger *slog.Lo
 ConObservabilidad registra cada petición de la API con un identificador de solicitud, duración, estado y máquina activa.
 
 <a name="UsuarioDe"></a>
-## func UsuarioDe
+## func [UsuarioDe](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/auth.go#L282>)
 
 ```go
 func UsuarioDe(ctx context.Context) string
@@ -114,7 +114,7 @@ func UsuarioDe(ctx context.Context) string
 UsuarioDe devuelve el usuario autenticado del contexto.
 
 <a name="Acceso"></a>
-## type Acceso
+## type [Acceso](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/acceso.go#L25-L27>)
 
 Acceso expone POST y DELETE /api/session/register: registra la máquina vinculada o elimina su registro.
 
@@ -125,7 +125,7 @@ type Acceso struct {
 ```
 
 <a name="NuevoAcceso"></a>
-### func NuevoAcceso
+### func [NuevoAcceso](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/acceso.go#L30>)
 
 ```go
 func NuevoAcceso(servicio ServicioAcceso) *Acceso
@@ -134,7 +134,7 @@ func NuevoAcceso(servicio ServicioAcceso) *Acceso
 NuevoAcceso construye el handler de credenciales.
 
 <a name="Acceso.ServeHTTP"></a>
-### func \(\*Acceso\) ServeHTTP
+### func \(\*Acceso\) [ServeHTTP](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/acceso.go#L41>)
 
 ```go
 func (h *Acceso) ServeHTTP(w http.ResponseWriter, r *http.Request)
@@ -143,7 +143,7 @@ func (h *Acceso) ServeHTTP(w http.ResponseWriter, r *http.Request)
 ServeHTTP implementa http.Handler.
 
 <a name="Auth"></a>
-## type Auth
+## type [Auth](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/auth.go#L49-L51>)
 
 Auth agrupa los recursos de autenticación de la consola.
 
@@ -154,7 +154,7 @@ type Auth struct {
 ```
 
 <a name="NuevoAuth"></a>
-### func NuevoAuth
+### func [NuevoAuth](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/auth.go#L54>)
 
 ```go
 func NuevoAuth(servicio ServicioConsola) *Auth
@@ -163,7 +163,7 @@ func NuevoAuth(servicio ServicioConsola) *Auth
 NuevoAuth construye el handler de autenticación.
 
 <a name="Auth.Configurar"></a>
-### func \(\*Auth\) Configurar
+### func \(\*Auth\) [Configurar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/auth.go#L98>)
 
 ```go
 func (a *Auth) Configurar(w http.ResponseWriter, r *http.Request)
@@ -172,7 +172,7 @@ func (a *Auth) Configurar(w http.ResponseWriter, r *http.Request)
 Configurar crea la primera cuenta y deja la sesión iniciada.
 
 <a name="Auth.Entrar"></a>
-### func \(\*Auth\) Entrar
+### func \(\*Auth\) [Entrar](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/auth.go#L135>)
 
 ```go
 func (a *Auth) Entrar(w http.ResponseWriter, r *http.Request)
@@ -181,7 +181,7 @@ func (a *Auth) Entrar(w http.ResponseWriter, r *http.Request)
 Entrar inicia sesión con la cuenta existente.
 
 <a name="Auth.Estado"></a>
-### func \(\*Auth\) Estado
+### func \(\*Auth\) [Estado](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/auth.go#L72>)
 
 ```go
 func (a *Auth) Estado(w http.ResponseWriter, r *http.Request)
@@ -190,7 +190,7 @@ func (a *Auth) Estado(w http.ResponseWriter, r *http.Request)
 Estado informa si hay cuenta y si la petición trae una sesión válida.
 
 <a name="Auth.Salir"></a>
-### func \(\*Auth\) Salir
+### func \(\*Auth\) [Salir](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/auth.go#L167>)
 
 ```go
 func (a *Auth) Salir(w http.ResponseWriter, r *http.Request)
@@ -199,7 +199,7 @@ func (a *Auth) Salir(w http.ResponseWriter, r *http.Request)
 Salir vence la cookie de sesión.
 
 <a name="DescubridorSesion"></a>
-## type DescubridorSesion
+## type [DescubridorSesion](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sesion.go#L18-L20>)
 
 DescubridorSesion es el caso de uso que resuelve el conector disponible con la máquina virtual.
 
@@ -210,7 +210,7 @@ type DescubridorSesion interface {
 ```
 
 <a name="Diagnostico"></a>
-## type Diagnostico
+## type [Diagnostico](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/diagnostico.go#L21-L23>)
 
 Diagnostico expone GET /api/session/diagnostico.
 
@@ -221,7 +221,7 @@ type Diagnostico struct {
 ```
 
 <a name="NuevoDiagnostico"></a>
-### func NuevoDiagnostico
+### func [NuevoDiagnostico](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/diagnostico.go#L26>)
 
 ```go
 func NuevoDiagnostico(servicio ServicioDiagnostico) *Diagnostico
@@ -230,7 +230,7 @@ func NuevoDiagnostico(servicio ServicioDiagnostico) *Diagnostico
 NuevoDiagnostico construye el handler del diagnóstico.
 
 <a name="Diagnostico.ServeHTTP"></a>
-### func \(\*Diagnostico\) ServeHTTP
+### func \(\*Diagnostico\) [ServeHTTP](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/diagnostico.go#L46>)
 
 ```go
 func (h *Diagnostico) ServeHTTP(w http.ResponseWriter, r *http.Request)
@@ -239,7 +239,7 @@ func (h *Diagnostico) ServeHTTP(w http.ResponseWriter, r *http.Request)
 ServeHTTP implementa http.Handler.
 
 <a name="Haproxy"></a>
-## type Haproxy
+## type [Haproxy](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/haproxy.go#L27-L29>)
 
 Haproxy agrupa los recursos de balanceo de carga con HAProxy \(numeral 3.4\).
 
@@ -250,7 +250,7 @@ type Haproxy struct {
 ```
 
 <a name="NuevoHaproxy"></a>
-### func NuevoHaproxy
+### func [NuevoHaproxy](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/haproxy.go#L32>)
 
 ```go
 func NuevoHaproxy(servicio ServicioHaproxy) *Haproxy
@@ -259,7 +259,7 @@ func NuevoHaproxy(servicio ServicioHaproxy) *Haproxy
 NuevoHaproxy construye el handler de balanceo con HAProxy.
 
 <a name="Haproxy.Servidor"></a>
-### func \(\*Haproxy\) Servidor
+### func \(\*Haproxy\) [Servidor](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/haproxy.go#L129>)
 
 ```go
 func (h *Haproxy) Servidor(w http.ResponseWriter, r *http.Request)
@@ -268,7 +268,7 @@ func (h *Haproxy) Servidor(w http.ResponseWriter, r *http.Request)
 Servidor atiende DELETE /api/haproxy/backend/servers/\{server\}: elimina el servidor identificado como «direccion:puerto».
 
 <a name="Haproxy.Servidores"></a>
-### func \(\*Haproxy\) Servidores
+### func \(\*Haproxy\) [Servidores](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/haproxy.go#L56>)
 
 ```go
 func (h *Haproxy) Servidores(w http.ResponseWriter, r *http.Request)
@@ -277,7 +277,7 @@ func (h *Haproxy) Servidores(w http.ResponseWriter, r *http.Request)
 Servidores atiende GET y POST /api/haproxy/backend/servers: lista o agrega servidores al back\-end.
 
 <a name="Historial"></a>
-## type Historial
+## type [Historial](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/historial.go#L28-L30>)
 
 Historial expone GET /api/historial con los filtros del diseño.
 
@@ -288,7 +288,7 @@ type Historial struct {
 ```
 
 <a name="NuevoHistorial"></a>
-### func NuevoHistorial
+### func [NuevoHistorial](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/historial.go#L33>)
 
 ```go
 func NuevoHistorial(servicio ServicioHistorial) *Historial
@@ -297,7 +297,7 @@ func NuevoHistorial(servicio ServicioHistorial) *Historial
 NuevoHistorial construye el handler del historial.
 
 <a name="Historial.ServeHTTP"></a>
-### func \(\*Historial\) ServeHTTP
+### func \(\*Historial\) [ServeHTTP](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/historial.go#L55>)
 
 ```go
 func (h *Historial) ServeHTTP(w http.ResponseWriter, r *http.Request)
@@ -306,7 +306,7 @@ func (h *Historial) ServeHTTP(w http.ResponseWriter, r *http.Request)
 ServeHTTP implementa http.Handler.
 
 <a name="Maquinas"></a>
-## type Maquinas
+## type [Maquinas](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/maquinas.go#L29-L31>)
 
 Maquinas expone GET /api/vms: el inventario que alimenta el selector de la barra superior.
 
@@ -317,7 +317,7 @@ type Maquinas struct {
 ```
 
 <a name="NuevoMaquinas"></a>
-### func NuevoMaquinas
+### func [NuevoMaquinas](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/maquinas.go#L34>)
 
 ```go
 func NuevoMaquinas(servicio ServicioMaquinas) *Maquinas
@@ -326,7 +326,7 @@ func NuevoMaquinas(servicio ServicioMaquinas) *Maquinas
 NuevoMaquinas construye el handler del inventario.
 
 <a name="Maquinas.Encender"></a>
-### func \(\*Maquinas\) Encender
+### func \(\*Maquinas\) [Encender](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/maquinas.go#L91>)
 
 ```go
 func (h *Maquinas) Encender(w http.ResponseWriter, r *http.Request)
@@ -335,7 +335,7 @@ func (h *Maquinas) Encender(w http.ResponseWriter, r *http.Request)
 Encender atiende POST /api/vms/\{vm\}/poweron: arranca la máquina sin interfaz gráfica y devuelve su estado actualizado.
 
 <a name="Maquinas.ServeHTTP"></a>
-### func \(\*Maquinas\) ServeHTTP
+### func \(\*Maquinas\) [ServeHTTP](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/maquinas.go#L64>)
 
 ```go
 func (h *Maquinas) ServeHTTP(w http.ResponseWriter, r *http.Request)
@@ -344,7 +344,7 @@ func (h *Maquinas) ServeHTTP(w http.ResponseWriter, r *http.Request)
 ServeHTTP implementa http.Handler: solo admite GET.
 
 <a name="OpcionSesion"></a>
-## type OpcionSesion
+## type [OpcionSesion](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sesion.go#L31>)
 
 OpcionSesion configura el handler del recurso de sesión.
 
@@ -353,7 +353,7 @@ type OpcionSesion func(*Sesion)
 ```
 
 <a name="ConRegistro"></a>
-### func ConRegistro
+### func [ConRegistro](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sesion.go#L46>)
 
 ```go
 func ConRegistro(registro RegistroSesion) OpcionSesion
@@ -362,7 +362,7 @@ func ConRegistro(registro RegistroSesion) OpcionSesion
 ConRegistro habilita el estado de registro en GET /api/session.
 
 <a name="ConVinculador"></a>
-### func ConVinculador
+### func [ConVinculador](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sesion.go#L34>)
 
 ```go
 func ConVinculador(vinculador VinculadorSesion) OpcionSesion
@@ -371,7 +371,7 @@ func ConVinculador(vinculador VinculadorSesion) OpcionSesion
 ConVinculador habilita PUT /api/session con el servicio dado.
 
 <a name="RegistroSesion"></a>
-## type RegistroSesion
+## type [RegistroSesion](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sesion.go#L41-L43>)
 
 RegistroSesion informa si la máquina vinculada está registrada.
 
@@ -382,7 +382,7 @@ type RegistroSesion interface {
 ```
 
 <a name="ServicioAcceso"></a>
-## type ServicioAcceso
+## type [ServicioAcceso](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/acceso.go#L16-L21>)
 
 ServicioAcceso registra una máquina en la consola.
 
@@ -396,7 +396,7 @@ type ServicioAcceso interface {
 ```
 
 <a name="ServicioConsola"></a>
-## type ServicioConsola
+## type [ServicioConsola](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/auth.go#L35-L46>)
 
 ServicioConsola autentica a los usuarios de la consola.
 
@@ -416,7 +416,7 @@ type ServicioConsola interface {
 ```
 
 <a name="ServicioDiagnostico"></a>
-## type ServicioDiagnostico
+## type [ServicioDiagnostico](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/diagnostico.go#L16-L18>)
 
 ServicioDiagnostico explica por qué una máquina no se puede registrar.
 
@@ -427,7 +427,7 @@ type ServicioDiagnostico interface {
 ```
 
 <a name="ServicioHaproxy"></a>
-## type ServicioHaproxy
+## type [ServicioHaproxy](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/haproxy.go#L16-L23>)
 
 ServicioHaproxy ejecuta las operaciones sobre el back\-end de HAProxy.
 
@@ -443,7 +443,7 @@ type ServicioHaproxy interface {
 ```
 
 <a name="ServicioHistorial"></a>
-## type ServicioHistorial
+## type [ServicioHistorial](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/historial.go#L22-L25>)
 
 ServicioHistorial registra y consulta las operaciones de la consola.
 
@@ -455,7 +455,7 @@ type ServicioHistorial interface {
 ```
 
 <a name="ServicioHostname"></a>
-## type ServicioHostname
+## type [ServicioHostname](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L49-L54>)
 
 ServicioHostname lee y cambia el nombre de host y /etc/hosts.
 
@@ -469,7 +469,7 @@ type ServicioHostname interface {
 ```
 
 <a name="ServicioIssue"></a>
-## type ServicioIssue
+## type [ServicioIssue](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L41-L46>)
 
 ServicioIssue lee y reemplaza /etc/issue.
 
@@ -483,7 +483,7 @@ type ServicioIssue interface {
 ```
 
 <a name="ServicioLlaves"></a>
-## type ServicioLlaves
+## type [ServicioLlaves](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L32-L38>)
 
 ServicioLlaves genera y entrega las llaves SSH de root.
 
@@ -498,7 +498,7 @@ type ServicioLlaves interface {
 ```
 
 <a name="ServicioMaquinas"></a>
-## type ServicioMaquinas
+## type [ServicioMaquinas](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/maquinas.go#L18-L25>)
 
 ServicioMaquinas es el caso de uso del inventario de máquinas virtuales: buscar en el hipervisor y vincular una con la consola.
 
@@ -514,7 +514,7 @@ type ServicioMaquinas interface {
 ```
 
 <a name="ServicioPaquetes"></a>
-## type ServicioPaquetes
+## type [ServicioPaquetes](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L22-L29>)
 
 ServicioPaquetes ejecuta las operaciones de APT sobre la máquina.
 
@@ -530,7 +530,7 @@ type ServicioPaquetes interface {
 ```
 
 <a name="ServicioSystemd"></a>
-## type ServicioSystemd
+## type [ServicioSystemd](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/systemd.go#L15-L26>)
 
 ServicioSystemd ejecuta las operaciones sobre las unidades de systemd.
 
@@ -550,7 +550,7 @@ type ServicioSystemd interface {
 ```
 
 <a name="ServicioUsuarios"></a>
-## type ServicioUsuarios
+## type [ServicioUsuarios](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L16-L27>)
 
 ServicioUsuarios ejecuta las operaciones sobre las cuentas locales.
 
@@ -570,7 +570,7 @@ type ServicioUsuarios interface {
 ```
 
 <a name="Sesion"></a>
-## type Sesion
+## type [Sesion](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sesion.go#L55-L59>)
 
 Sesion expone GET /api/session, que informa el conector activo, la dirección de la máquina y su estado, y PUT /api/session, que vincula la consola con una máquina del inventario.
 
@@ -581,7 +581,7 @@ type Sesion struct {
 ```
 
 <a name="NuevoSesion"></a>
-### func NuevoSesion
+### func [NuevoSesion](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sesion.go#L62>)
 
 ```go
 func NuevoSesion(descubridor DescubridorSesion, opciones ...OpcionSesion) *Sesion
@@ -590,7 +590,7 @@ func NuevoSesion(descubridor DescubridorSesion, opciones ...OpcionSesion) *Sesio
 NuevoSesion construye el handler del recurso de sesión.
 
 <a name="Sesion.ServeHTTP"></a>
-### func \(\*Sesion\) ServeHTTP
+### func \(\*Sesion\) [ServeHTTP](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sesion.go#L88>)
 
 ```go
 func (h *Sesion) ServeHTTP(w http.ResponseWriter, r *http.Request)
@@ -599,7 +599,7 @@ func (h *Sesion) ServeHTTP(w http.ResponseWriter, r *http.Request)
 ServeHTTP implementa http.Handler: traduce el descubrimiento al contrato JSON y acepta la vinculación de una máquina.
 
 <a name="Sistema"></a>
-## type Sistema
+## type [Sistema](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L58-L63>)
 
 Sistema agrupa los recursos de preparación del sistema \(numeral 3.1 del enunciado\).
 
@@ -610,7 +610,7 @@ type Sistema struct {
 ```
 
 <a name="NuevoSistema"></a>
-### func NuevoSistema
+### func [NuevoSistema](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L67-L72>)
 
 ```go
 func NuevoSistema(paquetes ServicioPaquetes, llaves ServicioLlaves, issue ServicioIssue, hostname ServicioHostname) *Sistema
@@ -619,7 +619,7 @@ func NuevoSistema(paquetes ServicioPaquetes, llaves ServicioLlaves, issue Servic
 NuevoSistema construye el handler de preparación del sistema con los servicios dados.
 
 <a name="Sistema.Hostname"></a>
-### func \(\*Sistema\) Hostname
+### func \(\*Sistema\) [Hostname](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L348>)
 
 ```go
 func (h *Sistema) Hostname(w http.ResponseWriter, r *http.Request)
@@ -628,7 +628,7 @@ func (h *Sistema) Hostname(w http.ResponseWriter, r *http.Request)
 Hostname atiende GET y PUT /api/hostname: consulta o reemplaza el nombre de host y su entrada en /etc/hosts.
 
 <a name="Sistema.Issue"></a>
-### func \(\*Sistema\) Issue
+### func \(\*Sistema\) [Issue](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L268>)
 
 ```go
 func (h *Sistema) Issue(w http.ResponseWriter, r *http.Request)
@@ -637,7 +637,7 @@ func (h *Sistema) Issue(w http.ResponseWriter, r *http.Request)
 Issue atiende GET y PUT /api/issue: consulta o reemplaza el banner previo al inicio de sesión.
 
 <a name="Sistema.LlaveRoot"></a>
-### func \(\*Sistema\) LlaveRoot
+### func \(\*Sistema\) [LlaveRoot](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L193>)
 
 ```go
 func (h *Sistema) LlaveRoot(w http.ResponseWriter, r *http.Request)
@@ -646,7 +646,7 @@ func (h *Sistema) LlaveRoot(w http.ResponseWriter, r *http.Request)
 LlaveRoot atiende GET y POST /api/keys/root: descarga la llave privada de root o genera un par nuevo.
 
 <a name="Sistema.Paquete"></a>
-### func \(\*Sistema\) Paquete
+### func \(\*Sistema\) [Paquete](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L169>)
 
 ```go
 func (h *Sistema) Paquete(w http.ResponseWriter, r *http.Request)
@@ -655,7 +655,7 @@ func (h *Sistema) Paquete(w http.ResponseWriter, r *http.Request)
 Paquete atiende DELETE /api/packages/\{name\}: elimina el paquete indicado en la ruta.
 
 <a name="Sistema.Paquetes"></a>
-### func \(\*Sistema\) Paquetes
+### func \(\*Sistema\) [Paquetes](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L111>)
 
 ```go
 func (h *Sistema) Paquetes(w http.ResponseWriter, r *http.Request)
@@ -664,7 +664,7 @@ func (h *Sistema) Paquetes(w http.ResponseWriter, r *http.Request)
 Paquetes atiende GET y POST /api/packages: lista los paquetes instalados o instala uno nuevo.
 
 <a name="Systemd"></a>
-## type Systemd
+## type [Systemd](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/systemd.go#L30-L32>)
 
 Systemd agrupa los recursos de gestión de unidades con systemd \(numeral 3.3\).
 
@@ -675,7 +675,7 @@ type Systemd struct {
 ```
 
 <a name="NuevoSystemd"></a>
-### func NuevoSystemd
+### func [NuevoSystemd](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/systemd.go#L35>)
 
 ```go
 func NuevoSystemd(servicio ServicioSystemd) *Systemd
@@ -684,7 +684,7 @@ func NuevoSystemd(servicio ServicioSystemd) *Systemd
 NuevoSystemd construye el handler de gestión de unidades systemd.
 
 <a name="Systemd.Reinicios"></a>
-### func \(\*Systemd\) Reinicios
+### func \(\*Systemd\) [Reinicios](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/systemd.go#L260>)
 
 ```go
 func (h *Systemd) Reinicios(w http.ResponseWriter, r *http.Request)
@@ -693,7 +693,7 @@ func (h *Systemd) Reinicios(w http.ResponseWriter, r *http.Request)
 Reinicios atiende POST /api/units/\{unit\}/restarts: reinicia la unidad indicada.
 
 <a name="Systemd.Unidad"></a>
-### func \(\*Systemd\) Unidad
+### func \(\*Systemd\) [Unidad](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/systemd.go#L97>)
 
 ```go
 func (h *Systemd) Unidad(w http.ResponseWriter, r *http.Request)
@@ -702,7 +702,7 @@ func (h *Systemd) Unidad(w http.ResponseWriter, r *http.Request)
 Unidad atiende GET, PUT y PATCH /api/units/\{unit\}: consulta la unidad, despliega sus archivos o cambia su estado.
 
 <a name="Systemd.Unidades"></a>
-### func \(\*Systemd\) Unidades
+### func \(\*Systemd\) [Unidades](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/systemd.go#L75>)
 
 ```go
 func (h *Systemd) Unidades(w http.ResponseWriter, r *http.Request)
@@ -711,7 +711,7 @@ func (h *Systemd) Unidades(w http.ResponseWriter, r *http.Request)
 Unidades atiende GET /api/units: lista las unidades administradas.
 
 <a name="Usuarios"></a>
-## type Usuarios
+## type [Usuarios](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L30-L32>)
 
 Usuarios agrupa los recursos de gestión de usuarios \(numeral 3.2\).
 
@@ -722,7 +722,7 @@ type Usuarios struct {
 ```
 
 <a name="NuevoUsuarios"></a>
-### func NuevoUsuarios
+### func [NuevoUsuarios](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L35>)
 
 ```go
 func NuevoUsuarios(servicio ServicioUsuarios) *Usuarios
@@ -731,7 +731,7 @@ func NuevoUsuarios(servicio ServicioUsuarios) *Usuarios
 NuevoUsuarios construye el handler de gestión de usuarios.
 
 <a name="Usuarios.Coleccion"></a>
-### func \(\*Usuarios\) Coleccion
+### func \(\*Usuarios\) [Coleccion](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L62>)
 
 ```go
 func (h *Usuarios) Coleccion(w http.ResponseWriter, r *http.Request)
@@ -740,7 +740,7 @@ func (h *Usuarios) Coleccion(w http.ResponseWriter, r *http.Request)
 Coleccion atiende GET y POST /api/users: lista los usuarios o crea uno nuevo.
 
 <a name="Usuarios.Llave"></a>
-### func \(\*Usuarios\) Llave
+### func \(\*Usuarios\) [Llave](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L210>)
 
 ```go
 func (h *Usuarios) Llave(w http.ResponseWriter, r *http.Request)
@@ -749,7 +749,7 @@ func (h *Usuarios) Llave(w http.ResponseWriter, r *http.Request)
 Llave atiende GET /api/users/\{name\}/key: entrega la llave privada generada para el usuario.
 
 <a name="Usuarios.Usuario"></a>
-### func \(\*Usuarios\) Usuario
+### func \(\*Usuarios\) [Usuario](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L137>)
 
 ```go
 func (h *Usuarios) Usuario(w http.ResponseWriter, r *http.Request)
@@ -758,7 +758,7 @@ func (h *Usuarios) Usuario(w http.ResponseWriter, r *http.Request)
 Usuario atiende GET y DELETE /api/users/\{name\}: consulta o elimina la cuenta indicada en la ruta.
 
 <a name="VinculadorSesion"></a>
-## type VinculadorSesion
+## type [VinculadorSesion](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sesion.go#L23-L28>)
 
 VinculadorSesion cambia la máquina con la que trabaja la consola.
 

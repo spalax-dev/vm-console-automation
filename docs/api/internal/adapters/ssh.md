@@ -27,7 +27,7 @@ Package ssh adapta el cliente OpenSSH del sistema operativo al puerto Connector 
 
 
 <a name="Connector"></a>
-## type Connector
+## type [Connector](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/ssh/ssh.go#L36-L42>)
 
 Connector implementa ports.Connector usando el cliente OpenSSH.
 
@@ -38,7 +38,7 @@ type Connector struct {
 ```
 
 <a name="New"></a>
-### func New
+### func [New](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/ssh/ssh.go#L70>)
 
 ```go
 func New(exe ports.Executor, opts ...Option) *Connector
@@ -47,7 +47,7 @@ func New(exe ports.Executor, opts ...Option) *Connector
 New crea un conector SSH que usa el cliente OpenSSH instalado en el sistema operativo anfitrión.
 
 <a name="Connector.Connect"></a>
-### func \(\*Connector\) Connect
+### func \(\*Connector\) [Connect](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/ssh/ssh.go#L114>)
 
 ```go
 func (c *Connector) Connect(ctx context.Context, target domain.Target) (ports.Session, error)
@@ -56,7 +56,7 @@ func (c *Connector) Connect(ctx context.Context, target domain.Target) (ports.Se
 Connect implements ports.Connector: devuelve una sesión que ejecuta órdenes remotas con el cliente OpenSSH.
 
 <a name="Connector.ConnectPassword"></a>
-### func \(\*Connector\) ConnectPassword
+### func \(\*Connector\) [ConnectPassword](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/ssh/ssh.go#L139-L141>)
 
 ```go
 func (c *Connector) ConnectPassword(_ context.Context, target domain.Target, usuario, password string) (ports.Session, error)
@@ -65,7 +65,7 @@ func (c *Connector) ConnectPassword(_ context.Context, target domain.Target, usu
 ConnectPassword implementa ports.PasswordConnector usando sshpass. La contraseña se guarda en un archivo temporal 0600 que la sesión elimina al cerrarse.
 
 <a name="Connector.Name"></a>
-### func \(\*Connector\) Name
+### func \(\*Connector\) [Name](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/ssh/ssh.go#L85>)
 
 ```go
 func (c *Connector) Name() string
@@ -74,7 +74,7 @@ func (c *Connector) Name() string
 Name implements ports.Connector.
 
 <a name="Connector.Probe"></a>
-### func \(\*Connector\) Probe
+### func \(\*Connector\) [Probe](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/ssh/ssh.go#L93>)
 
 ```go
 func (c *Connector) Probe(ctx context.Context, target domain.Target) error
@@ -83,7 +83,7 @@ func (c *Connector) Probe(ctx context.Context, target domain.Target) error
 Probe implements ports.Connector: exige conocer la dirección de la máquina, que la llave privada exista y que la autenticación funcione. La prueba real evita elegir SSH cuando la llave pertenece a otra VM o la máquina está en NAT y no es alcanzable.
 
 <a name="Option"></a>
-## type Option
+## type [Option](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/ssh/ssh.go#L45>)
 
 Option configura un Connector.
 
@@ -92,7 +92,7 @@ type Option func(*Connector)
 ```
 
 <a name="WithKey"></a>
-### func WithKey
+### func [WithKey](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/ssh/ssh.go#L48>)
 
 ```go
 func WithKey(path string) Option
@@ -101,7 +101,7 @@ func WithKey(path string) Option
 WithKey establece la ruta de la llave privada de autenticación.
 
 <a name="WithPort"></a>
-### func WithPort
+### func [WithPort](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/ssh/ssh.go#L62>)
 
 ```go
 func WithPort(port uint16) Option
@@ -110,7 +110,7 @@ func WithPort(port uint16) Option
 WithPort establece el puerto del servidor SSH remoto.
 
 <a name="WithUser"></a>
-### func WithUser
+### func [WithUser](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/ssh/ssh.go#L55>)
 
 ```go
 func WithUser(user string) Option
@@ -119,7 +119,7 @@ func WithUser(user string) Option
 WithUser establece el usuario remoto con el que se abre la sesión.
 
 <a name="Session"></a>
-## type Session
+## type [Session](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/ssh/ssh.go#L183-L187>)
 
 Session implements ports.Session usando los clientes ssh y scp.
 
@@ -130,7 +130,7 @@ type Session struct {
 ```
 
 <a name="Session.Close"></a>
-### func \(\*Session\) Close
+### func \(\*Session\) [Close](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/ssh/ssh.go#L230>)
 
 ```go
 func (s *Session) Close() error
@@ -139,7 +139,7 @@ func (s *Session) Close() error
 Close implements ports.Session: elimina el archivo temporal de la contraseña, si existe.
 
 <a name="Session.Put"></a>
-### func \(\*Session\) Put
+### func \(\*Session\) [Put](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/ssh/ssh.go#L207>)
 
 ```go
 func (s *Session) Put(ctx context.Context, localPath, remotePath string) error
@@ -148,7 +148,7 @@ func (s *Session) Put(ctx context.Context, localPath, remotePath string) error
 Put implements ports.Session: transfiere el archivo con scp y establece permisos de lectura, escritura y ejecución en el destino. Nota: scp usa \-P \(mayúscula\) para el puerto, a diferencia de ssh.
 
 <a name="Session.Run"></a>
-### func \(\*Session\) Run
+### func \(\*Session\) [Run](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/ssh/ssh.go#L191>)
 
 ```go
 func (s *Session) Run(ctx context.Context, cmd *domain.Command) (domain.Result, error)

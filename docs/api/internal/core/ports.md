@@ -20,7 +20,7 @@ Package ports declara las interfaces \(puertos\) que el núcleo de la consola ne
 
 
 <a name="Connector"></a>
-## type Connector
+## type [Connector](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/ports/ports.go#L51-L58>)
 
 Connector establece sesiones con la máquina administrada. Cada adaptador publica un nombre propio para que los servicios puedan distinguirlos.
 
@@ -36,7 +36,7 @@ type Connector interface {
 ```
 
 <a name="Executor"></a>
-## type Executor
+## type [Executor](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/ports/ports.go#L18-L20>)
 
 Executor ejecuta un programa en el sistema operativo donde corre la consola, capturando su salida y su código de salida.
 
@@ -47,7 +47,7 @@ type Executor interface {
 ```
 
 <a name="Inventory"></a>
-## type Inventory
+## type [Inventory](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/ports/ports.go#L37-L40>)
 
 Inventory enumera las máquinas virtuales registradas en el hipervisor, para que la consola pueda elegir con cuál trabajar.
 
@@ -59,7 +59,7 @@ type Inventory interface {
 ```
 
 <a name="Machine"></a>
-## type Machine
+## type [Machine](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/ports/ports.go#L24-L33>)
 
 Machine expone información de la máquina administrada sin establecer sesión con ella.
 
@@ -77,7 +77,7 @@ type Machine interface {
 ```
 
 <a name="PasswordConnector"></a>
-## type PasswordConnector
+## type [PasswordConnector](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/ports/ports.go#L62-L65>)
 
 PasswordConnector establece sesiones con usuario y contraseña, para registrar máquinas cuyo Guest Additions no puede autenticar.
 
@@ -89,7 +89,7 @@ type PasswordConnector interface {
 ```
 
 <a name="Power"></a>
-## type Power
+## type [Power](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/ports/ports.go#L43-L46>)
 
 Power enciende las máquinas del hipervisor.
 
@@ -101,7 +101,7 @@ type Power interface {
 ```
 
 <a name="Session"></a>
-## type Session
+## type [Session](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/ports/ports.go#L69-L76>)
 
 Session representa una sesión establecida con la máquina, sobre la cual se ejecutan órdenes y se transfieren archivos.
 

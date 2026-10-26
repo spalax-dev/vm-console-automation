@@ -241,3 +241,11 @@ func TestPaquetesCierraSesionConError(t *testing.T) {
 		t.Error("la sesión no intentó cerrarse")
 	}
 }
+
+// TestCerrarSesionSinSesion comprueba que cerrar una sesión inexistente no
+// hace nada ni falla.
+func TestCerrarSesionSinSesion(t *testing.T) {
+	t.Parallel()
+
+	cerrarSesion(nil)
+}

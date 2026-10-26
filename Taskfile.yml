@@ -23,6 +23,7 @@ version: "3"
 vars:
   BIN: vmcons
   PKGS: ./...
+  RACE: '{{if eq OS "windows"}}{{else}}-race{{end}}'
 
 tasks:
   setup:
@@ -59,7 +60,7 @@ tasks:
     desc: Formatear el código y ejecutar las pruebas unitarias
     cmds:
       - task: fmt
-      - go test {{.PKGS}} -race -cover -count=1
+      - go test {{.PKGS}} {{.RACE}} -cover -count=1
 
   fmt:
     desc: Formatear el código Go con gofumpt (estricto)
