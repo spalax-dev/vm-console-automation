@@ -327,3 +327,36 @@ func TestMapearEstado(t *testing.T) {
 		}
 	}
 }
+
+// TestSystemdDesplegarSinPropietario comprueba que sin usuario no se
+// ejecuta chown y que el despliegue sigue recargando systemd.
+func TestSystemdDesplegarSinPropietario(t *testing.T) {
+	t.Parallel()
+
+	sesion := &stubSession{}
+	systemd := nuevoSystemdDePrueba(sesion, nil)
+
+	if _, err := systemd.Desplegar(context.Background(), unidadPrueba, []ArchivoDespliegue{
+		{Origen: "./app", Destino: "/opt/app", Modo: "755"},
+	}, "", ""); err != nil {
+		t.Fatalf("Desplegar() error = %v, want nil", err)
+	}
+
+	if len(sesion.puts) != 1 {
+		t.Errorf("Put() se llamó %d veces, want 1", len(sesion.puts))
+	}
+
+	for _, cmd := range sesion.commands {
+		if cmd.Path == binChown {
+			t.Errorf("se ejecutó chown sin propietario: %v", cmd.Args)
+		}
+	}
+
+	if len(sesion.commands) != 2 {
+		t.Fatalf("la sesión ejecutó %d órdenes, want chmod y daemon-reload", len(sesion.commands))
+	}
+
+	if sesion.commands[1].Path != binSystemctl || sesion.commands[1].Args[0] != "daemon-reload" {
+		t.Errorf("última orden = %v, want systemctl daemon-reload", sesion.commands[1])
+	}
+}

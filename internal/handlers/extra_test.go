@@ -5,6 +5,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -24,6 +25,7 @@ const (
 // escritorConFallo simula un cliente que corta la respuesta a mitad.
 type escritorConFallo struct {
 	cabecera http.Header
+	estado   int
 }
 
 // Header devuelve las cabeceras de la respuesta.
@@ -35,8 +37,12 @@ func (e *escritorConFallo) Header() http.Header {
 	return e.cabecera
 }
 
-// WriteHeader descarta el estado.
-func (e *escritorConFallo) WriteHeader(int) {}
+// WriteHeader registra el primer estado y descarta la escritura.
+func (e *escritorConFallo) WriteHeader(codigo int) {
+	if e.estado == 0 {
+		e.estado = codigo
+	}
+}
 
 // Write siempre falla, como una conexión cerrada.
 func (e *escritorConFallo) Write([]byte) (int, error) {
@@ -334,8 +340,9 @@ func TestNuevaSolicitudConFalloDeAleatorio(t *testing.T) {
 
 	leerAleatorio = func([]byte) (int, error) { return 0, errors.New("sin entropía") }
 
-	if solicitud := nuevaSolicitud(); len(solicitud) < 8 {
-		t.Errorf("nuevaSolicitud() = %q, want el respaldo con la hora", solicitud)
+	solicitud := nuevaSolicitud()
+	if _, err := time.Parse("20060102T150405.000000", solicitud); err != nil {
+		t.Errorf("nuevaSolicitud() = %q, want el respaldo con formato de hora: %v", solicitud, err)
 	}
 }
 
@@ -402,19 +409,43 @@ func TestEscribirJSONConCuerpoNoSerializable(t *testing.T) {
 	}
 }
 
-// TestDescargarLlavesConClienteCaido registra el fallo de escritura.
+// TestDescargarLlavesConClienteCaido comprueba que la descarga conserva
+// las cabeceras aunque el cliente corte la conexión al escribir.
 func TestDescargarLlavesConClienteCaido(t *testing.T) {
 	t.Parallel()
 
+	escritor := &escritorConFallo{}
+
 	sistema := NuevoSistema(&stubPaquetes{}, &stubLlaves{nombre: "id_ed25519", contenido: []byte("k")},
 		&stubIssue{}, &stubHostname{})
-	sistema.descargarLlaveRoot(&escritorConFallo{})
+	sistema.descargarLlaveRoot(escritor)
+
+	if escritor.estado != http.StatusOK {
+		t.Errorf("descargarLlaveRoot() estado = %d, want 200", escritor.estado)
+	}
+
+	if tipo := escritor.Header().Get(cabeceraContentType); tipo != "application/octet-stream" {
+		t.Errorf("%s = %q, want application/octet-stream", cabeceraContentType, tipo)
+	}
+
+	if disposicion := escritor.Header().Get("Content-Disposition"); !strings.Contains(disposicion, "id_ed25519") {
+		t.Errorf("Content-Disposition = %q, want el nombre de la llave", disposicion)
+	}
 
 	usuarios := NuevoUsuarios(&stubUsuarios{archivo: "jorge_ed25519", contenido: []byte("k")})
+	escritor = &escritorConFallo{}
 
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, rutaUsuarioJorge+"/key", http.NoBody)
 	req.SetPathValue(campoName, usuarioJorge)
-	usuarios.Llave(&escritorConFallo{}, req)
+	usuarios.Llave(escritor, req)
+
+	if escritor.estado != http.StatusOK {
+		t.Errorf("Llave() estado = %d, want 200", escritor.estado)
+	}
+
+	if disposicion := escritor.Header().Get("Content-Disposition"); !strings.Contains(disposicion, "jorge_ed25519") {
+		t.Errorf("Content-Disposition = %q, want el nombre de la llave", disposicion)
+	}
 }
 
 // TestUnidadesErrorInterno devuelve 500 cuando el listado falla.
@@ -539,12 +570,13 @@ func TestContextoConUsuario(t *testing.T) {
 func TestNuevaSolicitudDevuelveHex(t *testing.T) {
 	t.Parallel()
 
-	if solicitud := nuevaSolicitud(); len(solicitud) != 16 {
-		t.Errorf("nuevaSolicitud() = %q, want 16 caracteres hex", solicitud)
+	solicitud := nuevaSolicitud()
+	if len(solicitud) != 16 {
+		t.Fatalf("nuevaSolicitud() = %q, want 16 caracteres hex", solicitud)
 	}
 
-	if _, err := time.Parse("20060102T150405.000000", ""); err == nil {
-		t.Error("el formato de respaldo debe rechazar una cadena vacía")
+	if _, err := hex.DecodeString(solicitud); err != nil {
+		t.Errorf("nuevaSolicitud() = %q, want hexadecimal válido: %v", solicitud, err)
 	}
 }
 

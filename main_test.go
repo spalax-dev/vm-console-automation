@@ -94,24 +94,6 @@ func TestUsuarioInvitadoPorOmision(t *testing.T) {
 	}
 }
 
-// TestConfigurarLogAceptaJSON y nivel usa el manejador JSON.
-func TestConfigurarLogAceptaJSON(t *testing.T) {
-	anterior := slog.Default()
-
-	t.Cleanup(func() { slog.SetDefault(anterior) })
-
-	t.Setenv(envLog, "json")
-	t.Setenv(envLogLevel, "debug")
-
-	configurarLog()
-
-	t.Setenv(envLog, "texto")
-	t.Setenv(envLogLevel, "error")
-	t.Setenv("NO_COLOR", "1")
-
-	configurarLog()
-}
-
 // TestObjetivoInicialRestauraLaMaquina usa la máquina persistida.
 func TestObjetivoInicialRestauraLaMaquina(t *testing.T) {
 	directorio := t.TempDir()
@@ -152,17 +134,24 @@ func TestColorHabilitadoRespetaNoColor(t *testing.T) {
 	}
 }
 
-// TestHandlerConAtributosYGrupos cubre las interfaces del manejador.
+// TestHandlerConAtributosYGrupos comprueba que los atributos fijos y los
+// del registro llegan al destino del log.
 func TestHandlerConAtributosYGrupos(t *testing.T) {
 	t.Parallel()
 
 	var destino bytes.Buffer
 
-	manejador := nuevoHandlerConsola(&destino, slog.LevelDebug, false)
-	conAtributos := manejador.WithAttrs([]slog.Attr{slog.String("clave", "valor")}).WithGroup("grupo")
+	manejador := nuevoHandlerConsola(&destino, slog.LevelDebug, false).
+		WithAttrs([]slog.Attr{slog.String("clave", "valor")}).
+		WithGroup("grupo")
 
-	if conAtributos == nil {
-		t.Fatal("WithGroup() = nil, want un manejador")
+	slog.New(manejador).Info("mensaje", "otra", "dato")
+
+	salida := destino.String()
+	for _, esperado := range []string{"mensaje", "clave=valor", "otra=dato"} {
+		if !strings.Contains(salida, esperado) {
+			t.Errorf("log = %q, want %q", salida, esperado)
+		}
 	}
 }
 

@@ -6,7 +6,9 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/netip"
+	"sync"
 	"testing"
 
 	"consola-vm/internal/core/domain"
@@ -449,5 +451,41 @@ func TestAbrirPropagaErrorDeConexion(t *testing.T) {
 	_, err := nuevoDescubridor(m, sshConn).Abrir(context.Background())
 	if err == nil {
 		t.Fatal("Abrir() error = nil, want el error de conexión")
+	}
+}
+
+// TestDescubridorAccesoConcurrente ejercita el cambio de objetivo desde
+// varias goroutines. Con -race detecta si se elimina la protección de
+// mu, que los handlers necesitan para consultar y vincular en paralelo.
+func TestDescubridorAccesoConcurrente(t *testing.T) {
+	t.Parallel()
+
+	descubridor := NuevoDescubridor(&ConfigDescubridor{
+		Maquina:  &stubMachine{},
+		Objetivo: domain.Target{ID: vmPrueba},
+	})
+
+	var espera sync.WaitGroup
+
+	for i := 0; i < 50; i++ {
+		espera.Add(2)
+
+		go func(numero int) {
+			defer espera.Done()
+
+			descubridor.Establecer(fmt.Sprintf("vm-%d", numero))
+		}(i)
+
+		go func() {
+			defer espera.Done()
+
+			_ = descubridor.Objetivo()
+		}()
+	}
+
+	espera.Wait()
+
+	if objetivo := descubridor.Objetivo(); objetivo.ID == "" {
+		t.Error("Objetivo().ID = vacío tras las vinculaciones concurrentes")
 	}
 }

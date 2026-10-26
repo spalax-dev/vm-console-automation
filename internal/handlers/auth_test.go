@@ -303,4 +303,8 @@ func TestConAutenticacion(t *testing.T) {
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("ConAutenticacion() estado = %d, want 204", rec.Code)
 	}
+
+	if usuario := rec.Header().Get("X-Usuario"); usuario != usuarioJorge {
+		t.Errorf("ConAutenticacion() usuario del contexto = %q, want %q", usuario, usuarioJorge)
+	}
 }

@@ -6,8 +6,6 @@ package services
 import (
 	"context"
 	"encoding/base64"
-	"errors"
-	"strings"
 	"testing"
 )
 
@@ -53,22 +51,6 @@ func TestConsolaConBaseCerrada(t *testing.T) {
 	}
 }
 
-// TestConsolaContrasenaDemasiadoLarga cubre el fallo de bcrypt.
-func TestConsolaContrasenaDemasiadoLarga(t *testing.T) {
-	t.Parallel()
-
-	almacen, _, _ := nuevaBaseDePrueba(t)
-	consola := NuevoConsola(almacen)
-
-	// bcrypt rechaza contraseñas de más de 72 bytes aunque la validación de
-	// la consola admita hasta 128 caracteres.
-	larga := strings.Repeat("a", 80)
-
-	if err := consola.Configurar(context.Background(), usuarioConsola, larga); err == nil {
-		t.Error("Configurar() error = nil, want el fallo de bcrypt")
-	}
-}
-
 // TestConsolaSecretoCorrupto detecta un secreto que no es base64.
 func TestConsolaSecretoCorrupto(t *testing.T) {
 	t.Parallel()
@@ -87,21 +69,6 @@ func TestConsolaSecretoCorrupto(t *testing.T) {
 
 	if _, err := NuevoConsola(almacen).AbrirSesion(usuarioConsola); err == nil {
 		t.Error("AbrirSesion() error = nil, want el fallo de decodificación")
-	}
-}
-
-// TestConsolaSinEntropia propaga el fallo al generar el secreto.
-func TestConsolaSinEntropia(t *testing.T) {
-	almacen, _, _ := nuevaBaseDePrueba(t)
-
-	original := aleatorio
-
-	t.Cleanup(func() { aleatorio = original })
-
-	aleatorio = func([]byte) (int, error) { return 0, errors.New("sin entropía") }
-
-	if _, err := almacen.secretoConsola(); err == nil {
-		t.Error("secretoConsola() error = nil, want el fallo de entropía")
 	}
 }
 

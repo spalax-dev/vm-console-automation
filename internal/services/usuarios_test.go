@@ -489,3 +489,51 @@ func TestUsuariosCrearErrorDeDirectorio(t *testing.T) {
 		t.Fatal("Crear() error = nil, want el error del directorio")
 	}
 }
+
+// TestUsuariosListarLimitesDeUID comprueba los extremos del rango de
+// cuentas regulares (1000–65533) y descarta las líneas mal formadas o
+// con UTF-8 en el nombre.
+func TestUsuariosListarLimitesDeUID(t *testing.T) {
+	t.Parallel()
+
+	passwd := "root:x:0:0:root:/root:/bin/bash\n" +
+		"justo-antes:x:999:999::/home/justo-antes:/bin/bash\n" +
+		"borde-inferior:x:1000:1000::/home/borde-inferior:/bin/bash\n" +
+		"borde-superior:x:65533:65533::/home/borde-superior:/bin/bash\n" +
+		"nadie:x:65534:65534::/nonexistent:/usr/sbin/nologin\n" +
+		"fuera-de-rango:x:65535:65535::/home/fuera-de-rango:/bin/bash\n" +
+		"sin-numero:x:abc:abc::/home/sin-numero:/bin/bash\n" +
+		"incompleta:x:1001:1001\n" +
+		"josé:x:1002:1002::/home/josé:/bin/bash\n"
+
+	sesion := &stubSession{results: []domain.Result{
+		{Stdout: passwd},
+		{Stdout: ""},
+	}}
+
+	usuarios, _, _ := nuevoUsuariosDePrueba(t, &stubExecutor{}, sesion, nil)
+
+	lista, err := usuarios.Listar(context.Background())
+	if err != nil {
+		t.Fatalf(msgListarOK, err)
+	}
+
+	esperados := []struct {
+		nombre string
+		uid    int
+	}{
+		{"borde-inferior", 1000},
+		{"borde-superior", 65533},
+		{"josé", 1002},
+	}
+
+	if len(lista) != len(esperados) {
+		t.Fatalf("Listar() devolvió %d usuarios (%+v), want %d", len(lista), lista, len(esperados))
+	}
+
+	for i, esperado := range esperados {
+		if lista[i].Nombre != esperado.nombre || lista[i].UID != esperado.uid {
+			t.Errorf("usuario[%d] = %+v, want %q con UID %d", i, lista[i], esperado.nombre, esperado.uid)
+		}
+	}
+}

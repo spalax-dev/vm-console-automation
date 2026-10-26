@@ -10,6 +10,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -69,6 +70,11 @@ func TestAlmacenGuardaYCarga(t *testing.T) {
 	if credenciales.Usuario != usuarioRoot || credenciales.Password != passwordPrueba || !credenciales.Registrada {
 		t.Errorf("credenciales = %+v, want root/secreto/registrada", credenciales)
 	}
+
+	usuario, password, ok := otro.Guest(nombreDebian)
+	if !ok || usuario != usuarioRoot || password != passwordPrueba {
+		t.Errorf("Guest() = %q, %q, %v, want root, secreto, true", usuario, password, ok)
+	}
 }
 
 // TestAlmacenCifraLaContrasena comprueba que la base no guarda el texto
@@ -108,7 +114,7 @@ func TestAlmacenCifraLaContrasena(t *testing.T) {
 		t.Fatalf("Stat() de la clave: %v", err)
 	}
 
-	if info.Mode().Perm() != 0o600 && os.Getenv("OS") != "Windows_NT" {
+	if info.Mode().Perm() != 0o600 && runtime.GOOS != "windows" {
 		t.Errorf("permisos de la clave = %v, want 0600", info.Mode().Perm())
 	}
 }

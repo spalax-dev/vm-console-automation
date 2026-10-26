@@ -11,10 +11,7 @@ import (
 )
 
 // Valores repetidos en las pruebas del arranque.
-const (
-	paginaPrueba  = "<html>ok</html>"
-	directorioWeb = "/opt/vmcons/web"
-)
+const paginaPrueba = "<html>ok</html>"
 
 // TestURLConsola comprueba la dirección que se anuncia al arrancar.
 func TestURLConsola(t *testing.T) {

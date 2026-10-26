@@ -6,6 +6,7 @@ package services
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"testing"
 )
@@ -108,22 +109,27 @@ func TestModuloDeRutas(t *testing.T) {
 
 // TestHistorialConFilasRotas cubre los errores al recorrer las filas.
 func TestHistorialConFilasRotas(t *testing.T) {
-	registrarControlador(t, "historial-error", conectorDeFilas{filas: filasConError{err: errors.New("fallo")}})
-	registrarControlador(t, "historial-sin-cierre", conectorDeFilas{filas: filasQueNoCierran{}})
-	registrarControlador(t, "historial-con-valores", conectorDeFilas{filas: &filasConValores{}})
+	t.Parallel()
 
 	casos := []struct {
 		nombre      string
-		controlador string
+		filas       func() driver.Rows
+		quiereError bool
 	}{
-		{"recorrido", "historial-error"},
-		{"cierre", "historial-sin-cierre"},
-		{"lectura", "historial-con-valores"},
+		{"recorrido", func() driver.Rows { return filasConError{err: errors.New("fallo")} }, true},
+		{"cierre", func() driver.Rows { return filasQueNoCierran{} }, true},
+		{"lectura", func() driver.Rows { return &filasConValores{} }, true},
 	}
 
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
-			db, err := sql.Open(caso.controlador, "")
+			t.Parallel()
+
+			nombre := registrarControladorUnico(t, &driverConector{
+				conector: conectorDeFilas{filas: caso.filas()},
+			})
+
+			db, err := sql.Open(nombre, "")
 			if err != nil {
 				t.Fatalf("abrir la base de prueba: %v", err)
 			}
@@ -134,8 +140,13 @@ func TestHistorialConFilasRotas(t *testing.T) {
 				}
 			})
 
-			if _, err := (&Historial{db: db}).Listar(context.Background(), nil); err == nil && caso.nombre != "cierre" {
-				t.Errorf("Listar() error = nil, want el fallo de las filas (%s)", caso.nombre)
+			operaciones, err := (&Historial{db: db}).Listar(context.Background(), nil)
+			if (err != nil) != caso.quiereError {
+				t.Fatalf("Listar() error = %v, want error=%v", err, caso.quiereError)
+			}
+
+			if !caso.quiereError && len(operaciones) != 0 {
+				t.Errorf("Listar() devolvió %d operaciones, want 0", len(operaciones))
 			}
 		})
 	}

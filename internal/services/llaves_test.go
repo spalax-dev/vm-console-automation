@@ -294,30 +294,16 @@ func TestLlavesGenerarStatError(t *testing.T) {
 }
 
 // TestLlavesGenerarErrorDeDirectorio comprueba el fallo al crear el
-// directorio de llaves.
+// directorio de llaves cuando el padre es un archivo.
 func TestLlavesGenerarErrorDeDirectorio(t *testing.T) {
 	t.Parallel()
 
-	if os.Geteuid() == 0 {
-		t.Skip("como root no se puede provocar un error de permisos")
-	}
-
-	directorio := filepath.Join(t.TempDir(), "solo-lectura")
-	if err := os.Mkdir(directorio, 0o500); err != nil {
-		t.Fatalf(msgCrearDir, err)
-	}
-
-	t.Cleanup(func() {
-		// #nosec G302 -- es un directorio, no un archivo.
-		if err := os.Chmod(directorio, 0o700); err != nil {
-			t.Logf("restaurar permisos: %v", err)
-		}
-	})
+	archivo := archivoConTexto(t)
 
 	llaves := NuevoLlaves(ConfigLlaves{
 		Sesiones: &stubAbridor{},
 		Ejecutor: &stubExecutor{},
-		Ruta:     filepath.Join(directorio, "sub", "id_ed25519"),
+		Ruta:     filepath.Join(archivo, "sub", "id_ed25519"),
 	})
 
 	if _, err := llaves.Generar(context.Background()); err == nil {

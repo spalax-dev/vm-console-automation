@@ -273,3 +273,93 @@ func TestHostnameEscribirSinSesion(t *testing.T) {
 		t.Fatalf("Escribir() error = %v, want ErrSesionNoDisponible", err)
 	}
 }
+
+// TestContenidoHostsBordes comprueba que /etc/hosts se reescribe sin
+// duplicar el nombre, sin confundirlo con un prefijo y conservando el
+// resto de las líneas.
+func TestContenidoHostsBordes(t *testing.T) {
+	t.Parallel()
+
+	casos := []struct {
+		nombre   string
+		entrada  string
+		esperada string
+	}{
+		{
+			"archivo vacío",
+			"",
+			"10.0.0.5 nodo\n",
+		},
+		{
+			"entrada nueva",
+			"127.0.0.1 localhost\n",
+			"127.0.0.1 localhost\n10.0.0.5 nodo\n",
+		},
+		{
+			"reemplaza la entrada y conserva los alias",
+			"10.0.0.4 nodo alias\n10.0.0.7 otro\n",
+			"10.0.0.7 otro\n10.0.0.5 nodo\n",
+		},
+		{
+			"elimina todas las apariciones",
+			"10.0.0.4 nodo\n10.0.0.6 nodo alias\n",
+			"10.0.0.5 nodo\n",
+		},
+		{
+			"no confunde un prefijo con el nombre",
+			"10.0.0.4 nodo-viejo\n",
+			"10.0.0.4 nodo-viejo\n10.0.0.5 nodo\n",
+		},
+		{
+			"descarta líneas vacías",
+			"\n\n127.0.0.1 localhost\n\n",
+			"127.0.0.1 localhost\n10.0.0.5 nodo\n",
+		},
+		{
+			"conserva el comentario de la línea reemplazada",
+			"10.0.0.5 nodo # comentario\n",
+			"10.0.0.5 nodo\n",
+		},
+	}
+
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			t.Parallel()
+
+			obtenida := contenidoHosts(caso.entrada, "nodo", "10.0.0.5")
+			if obtenida != caso.esperada {
+				t.Errorf("contenidoHosts() = %q, want %q", obtenida, caso.esperada)
+			}
+		})
+	}
+}
+
+// TestNombreEnHostsBordes exige que el nombre aparezca como destino y
+// no como prefijo de otro nombre.
+func TestNombreEnHostsBordes(t *testing.T) {
+	t.Parallel()
+
+	casos := []struct {
+		nombre    string
+		contenido string
+		esperado  bool
+	}{
+		{"vacío", "", false},
+		{"solo localhost", "127.0.0.1 localhost\n", false},
+		{"como destino", "10.0.0.5 nodo\n", true},
+		{"como alias", "10.0.0.5 nodo.lab nodo\n", true},
+		{"como prefijo", "10.0.0.4 nodo-viejo\n", false},
+		{"sin dirección", "nodo\n", false},
+		{"con tabuladores", "10.0.0.5\tnodo\n", true},
+	}
+
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			t.Parallel()
+
+			if obtenido := nombreEnHosts(caso.contenido, "nodo"); obtenido != caso.esperado {
+				t.Errorf("nombreEnHosts() = %v, want %v", obtenido, caso.esperado)
+			}
+		})
+	}
+}

@@ -59,30 +59,23 @@ func TestUsuariosCrearConGeneradorCaido(t *testing.T) {
 	}
 }
 
-// TestUsuariosBorrarLlavesConPermisosDenegados ignora los archivos que no
-// puede borrar.
-func TestUsuariosBorrarLlavesConPermisosDenegados(t *testing.T) {
-	if os.Geteuid() == 0 {
-		t.Skip("ejecutando como root: los permisos no impiden borrar")
-	}
+// TestUsuariosBorrarLlavesConFalloDeBorrado comprueba que no poder
+// borrar la llave privada no impide eliminar la cuenta.
+func TestUsuariosBorrarLlavesConFalloDeBorrado(t *testing.T) {
+	t.Parallel()
 
 	directorio := t.TempDir()
+	ruta := filepath.Join(directorio, usuarioJorgePrueba+"_ed25519")
 
-	for _, sufijo := range []string{"", ".pub"} {
-		if err := os.WriteFile(filepath.Join(directorio, usuarioJorgePrueba+"_ed25519"+sufijo), []byte("x"), 0o600); err != nil {
-			t.Fatalf("crear la llave: %v", err)
-		}
+	// Un directorio no vacío hace que os.Remove falle, sin depender de
+	// los permisos ni de que las pruebas corran como root.
+	if err := os.MkdirAll(filepath.Join(ruta, "contenido"), 0o700); err != nil {
+		t.Fatalf("crear el directorio de la llave: %v", err)
 	}
 
-	if err := os.Chmod(directorio, 0o500); err != nil { // #nosec G302 -- permisos de la prueba.
-		t.Fatalf("restringir el directorio: %v", err)
+	if err := os.WriteFile(filepath.Join(ruta, "contenido", "archivo"), []byte("x"), 0o600); err != nil {
+		t.Fatalf("crear el archivo interno: %v", err)
 	}
-
-	t.Cleanup(func() {
-		if err := os.Chmod(directorio, 0o700); err != nil { // #nosec G302 -- permisos de la prueba.
-			t.Logf("restaurar permisos: %v", err)
-		}
-	})
 
 	sesion := &stubSession{results: []domain.Result{
 		{Stdout: usuarioJorgePrueba + ":x:1000:1000::/home/jorge:/bin/bash\n"},
@@ -96,6 +89,10 @@ func TestUsuariosBorrarLlavesConPermisosDenegados(t *testing.T) {
 
 	if _, err := usuarios.Eliminar(context.Background(), usuarioJorgePrueba, false); err != nil {
 		t.Errorf("Eliminar() error = %v, want nil", err)
+	}
+
+	if _, err := os.Stat(ruta); err != nil {
+		t.Errorf("la llave que no se pudo borrar desapareció: %v", err)
 	}
 }
 

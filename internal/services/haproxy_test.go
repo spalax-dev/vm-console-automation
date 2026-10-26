@@ -96,6 +96,10 @@ func TestHaproxyAgregarDuplicado(t *testing.T) {
 	if _, err := haproxy.Agregar(context.Background(), ipServidorPrueba, 8080); !errors.Is(err, ErrServidorExistente) {
 		t.Fatalf("Agregar() error = %v, want ErrServidorExistente", err)
 	}
+
+	if len(sesion.commands) != 1 {
+		t.Errorf("la sesión ejecutó %d órdenes, want solo la lectura", len(sesion.commands))
+	}
 }
 
 // TestHaproxySinBackend comprueba una configuración sin backend.
@@ -134,6 +138,10 @@ func TestHaproxyEliminarInexistente(t *testing.T) {
 
 	if _, err := nuevoHaproxyDePrueba(sesion, nil).Eliminar(context.Background(), "192.168.1.99", 9999); !errors.Is(err, ErrServidorNoEncontrado) {
 		t.Fatalf("Eliminar() error = %v, want ErrServidorNoEncontrado", err)
+	}
+
+	if len(sesion.commands) != 1 {
+		t.Errorf("la sesión ejecutó %d órdenes, want solo la lectura", len(sesion.commands))
 	}
 }
 

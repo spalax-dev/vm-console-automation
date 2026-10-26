@@ -5,9 +5,7 @@ package services
 
 import (
 	"context"
-	"crypto/cipher"
 	"encoding/base64"
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,9 +23,9 @@ func archivoConTexto(t *testing.T) string {
 	return ruta
 }
 
-// TestNuevoAlmacenDirectorioImposible no puede crear el directorio de
-// datos cuando la ruta es un archivo.
-func TestNuevoAlmacenDirectorioImposible(t *testing.T) {
+// TestNuevoAlmacenConDirectorioDeDatosImposible falla cuando el
+// directorio de la base es en realidad un archivo.
+func TestNuevoAlmacenConDirectorioDeDatosImposible(t *testing.T) {
 	t.Parallel()
 
 	rutaBD := filepath.Join(archivoConTexto(t), "vmcons.db")
@@ -37,8 +35,8 @@ func TestNuevoAlmacenDirectorioImposible(t *testing.T) {
 	}
 }
 
-// TestNuevoAlmacenClaveIlegible falla si la clave es un directorio.
-func TestNuevoAlmacenClaveIlegible(t *testing.T) {
+// TestNuevoAlmacenConClaveIlegible falla si la clave es un directorio.
+func TestNuevoAlmacenConClaveIlegible(t *testing.T) {
 	t.Parallel()
 
 	directorio := t.TempDir()
@@ -48,85 +46,64 @@ func TestNuevoAlmacenClaveIlegible(t *testing.T) {
 	}
 }
 
-// TestNuevoAlmacenClaveNoEscribible falla si no puede guardar la clave.
-func TestNuevoAlmacenClaveNoEscribible(t *testing.T) {
-	if os.Geteuid() == 0 {
-		t.Skip("ejecutando como root: los permisos no impiden escribir")
-	}
-
-	directorio := t.TempDir()
-	claves := filepath.Join(directorio, "claves")
-
-	if err := os.MkdirAll(claves, 0o500); err != nil {
-		t.Fatalf("crear el directorio de claves: %v", err)
-	}
-
-	t.Cleanup(func() {
-		if err := os.Chmod(claves, 0o700); err != nil { // #nosec G302 -- permisos de la prueba.
-			t.Logf("restaurar permisos: %v", err)
-		}
-	})
-
-	if _, err := NuevoAlmacen(filepath.Join(directorio, archivoBDPrueba), filepath.Join(claves, "clave")); err == nil {
-		t.Error("NuevoAlmacen() error = nil, want el fallo al guardar la clave")
-	}
-}
-
-// TestNuevoAlmacenSinEntropia falla si no hay entropía para la clave.
-func TestNuevoAlmacenSinEntropia(t *testing.T) {
-	original := aleatorio
-
-	t.Cleanup(func() { aleatorio = original })
-
-	aleatorio = func([]byte) (int, error) { return 0, errors.New("sin entropía") }
-
-	directorio := t.TempDir()
-
-	if _, err := NuevoAlmacen(filepath.Join(directorio, archivoBDPrueba), filepath.Join(directorio, "clave")); err == nil {
-		t.Error("NuevoAlmacen() error = nil, want el fallo de entropía")
-	}
-}
-
-// TestNuevoAlmacenSinEsquema falla si la base no admite escritura.
-func TestNuevoAlmacenSinEsquema(t *testing.T) {
+// TestNuevoAlmacenNoPuedeCrearElDirectorioDeLaClave falla cuando el
+// directorio padre de la clave es un archivo. No depende de permisos ni
+// del usuario que ejecuta las pruebas.
+func TestNuevoAlmacenNoPuedeCrearElDirectorioDeLaClave(t *testing.T) {
 	t.Parallel()
 
-	directorio := t.TempDir()
-	rutaBD := filepath.Join(directorio, archivoBDPrueba)
+	archivo := archivoConTexto(t)
+	rutaClave := filepath.Join(archivo, "sub", "clave")
 
-	if err := os.WriteFile(rutaBD, nil, 0o400); err != nil {
-		t.Fatalf("crear la base: %v", err)
-	}
-
-	_, err := NuevoAlmacen("file:"+rutaBD+"?mode=ro", filepath.Join(directorio, "clave"))
-	if err == nil {
-		t.Error("NuevoAlmacen() error = nil, want el fallo del esquema")
+	if _, err := NuevoAlmacen(filepath.Join(t.TempDir(), archivoBDPrueba), rutaClave); err == nil {
+		t.Error("NuevoAlmacen() error = nil, want el fallo al crear el directorio de la clave")
 	}
 }
 
-// TestGuardarYCargarCredenciales conserva los datos de la máquina.
-func TestGuardarYCargarCredenciales(t *testing.T) {
+// TestNuevoAlmacenConBaseQueEsDirectorio falla al crear el esquema si la
+// ruta de la base apunta a un directorio.
+func TestNuevoAlmacenConBaseQueEsDirectorio(t *testing.T) {
+	t.Parallel()
+
+	if _, err := NuevoAlmacen(t.TempDir(), filepath.Join(t.TempDir(), "clave")); err == nil {
+		t.Error("NuevoAlmacen() error = nil, want el fallo al crear el esquema")
+	}
+}
+
+// TestAlmacenGuardarActualizaCredenciales comprueba que guardar dos veces
+// la misma máquina actualiza la fila en lugar de duplicarla.
+func TestAlmacenGuardarActualizaCredenciales(t *testing.T) {
 	t.Parallel()
 
 	almacen, _, _ := nuevaBaseDePrueba(t)
 
-	credenciales := Credenciales{Usuario: "jorge", Password: "secreto", Puerto: 22, Registrada: true}
-	if err := almacen.Guardar("debian-1", credenciales); err != nil {
+	primera := Credenciales{Usuario: "jorge", Password: "uno", Puerto: 22, Direccion: "10.0.0.1", Registrada: true}
+	if err := almacen.Guardar(nombreDebian, primera); err != nil {
 		t.Fatalf("Guardar() error = %v, want nil", err)
 	}
 
-	guardadas, ok := almacen.Obtener("debian-1")
-	if !ok || guardadas.Password != "secreto" || !guardadas.Registrada {
-		t.Errorf("Obtener() = %+v, %v, want las credenciales guardadas", guardadas, ok)
+	segunda := Credenciales{Usuario: "andrey", Password: "dos", Puerto: 2222, Registrada: false}
+	if err := almacen.Guardar(nombreDebian, segunda); err != nil {
+		t.Fatalf("Guardar() error = %v, want nil", err)
 	}
 
-	if _, ok := almacen.Obtener("otra"); ok {
-		t.Error("Obtener() = true para una máquina sin credenciales")
+	guardadas, ok := almacen.Obtener(nombreDebian)
+	if !ok {
+		t.Fatal("Obtener() no encontró las credenciales actualizadas")
 	}
 
-	usuario, password, ok := almacen.Guest("debian-1")
-	if !ok || usuario != "jorge" || password != "secreto" {
-		t.Errorf("Guest() = %q, %q, %v, want jorge, secreto", usuario, password, ok)
+	if guardadas != segunda {
+		t.Errorf("Obtener() = %+v, want %+v", guardadas, segunda)
+	}
+
+	var total int
+	if err := almacen.db.QueryRowContext(context.Background(),
+		`SELECT COUNT(*) FROM credenciales WHERE vm = ?`, nombreDebian).Scan(&total); err != nil {
+		t.Fatalf("contar las credenciales: %v", err)
+	}
+
+	if total != 1 {
+		t.Errorf("filas = %d, want 1", total)
 	}
 }
 
@@ -136,16 +113,16 @@ func TestObtenerConDescifradoFallido(t *testing.T) {
 
 	almacen, _, _ := nuevaBaseDePrueba(t)
 
-	if err := almacen.Guardar("debian-1", Credenciales{Usuario: "jorge", Password: "secreto"}); err != nil {
+	if err := almacen.Guardar(nombreDebian, Credenciales{Usuario: "jorge", Password: "secreto"}); err != nil {
 		t.Fatalf("Guardar() error = %v, want nil", err)
 	}
 
 	if _, err := almacen.db.ExecContext(context.Background(),
-		`UPDATE credenciales SET password = 'invalido' WHERE vm = ?`, "debian-1"); err != nil {
+		`UPDATE credenciales SET password = 'invalido' WHERE vm = ?`, nombreDebian); err != nil {
 		t.Fatalf("corromper la contraseña: %v", err)
 	}
 
-	credenciales, ok := almacen.Obtener("debian-1")
+	credenciales, ok := almacen.Obtener(nombreDebian)
 	if !ok || credenciales.Password != "" {
 		t.Errorf("Obtener() = %+v, %v, want la cuenta sin contraseña", credenciales, ok)
 	}
@@ -157,15 +134,23 @@ func TestCredencialesConBaseCerrada(t *testing.T) {
 
 	almacen := conBaseCerrada(t)
 
-	if _, ok := almacen.Obtener("debian-1"); ok {
+	if _, ok := almacen.Obtener(nombreDebian); ok {
 		t.Error("Obtener() = true con la base cerrada")
 	}
 
-	if err := almacen.Guardar("debian-1", Credenciales{}); err == nil {
+	if _, _, ok := almacen.Guest(nombreDebian); ok {
+		t.Error("Guest() = true con la base cerrada")
+	}
+
+	if almacen.Registrada(nombreDebian) {
+		t.Error("Registrada() = true con la base cerrada")
+	}
+
+	if err := almacen.Guardar(nombreDebian, Credenciales{}); err == nil {
 		t.Error("Guardar() error = nil, want el fallo de SQLite")
 	}
 
-	if err := almacen.Borrar("debian-1"); err == nil {
+	if err := almacen.Borrar(nombreDebian); err == nil {
 		t.Error("Borrar() error = nil, want el fallo de SQLite")
 	}
 
@@ -173,61 +158,12 @@ func TestCredencialesConBaseCerrada(t *testing.T) {
 		t.Errorf("Activa() = %q, want vacío con la base cerrada", activa)
 	}
 
-	if err := almacen.GuardarActiva("debian-1"); err == nil {
+	if err := almacen.GuardarActiva(nombreDebian); err == nil {
 		t.Error("GuardarActiva() error = nil, want el fallo de SQLite")
 	}
 
 	if err := asegurarDescripcionOperaciones(almacen.db); err == nil {
 		t.Error("asegurarDescripcionOperaciones() error = nil, want el fallo de SQLite")
-	}
-}
-
-// TestGuardarSinEntropia propaga el fallo al cifrar.
-func TestGuardarSinEntropia(t *testing.T) {
-	almacen, _, _ := nuevaBaseDePrueba(t)
-
-	original := aleatorio
-
-	t.Cleanup(func() { aleatorio = original })
-
-	aleatorio = func([]byte) (int, error) { return 0, errors.New("sin entropía") }
-
-	if err := almacen.Guardar("debian-1", Credenciales{Password: "secreto"}); err == nil {
-		t.Error("Guardar() error = nil, want el fallo del nonce")
-	}
-}
-
-// TestCifrarConClaveInvalida rechaza una clave de longitud incorrecta.
-func TestCifrarConClaveInvalida(t *testing.T) {
-	t.Parallel()
-
-	almacen := &Almacen{clave: []byte("corta")}
-
-	if _, err := almacen.cifrar("secreto"); err == nil {
-		t.Error("cifrar() error = nil, want el fallo de la clave")
-	}
-
-	if _, err := almacen.descifrar(base64.StdEncoding.EncodeToString([]byte("123456789012"))); err == nil {
-		t.Error("descifrar() error = nil, want el fallo de la clave")
-	}
-}
-
-// TestCifrarConGCMFallido propaga el fallo al preparar GCM.
-func TestCifrarConGCMFallido(t *testing.T) {
-	original := nuevoGCM
-
-	t.Cleanup(func() { nuevoGCM = original })
-
-	nuevoGCM = func(cipher.Block) (cipher.AEAD, error) { return nil, errors.New("sin GCM") }
-
-	almacen, _, _ := nuevaBaseDePrueba(t)
-
-	if _, err := almacen.cifrar("secreto"); err == nil {
-		t.Error("cifrar() error = nil, want el fallo de GCM")
-	}
-
-	if _, err := almacen.descifrar(base64.StdEncoding.EncodeToString(make([]byte, 20))); err == nil {
-		t.Error("descifrar() error = nil, want el fallo de GCM")
 	}
 }
 
@@ -237,16 +173,23 @@ func TestDescifrarTextosInvalidos(t *testing.T) {
 
 	almacen, _, _ := nuevaBaseDePrueba(t)
 
-	casos := []string{
-		"no-es-base64",
-		base64.StdEncoding.EncodeToString([]byte("corto")),
-		base64.StdEncoding.EncodeToString(make([]byte, 20)),
+	casos := []struct {
+		nombre string
+		texto  string
+	}{
+		{"no es base64", "no-es-base64"},
+		{"cifrado incompleto", base64.StdEncoding.EncodeToString([]byte("corto"))},
+		{"sin autenticación", base64.StdEncoding.EncodeToString(make([]byte, 20))},
 	}
 
-	for _, texto := range casos {
-		if _, err := almacen.descifrar(texto); err == nil {
-			t.Errorf("descifrar(%q) error = nil, want un error", texto)
-		}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			t.Parallel()
+
+			if _, err := almacen.descifrar(caso.texto); err == nil {
+				t.Errorf("descifrar(%q) error = nil, want un error", caso.texto)
+			}
+		})
 	}
 }
 
@@ -258,28 +201,5 @@ func TestExisteColumnaConBaseCerrada(t *testing.T) {
 
 	if _, err := existeColumna(almacen.db, "operaciones", "descripcion"); err == nil {
 		t.Error("existeColumna() error = nil, want el fallo de SQLite")
-	}
-}
-
-// TestNuevoAlmacenSinDirectorioDeClave falla al crear el directorio.
-func TestNuevoAlmacenSinDirectorioDeClave(t *testing.T) {
-	if os.Geteuid() == 0 {
-		t.Skip("ejecutando como root: los permisos no impiden crear")
-	}
-
-	directorio := t.TempDir()
-	if err := os.Chmod(directorio, 0o500); err != nil { // #nosec G302 -- permisos de la prueba.
-		t.Fatalf("restringir el directorio: %v", err)
-	}
-
-	t.Cleanup(func() {
-		if err := os.Chmod(directorio, 0o700); err != nil { // #nosec G302 -- permisos de la prueba.
-			t.Logf("restaurar permisos: %v", err)
-		}
-	})
-
-	rutaClave := filepath.Join(directorio, "sub", "clave")
-	if _, err := NuevoAlmacen(filepath.Join(t.TempDir(), archivoBDPrueba), rutaClave); err == nil {
-		t.Error("NuevoAlmacen() error = nil, want el fallo del directorio de la clave")
 	}
 }

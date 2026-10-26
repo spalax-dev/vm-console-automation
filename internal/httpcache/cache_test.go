@@ -369,6 +369,7 @@ func TestRespuestaEnVueloNoContaminaLaCache(t *testing.T) {
 // escritorQueFalla simula un cliente que corta la respuesta.
 type escritorQueFalla struct {
 	cabecera http.Header
+	estado   int
 }
 
 // Header devuelve las cabeceras de la respuesta.
@@ -380,8 +381,12 @@ func (e *escritorQueFalla) Header() http.Header {
 	return e.cabecera
 }
 
-// WriteHeader descarta el estado.
-func (e *escritorQueFalla) WriteHeader(int) {}
+// WriteHeader registra el estado y descarta la escritura.
+func (e *escritorQueFalla) WriteHeader(codigo int) {
+	if e.estado == 0 {
+		e.estado = codigo
+	}
+}
 
 // Write siempre falla, como una conexión cerrada.
 func (e *escritorQueFalla) Write([]byte) (int, error) {
@@ -467,22 +472,57 @@ func TestVigenciaDePrefiereElPrefijoMasEspecifico(t *testing.T) {
 	}
 }
 
-// TestEscribirEntradaConClienteCaido no propaga el error de escritura.
+// TestEscribirEntradaConClienteCaido comprueba que el acierto conserva
+// sus cabeceras aunque el cliente corte la conexión.
 func TestEscribirEntradaConClienteCaido(t *testing.T) {
 	t.Parallel()
 
-	escribirEntrada(&escritorQueFalla{}, entrada{cuerpo: []byte("x")}, "HIT")
+	escritor := &escritorQueFalla{}
+	entrada := entrada{
+		cuerpo:   []byte("x"),
+		cabecera: http.Header{cabeceraTipo: []string{tipoJSON}},
+		estado:   http.StatusOK,
+	}
+
+	escribirEntrada(escritor, entrada, "HIT")
+
+	if escritor.estado != http.StatusOK {
+		t.Errorf("estado = %d, want 200", escritor.estado)
+	}
+
+	if cabecera := escritor.Header().Get(cabeceraCache); cabecera != "HIT" {
+		t.Errorf("%s = %q, want HIT", cabeceraCache, cabecera)
+	}
+
+	if tipo := escritor.Header().Get(cabeceraTipo); tipo != tipoJSON {
+		t.Errorf("%s = %q, want %q", cabeceraTipo, tipo, tipoJSON)
+	}
 }
 
-// TestGrabadorVolcarConClienteCaido no propaga el error de escritura.
+// TestGrabadorVolcarConClienteCaido comprueba que el fallo de escritura no
+// pierde el estado ni las cabeceras de la respuesta.
 func TestGrabadorVolcarConClienteCaido(t *testing.T) {
 	t.Parallel()
 
 	grabador := nuevoGrabador()
+	grabador.Header().Set(cabeceraTipo, tipoJSON)
 
 	if _, err := grabador.Write([]byte("x")); err != nil {
 		t.Fatalf("grabador.Write() error = %v", err)
 	}
 
-	grabador.volcar(&escritorQueFalla{}, "MISS")
+	escritor := &escritorQueFalla{}
+	grabador.volcar(escritor, "MISS")
+
+	if escritor.estado != http.StatusOK {
+		t.Errorf("estado = %d, want 200", escritor.estado)
+	}
+
+	if cabecera := escritor.Header().Get(cabeceraCache); cabecera != "MISS" {
+		t.Errorf("%s = %q, want MISS", cabeceraCache, cabecera)
+	}
+
+	if tipo := escritor.Header().Get(cabeceraTipo); tipo != tipoJSON {
+		t.Errorf("%s = %q, want %q", cabeceraTipo, tipo, tipoJSON)
+	}
 }

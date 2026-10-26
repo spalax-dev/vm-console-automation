@@ -5,6 +5,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"testing"
 )
 
@@ -120,5 +121,48 @@ func TestModuloDeRuta(t *testing.T) {
 		if obtenido := ModuloDe(ruta); obtenido != esperado {
 			t.Errorf("ModuloDe(%q) = %q, want %q", ruta, obtenido, esperado)
 		}
+	}
+}
+
+// TestHistorialListarLimite comprueba que el servicio acota el número de
+// filas y usa el valor por omisión cuando el límite no es utilizable.
+func TestHistorialListarLimite(t *testing.T) {
+	t.Parallel()
+
+	historial := nuevoHistorialDePrueba(t)
+
+	for i := 0; i < limiteHistorial+5; i++ {
+		if err := historial.Registrar(context.Background(), &Operacion{
+			VM:        fmt.Sprintf("vm-%d", i),
+			Modulo:    moduloPaquetes,
+			Operacion: "POST /api/packages",
+			Resultado: "ok",
+		}); err != nil {
+			t.Fatalf("Registrar() error = %v, want nil", err)
+		}
+	}
+
+	casos := []struct {
+		nombre    string
+		limite    int
+		esperados int
+	}{
+		{"cero usa el valor por omisión", 0, limiteHistorial},
+		{"negativo usa el valor por omisión", -1, limiteHistorial},
+		{"excesivo usa el valor por omisión", 5000, limiteHistorial},
+		{"uno respeta el límite", 1, 1},
+	}
+
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			operaciones, err := historial.Listar(context.Background(), &FiltroHistorial{Limite: caso.limite})
+			if err != nil {
+				t.Fatalf(msgListarError, err)
+			}
+
+			if len(operaciones) != caso.esperados {
+				t.Errorf("Listar(Limite: %d) devolvió %d, want %d", caso.limite, len(operaciones), caso.esperados)
+			}
+		})
 	}
 }

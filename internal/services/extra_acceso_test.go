@@ -65,6 +65,10 @@ func TestAccesoGuardarRegistroFinalFalla(t *testing.T) {
 	if _, err := acceso.Registrar(context.Background(), usuarioRoot, passwordPrueba); err == nil {
 		t.Error("Registrar() error = nil, want el fallo al marcar el registro")
 	}
+
+	if _, ok := almacen.Obtener(nombreDebian); ok {
+		t.Error("Obtener() encontró credenciales de un registro fallido")
+	}
 }
 
 // TestAccesoResolverErrores propaga los fallos de VirtualBox.
@@ -160,17 +164,42 @@ func TestAccesoInstalacionFalla(t *testing.T) {
 	if _, err := acceso.Registrar(context.Background(), usuarioRoot, passwordPrueba); err == nil {
 		t.Error("Registrar() error = nil, want el fallo de la instalación")
 	}
+
+	if _, ok := almacen.Obtener(nombreDebian); ok {
+		t.Error("Obtener() encontró credenciales tras fallar la instalación")
+	}
 }
 
-// TestAccesoRestaurarAvisaSinRomper cubre los avisos de la restauración.
-func TestAccesoRestaurarAvisaSinRomper(t *testing.T) {
+// TestAccesoRegistrarFallidoRestauraCredencialesAnteriores comprueba que
+// un registro fallido no pisa las credenciales que ya funcionaban.
+func TestAccesoRegistrarFallidoRestauraCredencialesAnteriores(t *testing.T) {
 	t.Parallel()
 
-	almacen := conBaseCerrada(t)
-	acceso := accesoCon(t, almacen, &stubMachine{}, &stubConnector{}, &stubConnector{}, nil, "")
+	almacen, _, _ := nuevaBaseDePrueba(t)
 
-	acceso.restaurar(nombreDebian, Credenciales{Usuario: "jorge"}, true)
-	acceso.restaurar(nombreDebian, Credenciales{}, false)
+	anteriores := Credenciales{
+		Usuario: "jorge", Password: "anterior", Puerto: 2222, Direccion: "10.0.0.9", Registrada: true,
+	}
+	if err := almacen.Guardar(nombreDebian, anteriores); err != nil {
+		t.Fatalf("Guardar() error = %v, want nil", err)
+	}
+
+	guest := &stubConnector{session: &stubSession{err: &domain.ExitError{Code: 1, Command: "id"}}}
+	acceso := accesoCon(t, almacen, &stubMachine{addr: netip.MustParseAddr(ipPrueba), state: domain.StateRunning},
+		guest, &stubConnector{}, &stubPasswordConnector{err: errors.New("sin sshpass")}, nuevaLlaveDePrueba(t))
+
+	if _, err := acceso.Registrar(context.Background(), usuarioRoot, passwordPrueba); !errors.Is(err, ErrCredencialesInvalidas) {
+		t.Fatalf("Registrar() error = %v, want ErrCredencialesInvalidas", err)
+	}
+
+	guardadas, ok := almacen.Obtener(nombreDebian)
+	if !ok {
+		t.Fatal("Obtener() no encontró las credenciales anteriores")
+	}
+
+	if guardadas != anteriores {
+		t.Errorf("Obtener() = %+v, want %+v", guardadas, anteriores)
+	}
 }
 
 // TestAccesoOlvidarErrores cubre la ausencia de máquina y el fallo de
@@ -207,22 +236,10 @@ func TestAsegurarLlaveErrores(t *testing.T) {
 		t.Error("asegurarLlave() error = nil, want el fallo de comprobación")
 	}
 
-	if os.Geteuid() != 0 {
-		directorio := t.TempDir()
-		if err := os.Chmod(directorio, 0o500); err != nil { // #nosec G302 -- permisos de la prueba.
-			t.Fatalf("restringir el directorio: %v", err)
-		}
-
-		t.Cleanup(func() {
-			if err := os.Chmod(directorio, 0o700); err != nil { // #nosec G302 -- permisos de la prueba.
-				t.Logf("restaurar permisos: %v", err)
-			}
-		})
-
-		if _, err := accesoCon(t, almacen, &stubMachine{}, &stubConnector{}, &stubConnector{}, nil,
-			filepath.Join(directorio, "sub", "id_ed25519")).asegurarLlave(context.Background()); err == nil {
-			t.Error("asegurarLlave() error = nil, want el fallo del directorio")
-		}
+	rutaBajoArchivo := filepath.Join(archivoConTexto(t), "sub", "id_ed25519")
+	if _, err := accesoCon(t, almacen, &stubMachine{}, &stubConnector{}, &stubConnector{}, nil,
+		rutaBajoArchivo).asegurarLlave(context.Background()); err == nil {
+		t.Error("asegurarLlave() error = nil, want el fallo del directorio")
 	}
 
 	acceso := accesoCon(t, almacen, &stubMachine{}, &stubConnector{}, &stubConnector{}, nil,

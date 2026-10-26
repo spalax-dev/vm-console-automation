@@ -176,7 +176,12 @@ func TestCerrarTemporalConFalloDeCierre(t *testing.T) {
 func TestEliminarTemporalIgnoraLaAusencia(t *testing.T) {
 	t.Parallel()
 
-	eliminarTemporal(filepath.Join(t.TempDir(), "inexistente"))
+	ruta := filepath.Join(t.TempDir(), "inexistente")
+	eliminarTemporal(ruta)
+
+	if _, err := os.Stat(ruta); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("Stat(%q) error = %v, want la ausencia del archivo", ruta, err)
+	}
 }
 
 // TestProbeConEjecutorCaido propaga el fallo de autenticación.
@@ -343,29 +348,26 @@ func TestConnectPasswordConArchivoNoEscribible(t *testing.T) {
 	}
 }
 
-// TestEliminarTemporalConPermisosDenegados solo advierte cuando no puede
-// borrar el archivo.
-func TestEliminarTemporalConPermisosDenegados(t *testing.T) {
-	if os.Geteuid() == 0 {
-		t.Skip("ejecutando como root: los permisos no impiden borrar")
+// TestEliminarTemporalConFalloDeBorrado conserva el archivo cuando el
+// sistema no permite eliminarlo, sin interrumpir el flujo.
+func TestEliminarTemporalConFalloDeBorrado(t *testing.T) {
+	t.Parallel()
+
+	ruta := filepath.Join(t.TempDir(), "pass")
+
+	// Un directorio no vacío hace que os.Remove falle de forma
+	// determinista, aunque la prueba se ejecute como root.
+	if err := os.MkdirAll(filepath.Join(ruta, "contenido"), 0o700); err != nil {
+		t.Fatalf("crear el directorio: %v", err)
 	}
 
-	directorio := t.TempDir()
-	ruta := filepath.Join(directorio, "pass")
-
-	if err := os.WriteFile(ruta, nil, 0o600); err != nil {
-		t.Fatalf("crear el archivo: %v", err)
+	if err := os.WriteFile(filepath.Join(ruta, "contenido", "archivo"), []byte("x"), 0o600); err != nil {
+		t.Fatalf("crear el archivo interno: %v", err)
 	}
-
-	if err := os.Chmod(directorio, 0o500); err != nil { // #nosec G302 -- permisos de la prueba.
-		t.Fatalf("restringir el directorio: %v", err)
-	}
-
-	t.Cleanup(func() {
-		if err := os.Chmod(directorio, 0o700); err != nil { // #nosec G302 -- permisos de la prueba.
-			t.Logf("restaurar permisos: %v", err)
-		}
-	})
 
 	eliminarTemporal(ruta)
+
+	if _, err := os.Stat(ruta); err != nil {
+		t.Errorf("el archivo que no se pudo borrar desapareció: %v", err)
+	}
 }

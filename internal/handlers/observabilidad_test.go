@@ -130,3 +130,24 @@ func TestConObservabilidadNoMutilaCuerpoDeErrorLargo(t *testing.T) {
 		t.Errorf("cuerpo entregado = %d bytes, want %d bytes (se mutiló la respuesta)", rec.Body.Len(), len(cuerpoLargo))
 	}
 }
+
+// TestConObservabilidadConservaLaSolicitudDelCliente comprueba que un
+// identificador corto enviado por el cliente se conserva para poder
+// correlacionar el error del frontend con el log.
+func TestConObservabilidadConservaLaSolicitudDelCliente(t *testing.T) {
+	t.Parallel()
+
+	handler := ConObservabilidad(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}), nil, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, rutaSesion, http.NoBody)
+	req.Header.Set(cabeceraSolicitud, "solicitud-123")
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if obtenida := rec.Header().Get(cabeceraSolicitud); obtenida != "solicitud-123" {
+		t.Errorf("%s = %q, want la solicitud del cliente", cabeceraSolicitud, obtenida)
+	}
+}

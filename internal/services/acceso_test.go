@@ -131,10 +131,14 @@ func TestAccesoRegistrarSinMaquina(t *testing.T) {
 func TestAccesoRegistrarMaquinaApagada(t *testing.T) {
 	t.Parallel()
 
-	acceso, _ := nuevoAccesoDePrueba(t, domain.StatePoweredOff, &stubSession{}, nil)
+	acceso, almacen := nuevoAccesoDePrueba(t, domain.StatePoweredOff, &stubSession{}, nil)
 
 	if _, err := acceso.Registrar(context.Background(), usuarioRoot, passwordPrueba); !errors.Is(err, ErrSesionNoDisponible) {
 		t.Fatalf("Registrar() error = %v, want ErrSesionNoDisponible", err)
+	}
+
+	if _, ok := almacen.Obtener(nombreDebian); ok {
+		t.Error("Obtener() encontró credenciales de una máquina apagada")
 	}
 }
 

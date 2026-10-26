@@ -8,11 +8,28 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 )
+
+// contadorControladores evita registrar dos veces el mismo controlador
+// cuando las pruebas se ejecutan con -count.
+var contadorControladores atomic.Int64
+
+// registrarControladorUnico registra un controlador de prueba con un
+// nombre irrepetible y lo devuelve.
+func registrarControladorUnico(t *testing.T, controlador driver.Driver) string {
+	t.Helper()
+
+	nombre := fmt.Sprintf("vmcons-prueba-%d", contadorControladores.Add(1))
+	sql.Register(nombre, controlador)
+
+	return nombre
+}
 
 // filasConError devuelve el error configurado al recorrer.
 type filasConError struct{ err error }
@@ -70,6 +87,33 @@ func (filasQueNoCierran) Close() error { return errors.New("cierre") }
 // Next termina el recorrido sin error.
 func (filasQueNoCierran) Next([]driver.Value) error { return io.EOF }
 
+// filasEncontradas entrega la columna buscada y falla al cerrarse.
+type filasEncontradas struct{}
+
+// Columns anuncia las columnas de PRAGMA table_info.
+func (filasEncontradas) Columns() []string {
+	return []string{"cid", "name", "type", "notnull", "dflt_value", "pk"}
+}
+
+// Close devuelve el error del cierre.
+func (filasEncontradas) Close() error { return errors.New("cierre") }
+
+// Next entrega la columna buscada y luego termina.
+func (filasEncontradas) Next(destino []driver.Value) error {
+	if destino[0] != nil {
+		return io.EOF
+	}
+
+	destino[0] = int64(0)
+	destino[1] = "descripcion"
+	destino[2] = "TEXT"
+	destino[3] = int64(0)
+	destino[4] = nil
+	destino[5] = int64(0)
+
+	return nil
+}
+
 // conectorDeFilas entrega las filas indicadas.
 type conectorDeFilas struct{ filas driver.Rows }
 
@@ -100,13 +144,6 @@ func (c conexionDeFilas) QueryContext(context.Context, string, []driver.NamedVal
 	return c.filas, nil
 }
 
-// registrarControlador registra un controlador de prueba una sola vez.
-func registrarControlador(t *testing.T, nombre string, conector driver.Connector) {
-	t.Helper()
-
-	sql.Register(nombre, &driverConector{conector: conector})
-}
-
 // driverConector entrega el conector registrado o su error.
 type driverConector struct {
 	conector driver.Connector
@@ -125,15 +162,85 @@ func (d *driverConector) OpenConnector(string) (driver.Connector, error) {
 	return d.conector, nil
 }
 
+// TestExisteColumnaConFilasDefectuosas distingue los errores reales de
+// lectura de los del cierre, que solo se registran.
+func TestExisteColumnaConFilasDefectuosas(t *testing.T) {
+	t.Parallel()
+
+	casos := []struct {
+		nombre       string
+		filas        func() driver.Rows
+		quiereExiste bool
+		quiereError  bool
+	}{
+		{"error al recorrer", func() driver.Rows { return filasConError{err: errors.New("fallo")} }, false, true},
+		{"error al leer", func() driver.Rows { return &filasConValores{} }, false, true},
+		{"error al cerrar se propaga", func() driver.Rows { return filasQueNoCierran{} }, false, true},
+	}
+
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			t.Parallel()
+
+			nombre := registrarControladorUnico(t, &driverConector{
+				conector: conectorDeFilas{filas: caso.filas()},
+			})
+
+			db, err := sql.Open(nombre, "")
+			if err != nil {
+				t.Fatalf("abrir la base de prueba: %v", err)
+			}
+
+			t.Cleanup(func() {
+				if err := db.Close(); err != nil {
+					t.Logf("cerrar la base de prueba: %v", err)
+				}
+			})
+
+			existe, err := existeColumna(db, "operaciones", "otra")
+			if (err != nil) != caso.quiereError {
+				t.Fatalf("existeColumna() error = %v, want error=%v", err, caso.quiereError)
+			}
+
+			if existe != caso.quiereExiste {
+				t.Errorf("existeColumna() = %v, want %v", existe, caso.quiereExiste)
+			}
+		})
+	}
+}
+
+// TestExisteColumnaEncuentraLaColumna cierra las filas tras el acierto.
+func TestExisteColumnaEncuentraLaColumna(t *testing.T) {
+	t.Parallel()
+
+	nombre := registrarControladorUnico(t, &driverConector{
+		conector: conectorDeFilas{filas: filasEncontradas{}},
+	})
+
+	db, err := sql.Open(nombre, "")
+	if err != nil {
+		t.Fatalf("abrir la base de prueba: %v", err)
+	}
+
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Logf("cerrar la base de prueba: %v", err)
+		}
+	})
+
+	existe, err := existeColumna(db, "credenciales", "descripcion")
+	if err != nil || !existe {
+		t.Errorf("existeColumna() = %v, %v, want true, nil", existe, err)
+	}
+}
+
 // TestNuevoAlmacenNoAbreLaBase cubre el fallo de apertura.
 func TestNuevoAlmacenNoAbreLaBase(t *testing.T) {
 	original := controladorSQL
 
 	t.Cleanup(func() { controladorSQL = original })
 
-	sql.Register("fallo-apertura", &driverConector{err: errors.New("sin base")})
-
-	controladorSQL = "fallo-apertura"
+	controladorSQL = registrarControladorUnico(t, &driverConector{err: errors.New("sin base")})
 
 	directorio := t.TempDir()
 
@@ -142,8 +249,9 @@ func TestNuevoAlmacenNoAbreLaBase(t *testing.T) {
 	}
 }
 
-// TestNuevoAlmacenConPermisosImposibles solo advierte del chmod.
-func TestNuevoAlmacenConPermisosImposibles(t *testing.T) {
+// TestNuevoAlmacenAdvierteSiNoAjustaPermisos comprueba que un fallo al
+// ajustar los permisos de la base no impide usarla.
+func TestNuevoAlmacenAdvierteSiNoAjustaPermisos(t *testing.T) {
 	original := ajustarPermisos
 
 	t.Cleanup(func() { ajustarPermisos = original })
@@ -157,12 +265,19 @@ func TestNuevoAlmacenConPermisosImposibles(t *testing.T) {
 		t.Fatalf("NuevoAlmacen() error = %v, want nil", err)
 	}
 
-	if err := almacen.db.Close(); err != nil {
-		t.Fatalf("cerrar la base: %v", err)
+	t.Cleanup(func() {
+		if err := almacen.Close(); err != nil {
+			t.Errorf("cerrar la base: %v", err)
+		}
+	})
+
+	if _, err := NuevoConsola(almacen).Configurada(); err != nil {
+		t.Errorf("Configurada() error = %v, want una base utilizable", err)
 	}
 }
 
-// TestEsquemaAntiguoNoMigrable falla al agregar la descripción.
+// TestEsquemaAntiguoNoMigrable comprueba que la migración de una base
+// de solo lectura falla en lugar de continuar con un esquema incompleto.
 func TestEsquemaAntiguoNoMigrable(t *testing.T) {
 	t.Parallel()
 
@@ -180,86 +295,16 @@ func TestEsquemaAntiguoNoMigrable(t *testing.T) {
 		t.Fatalf("quitar la columna: %v", err)
 	}
 
-	if err := almacen.db.Close(); err != nil {
+	if err := almacen.Close(); err != nil {
 		t.Fatalf("cerrar la base: %v", err)
 	}
 
-	if _, err := NuevoAlmacen("file:"+rutaBD+"?mode=ro", rutaClave); err == nil {
-		t.Error("NuevoAlmacen() error = nil, want el fallo de la migración")
-	}
-}
-
-// TestExisteColumnaConFilasQueFallan cubre los errores de recorrido,
-// lectura y cierre de las filas.
-func TestExisteColumnaConFilasQueFallan(t *testing.T) {
-	registrarControlador(t, "filas-con-error", conectorDeFilas{filas: filasConError{err: errors.New("fallo")}})
-	registrarControlador(t, "filas-con-valores", conectorDeFilas{filas: &filasConValores{}})
-	registrarControlador(t, "filas-que-no-cierran", conectorDeFilas{filas: filasQueNoCierran{}})
-
-	casos := []struct {
-		nombre      string
-		controlador string
-	}{
-		{"recorrido", "filas-con-error"},
-		{"lectura", "filas-con-valores"},
-		{"cierre", "filas-que-no-cierran"},
-	}
-
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
-			db, err := sql.Open(caso.controlador, "")
-			if err != nil {
-				t.Fatalf("abrir la base de prueba: %v", err)
-			}
-
-			t.Cleanup(func() {
-				if err := db.Close(); err != nil {
-					t.Logf("cerrar la base de prueba: %v", err)
-				}
-			})
-
-			if _, err := existeColumna(db, "operaciones", "otra"); err != nil && caso.nombre != "cierre" {
-				t.Logf("existeColumna() error = %v", err)
-			}
-		})
-	}
-}
-
-// filasEncontradas entrega una columna que coincide y falla al cerrarse.
-type filasEncontradas struct{}
-
-// Columns anuncia las columnas de PRAGMA table_info.
-func (filasEncontradas) Columns() []string {
-	return []string{"cid", "name", "type", "notnull", "dflt_value", "pk"}
-}
-
-// Close devuelve el error del cierre.
-func (filasEncontradas) Close() error { return errors.New("cierre") }
-
-// Next entrega la columna buscada y luego termina.
-func (filasEncontradas) Next(destino []driver.Value) error {
-	if destino[0] != nil {
-		return io.EOF
-	}
-
-	destino[0] = int64(0)
-	destino[1] = "descripcion"
-	destino[2] = "TEXT"
-	destino[3] = int64(0)
-	destino[4] = nil
-	destino[5] = int64(0)
-
-	return nil
-}
-
-// TestExisteColumnaAlEncontrarLaColumna cierra las filas tras el acierto.
-func TestExisteColumnaAlEncontrarLaColumna(t *testing.T) {
-	registrarControlador(t, "filas-encontradas", conectorDeFilas{filas: filasEncontradas{}})
-
-	db, err := sql.Open("filas-encontradas", "")
+	db, err := sql.Open("sqlite", rutaBD)
 	if err != nil {
-		t.Fatalf("abrir la base de prueba: %v", err)
+		t.Fatalf("abrir la base de solo lectura: %v", err)
 	}
+
+	db.SetMaxOpenConns(1)
 
 	t.Cleanup(func() {
 		if err := db.Close(); err != nil {
@@ -267,8 +312,11 @@ func TestExisteColumnaAlEncontrarLaColumna(t *testing.T) {
 		}
 	})
 
-	existe, err := existeColumna(db, "credenciales", "descripcion")
-	if err != nil || !existe {
-		t.Errorf("existeColumna() = %v, %v, want true", existe, err)
+	if _, err := db.ExecContext(t.Context(), "PRAGMA query_only = ON"); err != nil {
+		t.Fatalf("marcar la base como solo lectura: %v", err)
+	}
+
+	if err := crearEsquema(db); err == nil {
+		t.Error("crearEsquema() error = nil, want el fallo de la migración")
 	}
 }
