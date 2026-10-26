@@ -24,7 +24,7 @@ Package domain define los tipos del lenguaje de la consola: órdenes que se ejec
 
 
 <a name="Quote"></a>
-## func Quote
+## func [Quote](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/command.go#L24>)
 
 ```go
 func Quote(token string) string
@@ -33,7 +33,7 @@ func Quote(token string) string
 Quote encierra token entre comillas simples para que un shell POSIX lo trate como un solo argumento literal, escapando las comillas simples que contenga.
 
 <a name="Command"></a>
-## type Command
+## type [Command](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/command.go#L10-L19>)
 
 Command describe una orden que debe ejecutarse dentro de la máquina administrada. Es independiente del mecanismo que la ejecute.
 
@@ -51,7 +51,7 @@ type Command struct {
 ```
 
 <a name="Command.ShellLine"></a>
-### func \(\*Command\) ShellLine
+### func \(\*Command\) [ShellLine](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/command.go#L35>)
 
 ```go
 func (c *Command) ShellLine() string
@@ -60,7 +60,7 @@ func (c *Command) ShellLine() string
 ShellLine convierte la orden en una línea de shell POSIX en la que cada componente está citado. Es la representación que la consola entrega a los adaptadores que ejecutan órdenes a través de un shell.
 
 <a name="ExitError"></a>
-## type ExitError
+## type [ExitError](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L29-L34>)
 
 ExitError representa una orden que terminó con un código de salida distinto de cero. Permite que el núcleo distinga un fallo de la orden de un fallo del mecanismo de ejecución, sin conocer el adaptador.
 
@@ -74,7 +74,7 @@ type ExitError struct {
 ```
 
 <a name="ExitError.Error"></a>
-### func \(\*ExitError\) Error
+### func \(\*ExitError\) [Error](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L37>)
 
 ```go
 func (e *ExitError) Error() string
@@ -83,7 +83,7 @@ func (e *ExitError) Error() string
 Error implementa la interfaz error.
 
 <a name="GuestAdditions"></a>
-## type GuestAdditions
+## type [GuestAdditions](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L55-L62>)
 
 GuestAdditions describe lo que la máquina informa sobre Guest Additions.
 
@@ -99,7 +99,7 @@ type GuestAdditions struct {
 ```
 
 <a name="MachineState"></a>
-## type MachineState
+## type [MachineState](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L42>)
 
 MachineState describe el estado de encendido de una máquina virtual.
 
@@ -120,7 +120,7 @@ const (
 ```
 
 <a name="NetworkMode"></a>
-## type NetworkMode
+## type [NetworkMode](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L66>)
 
 NetworkMode describe el modo de la primera interfaz de red de una máquina virtual.
 
@@ -142,7 +142,7 @@ const (
 ```
 
 <a name="Result"></a>
-## type Result
+## type [Result](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L17-L24>)
 
 Result contiene el resultado de la ejecución de una orden.
 
@@ -158,7 +158,7 @@ type Result struct {
 ```
 
 <a name="Target"></a>
-## type Target
+## type [Target](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L81-L84>)
 
 Target identifica la máquina administrada. El identificador es opaco para el núcleo: cada adaptador sabe cómo interpretarlo. La dirección se descubre antes de usarla; si es la dirección cero, es desconocida.
 
@@ -170,7 +170,7 @@ type Target struct {
 ```
 
 <a name="VM"></a>
-## type VM
+## type [VM](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/core/domain/domain.go#L88-L95>)
 
 VM describe una máquina virtual registrada en el hipervisor, tal como la enumera el inventario. El nombre es único y sirve para vincularla.
 

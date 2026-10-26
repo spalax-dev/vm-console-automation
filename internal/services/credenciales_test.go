@@ -27,6 +27,12 @@ func nuevaBaseDePrueba(t *testing.T) (almacen *Almacen, rutaBD, rutaClave string
 		t.Fatalf(msgAlmacenOK, err)
 	}
 
+	t.Cleanup(func() {
+		if err := almacen.Close(); err != nil {
+			t.Errorf("cerrar almacen de prueba: %v", err)
+		}
+	})
+
 	return almacen, rutaBD, rutaClave
 }
 
@@ -46,6 +52,12 @@ func TestAlmacenGuardaYCarga(t *testing.T) {
 	if err != nil {
 		t.Fatalf(msgAlmacenOK, err)
 	}
+
+	t.Cleanup(func() {
+		if err := otro.Close(); err != nil {
+			t.Errorf("cerrar segundo almacen: %v", err)
+		}
+	})
 
 	credenciales, ok := otro.Obtener(nombreDebian)
 	if !ok {
@@ -94,7 +106,7 @@ func TestAlmacenCifraLaContrasena(t *testing.T) {
 		t.Fatalf("Stat() de la clave: %v", err)
 	}
 
-	if info.Mode().Perm() != 0o600 {
+	if info.Mode().Perm() != 0o600 && os.Getenv("OS") != "Windows_NT" {
 		t.Errorf("permisos de la clave = %v, want 0600", info.Mode().Perm())
 	}
 }
@@ -185,6 +197,12 @@ func TestAlmacenMigraElHistorial(t *testing.T) {
 		t.Fatalf(msgAlmacenOK, err)
 	}
 
+	t.Cleanup(func() {
+		if err := almacen.Close(); err != nil {
+			t.Errorf("cerrar almacen migrado: %v", err)
+		}
+	})
+
 	historial := NuevoHistorial(almacen)
 
 	operaciones, err := historial.Listar(context.Background(), &FiltroHistorial{})
@@ -231,6 +249,12 @@ func TestAlmacenGuardaLaMaquinaActiva(t *testing.T) {
 	if err != nil {
 		t.Fatalf(msgAlmacenOK, err)
 	}
+
+	t.Cleanup(func() {
+		if err := otro.Close(); err != nil {
+			t.Errorf("cerrar segundo almacen: %v", err)
+		}
+	})
 
 	if activa := otro.Activa(); activa != nombreDebian {
 		t.Errorf("Activa() = %q, want %q", activa, nombreDebian)

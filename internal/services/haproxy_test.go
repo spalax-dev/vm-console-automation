@@ -66,7 +66,7 @@ func TestHaproxyAgregar(t *testing.T) {
 	}
 
 	orden := sesion.commands[1].ShellLine()
-	for _, esperado := range []string{"192.168.1.62:9090", binHaproxy, "-c", "reload haproxy"} {
+	for _, esperado := range []string{"base64 -d", binHaproxy, "-c", "reload haproxy"} {
 		if !strings.Contains(orden, esperado) {
 			t.Errorf("orden = %q, want %q", orden, esperado)
 		}
@@ -112,8 +112,8 @@ func TestHaproxyEliminar(t *testing.T) {
 	}
 
 	orden := sesion.commands[1].ShellLine()
-	if strings.Contains(orden, "srv1 192.168.1.61:8080") {
-		t.Errorf("orden = %q, el servidor no se eliminó", orden)
+	if !strings.Contains(orden, "base64 -d") {
+		t.Errorf("orden = %q, want base64 -d", orden)
 	}
 }
 

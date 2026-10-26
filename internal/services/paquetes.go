@@ -131,6 +131,10 @@ func (p *Paquetes) ejecutar(
 
 // cerrarSesion cierra la sesión y deja constancia si el cierre falla.
 func cerrarSesion(sesion ports.Session) {
+	if sesion == nil {
+		return
+	}
+
 	if err := sesion.Close(); err != nil {
 		slog.Warn("cerrar la sesión con la máquina", claveErrorLog, err)
 	}

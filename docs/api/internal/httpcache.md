@@ -19,7 +19,7 @@ La caché es conservadora a propósito. Solo recuerda respuestas correctas de \`
 
 
 <a name="Cache"></a>
-## type Cache
+## type [Cache](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/httpcache/cache.go#L53-L66>)
 
 Cache guarda respuestas de lectura de la API durante una vigencia corta y las invalida ante cualquier escritura.
 
@@ -30,7 +30,7 @@ type Cache struct {
 ```
 
 <a name="Nuevo"></a>
-### func Nuevo
+### func [Nuevo](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/httpcache/cache.go#L70>)
 
 ```go
 func Nuevo(politicas []Politica) *Cache
@@ -39,7 +39,7 @@ func Nuevo(politicas []Politica) *Cache
 Nuevo construye la caché con las políticas dadas. Un prefijo más específico gana sobre uno más general.
 
 <a name="Cache.Envolver"></a>
-### func \(\*Cache\) Envolver
+### func \(\*Cache\) [Envolver](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/httpcache/cache.go#L80>)
 
 ```go
 func (c *Cache) Envolver(siguiente http.Handler) http.Handler
@@ -48,7 +48,7 @@ func (c *Cache) Envolver(siguiente http.Handler) http.Handler
 Envolver devuelve un manejador que cachea las lecturas de la API y delega el resto en siguiente.
 
 <a name="Politica"></a>
-## type Politica
+## type [Politica](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/httpcache/cache.go#L36-L41>)
 
 Politica declara la vigencia de las respuestas de un prefijo de ruta.
 

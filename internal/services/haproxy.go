@@ -5,6 +5,7 @@ package services
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -123,7 +124,8 @@ func (h *Haproxy) Eliminar(ctx context.Context, direccion string, puerto int) (R
 func (h *Haproxy) escribir(
 	ctx context.Context, sesion ports.Session, config, mensaje string,
 ) (Resultado, error) {
-	guion := "printf '%s' " + domain.Quote(config) + " > /tmp/haproxy.cfg.vmcons && " +
+	b64 := base64.StdEncoding.EncodeToString([]byte(config))
+	guion := "printf '%s' " + domain.Quote(b64) + " | base64 -d > /tmp/haproxy.cfg.vmcons && " +
 		binHaproxy + " -c -f /tmp/haproxy.cfg.vmcons && " +
 		"mv /tmp/haproxy.cfg.vmcons " + rutaHaproxy + " && " +
 		binSystemctl + " reload haproxy"

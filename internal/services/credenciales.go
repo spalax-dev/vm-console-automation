@@ -124,6 +124,19 @@ func NuevoAlmacen(rutaBD, rutaClave string) (*Almacen, error) {
 	return &Almacen{db: db, clave: clave}, nil
 }
 
+// Close cierra la conexión con la base de datos SQLite.
+func (a *Almacen) Close() error {
+	if a == nil || a.db == nil {
+		return nil
+	}
+
+	if err := a.db.Close(); err != nil {
+		return fmt.Errorf("cerrar la base de datos: %w", err)
+	}
+
+	return nil
+}
+
 // asegurarDescripcionOperaciones agrega la columna descripcion a bases
 // creadas con una versión anterior.
 func asegurarDescripcionOperaciones(db *sql.DB) error {

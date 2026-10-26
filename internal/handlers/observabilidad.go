@@ -57,11 +57,13 @@ func (w *escritorEstado) Write(datos []byte) (int, error) {
 
 	if w.capturar && w.captura.Len() < maxCuerpoLog {
 		restante := maxCuerpoLog - w.captura.Len()
-		if len(datos) > restante {
-			datos = datos[:restante]
+
+		trozo := datos
+		if len(trozo) > restante {
+			trozo = trozo[:restante]
 		}
 
-		_, _ = w.captura.Write(datos)
+		_, _ = w.captura.Write(trozo)
 	}
 
 	escritos, err := w.ResponseWriter.Write(datos)

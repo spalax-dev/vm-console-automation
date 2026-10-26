@@ -179,6 +179,14 @@ de los módulos del numeral 3.
 
 ## Notas de seguimiento
 
+- **26 oct 2026** — Transporte Base64 en HAProxy y aislamiento de captura
+  en observabilidad: la configuración de HAProxy se codifica en Base64
+  antes de transferirla al invitado, lo que evita errores de entrecomillado
+  y EOF en el shell remoto causados por clientes OpenSSH en Windows. En el
+  middleware de observabilidad se corrigió un fallo donde el búfer de datos
+  se mutaba al acotar la captura a 512 bytes, lo que provocaba que las
+  respuestas de error HTTP se entregaran mutiladas al navegador.
+
 - **25 oct 2026** — Armazón con altura de ventana: la barra superior y las
   pestañas quedan fijas y solo el contenido del módulo se desplaza, de
   modo que Usuarios no arrastra la página entera. El panel de resultado se

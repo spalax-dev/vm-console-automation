@@ -304,11 +304,12 @@ configuración y opera sobre sus líneas `server`:
 - **Alta:** agrega `server srv_<ip>_<puerto> <ip>:<puerto> check` al final del
   bloque, salvo que ya exista ese `direccion:puerto` (`409`).
 - **Baja:** elimina la línea `server` cuyo destino coincide (`404` si no está).
-- **Validación:** escribe la configuración propuesta en un archivo temporal,
-  ejecuta `haproxy -c -f` y solo si es válida la mueve a
-  `/etc/haproxy/haproxy.cfg`; después recarga el servicio con
-  `systemctl reload haproxy`. Un error de sintaxis deja intacta la
-  configuración anterior.
+- **Validación:** codifica la configuración propuesta en Base64 para evitar
+  conflictos de entrecomillado y saltos de línea en shells multiplataforma,
+  la decodifica en un archivo temporal (`/tmp/haproxy.cfg.vmcons`), ejecuta
+  `haproxy -c -f` y, solo si es válida, la mueve a `/etc/haproxy/haproxy.cfg`;
+  después recarga el servicio con `systemctl reload haproxy`. Un error de sintaxis
+  deja intacta la configuración anterior.
 
 El identificador del servidor en la ruta es `direccion:puerto`
 (por ejemplo, `192.168.1.61:8080`). El estado de cada servidor se informa como

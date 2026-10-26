@@ -16,7 +16,7 @@ Package localproc implementa el puerto ports.Executor lanzando procesos en el si
 
 
 <a name="Executor"></a>
-## type Executor
+## type [Executor](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/localproc/localproc.go#L20>)
 
 Executor ejecuta programas del sistema operativo anfitrión.
 
@@ -25,7 +25,7 @@ type Executor struct{}
 ```
 
 <a name="New"></a>
-### func New
+### func [New](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/localproc/localproc.go#L23>)
 
 ```go
 func New() *Executor
@@ -34,7 +34,7 @@ func New() *Executor
 New crea un ejecutor de programas locales.
 
 <a name="Executor.Execute"></a>
-### func \(\*Executor\) Execute
+### func \(\*Executor\) [Execute](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/localproc/localproc.go#L31>)
 
 ```go
 func (e *Executor) Execute(ctx context.Context, program string, args ...string) (domain.Result, error)
