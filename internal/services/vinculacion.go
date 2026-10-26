@@ -137,9 +137,11 @@ func (v *Binding) List(ctx context.Context, filter string) ([]VirtualMachine, er
 	return visibles, nil
 }
 
-// administrable informa si la máquina puede administrarse: las apagadas
-// se listan para poder encenderlas y las encendidas deben publicar Guest
-// Additions, único canal para instalar SSH.
+// administrable informa si la máquina tiene una red alcanzable desde el
+// anfitrión. Las apagadas se listan para poder encenderlas y las encendidas
+// se mantienen visibles aunque Guest Additions todavía no publique la
+// dirección: mientras arrancan, el selector debe permitir diagnosticarlas o
+// registrarlas.
 func (v *Binding) administrable(ctx context.Context, machine domain.VM) bool {
 	if v.machine == nil {
 		return true
@@ -160,13 +162,7 @@ func (v *Binding) administrable(ctx context.Context, machine domain.VM) bool {
 		return false
 	}
 
-	if machine.State != domain.StateRunning {
-		return true
-	}
-
-	_, err = v.machine.Address(ctx, target)
-
-	return err == nil
+	return true
 }
 
 // Bind establece la máquina que administra la consola. Acepta el

@@ -143,12 +143,12 @@ el usuario y la contraseña y ejecuta una adecuación que prepara SSH. Las
 máquinas ya registradas no vuelven a pedir login: usan la llave y las
 credenciales guardadas en un archivo privado por máquina.
 
-El selector de máquina solo muestra las máquinas administrables: las que
-están encendidas, publican Guest Additions y tienen la primera interfaz en
-modo puente u host-only, más las apagadas para poder encenderlas. Así se
-evita ofrecer operaciones que fallarían por falta de un canal de
-comunicación o de una dirección alcanzable (en NAT el anfitrión no llega a
-la IP que publica Guest Additions).
+El selector de máquina filtra por red: muestra las máquinas con la primera
+interfaz en modo puente u host-only, más las apagadas para poder
+encenderlas. Las encendidas se mantienen visibles aunque Guest Additions
+todavía no publique la dirección, para poder diagnosticarlas o registrarlas
+mientras arrancan. En NAT, red interna o sin adaptador el anfitrión no
+alcanza la IP y la máquina se omite.
 
 Toda operación sigue el ciclo de la \cref{fig:flujo-proceso}: validación
 en el cliente para dar respuesta inmediata, validación en el servidor

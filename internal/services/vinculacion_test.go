@@ -327,9 +327,9 @@ func TestBindingPropagatesFailureOfPowerOn(t *testing.T) {
 	}
 }
 
-// TestBindingOcultaWithoutGuestAdditions comprueba que una máquina en
-// ejecución sin Guest Additions no se lista y que la apagada sí.
-func TestBindingOcultaWithoutGuestAdditions(t *testing.T) {
+// TestBindingListsWithoutGuestAdditions comprueba que una máquina en
+// ejecución sin Guest Additions se lista igual que la apagada.
+func TestBindingListsWithoutGuestAdditions(t *testing.T) {
 	t.Parallel()
 
 	machine := &stubGuestAdditions{accesibles: map[string]bool{}}
@@ -344,12 +344,12 @@ func TestBindingOcultaWithoutGuestAdditions(t *testing.T) {
 		t.Fatalf(msgListOK, err)
 	}
 
-	if len(visibles) != 1 || visibles[0].Name != nameUbuntu {
-		t.Errorf("visibles = %+v, want solo la máquina apagada", visibles)
+	if len(visibles) != 2 {
+		t.Errorf("visibles = %+v, want las dos máquinas", visibles)
 	}
 
-	if machine.consultas != 1 {
-		t.Errorf("Address() se llamó %d veces, want 1 (solo la encendida)", machine.consultas)
+	if machine.consultas != 0 {
+		t.Errorf("Address() se llamó %d veces, want 0", machine.consultas)
 	}
 }
 

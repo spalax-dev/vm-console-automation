@@ -99,8 +99,9 @@ los logs ni en el cuerpo JSON; si todavía no existe, la respuesta es
 \texttt{404}. La interfaz muestra un aviso para resguardarla y no
 compartirla.
 
-Una máquina con Guest Additions y red puente u host-only aparece como
-\emph{sin registrar} hasta que el usuario la registra. Al elegirla, la
+Una máquina con red puente u host-only aparece como \emph{sin registrar}
+hasta que el usuario la registra; se mantiene en el selector aunque esté
+encendida y Guest Additions aún no publique la dirección. Al elegirla, la
 interfaz abre un modal flotante y \texttt{POST /api/session/register}
 guarda las credenciales en SQLite (\texttt{data/vmcons.db}); la
 contraseña se cifra con AES-256-GCM y se apoya en una clave local

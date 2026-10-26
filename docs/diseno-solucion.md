@@ -59,15 +59,13 @@ el núcleo conozca los adaptadores:
 El orden de preferencia lo fija `main.go` al inyectar la lista, no el servicio: así se
 puede probar con conectores falsos y cambiar la política sin tocar el caso de uso.
 
-El **inventario del selector** aplica el mismo criterio de forma silenciosa: las
-máquinas encendidas solo aparecen si publican Guest Additions y su primera
-interfaz está en modo puente u host-only; en NAT o red interna el anfitrión no
-alcanza la dirección que publica Guest Additions, aunque SSH llegue a
-instalarse. Las apagadas se listan para poder encenderlas. La interfaz avisa de
-que solo se muestran las máquinas administrables. Si una
-máquina no tiene Guest Additions ni un adaptador puente, no hay forma de
-descubrir su dirección ni de ejecutar la primera orden, por lo que se omite en
-lugar de ofrecer una operación que fallaría.
+El **inventario del selector** filtra por red: solo muestra las máquinas cuya
+primera interfaz está en modo puente u host-only. Las apagadas se listan para
+poder encenderlas y las encendidas se mantienen visibles aunque Guest
+Additions todavía no publique la dirección, de modo que el usuario pueda
+diagnosticarlas o registrarlas mientras arrancan. En NAT, red interna o sin
+adaptador el anfitrión no alcanza la dirección y la máquina se omite, porque
+no habría forma de ejecutar la primera orden.
 
 La instalación de SSH cuando aún no hay llave es responsabilidad del módulo 3.1.2
 (`GET/POST /api/keys/root`); el descubridor solo informa qué conector está disponible.

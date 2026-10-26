@@ -345,7 +345,7 @@ func NewBinding(config *BindingConfig) *Binding
 NewBinding construye el servicio con las dependencias dadas.
 
 <a name="Binding.Active"></a>
-### func \(\*Binding\) [Active](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L268>)
+### func \(\*Binding\) [Active](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L264>)
 
 ```go
 func (v *Binding) Active() string
@@ -354,7 +354,7 @@ func (v *Binding) Active() string
 Active devuelve el nombre de la máquina vinculada, o una cadena vacía si la consola todavía no está vinculada con ninguna.
 
 <a name="Binding.Bind"></a>
-### func \(\*Binding\) [Bind](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L176>)
+### func \(\*Binding\) [Bind](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L172>)
 
 ```go
 func (v *Binding) Bind(ctx context.Context, identifier string) (VirtualMachine, error)
@@ -372,7 +372,7 @@ func (v *Binding) List(ctx context.Context, filter string) ([]VirtualMachine, er
 List devuelve las máquinas del inventario marcando la vinculada. Si filtro no está vacío, se compara, sin distinguir mayúsculas, contra el nombre y el UUID.
 
 <a name="Binding.PowerOn"></a>
-### func \(\*Binding\) [PowerOn](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L207>)
+### func \(\*Binding\) [PowerOn](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L203>)
 
 ```go
 func (v *Binding) PowerOn(ctx context.Context, identifier string) (VirtualMachine, error)
