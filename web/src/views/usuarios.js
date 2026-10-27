@@ -22,6 +22,11 @@ export function renderUsuarios() {
             <input id="usuario-nombre" name="nombre" class="input font-mono" placeholder="jorge" autocomplete="off" spellcheck="false">
             <span id="usuario-error" class="text-[11px] text-vm-accent hidden"></span>
           </div>
+          <div class="flex flex-col gap-1">
+            <label class="label" for="usuario-password">Contraseña</label>
+            <input id="usuario-password" name="password" type="password" class="input" autocomplete="new-password" placeholder="Opcional">
+            <span class="text-[11px] text-vm-fgSecondary">Permite el login local y <span class="font-mono">sudo</span>; el acceso SSH sigue usando la llave.</span>
+          </div>
           <label class="flex items-center gap-1.5 text-[12px]"><input type="checkbox" name="sudo"> Otorgar privilegios sudo</label>
           <label class="flex items-center gap-1.5 text-[12px]"><input type="checkbox" name="llaves"> Generar par de llaves e instalar la pública</label>
           <div class="flex gap-2">
@@ -237,6 +242,7 @@ export function renderUsuarios() {
     evento.preventDefault();
 
     const nombre = campoNombre.value.trim();
+    const password = el.querySelector('#usuario-password').value;
     const invalido = validarNombreUsuario(nombre);
 
     if (invalido) {
@@ -250,6 +256,7 @@ export function renderUsuarios() {
       nombre,
       sudo: formularioCrear.elements.sudo.checked,
       llaves: formularioCrear.elements.llaves.checked,
+      password,
     };
 
     inhabilitar(formularioCrear, true);
@@ -260,7 +267,7 @@ export function renderUsuarios() {
 
         return { mensaje: `Se creó el usuario «${nombre}».` };
       },
-      operacion: `useradd ${nombre}${solicitud.sudo ? ' + grupo sudo' : ''}${solicitud.llaves ? ' + par de llaves' : ''}`,
+      operacion: `useradd ${nombre}${solicitud.sudo ? ' + grupo sudo' : ''}${solicitud.llaves ? ' + par de llaves' : ''}${solicitud.password ? ' + contraseña' : ''}`,
       informar: showResult,
       recargar: cargar,
     });

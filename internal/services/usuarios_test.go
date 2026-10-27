@@ -120,7 +120,7 @@ func TestUsersCreateWithKeys(t *testing.T) {
 		}
 	}
 
-	result, err := users.Create(context.Background(), nameJorge, true, true)
+	result, err := users.Create(context.Background(), nameJorge, true, true, "")
 	if err != nil {
 		t.Fatalf("Crear() error = %v, want nil", err)
 	}
@@ -134,10 +134,14 @@ func TestUsersCreateWithKeys(t *testing.T) {
 	}
 
 	creacion := session.commands[1].ShellLine()
-	for _, expected := range []string{binUseradd, "-aG sudo", binPasswd + " -l"} {
+	for _, expected := range []string{binUseradd, "-aG sudo"} {
 		if !strings.Contains(creacion, expected) {
 			t.Errorf("orden de creación = %q, want %q", creacion, expected)
 		}
+	}
+
+	if strings.Contains(creacion, "passwd -l") {
+		t.Errorf("orden de creación = %q, no debe bloquear la contraseña", creacion)
 	}
 
 	installation := session.commands[2].ShellLine()
@@ -165,7 +169,7 @@ func TestUsersCreateExisting(t *testing.T) {
 
 	users, _, _ := newUsersForTest(t, &stubExecutor{}, session, nil)
 
-	if _, err := users.Create(context.Background(), nameJorge, false, false); !errors.Is(err, ErrUserExists) {
+	if _, err := users.Create(context.Background(), nameJorge, false, false, ""); !errors.Is(err, ErrUserExists) {
 		t.Fatalf("Crear() error = %v, want ErrUsuarioExistente", err)
 	}
 
@@ -184,7 +188,7 @@ func TestUsersCreateWithoutKeys(t *testing.T) {
 
 	users, _, _ := newUsersForTest(t, ejecutor, session, nil)
 
-	if _, err := users.Create(context.Background(), userAndrey, false, false); err != nil {
+	if _, err := users.Create(context.Background(), userAndrey, false, false, ""); err != nil {
 		t.Fatalf("Crear() error = %v, want nil", err)
 	}
 
@@ -295,7 +299,7 @@ func TestUsersCreateErrorOfCommand(t *testing.T) {
 
 	users, _, _ := newUsersForTest(t, &stubExecutor{}, session, nil)
 
-	result, err := users.Create(context.Background(), nameJorge, false, false)
+	result, err := users.Create(context.Background(), nameJorge, false, false, "")
 	if err == nil {
 		t.Fatal("Crear() error = nil, want el error de useradd")
 	}
@@ -359,7 +363,7 @@ func TestUsersCreateWithoutSession(t *testing.T) {
 
 	users, _, _ := newUsersForTest(t, &stubExecutor{}, nil, ErrSessionUnavailable)
 
-	if _, err := users.Create(context.Background(), nameJorge, false, false); !errors.Is(err, ErrSessionUnavailable) {
+	if _, err := users.Create(context.Background(), nameJorge, false, false, ""); !errors.Is(err, ErrSessionUnavailable) {
 		t.Fatalf("Crear() error = %v, want ErrSesionNoDisponible", err)
 	}
 }
@@ -372,7 +376,7 @@ func TestUsersCreateWithoutPublic(t *testing.T) {
 	session := &stubSession{}
 	users, _, _ := newUsersForTest(t, &stubExecutor{}, session, nil)
 
-	if _, err := users.Create(context.Background(), nameJorge, false, true); err == nil {
+	if _, err := users.Create(context.Background(), nameJorge, false, true, ""); err == nil {
 		t.Fatal("Crear() error = nil, want el error de la llave pública")
 	}
 }
@@ -392,7 +396,7 @@ func TestUsersCreateErrorOfInstallation(t *testing.T) {
 		}
 	}
 
-	if _, err := users.Create(context.Background(), nameJorge, false, true); err == nil {
+	if _, err := users.Create(context.Background(), nameJorge, false, true, ""); err == nil {
 		t.Fatal("Crear() error = nil, want el error de instalación")
 	}
 }
@@ -485,7 +489,7 @@ func TestUsersCreateErrorOfDirectory(t *testing.T) {
 		Directory: file,
 	})
 
-	if _, err := users.Create(context.Background(), nameJorge, false, true); err == nil {
+	if _, err := users.Create(context.Background(), nameJorge, false, true, ""); err == nil {
 		t.Fatal("Crear() error = nil, want el error del directorio")
 	}
 }
@@ -561,7 +565,7 @@ func TestUsersGenerateKey(t *testing.T) {
 		}
 	}
 
-	result, err := users.GenerateKey(context.Background(), nameJorge)
+	result, err := users.GenerateKey(context.Background(), nameJorge, false)
 	if err != nil {
 		t.Fatalf("GenerateKey() error = %v, want nil", err)
 	}
@@ -570,18 +574,13 @@ func TestUsersGenerateKey(t *testing.T) {
 		t.Errorf(msgOpen, opener.open)
 	}
 
-	if len(session.commands) != 3 {
-		t.Fatalf("la sesión ejecutó %d órdenes, want 3", len(session.commands))
+	if len(session.commands) != 2 {
+		t.Fatalf("la sesión ejecutó %d órdenes, want 2", len(session.commands))
 	}
 
 	install := session.commands[1].ShellLine()
 	if !strings.Contains(install, "authorized_keys") || !strings.Contains(install, keyPublic) {
 		t.Errorf("orden de instalación = %q, want authorized_keys con la pública", install)
-	}
-
-	password := session.commands[2].ShellLine()
-	if !strings.Contains(password, binPasswd) || !strings.Contains(password, "'-l'") {
-		t.Errorf("orden de contraseña = %q, want passwd -l", password)
 	}
 
 	if _, err := os.Stat(filepath.Join(directory, "jorge_ed25519")); err != nil {
@@ -600,7 +599,7 @@ func TestUsersGenerateKeyNotFound(t *testing.T) {
 	session := &stubSession{results: []domain.Result{{Stdout: ""}}}
 	users, _, _ := newUsersForTest(t, &stubExecutor{}, session, nil)
 
-	if _, err := users.GenerateKey(context.Background(), nameJorge); !errors.Is(err, ErrUserNotFound) {
+	if _, err := users.GenerateKey(context.Background(), nameJorge, false); !errors.Is(err, ErrUserNotFound) {
 		t.Fatalf("GenerateKey() error = %v, want ErrUserNotFound", err)
 	}
 }
@@ -618,7 +617,7 @@ func TestUsersGenerateKeyExisting(t *testing.T) {
 		t.Fatalf("crear la llave privada: %v", err)
 	}
 
-	if _, err := users.GenerateKey(context.Background(), nameJorge); !errors.Is(err, ErrUserKeyExists) {
+	if _, err := users.GenerateKey(context.Background(), nameJorge, false); !errors.Is(err, ErrUserKeyExists) {
 		t.Fatalf("GenerateKey() error = %v, want ErrUserKeyExists", err)
 	}
 }
@@ -647,7 +646,7 @@ func TestUsersGenerateKeyInstallError(t *testing.T) {
 		}
 	}
 
-	if _, err := users.GenerateKey(context.Background(), nameJorge); err == nil {
+	if _, err := users.GenerateKey(context.Background(), nameJorge, false); err == nil {
 		t.Fatal("GenerateKey() error = nil, want el fallo de instalación")
 	}
 
@@ -664,37 +663,42 @@ func TestUsersGenerateKeyWithoutSession(t *testing.T) {
 
 	users, _, _ := newUsersForTest(t, &stubExecutor{}, nil, errors.New("sin sesión"))
 
-	if _, err := users.GenerateKey(context.Background(), nameJorge); err == nil {
+	if _, err := users.GenerateKey(context.Background(), nameJorge, false); err == nil {
 		t.Fatal("GenerateKey() error = nil, want el fallo de sesión")
 	}
 }
 
-// TestUsersGenerateKeyPasswordError propaga el fallo de passwd -l.
-func TestUsersGenerateKeyPasswordError(t *testing.T) {
+// TestUsersCreateWithPassword asigna la contraseña por chpasswd sin
+// exponerla en la operación.
+func TestUsersCreateWithPassword(t *testing.T) {
 	t.Parallel()
 
-	session := &stubSession{
-		results: []domain.Result{
-			{Stdout: "jorge:x:1000:1000:Jorge:/home/jorge:/bin/bash\n"},
-			{},
-			{},
-		},
-		errs: []error{nil, nil, errors.New("passwd caído")},
-	}
-	ejecutor := &stubExecutor{}
+	session := &stubSession{results: []domain.Result{
+		{Stdout: ""},
+		{},
+		{},
+	}}
+	users, _, _ := newUsersForTest(t, &stubExecutor{}, session, nil)
 
-	users, _, directory := newUsersForTest(t, ejecutor, session, nil)
-	ejecutor.onExecute = func() {
-		if err := os.WriteFile(filepath.Join(directory, "jorge_ed25519"), []byte(contentPrivate), 0o600); err != nil {
-			t.Fatalf("crear la llave privada: %v", err)
-		}
-
-		if err := os.WriteFile(filepath.Join(directory, "jorge_ed25519.pub"), []byte(keyPublic+"\n"), 0o600); err != nil {
-			t.Fatalf(msgWritePub, err)
-		}
+	result, err := users.Create(context.Background(), nameJorge, false, false, "clave-123")
+	if err != nil {
+		t.Fatalf("Create() error = %v, want nil", err)
 	}
 
-	if _, err := users.GenerateKey(context.Background(), nameJorge); err == nil {
-		t.Fatal("GenerateKey() error = nil, want el fallo de passwd")
+	if len(session.puts) != 1 {
+		t.Fatalf("Put() se llamó %d veces, want 1", len(session.puts))
+	}
+
+	if !strings.HasPrefix(session.puts[0][1], "/root/vmcons-pass-") {
+		t.Errorf("destino = %q, want un archivo temporal en /root", session.puts[0][1])
+	}
+
+	command := session.commands[len(session.commands)-1].ShellLine()
+	if !strings.Contains(command, "chpasswd") {
+		t.Errorf("orden = %q, want chpasswd", command)
+	}
+
+	if strings.Contains(command, "clave-123") || strings.Contains(result.Operation, "clave-123") {
+		t.Error("la contraseña quedó expuesta en la orden")
 	}
 }

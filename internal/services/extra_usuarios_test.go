@@ -38,7 +38,7 @@ func TestUsersCreateWithBusquedaRota(t *testing.T) {
 	session := &stubSession{err: errors.New("getent caído")}
 	users, _, _ := newUsersForTest(t, &stubExecutor{}, session, nil)
 
-	if _, err := users.Create(context.Background(), userJorgeTests, false, false); err == nil {
+	if _, err := users.Create(context.Background(), userJorgeTests, false, false, ""); err == nil {
 		t.Error("Crear() error = nil, want el fallo de getent")
 	}
 
@@ -54,7 +54,7 @@ func TestUsersCreateWithGeneradorCaido(t *testing.T) {
 	session := &stubSession{}
 	users, _, _ := newUsersForTest(t, &stubExecutor{err: errors.New("sin ssh-keygen")}, session, nil)
 
-	if _, err := users.Create(context.Background(), userJorgeTests, false, true); err == nil {
+	if _, err := users.Create(context.Background(), userJorgeTests, false, true, ""); err == nil {
 		t.Error("Crear() error = nil, want el fallo del generador")
 	}
 }

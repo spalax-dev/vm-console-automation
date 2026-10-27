@@ -148,7 +148,7 @@ func (u *Users) Get(ctx context.Context, name string) (User, error) {
 
 // Create crea una cuenta, la agrega a sudo si se pide y genera sus llaves
 // cuando corresponde.
-func (u *Users) Create(ctx context.Context, name string, sudo, keys bool) (Outcome, error) {
+func (u *Users) Create(ctx context.Context, name string, sudo, keys bool, password string) (Outcome, error) {
 	session, err := u.sessions.Open(ctx)
 	if err != nil {
 		return Outcome{}, fmt.Errorf("abrir la sesión para crear el usuario: %w", err)
@@ -171,10 +171,6 @@ func (u *Users) Create(ctx context.Context, name string, sudo, keys bool) (Outco
 		guion += " && " + binUsermod + " -aG sudo " + domain.Quote(name)
 	}
 
-	if keys {
-		guion += " && " + binPasswd + " -l " + domain.Quote(name)
-	}
-
 	cmd := &domain.Command{Path: binSh, Args: []string{"-c", guion}}
 
 	result, err := session.Run(ctx, cmd)
@@ -191,8 +187,14 @@ func (u *Users) Create(ctx context.Context, name string, sudo, keys bool) (Outco
 		return output, fmt.Errorf("crear el usuario %q: %w", name, err)
 	}
 
+	if password != "" {
+		if err := u.setPassword(ctx, session, name, password); err != nil {
+			return output, err
+		}
+	}
+
 	if keys {
-		if err := u.installSSHKeys(ctx, session, name); err != nil {
+		if err := u.installSSHKeys(ctx, session, name, false); err != nil {
 			return output, err
 		}
 	}
@@ -200,9 +202,56 @@ func (u *Users) Create(ctx context.Context, name string, sudo, keys bool) (Outco
 	return output, nil
 }
 
+// setPassword asigna la contraseña sin exponerla en la orden ni en los
+// logs: la envía en un archivo temporal dentro de /root y ejecuta
+// chpasswd.
+func (u *Users) setPassword(ctx context.Context, session ports.Session, name, password string) error {
+	file, err := os.CreateTemp("", "vmcons-pass-*")
+	if err != nil {
+		return fmt.Errorf("crear el archivo temporal de la contraseña: %w", err)
+	}
+
+	local := file.Name()
+	defer func() { _ = os.Remove(local) }() //nolint:errcheck // el temporal no cambia el resultado.
+
+	if err := file.Chmod(0o600); err != nil {
+		_ = file.Close() //nolint:errcheck // se cierra antes de devolver el error.
+
+		return fmt.Errorf("proteger el archivo temporal: %w", err)
+	}
+
+	if _, err := fmt.Fprintf(file, "%s:%s\n", name, password); err != nil {
+		_ = file.Close() //nolint:errcheck // se cierra antes de devolver el error.
+
+		return fmt.Errorf("escribir la contraseña temporal: %w", err)
+	}
+
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("cerrar el archivo temporal: %w", err)
+	}
+
+	remote := "/root/" + filepath.Base(local)
+
+	if err := session.Put(ctx, local, remote); err != nil {
+		return fmt.Errorf("transferir la contraseña temporal: %w", err)
+	}
+
+	guion := "chmod 600 " + domain.Quote(remote) +
+		" && chpasswd < " + domain.Quote(remote) +
+		"; rm -f " + domain.Quote(remote)
+
+	cmd := &domain.Command{Path: binSh, Args: []string{"-c", guion}}
+
+	if _, err := session.Run(ctx, cmd); err != nil {
+		return fmt.Errorf("asignar la contraseña del usuario %q: %w", name, err)
+	}
+
+	return nil
+}
+
 // installSSHKeys genera el par del usuario, instala la pública y ajusta
 // los permisos.
-func (u *Users) installSSHKeys(ctx context.Context, session ports.Session, name string) error {
+func (u *Users) installSSHKeys(ctx context.Context, session ports.Session, name string, replace bool) error {
 	path := u.sshKeyPath(name)
 
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -219,9 +268,15 @@ func (u *Users) installSSHKeys(ctx context.Context, session ports.Session, name 
 	}
 
 	home := "/home/" + name + "/.ssh"
+
+	redireccion := ">>"
+	if replace {
+		redireccion = ">"
+	}
+
 	guion := "install -d -m 700 -o " + domain.Quote(name) + " -g " + domain.Quote(name) +
 		" " + domain.Quote(home) +
-		" && printf '%s\\n' " + domain.Quote(key) + " >> " + domain.Quote(home+"/authorized_keys") +
+		" && printf '%s\\n' " + domain.Quote(key) + " " + redireccion + " " + domain.Quote(home+"/authorized_keys") +
 		" && chown " + domain.Quote(name+":"+name) + " " + domain.Quote(home+"/authorized_keys") +
 		" && chmod 600 " + domain.Quote(home+"/authorized_keys")
 
@@ -236,7 +291,7 @@ func (u *Users) installSSHKeys(ctx context.Context, session ports.Session, name 
 
 // GenerateKey crea el par de llaves de un usuario existente, instala la
 // pública en su authorized_keys y deshabilita el acceso por contraseña.
-func (u *Users) GenerateKey(ctx context.Context, name string) (Outcome, error) {
+func (u *Users) GenerateKey(ctx context.Context, name string, regenerate bool) (Outcome, error) {
 	session, err := u.sessions.Open(ctx)
 	if err != nil {
 		return Outcome{}, fmt.Errorf("abrir la sesión para generar la llave: %w", err)
@@ -244,42 +299,33 @@ func (u *Users) GenerateKey(ctx context.Context, name string) (Outcome, error) {
 
 	defer closeSession(session)
 
-	existing, err := findUser(ctx, session, name)
+	passwdLine, err := findUser(ctx, session, name)
 	if err != nil {
 		return Outcome{}, err
 	}
 
-	if existing == "" {
+	if passwdLine == "" {
 		return Outcome{}, ErrUserNotFound
 	}
 
-	if u.sshKeyExists(name) {
+	hasKey := u.sshKeyExists(name)
+	if hasKey && !regenerate {
 		return Outcome{}, ErrUserKeyExists
 	}
 
-	if err := u.installSSHKeys(ctx, session, name); err != nil {
+	if hasKey {
+		u.deleteSSHKeys(name)
+	}
+
+	if err := u.installSSHKeys(ctx, session, name, regenerate); err != nil {
 		u.deleteSSHKeys(name)
 
 		return Outcome{}, err
 	}
 
-	cmd := &domain.Command{Path: binPasswd, Args: []string{"-l", name}}
-
-	result, err := session.Run(ctx, cmd)
-
-	output := Outcome{
-		Message:   "Llave SSH de «" + name + "» generada e instalada; el acceso por contraseña quedó deshabilitado.",
-		Operation: cmd.ShellLine(),
-		Output:    result.Stdout,
-		Stderr:    result.Stderr,
-		Code:      result.ExitCode,
-	}
-
-	if err != nil {
-		return output, fmt.Errorf("deshabilitar la contraseña del usuario %q: %w", name, err)
-	}
-
-	return output, nil
+	return Outcome{
+		Message: "Llave SSH de «" + name + "» generada e instalada.",
+	}, nil
 }
 
 // Delete elimina una cuenta y, opcionalmente, sus archivos.

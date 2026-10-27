@@ -18,14 +18,14 @@ type UsersService interface {
 	List(ctx context.Context) ([]services.User, error)
 	// Get devuelve una cuenta.
 	Get(ctx context.Context, name string) (services.User, error)
-	// Create crea la cuenta con sudo y llaves opcionales.
-	Create(ctx context.Context, name string, sudo, keys bool) (services.Outcome, error)
+	// Create crea la cuenta con sudo, llaves y contraseña opcionales.
+	Create(ctx context.Context, name string, sudo, keys bool, password string) (services.Outcome, error)
 	// Delete elimina la cuenta y, si se pide, sus archivos.
 	Delete(ctx context.Context, name string, files bool) (services.Outcome, error)
 	// DownloadKey devuelve la llave privada de la cuenta.
 	DownloadKey(name string) (file string, content []byte, err error)
 	// GenerateKey genera e instala un par de llaves para la cuenta.
-	GenerateKey(ctx context.Context, name string) (services.Outcome, error)
+	GenerateKey(ctx context.Context, name string, regenerate bool) (services.Outcome, error)
 }
 
 // Users agrupa los recursos de gestión de usuarios (numeral 3.2).
@@ -40,9 +40,10 @@ func NewUsers(service UsersService) *Users {
 
 // userRequest es el cuerpo de POST /api/users.
 type userRequest struct {
-	Name string `json:"nombre"`
-	Sudo bool   `json:"sudo"`
-	Keys bool   `json:"llaves"`
+	Name     string `json:"nombre"`
+	Sudo     bool   `json:"sudo"`
+	Keys     bool   `json:"llaves"`
+	Password string `json:"password"`
 }
 
 // userResponse es una cuenta en la respuesta JSON.
@@ -85,13 +86,19 @@ func (h *Users) Collection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := validatePasswordUser(request.Password); err != nil {
+		respondValidacion(w, err)
+
+		return
+	}
+
 	if request.Name == "root" {
 		respondValidacion(w, invalidField(nameField, "ya existe; use otro nombre de usuario"))
 
 		return
 	}
 
-	result, err := h.service.Create(r.Context(), request.Name, request.Sudo, request.Keys)
+	result, err := h.service.Create(r.Context(), request.Name, request.Sudo, request.Keys, request.Password)
 	if errors.Is(err, services.ErrUserExists) {
 		writeJSON(w, http.StatusConflict,
 			responseFromError(result, "El usuario «"+request.Name+"» ya existe.", err))
@@ -262,7 +269,14 @@ func (h *Users) generateKey(w http.ResponseWriter, r *http.Request, name string)
 		return
 	}
 
-	result, err := h.service.GenerateKey(r.Context(), name)
+	regenerar, err := booleanoQuery(r, "regenerar")
+	if err != nil {
+		respondValidacion(w, err)
+
+		return
+	}
+
+	result, err := h.service.GenerateKey(r.Context(), name, regenerar)
 	if errors.Is(err, services.ErrUserNotFound) {
 		writeJSON(w, http.StatusNotFound,
 			responseFromError(result, "El usuario «"+name+"» no existe.", err))
