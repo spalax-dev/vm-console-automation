@@ -33,6 +33,8 @@ Package handlers expone la API HTTP de la consola: la sesión y el registro de l
   - [func NewHAProxy\(service HAProxyService\) \*HAProxy](<#NewHAProxy>)
   - [func \(h \*HAProxy\) Server\(w http.ResponseWriter, r \*http.Request\)](<#HAProxy.Server>)
   - [func \(h \*HAProxy\) Servers\(w http.ResponseWriter, r \*http.Request\)](<#HAProxy.Servers>)
+  - [func \(h \*HAProxy\) Setup\(w http.ResponseWriter, r \*http.Request\)](<#HAProxy.Setup>)
+  - [func \(h \*HAProxy\) Status\(w http.ResponseWriter, r \*http.Request\)](<#HAProxy.Status>)
 - [type HAProxyService](<#HAProxyService>)
 - [type History](<#History>)
   - [func NewHistory\(service HistoryService\) \*History](<#NewHistory>)
@@ -275,7 +277,7 @@ type DiagnosticsService interface {
 ```
 
 <a name="HAProxy"></a>
-## type [HAProxy](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/haproxy.go#L27-L29>)
+## type [HAProxy](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/haproxy.go#L31-L33>)
 
 HAProxy agrupa los recursos de balanceo de carga con HAProxy \(numeral 3.4\).
 
@@ -286,7 +288,7 @@ type HAProxy struct {
 ```
 
 <a name="NewHAProxy"></a>
-### func [NewHAProxy](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/haproxy.go#L32>)
+### func [NewHAProxy](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/haproxy.go#L36>)
 
 ```go
 func NewHAProxy(service HAProxyService) *HAProxy
@@ -295,7 +297,7 @@ func NewHAProxy(service HAProxyService) *HAProxy
 NewHAProxy construye el handler de balanceo con HAProxy.
 
 <a name="HAProxy.Server"></a>
-### func \(\*HAProxy\) [Server](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/haproxy.go#L127>)
+### func \(\*HAProxy\) [Server](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/haproxy.go#L221>)
 
 ```go
 func (h *HAProxy) Server(w http.ResponseWriter, r *http.Request)
@@ -304,7 +306,7 @@ func (h *HAProxy) Server(w http.ResponseWriter, r *http.Request)
 Server atiende DELETE /api/haproxy/backend/servers/\{server\}: elimina el servidor identificado como «direccion:puerto».
 
 <a name="HAProxy.Servers"></a>
-### func \(\*HAProxy\) [Servers](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/haproxy.go#L56>)
+### func \(\*HAProxy\) [Servers](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/haproxy.go#L132>)
 
 ```go
 func (h *HAProxy) Servers(w http.ResponseWriter, r *http.Request)
@@ -312,8 +314,26 @@ func (h *HAProxy) Servers(w http.ResponseWriter, r *http.Request)
 
 Servers atiende GET y POST /api/haproxy/backend/servers: lista o agrega servidores al back\-end.
 
+<a name="HAProxy.Setup"></a>
+### func \(\*HAProxy\) [Setup](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/haproxy.go#L115>)
+
+```go
+func (h *HAProxy) Setup(w http.ResponseWriter, r *http.Request)
+```
+
+Setup atiende POST /api/haproxy/setup: instala o repara HAProxy.
+
+<a name="HAProxy.Status"></a>
+### func \(\*HAProxy\) [Status](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/haproxy.go#L89>)
+
+```go
+func (h *HAProxy) Status(w http.ResponseWriter, r *http.Request)
+```
+
+Status atiende GET /api/haproxy/status.
+
 <a name="HAProxyService"></a>
-## type [HAProxyService](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/haproxy.go#L16-L23>)
+## type [HAProxyService](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/haproxy.go#L16-L27>)
 
 HAProxyService ejecuta las operaciones sobre el back\-end de HAProxy.
 
@@ -325,6 +345,10 @@ type HAProxyService interface {
     Add(ctx context.Context, address string, port int) (services.Outcome, error)
     // Delete elimina un servidor del back-end.
     Delete(ctx context.Context, address string, port int) (services.Outcome, error)
+    // Status informa el estado de HAProxy.
+    Status(ctx context.Context) (services.HAProxyStatus, error)
+    // Setup instala o repara la configuración mínima de HAProxy.
+    Setup(ctx context.Context) (services.Outcome, error)
 }
 ```
 

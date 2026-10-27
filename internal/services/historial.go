@@ -201,7 +201,7 @@ func ModuleOf(path string) string {
 	case strings.HasPrefix(path, "/api/units"):
 		return "systemd"
 	case strings.HasPrefix(path, "/api/haproxy"):
-		return "haproxy"
+		return serviceHAProxy
 	case strings.HasPrefix(path, "/api/session"):
 		return "sesion"
 	case strings.HasPrefix(path, "/api/vms"):

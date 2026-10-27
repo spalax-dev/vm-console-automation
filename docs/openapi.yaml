@@ -26,6 +26,8 @@ info:
     | Unidades | `/api/units` | `GET` |
     | Unidad | `/api/units/{unit}` | `GET`, `PUT`, `PATCH` |
     | Reinicios | `/api/units/{unit}/restarts` | `POST` |
+    | Estado de HAProxy | `/api/haproxy/status` | `GET` |
+    | Configuración rápida de HAProxy | `/api/haproxy/setup` | `POST` |
     | Servidores | `/api/haproxy/backend/servers` | `GET`, `POST` |
     | Servidor | `/api/haproxy/backend/servers/{server}` | `DELETE` |
     | Historial | `/api/historial` | `GET` |
@@ -886,6 +888,49 @@ paths:
         '500':
           $ref: '#/components/responses/ErrorInterno'
 
+  /api/haproxy/status:
+    get:
+      tags: [haproxy]
+      summary: Consultar el estado de HAProxy
+      operationId: getHAProxyStatus
+      responses:
+        '200':
+          description: Estado de la instalación y la configuración.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadoHAProxy'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
+  /api/haproxy/setup:
+    post:
+      tags: [haproxy]
+      summary: Instalar o reparar la configuración mínima de HAProxy
+      description: |
+        Instala `haproxy` si falta. `socat` es opcional: si no se puede
+        instalar, la configuración se considera exitosa y los estados de los
+        servidores quedan como `unknown`. Si la configuración actual es
+        válida y tiene un `backend`, solo asegura el servicio. Si falta, es
+        inválida o no tiene `backend`, guarda una copia de la configuración
+        anterior y escribe una mínima con `frontend vmcons_front` y
+        `backend vmcons_app`. Usa el puerto 80 si está libre o lo ocupa
+        HAProxy; si está ocupado por otro proceso, prueba 8080–8090.
+      operationId: setupHAProxy
+      responses:
+        '200':
+          $ref: '#/components/responses/OperacionCorrecta'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '503':
+          $ref: '#/components/responses/SinSesion'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+
   /api/haproxy/backend/servers:
     get:
       tags: [haproxy]
@@ -1698,6 +1743,67 @@ components:
               type: string
               enum: [up, down, unknown]
               description: Estado informado por HAProxy.
+            peso:
+              type: integer
+              description: Peso del servidor en el balanceo.
+            activo:
+              type: boolean
+              description: El servidor está activo.
+            respaldo:
+              type: boolean
+              description: El servidor es de respaldo.
+            sesiones:
+              type: integer
+              description: Sesiones actuales.
+            sesiones_max:
+              type: integer
+              description: Máximo de sesiones observado.
+            sesiones_total:
+              type: integer
+              format: int64
+              description: Sesiones acumuladas.
+            cola:
+              type: integer
+              description: Peticiones en cola.
+            cola_max:
+              type: integer
+              description: Máximo de peticiones en cola.
+            bytes_entrada:
+              type: integer
+              format: int64
+              description: Bytes que el cliente envió al servidor (`bin`).
+            bytes_salida:
+              type: integer
+              format: int64
+              description: Bytes que el servidor envió al cliente (`bout`).
+            check:
+              type: string
+              description: >-
+                Resultado del último chequeo de salud (`L4OK` es un chequeo
+                TCP y no valida respuestas HTTP).
+            check_codigo:
+              type: integer
+              description: Código de la capa 5-7 del chequeo, si existe.
+            check_duracion:
+              type: integer
+              description: Milisegundos que tardó el último chequeo.
+            downtime:
+              type: integer
+              format: int64
+              description: Segundos acumulados de indisponibilidad.
+            ultimo_cambio:
+              type: integer
+              format: int64
+              description: Segundos desde el último cambio de estado.
+            ultima_sesion:
+              type: integer
+              format: int64
+              description: Segundos desde la última sesión asignada al servidor.
+            ultimo_check:
+              type: string
+              description: >-
+                Mensaje del último chequeo. Se omite cuando HAProxy no
+                publica un mensaje legible.
 
     ListaBackend:
       type: object
@@ -1707,6 +1813,41 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ServidorBackendEstado'
+
+    EstadoHAProxy:
+      type: object
+      required: [instalado, configuracion, valida, backend, servicio_activo, socat, problemas, sugerencias]
+      properties:
+        instalado:
+          type: boolean
+          description: El binario de HAProxy está instalado.
+        configuracion:
+          type: boolean
+          description: Existe /etc/haproxy/haproxy.cfg.
+        valida:
+          type: boolean
+          description: haproxy -c acepta la configuración.
+        backend:
+          type: boolean
+          description: La configuración tiene al menos un bloque backend.
+        servicio_activo:
+          type: boolean
+          description: El servicio haproxy está activo.
+        socat:
+          type: boolean
+          description: socat está instalado para consultar el socket de estadísticas.
+        puerto:
+          type: integer
+          description: Puerto del frontend configurado, si se pudo leer.
+          examples: [80]
+        problemas:
+          type: array
+          items:
+            type: string
+        sugerencias:
+          type: array
+          items:
+            type: string
 
     MaquinaVirtual:
       type: object

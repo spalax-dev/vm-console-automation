@@ -104,9 +104,9 @@ Orden de trabajo obligatorio: **docs → tests → implementación**.
 
 ## 5. Pruebas (numeral 4)
 
-- [x] Diseñar una prueba por cada elemento de la solución (estado anterior → operación → estado posterior): P01–P18 en `docs/informe/body/05-pruebas.tex` §5.1.
+- [x] Diseñar una prueba por cada elemento de la solución (estado anterior → operación → estado posterior): P01–P22 en `docs/informe/body/05-pruebas.tex` §5.1.
 - [x] Ejecutar cada prueba y registrar el estado anterior y el posterior: 18 de 18 conformes el 26 oct 2026; el detalle está en `docs/resultados-pruebas.md` y el resumen en la tabla VI de §5.2.
-- [~] **Grabar en video** la ejecución de cada prueba (V01–V18). Los videos se entregan por otro medio y no van en el informe; quedan pendientes de grabación y organización con nombre e índice.
+- [~] **Grabar en video** la ejecución de cada prueba (V01–V22). Los videos se entregan por otro medio y no van en el informe; quedan pendientes de grabación y organización con nombre e índice.
 - [x] Registrar capturas de pantalla de la interfaz e incrustarlas en §4.
 
 
@@ -128,7 +128,7 @@ Estructura modular lista: `main.tex` (resumen, index terms, introducción, bibli
 - [x] `body/02-marco-teorico.tex` — completar secciones con TODO: Debian, APT, systemd, HAProxy.
 - [x] `body/03-diseno-solucion.tex` — diagrama + descripción del escenario; visión general, estructura del proyecto y decisiones tomadas.
 - [x] `body/04-implementacion.tex` — capa HTTP, contrato REST, paquetes, llaves SSH, `/etc/issue`, hostname, usuarios, systemd, HAProxy, historial, observabilidad y tabla de vistas de la interfaz.
-- [x] `body/05-pruebas.tex` — §5.1 con las 18 pruebas diseñadas (estado anterior → operación → estado posterior) y §5.2 con los resultados automáticos; los videos V01–V18 se entregan fuera del documento.
+- [x] `body/05-pruebas.tex` — §5.1 con las 22 pruebas diseñadas (estado anterior → operación → estado posterior) y §5.2 con los resultados automáticos; los videos V01–V22 se entregan fuera del documento.
 - [x] `body/06-conclusiones.tex` — problemas y soluciones, herramientas de IA y conclusiones.
 - [x] **Resumen (abstract) y index terms** — 244 palabras, con las palabras clave del trabajo.
 - [x] Revisar referencias bibliográficas en `ref.bib` y citas \parencite.
@@ -210,6 +210,14 @@ de los módulos del numeral 3.
   HAProxy rechazaba la configuración con «Missing LF on last line». `write()`
   normaliza el salto antes de codificar en Base64 y una prueba de regresión
   decodifica la orden para comprobarlo.
+- **26 oct 2026** — Escenario y pruebas de HAProxy: el entorno de las pruebas
+  quedó con los servidores S1 (`192.168.1.29`) y S2 (`192.168.1.30`), que
+  atienden el servicio de imágenes en el puerto 8000, y el balanceador B
+  (`192.168.1.32`). Se añadieron P19 (estado), P20 (configuración rápida),
+  P21 (métricas del socket) y P22 (balanceo bajo carga con `oha`), y se
+  reescribieron P15 y P16 para los dos servidores. El guion del video
+  (`docs/guion-video/guion.tex`) usa esta misma secuencia y deja la
+  configuración de B sin bloques `backend` como estado anterior de P19.
 - **26 oct 2026** — Pruebas de campo P01–P18 ejecutadas de forma automatizada
   sobre VM1, VM2 y el balanceador: 18 de 18 conformes. El resumen está en la
   tabla VI de §5.2 y el detalle en `docs/resultados-pruebas.md`; el arnés queda

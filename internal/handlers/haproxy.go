@@ -20,6 +20,10 @@ type HAProxyService interface {
 	Add(ctx context.Context, address string, port int) (services.Outcome, error)
 	// Delete elimina un servidor del back-end.
 	Delete(ctx context.Context, address string, port int) (services.Outcome, error)
+	// Status informa el estado de HAProxy.
+	Status(ctx context.Context) (services.HAProxyStatus, error)
+	// Setup instala o repara la configuración mínima de HAProxy.
+	Setup(ctx context.Context) (services.Outcome, error)
 }
 
 // HAProxy agrupa los recursos de balanceo de carga con HAProxy
@@ -41,14 +45,86 @@ type serverBackend struct {
 
 // serverResponse es un servidor en la respuesta JSON.
 type serverResponse struct {
-	Address string `json:"direccion"`
-	Port    int    `json:"puerto"`
-	State   string `json:"estado"`
+	Address         string `json:"direccion"`
+	Port            int    `json:"puerto"`
+	State           string `json:"estado"`
+	Weight          int    `json:"peso"`
+	Active          bool   `json:"activo"`
+	Backup          bool   `json:"respaldo"`
+	CurrentSessions int    `json:"sesiones"`
+	MaxSessions     int    `json:"sesiones_max"`
+	TotalSessions   int64  `json:"sesiones_total"`
+	QueueCurrent    int    `json:"cola"`
+	QueueMax        int    `json:"cola_max"`
+	BytesIn         int64  `json:"bytes_entrada"`
+	BytesOut        int64  `json:"bytes_salida"`
+	CheckStatus     string `json:"check,omitempty"`
+	CheckCode       int    `json:"check_codigo,omitempty"`
+	CheckDuration   int    `json:"check_duracion"`
+	Downtime        int64  `json:"downtime"`
+	LastChange      int64  `json:"ultimo_cambio"`
+	LastSession     int64  `json:"ultima_sesion"`
+	LastCheck       string `json:"ultimo_check,omitempty"`
 }
 
 // backendList es el cuerpo de GET /api/haproxy/backend/servers.
 type backendList struct {
 	Servers []serverResponse `json:"servidores"`
+}
+
+// statusResponse es el cuerpo de GET /api/haproxy/status.
+type statusResponse struct {
+	Installed     bool     `json:"instalado"`
+	ConfigExists  bool     `json:"configuracion"`
+	ConfigValid   bool     `json:"valida"`
+	Backend       bool     `json:"backend"`
+	ServiceActive bool     `json:"servicio_activo"`
+	Socat         bool     `json:"socat"`
+	Port          int      `json:"puerto,omitempty"`
+	Problems      []string `json:"problemas"`
+	Suggestions   []string `json:"sugerencias"`
+}
+
+// Status atiende GET /api/haproxy/status.
+func (h *HAProxy) Status(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+
+	status, err := h.service.Status(r.Context())
+	if err != nil {
+		respondErrorOperation(w, services.Outcome{}, err)
+
+		return
+	}
+
+	writeJSON(w, http.StatusOK, statusResponse{
+		Installed:     status.Installed,
+		ConfigExists:  status.ConfigExists,
+		ConfigValid:   status.ConfigValid,
+		Backend:       status.Backend,
+		ServiceActive: status.ServiceActive,
+		Socat:         status.Socat,
+		Port:          status.Port,
+		Problems:      status.Problems,
+		Suggestions:   status.Suggestions,
+	})
+}
+
+// Setup atiende POST /api/haproxy/setup: instala o repara HAProxy.
+func (h *HAProxy) Setup(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodPost) {
+		return
+	}
+
+	result, err := h.service.Setup(r.Context())
+	if err != nil {
+		respondErrorOperation(w, result, err)
+
+		return
+	}
+
+	writeResult(w, http.StatusOK, result)
 }
 
 // Servers atiende GET y POST /api/haproxy/backend/servers: lista o
@@ -111,11 +187,29 @@ func (h *HAProxy) listBackend(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := backendList{Servers: make([]serverResponse, 0, len(servers))}
-	for _, server := range servers {
+	for i := range servers {
+		server := &servers[i]
 		response.Servers = append(response.Servers, serverResponse{
-			Address: server.Address,
-			Port:    server.Port,
-			State:   server.State,
+			Address:         server.Address,
+			Port:            server.Port,
+			State:           server.State,
+			Weight:          server.Stats.Weight,
+			Active:          server.Stats.Active,
+			Backup:          server.Stats.Backup,
+			CurrentSessions: server.Stats.CurrentSessions,
+			MaxSessions:     server.Stats.MaxSessions,
+			TotalSessions:   server.Stats.TotalSessions,
+			QueueCurrent:    server.Stats.QueueCurrent,
+			QueueMax:        server.Stats.QueueMax,
+			BytesIn:         server.Stats.BytesIn,
+			BytesOut:        server.Stats.BytesOut,
+			CheckStatus:     server.Stats.CheckStatus,
+			CheckCode:       server.Stats.CheckCode,
+			CheckDuration:   server.Stats.CheckDuration,
+			Downtime:        server.Stats.Downtime,
+			LastChange:      server.Stats.LastChange,
+			LastSession:     server.Stats.LastSession,
+			LastCheck:       server.Stats.LastCheck,
 		})
 	}
 

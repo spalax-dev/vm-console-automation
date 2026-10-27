@@ -16,7 +16,7 @@ import '@fontsource/jetbrains-mono/latin-400.css';
 import '@fontsource/jetbrains-mono/latin-500.css';
 import { Header } from './components/Header.js';
 import { Tabs } from './components/Tabs.js';
-import { ResultPanel } from './components/ResultPanel.js';
+import { ResultPanel, refreshResultPanel } from './components/ResultPanel.js';
 import { api } from './api.js';
 import { escapar } from './ui.js';
 import { renderAcceso } from './views/acceso.js';
@@ -125,6 +125,10 @@ window.addEventListener('hashchange', () => {
 // Al vincular otra máquina o encenderla, el servidor invalida su caché y
 // la vista activa se vuelve a montar para pedir los datos de la nueva
 // máquina; la barra superior se conserva.
+document.addEventListener('vmcons:vm-activa', () => {
+  refreshResultPanel();
+});
+
 document.addEventListener('vmcons:maquina', () => {
   if (armazon) {
     montar();

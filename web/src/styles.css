@@ -59,6 +59,25 @@
   .label {
     @apply text-vm-fgSecondary text-[11px];
   }
+  /* Icono de ayuda con su explicación: el texto se muestra al pasar el
+     puntero o al enfocar el botón con el teclado. */
+  .vm-help {
+    @apply relative inline-flex items-center;
+  }
+  .vm-help-boton {
+    @apply w-5 h-5 inline-flex items-center justify-center text-vm-fgSecondary transition-colors duration-100;
+  }
+  .vm-help-boton:hover,
+  .vm-help-boton:focus-visible {
+    @apply text-vm-accent outline-none;
+  }
+  .vm-help-texto {
+    @apply hidden absolute right-0 top-full z-10 mt-1.5 w-72 p-2 text-[10px] leading-snug text-left font-normal text-vm-fg bg-vm-surface border border-vm-border rounded-vm-md shadow-lg;
+  }
+  .vm-help:hover .vm-help-texto,
+  .vm-help:focus-within .vm-help-texto {
+    @apply block;
+  }
   .tab {
     @apply h-vm-tabs px-3 inline-flex items-center gap-1.5 text-vm-fgSecondary border-b-2 border-transparent rounded-none transition-all duration-100;
   }

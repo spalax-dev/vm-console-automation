@@ -1,6 +1,6 @@
 import { renderIcons } from '../icons.js';
 import { escapar } from '../ui.js';
-import { agregar, leer, limpiar } from '../resultados.js';
+import { agregar, getActiveVM, leer, limpiar } from '../resultados.js';
 
 /** Fondo del panel y color del texto, en tonos oscuros. */
 const PANEL = 'bg-[#2B2B2B] border-[#3C3C3C]';
@@ -100,7 +100,8 @@ function pintar(raiz = document) {
     return;
   }
 
-  const historial = leer();
+  const vm = getActiveVM();
+  const historial = leer().filter((resultado) => (resultado.vm ?? '') === vm);
 
   if (cuenta) {
     cuenta.textContent = historial.length > 0 ? `(${historial.length})` : '';
@@ -111,7 +112,7 @@ function pintar(raiz = document) {
       <div class="flex-1 shrink-0 flex items-center justify-center text-center">
         <div>
           <div class="text-[12px] text-[#AAAAAA]">Sin operaciones ejecutadas aún</div>
-          <div class="text-[11px] text-[#777777] mt-1">Los resultados se conservan al cambiar de módulo.</div>
+          <div class="text-[11px] text-[#777777] mt-1">Los resultados son de la máquina activa.</div>
         </div>
       </div>
     `;
@@ -134,6 +135,11 @@ function pintar(raiz = document) {
   if (pie) {
     pie.textContent = `${hora(ultimo.hora)} · código de salida: ${ultimo.codigo ?? '-'}`;
   }
+}
+
+/** Repinta el panel activo, si existe. */
+export function refreshResultPanel() {
+  pintar();
 }
 
 /**

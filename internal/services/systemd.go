@@ -326,6 +326,6 @@ func mapState(active string) string {
 	case "failed":
 		return "failed"
 	default:
-		return "unknown"
+		return stateUnknown
 	}
 }

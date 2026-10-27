@@ -2,8 +2,8 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { agregar, leer, limpiar } from './resultados.js';
-import { ResultPanel, showResult } from './components/ResultPanel.js';
+import { agregar, leer, limpiar, setActiveVM } from './resultados.js';
+import { ResultPanel, refreshResultPanel, showResult } from './components/ResultPanel.js';
 
 /** Clave con la que se guarda el historial. */
 const CLAVE = 'vmcons:resultados';
@@ -14,10 +14,12 @@ const EJEMPLO = { ok: true, mensaje: 'Se instaló nano', operacion: 'apt-get ins
 beforeEach(() => {
   window.localStorage.clear();
   document.body.innerHTML = '';
+  setActiveVM('');
 });
 
 afterEach(() => {
   window.localStorage.clear();
+  setActiveVM('');
 });
 
 describe('almacén de resultados', () => {
@@ -174,6 +176,37 @@ describe('panel de resultado', () => {
 
     expect(panel.querySelector('#result-body').textContent).toContain('Sin operaciones ejecutadas');
     expect(leer()).toHaveLength(0);
+  });
+
+
+  it('separa los resultados por máquina y limpia solo la activa', () => {
+    setActiveVM('vm-1');
+    agregar({ ...EJEMPLO, mensaje: 'Operación en vm-1' });
+
+    setActiveVM('vm-2');
+    agregar({ ...EJEMPLO, mensaje: 'Operación en vm-2' });
+
+    setActiveVM('vm-1');
+
+    const panel = ResultPanel();
+    document.body.appendChild(panel);
+
+    expect(panel.querySelector('#result-body').textContent).toContain('Operación en vm-1');
+    expect(panel.querySelector('#result-body').textContent).not.toContain('Operación en vm-2');
+    expect(panel.querySelector('#result-cuenta').textContent).toBe('(1)');
+
+    setActiveVM('vm-2');
+    refreshResultPanel();
+
+    expect(panel.querySelector('#result-body').textContent).toContain('Operación en vm-2');
+    expect(panel.querySelector('#result-body').textContent).not.toContain('Operación en vm-1');
+
+    setActiveVM('vm-1');
+    refreshResultPanel();
+    panel.querySelector('#result-limpiar').click();
+
+    expect(leer()).toHaveLength(1);
+    expect(leer()[0].vm).toBe('vm-2');
   });
 
   it('sobrevive a reconstruir el panel', () => {

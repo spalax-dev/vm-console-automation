@@ -420,3 +420,261 @@ func TestParseStates(t *testing.T) {
 		})
 	}
 }
+
+// TestHAProxyStatus inspecciona una instalación completa.
+func TestHAProxyStatus(t *testing.T) {
+	t.Parallel()
+
+	session := &stubSession{results: []domain.Result{
+		{},
+		{Stdout: configHaproxy},
+		{},
+		{},
+		{},
+	}}
+
+	status, err := newHAProxyForTest(session, nil).Status(context.Background())
+	if err != nil {
+		t.Fatalf("Status() error = %v, want nil", err)
+	}
+
+	if !status.Installed || !status.ConfigExists || !status.ConfigValid || !status.Backend || !status.ServiceActive || !status.Socat || status.Port != 80 {
+		t.Errorf("status = %+v, want todo disponible", status)
+	}
+
+	if len(status.Problems) != 0 {
+		t.Errorf("problemas = %v, want ninguno", status.Problems)
+	}
+}
+
+// TestHAProxySetupAlreadyConfigured no reescribe una configuración válida.
+func TestHAProxySetupAlreadyConfigured(t *testing.T) {
+	t.Parallel()
+
+	session := &stubSession{results: []domain.Result{
+		{},
+		{Stdout: configHaproxy},
+		{},
+		{},
+		{},
+	}}
+
+	result, err := newHAProxyForTest(session, nil).Setup(context.Background())
+	if err != nil {
+		t.Fatalf("Setup() error = %v, want nil", err)
+	}
+
+	if result.Message == "" {
+		t.Error("Mensaje vacío, want confirmación")
+	}
+
+	if len(session.commands) != 5 {
+		t.Errorf("la sesión ejecutó %d órdenes, want solo la inspección", len(session.commands))
+	}
+}
+
+// TestHAProxyStatusWithProblems informa cuando no hay HAProxy ni socat.
+func TestHAProxyStatusWithProblems(t *testing.T) {
+	t.Parallel()
+
+	session := &stubSession{errs: []error{
+		errors.New("sin haproxy"),
+		errors.New("sin configuración"),
+		errors.New("servicio inactivo"),
+		errors.New("sin socat"),
+	}}
+
+	status, err := newHAProxyForTest(session, nil).Status(context.Background())
+	if err != nil {
+		t.Fatalf("Status() error = %v, want nil", err)
+	}
+
+	if status.Installed || status.ConfigExists || status.ConfigValid || status.ServiceActive || status.Socat {
+		t.Errorf("status = %+v, want todo desactivado", status)
+	}
+
+	if len(status.Problems) == 0 || len(status.Suggestions) == 0 {
+		t.Errorf("status = %+v, want problemas y sugerencias", status)
+	}
+}
+
+// TestHAProxySetupWritesConfig escribe la configuración mínima cuando falta.
+func TestHAProxySetupWritesConfig(t *testing.T) {
+	t.Parallel()
+
+	session := &stubSession{errs: []error{
+		nil,
+		errors.New("sin configuración"),
+		errors.New("servicio inactivo"),
+		nil,
+		nil,
+	}}
+
+	result, err := newHAProxyForTest(session, nil).Setup(context.Background())
+	if err != nil {
+		t.Fatalf("Setup() error = %v, want nil", err)
+	}
+
+	if result.Message == "" {
+		t.Error("Mensaje vacío, want confirmación")
+	}
+
+	script := session.commands[len(session.commands)-1].ShellLine()
+	for _, expected := range []string{"mv", "enable haproxy", "restart haproxy"} {
+		if !strings.Contains(script, expected) {
+			t.Errorf("orden = %q, want %q", script, expected)
+		}
+	}
+}
+
+// TestHAProxySetupActivatesService activa el servicio sin tocar la configuración.
+func TestHAProxySetupActivatesService(t *testing.T) {
+	t.Parallel()
+
+	session := &stubSession{
+		results: []domain.Result{
+			{},
+			{Stdout: configHaproxy},
+			{},
+			{},
+			{},
+			{},
+		},
+		errs: []error{nil, nil, nil, errors.New("inactivo"), nil, nil},
+	}
+
+	result, err := newHAProxyForTest(session, nil).Setup(context.Background())
+	if err != nil {
+		t.Fatalf("Setup() error = %v, want nil", err)
+	}
+
+	if !strings.Contains(result.Message, "activado") {
+		t.Errorf("Mensaje = %q, want activación", result.Message)
+	}
+
+	if len(session.commands) != 6 {
+		t.Fatalf("la sesión ejecutó %d órdenes, want 6", len(session.commands))
+	}
+
+	if command := session.commands[5].ShellLine(); !strings.Contains(command, "enable") {
+		t.Errorf("orden = %q, want enable", command)
+	}
+}
+
+// TestPickPortEligePuertoLibre comprueba que evita el 80 ocupado.
+func TestPickPortEligePuertoLibre(t *testing.T) {
+	t.Parallel()
+
+	session := &stubSession{results: []domain.Result{
+		{Stdout: `LISTEN 0 4096 0.0.0.0:80 0.0.0.0:* users:(("nginx",pid=1,fd=1))`},
+		{},
+	}}
+
+	port, err := pickPort(context.Background(), session)
+	if err != nil {
+		t.Fatalf("pickPort() error = %v, want nil", err)
+	}
+
+	if port != 8080 {
+		t.Errorf("puerto = %d, want 8080", port)
+	}
+}
+
+// TestPickPortReutilizaHAProxy comprueba que el 80 de HAProxy es válido.
+func TestPickPortReutilizaHAProxy(t *testing.T) {
+	t.Parallel()
+
+	session := &stubSession{results: []domain.Result{
+		{Stdout: `LISTEN 0 4096 0.0.0.0:80 0.0.0.0:* users:(("haproxy",pid=1,fd=1))`},
+	}}
+
+	port, err := pickPort(context.Background(), session)
+	if err != nil {
+		t.Fatalf("pickPort() error = %v, want nil", err)
+	}
+
+	if port != 80 {
+		t.Errorf("puerto = %d, want 80", port)
+	}
+}
+
+// TestDefaultHAProxyConfigUsaPuerto comprueba el bind elegido.
+func TestDefaultHAProxyConfigUsaPuerto(t *testing.T) {
+	t.Parallel()
+
+	if config := defaultHAProxyConfig(8081); !strings.Contains(config, "bind *:8081") {
+		t.Errorf("configuración = %q, want bind *:8081", config)
+	}
+}
+
+// TestParseServerStats interpreta las métricas del socket.
+func TestParseServerStats(t *testing.T) {
+	t.Parallel()
+
+	fields := make([]string, 60)
+	fields[0] = "app"
+	fields[1] = serverSrv1
+	fields[2] = "2"
+	fields[3] = "3"
+	fields[4] = "4"
+	fields[5] = "5"
+	fields[7] = "10"
+	fields[8] = "100"
+	fields[9] = "200"
+	fields[17] = stateUP
+	fields[18] = "7"
+	fields[19] = "1"
+	fields[20] = "0"
+	fields[23] = "11"
+	fields[24] = "12"
+	fields[36] = "* L7OK"
+	fields[37] = "200"
+	fields[38] = "9"
+	fields[55] = "14"
+	fields[56] = "Layer 7 check passed"
+
+	stats := parseServerStats(strings.Join(fields, ","))
+
+	stat, ok := stats[serverSrv1]
+	if !ok {
+		t.Fatalf("parseServerStats() no encontró %q", serverSrv1)
+	}
+
+	if stat.State != stateUp || stat.Weight != 7 || !stat.Active || stat.Backup {
+		t.Errorf("estado/peso/activo = %+v", stat)
+	}
+
+	if stat.CurrentSessions != 4 || stat.MaxSessions != 5 || stat.TotalSessions != 10 {
+		t.Errorf("sesiones = %+v", stat)
+	}
+
+	if stat.BytesIn != 100 || stat.BytesOut != 200 || stat.CheckStatus != "L7OK" || stat.CheckCode != 200 {
+		t.Errorf("tráfico/chequeo = %+v", stat)
+	}
+
+	if stat.Downtime != 12 || stat.LastChange != 11 || stat.LastSession != 14 {
+		t.Errorf("tiempos = %+v", stat)
+	}
+
+	if stat.CheckDuration != 9 || stat.LastCheck != "Layer 7 check passed" {
+		t.Errorf("detalle del chequeo = %+v", stat)
+	}
+}
+
+// TestParseServerStatsWithoutCheckMessage comprueba que un mensaje de
+// chequeo ausente o relleno con «0» se informa como vacío.
+func TestParseServerStatsWithoutCheckMessage(t *testing.T) {
+	t.Parallel()
+
+	for _, message := range []string{"", "0"} {
+		fields := make([]string, 57)
+		fields[1] = serverSrv1
+		fields[17] = stateUP
+		fields[56] = message
+
+		stat := parseServerStats(strings.Join(fields, ","))[serverSrv1]
+		if stat.LastCheck != "" {
+			t.Errorf("mensaje %q: último chequeo = %q, want vacío", message, stat.LastCheck)
+		}
+	}
+}

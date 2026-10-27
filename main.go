@@ -207,6 +207,8 @@ func registerModules(
 	mux.HandleFunc("/api/units/{unit}/status", systemd.Status)
 	mux.HandleFunc("/api/units/{unit}/restarts", systemd.Restarts)
 
+	mux.HandleFunc("/api/haproxy/status", haproxy.Status)
+	mux.HandleFunc("/api/haproxy/setup", haproxy.Setup)
 	mux.HandleFunc("/api/haproxy/backend/servers", haproxy.Servers)
 	mux.HandleFunc("/api/haproxy/backend/servers/{server}", haproxy.Server)
 }

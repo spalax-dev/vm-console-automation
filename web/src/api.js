@@ -361,6 +361,10 @@ export const api = {
   haproxy: {
     /** @returns {Promise<{servidores: Array<object>}>} */
     listar: () => pedir('GET', '/haproxy/backend/servers'),
+    /** @returns {Promise<object>} Estado de HAProxy. */
+    estado: () => pedir('GET', '/haproxy/status'),
+    /** @returns {Promise<object>} Resultado de la configuración rápida. */
+    configurar: () => pedir('POST', '/haproxy/setup'),
     /**
      * @param {{direccion: string, puerto: number}} servidor Servidor que se agrega.
      * @returns {Promise<object>} Resultado de la operación.

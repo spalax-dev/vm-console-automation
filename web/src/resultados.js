@@ -16,6 +16,27 @@ const MAXIMO = 50;
 /** Respaldo en memoria cuando `localStorage` no está disponible. */
 let memoria = [];
 
+/** Máquina activa para separar los resultados. */
+let maquinaActiva = '';
+
+/**
+ * Establece la máquina a la que pertenecen los resultados nuevos.
+ *
+ * @param {string} vm Nombre de la máquina.
+ */
+export function setActiveVM(vm) {
+  maquinaActiva = vm ?? '';
+}
+
+/**
+ * Devuelve la máquina activa.
+ *
+ * @returns {string} Nombre de la máquina.
+ */
+export function getActiveVM() {
+  return maquinaActiva;
+}
+
 /**
  * Devuelve el almacenamiento local, o `null` si el navegador lo bloquea.
  *
@@ -72,7 +93,8 @@ export function leer() {
  * @returns {Array<object>} Historial resultante.
  */
 export function agregar(resultado) {
-  const historial = [...leer(), resultado].slice(-MAXIMO);
+  const entrada = { ...resultado, vm: resultado.vm ?? maquinaActiva };
+  const historial = [...leer(), entrada].slice(-MAXIMO);
 
   return escribir(historial);
 }
@@ -82,8 +104,8 @@ export function agregar(resultado) {
  *
  * @returns {Array<object>} Historial vacío.
  */
-export function limpiar() {
-  return escribir([]);
+export function limpiar(vm = maquinaActiva) {
+  return escribir(leer().filter((resultado) => (resultado.vm ?? '') !== vm));
 }
 
 /**

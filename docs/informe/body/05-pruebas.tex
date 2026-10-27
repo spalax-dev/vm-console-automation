@@ -19,24 +19,28 @@ el navegador y la terminal al mismo tiempo, de modo que el estado
 anterior y el posterior quedan visibles en el mismo registro.
 
 El entorno es el de la \cref{fig:escenario}: el anfitrión con
-VirtualBox~7.2 y la consola, la VM~1 de pruebas con Debian~13.7.0 en
-modo puente, la VM~2 con HAProxy y su configuración por omisión, la VM~3
-y la VM~4 preparadas desde el disco de multiconexión como servidores del
-back-end, y el ejecutable del catálogo de libros junto con el script que
-agrega la fecha y la hora en cada ejecución
-(precondiciones~a--e del enunciado). Las direcciones IP se obtienen por
-DHCP y no se fijan en la prueba: la consola las descubre en tiempo de
-ejecución.
+VirtualBox~7.2 y la consola; el servidor S1 (\texttt{192.168.1.29}),
+preparado desde el disco de multiconexión con Debian~13.7.0 en modo
+puente y el servicio de imágenes en el puerto~8000, que se usa además
+para las pruebas de preparación del sistema; el servidor S2
+(\texttt{192.168.1.30}), con la misma distribución y el mismo servicio,
+que completa el back-end y sirve para el cambio de máquina; y el
+balanceador B (\texttt{192.168.1.32}), con HAProxy sobre Debian~13.7.0.
+En el anfitrión se usa \texttt{oha}~1.16 para generar carga sobre el
+balanceador. Las direcciones IP se obtienen por DHCP y no se fijan en la
+prueba: la consola las descubre en tiempo de ejecución.
 
-La \cref{tab:diseno-pruebas} resume
-las dieciocho pruebas diseñadas. Las pruebas P05 y P16 incluyen, además
+Las \cref{tab:diseno-pruebas,tab:diseno-pruebas-b}
+resumen las veintidós pruebas diseñadas. Las pruebas P05 y P16 incluyen, además
 del camino correcto, el camino de error: un paquete que no existe en los
-repositorios y la baja repetida de un servidor del back-end.
+repositorios y la baja repetida de un servidor del back-end; P22 añade la
+carga concurrente con \texttt{oha} para observar el reparto entre los dos
+servidores.
 
 \begin{table*}[!tp]
   \centering
-  \caption{Diseño de las pruebas: estado anterior, operación y estado
-  posterior esperado de cada elemento de la solución.}
+  \caption{Diseño de las pruebas (parte 1 de 2): estado anterior,
+  operación y estado posterior esperado de cada elemento de la solución.}
   \label{tab:diseno-pruebas}
   \scriptsize
   \begin{tabularx}{\textwidth}{@{}l >{\raggedright\arraybackslash}p{2.3cm}
@@ -47,7 +51,7 @@ repositorios y la baja repetida de un servidor del back-end.
     ID & Capacidad & Estado anterior & Operación desde la consola &
     Estado posterior esperado & Video \\
     \hline
-    P01 & Registro de la máquina & VM~1 apagada y sin registrar; sin
+    P01 & Registro de la máquina & S2 apagada y sin registrar; sin
     llave de root en el anfitrión. & Encender desde el selector y
     registrar con el usuario y la contraseña de la VM. &
     \texttt{/api/session} informa la IP y el conector \texttt{ssh}; la
@@ -106,6 +110,24 @@ repositorios y la baja repetida de un servidor del back-end.
     \texttt{/home/alumno}. & Eliminar con la casilla de borrar archivos.
     & \texttt{id alumno} falla, \texttt{/home/alumno} ya no existe y la
     llave del anfitrión se elimina; la cuenta sale del listado. & V11 \\
+    \hline
+  \end{tabularx}
+\end{table*}
+
+\begin{table*}[!tp]
+  \centering
+  \caption{Diseño de las pruebas (parte 2 de 2): estado anterior,
+  operación y estado posterior esperado de cada elemento de la solución.}
+  \label{tab:diseno-pruebas-b}
+  \scriptsize
+  \begin{tabularx}{\textwidth}{@{}l >{\raggedright\arraybackslash}p{2.3cm}
+      >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X
+      >{\raggedright\arraybackslash}X
+      >{\raggedright\arraybackslash}p{1.0cm}@{}}
+    \hline
+    ID & Capacidad & Estado anterior & Operación desde la consola &
+    Estado posterior esperado & Video \\
+    \hline
     P12 & Desplegar una unidad & La aplicación del catálogo no está en
     la VM ni tiene unidad. & Subir el ejecutable y el archivo
     \texttt{.service} con modo \texttt{0755} y propietario. &
@@ -122,26 +144,49 @@ repositorios y la baja repetida de un servidor del back-end.
     archivo de registro sin líneas del día. & Iniciar y reiniciar la
     unidad. & Cada ejecución agrega una línea con la fecha y la hora;
     tras el reinicio hay dos líneas nuevas y un PID distinto. & V14 \\
-    P15 & Agregar servidor al back-end & \texttt{haproxy.cfg}
-    predeterminado, sin servidores en el primer \texttt{backend}. &
-    Agregar la IP y el puerto de la VM~3. & Línea \texttt{server
-    srv\_\dots\ check} en el \texttt{backend}, configuración válida con
+    P15 & Agregar servidores al back-end & \texttt{backend}
+    \texttt{vmcons\_app} vacío en el balanceador. & Agregar
+    \texttt{192.168.1.29:8000} y \texttt{192.168.1.30:8000}. & Dos
+    líneas \texttt{server srv\_\dots\ check}, configuración válida con
     \texttt{haproxy -c}, servicio recargado y \texttt{curl} al
-    balanceador atendido por la VM~3. & V15 \\
-    P16 & Eliminar servidor del back-end & Dos servidores en el
-    back-end (VM~3 y VM~4). & Eliminar el de la VM~3. & La línea
-    desaparece, \texttt{haproxy -c} valida y el tráfico solo llega a la
-    VM~4; repetir la baja responde \texttt{404}. & V16 \\
+    balanceador atendido por los dos servidores. & V15 \\
+    P16 & Eliminar servidores del back-end & S1 y S2 en el back-end
+    del balanceador. & Eliminar S1 y después S2. & La línea de S1
+    desaparece y el tráfico solo llega a S2; sin servidores el
+    balanceador responde \texttt{503} y repetir la baja da
+    \texttt{404}. & V16 \\
     P17 & Historial y persistencia & Base con operaciones anteriores de
     la sesión de pruebas. & Ejecutar tres operaciones y consultar la
     pestaña Historial con filtros de texto, fecha, máquina y módulo;
     exportar a CSV. & Las tres operaciones aparecen con descripción
     legible; los filtros acotan el resultado; el CSV coincide y las
     filas sobreviven al reinicio de la consola. & V17 \\
-    P18 & Cambio de máquina vinculada & VM~1 vinculada y listados
-    cargados en varias pestañas. & Vincular la VM~3 desde el selector.
-    & La barra muestra la IP de la VM~3 y los listados se recargan sin
-    conservar filas de la VM~1. & V18 \\
+    P18 & Cambio de máquina vinculada & S1 vinculada y listados
+    cargados en varias pestañas. & Vincular S2 desde el selector.
+    & La barra muestra la IP de S2 y los listados se recargan sin
+    conservar filas de S1. & V18 \\
+    P19 & Estado de HAProxy & HAProxy con la configuración por omisión,
+    sin bloques \texttt{backend}. & Abrir el módulo HAProxy y consultar
+    el estado. & La tarjeta indica que requiere configuración con el
+    problema «no tiene bloques backend»; el estado informa el binario,
+    la configuración válida, el servicio y el puerto. & V19 \\
+    P20 & Configuración rápida & HAProxy sin \texttt{frontend} ni
+    \texttt{backend} propios. & Pulsar \textbf{Configuración rápida}.
+    & \texttt{haproxy.cfg} con \texttt{frontend vmcons\_front} en el
+    puerto~80 y \texttt{backend vmcons\_app}; copia
+    \texttt{.bak-\dots}, \texttt{haproxy -c} válida, servicio activo y
+    tarjeta con la URL de entrada. & V20 \\
+    P21 & Métricas de los servidores & S1 y S2 agregados al back-end.
+    & Abrir el detalle de cada servidor y recargar. & Estado
+    \texttt{UP}, peso, activo, sesiones, cola, bytes enviados y
+    recibidos, \texttt{L4OK}, duración del chequeo y tiempos; los
+    totales crecen con el tráfico. & V21 \\
+    P22 & Balanceo bajo carga y URL de entrada & Totales similares en S1
+    y S2. & Copiar la URL del balanceador y ejecutar
+    \texttt{oha --no-tui -n 600 -c 30 http://192.168.1.32/}. & Todas las
+    respuestas son \texttt{2xx}; ambos servidores suman unas 300
+    peticiones y el máximo de sesiones sube; la URL copiada abre la
+    aplicación. & V22 \\
     \hline
   \end{tabularx}
 \end{table*}
@@ -172,25 +217,25 @@ ejecutan con las tareas del proyecto (\texttt{task test},
     \texttt{core/domain} & 100.0\,\% \\
     \texttt{adapters/localproc} & 100.0\,\% \\
     \texttt{httpcache} & 100.0\,\% \\
-    \texttt{handlers} & 99.2\,\% \\
-    \texttt{services} & 97.4\,\% \\
+    \texttt{handlers} & 98.5\,\% \\
+    \texttt{services} & 94.9\,\% \\
     \texttt{adapters/ssh} & 100.0\,\% \\
     \texttt{adapters/vbox} & 100.0\,\% \\
-    Ejecutable (\texttt{main}) & 82.2\,\% \\
+    Ejecutable (\texttt{main}) & 82.5\,\% \\
     \hline
   \end{tabularx}
 \end{table}
 
 Las pruebas automatizadas terminan sin fallos y el análisis estático no
 reporta incidencias. Los paquetes internos alcanzan el 100\,\% salvo
-\texttt{handlers} (99.2\,\%) y \texttt{services} (97.4\,\%), donde las
+\texttt{handlers} (98.5\,\%) y \texttt{services} (94.9\,\%), donde las
 sentencias restantes son ramas de error de restauración, cifrado y cierre
 de sesión que exigen fallos encadenados. Los adaptadores
 y los servicios se prueban con ejecutores y sesiones falsos que devuelven
 salidas realistas de \texttt{VBoxManage} y \texttt{ssh}, y los
-manejadores con peticiones HTTP simuladas; las pruebas de campo P01 a P18
+manejadores con peticiones HTTP simuladas; las pruebas de campo P01 a P22
 completan lo que solo tiene sentido frente a un hipervisor real. El
-paquete del ejecutable queda en el 82.2\,\%: su función de arranque y el
+paquete del ejecutable queda en el 82.5\,\%: su función de arranque y el
 servidor que queda escuchando no se pueden ejercitar en una prueba
 unitaria sin abrir un puerto. El contrato OpenAPI se valida sin errores y
 ninguna de sus rutas devuelve \texttt{501}.
@@ -198,26 +243,33 @@ ninguna de sus rutas devuelve \texttt{501}.
 \subsubsection{Pruebas de Campo}
 \label{sec:resultados-campo}
 
-Las dieciocho pruebas de la \cref{tab:diseno-pruebas} se ejecutan sobre
+Las veintidós pruebas de las \cref{tab:diseno-pruebas,tab:diseno-pruebas-b} se ejecutan sobre
 el escenario y se graban en video, con el nombre \texttt{V01} a
-\texttt{V18} según la tabla. Cada grabación empieza con la comprobación
+\texttt{V22} según la tabla. Cada grabación empieza con la comprobación
 del estado anterior en la terminal, continúa con la operación en la
 interfaz ---el formulario, la validación y la ficha del panel de
 resultado--- y termina con la comprobación del estado posterior en la
 misma terminal, de modo que la evidencia cubre el ciclo completo y no
 solo la respuesta de la consola.
 
-La ejecución automatizada del 26 de octubre de 2026 cubrió las
-dieciocho pruebas sobre las máquinas VM1 (\texttt{192.168.1.16}), VM2
-(\texttt{192.168.1.18}) y el balanceador (\texttt{192.168.1.21}). Cada
-prueba comprobó el estado anterior por SSH, ejecutó la operación y
-verificó el estado posterior con la misma conexión. Las dieciocho
-terminaron conformes; la \cref{tab:resultados-campo} resume lo observado
+La ejecución del 26 de octubre de 2026 cubrió las veintidós pruebas
+sobre los servidores S1 (\texttt{192.168.1.29}) y S2
+(\texttt{192.168.1.30}) y el balanceador B (\texttt{192.168.1.32}). Las
+máquinas se renombraron a S1, S2 y B para la grabación y el DHCP les
+asignó esas direcciones; el registro de la ejecución conserva los nombres
+y las direcciones anteriores. Las pruebas P01 a P18 se ejecutaron con el
+arnés automatizado, que comprobó
+el estado anterior por SSH, ejecutó la operación y verificó el estado
+posterior con la misma conexión; P19 a P22 se verificaron en la misma
+sesión desde la interfaz y el socket de estadísticas, con \texttt{oha}
+como generador de carga. Las veintidós terminaron conformes; la
+\cref{tab:resultados-campo} resume lo observado
 y el detalle completo, con las salidas y los códigos de cada llamada,
 está en \texttt{docs/resultados-pruebas.md}. Las pruebas restauran el
 estado que modifican: la llave privada del anfitrión, el nombre de host,
 \texttt{/etc/issue}, la unidad temporal y los servidores del
-balanceador quedaron como estaban antes de la ejecución.
+balanceador quedaron como estaban antes de la ejecución, y la
+configuración de HAProxy se recuperó de la copia guardada antes de P19.
 
 \begin{table*}[!t]
   \centering
@@ -228,24 +280,28 @@ balanceador quedaron como estaban antes de la ejecución.
     \hline
     Prueba & Antes & Operación & Después & Resultado \\
     \hline
-    P01 & VM2 sin registrar & \texttt{POST /api/session/register} & \texttt{registrada=true}; Guest Additions 6.0.0 & Conforme \\
-    P02 & VM2 registrada & \texttt{GET /api/session/diagnostico} & Red puente, IP \texttt{.18}, SSH abierto y aviso de Guest Additions & Conforme \\
+    P01 & S2 sin registrar & \texttt{POST /api/session/register} & \texttt{registrada=true}; Guest Additions 6.0.0 & Conforme \\
+    P02 & S2 registrada & \texttt{GET /api/session/diagnostico} & Red puente, IP \texttt{.30}, SSH abierto y aviso de Guest Additions & Conforme \\
     P03 & \texttt{tree} no instalado & \texttt{POST /api/packages} & \texttt{install ok installed} & Conforme \\
     P04 & \texttt{tree} instalado & \texttt{DELETE /api/packages/tree} & \texttt{dpkg-query}: no encontrado & Conforme \\
     P05 & \texttt{tree} eliminado & Alta de paquete inexistente & \texttt{500} con código 1 y \texttt{stderr} de APT & Conforme \\
     P06 & Sin llave privada en el anfitrión & \texttt{POST} y \texttt{GET /api/keys/root} & SSH con la llave nueva; \texttt{passwordauthentication no} & Conforme \\
     P07 & Contraseña deshabilitada & SSH sin autenticación por llave & \texttt{Permission denied (publickey)} & Conforme \\
     P08 & \texttt{/etc/issue} original & \texttt{PUT /api/issue} & Mensaje con escapes \texttt{\textbackslash n}, \texttt{\textbackslash d}, \texttt{\textbackslash t} y \texttt{\textbackslash 4} & Conforme \\
-    P09 & Nombre de host \texttt{vm1} & \texttt{PUT /api/hostname} & \texttt{vmcons-lab} y entrada en \texttt{/etc/hosts} & Conforme \\
+    P09 & Nombre de host \texttt{base} & \texttt{PUT /api/hostname} & \texttt{vmcons-lab} y entrada en \texttt{/etc/hosts} & Conforme \\
     P10 & Usuario \texttt{alumno} inexistente & \texttt{POST /api/users} & UID 1001, grupo \texttt{sudo}, llave 0600 y descarga & Conforme \\
     P11 & \texttt{alumno} con directorio & \texttt{DELETE /api/\allowbreak users/\allowbreak alumno?files=true} & Usuario y \texttt{/home/alumno} eliminados & Conforme \\
     P12 & Unidad inexistente & \texttt{PUT /api/units/vmcons-demo.service} & Unidad creada; \texttt{daemon-reload} & Conforme \\
     P13 & Unidad inactiva & Activar, habilitar, reiniciar y detener & \texttt{active}, \texttt{enabled}, \texttt{202}, \texttt{inactive} & Conforme \\
     P14 & Sin ejecuciones del script & Iniciar y reiniciar la unidad & Cinco líneas con fecha y hora ISO-8601 & Conforme \\
-    P15 & Back-end sin servidores & \texttt{POST /api/\allowbreak haproxy/\allowbreak backend/\allowbreak servers} & Línea \texttt{srv\_192\_168\_1\_18\_8080}; \texttt{haproxy -c} válida y \texttt{curl} 200 & Conforme \\
-    P16 & Servidor \texttt{.18:8080} & \texttt{DELETE /api/\allowbreak haproxy/\allowbreak backend/\allowbreak servers} & Línea eliminada, \texttt{curl} 503 y repetir 404 & Conforme \\
+    P15 & Back-end sin servidores & \texttt{POST /api/\allowbreak haproxy/\allowbreak backend/\allowbreak servers} con S1 y S2 & Líneas \texttt{srv\_192\_168\_1\_29\_8000} y \texttt{srv\_192\_168\_1\_30\_8000}; \texttt{haproxy -c} válida y \texttt{curl} 200 & Conforme \\
+    P16 & S1 y S2 en el back-end & \texttt{DELETE /api/\allowbreak haproxy/\allowbreak backend/\allowbreak servers} & S1 fuera y solo S2 atiende; sin servidores \texttt{503} y repetir 404 & Conforme \\
     P17 & Operaciones anteriores & \texttt{GET /api/historial?q=paquetes} & Operaciones con descripción legible & Conforme \\
-    P18 & VM1 vinculada & \texttt{PUT /api/session} con VM2 & IP \texttt{.16} sustituida por \texttt{.18} & Conforme \\
+    P18 & S1 vinculada & \texttt{PUT /api/session} con S2 & IP \texttt{.29} sustituida por \texttt{.30} & Conforme \\
+    P19 & Configuración sin \texttt{backend} & \texttt{GET /api/haproxy/status} & Problema «no tiene bloques backend»; binario, configuración, servicio y puerto informados & Conforme \\
+    P20 & Sin \texttt{frontend} ni \texttt{backend} & \texttt{POST /api/haproxy/configurar} & \texttt{vmcons\_front} en el puerto 80, \texttt{vmcons\_app}, copia \texttt{.bak-\dots} y servicio activo & Conforme \\
+    P21 & S1 y S2 agregados & \texttt{GET /api/\allowbreak haproxy/\allowbreak backend/\allowbreak servers} & \texttt{UP}, peso 1, \texttt{L4OK}, sesiones, bytes y más de 13\,000 peticiones acumuladas & Conforme \\
+    P22 & Totales similares & \texttt{oha --no-tui -n 600 -c 30} & 100\,\% de respuestas \texttt{2xx}; unos 300 registros más en cada servidor & Conforme \\
     \hline
   \end{tabularx}
 \end{table*}
@@ -272,6 +328,7 @@ correspondiente.
     V12--V14 & Despliegue y ciclo de vida con systemd \\
     V15--V16 & Back-end de HAProxy: alta y baja \\
     V17--V18 & Historial y cambio de máquina \\
+    V19--V22 & HAProxy: estado, configuración rápida, métricas y carga \\
     \hline
   \end{tabularx}
 \end{table}

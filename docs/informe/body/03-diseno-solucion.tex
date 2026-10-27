@@ -64,12 +64,12 @@ balanceador ocupa un nodo propio en la \cref{fig:escenario} porque es la
 máquina del módulo de HAProxy: recibe las peticiones en su interfaz
 \texttt{enp0s3} y las reenvía, a través de la misma red, a los
 servidores del back-end; la consola se conecta también con esta misma
-VM para agregar o eliminar dichos servidores, como describe la
+máquina para agregar o eliminar dichos servidores, como describe la
 \cref{sec:haproxy}. Las restantes se resumen en un único contenedor
-del diagrama, sin fijar su número: la VM~1 es la máquina de pruebas
-sobre la que se ejecutan los módulos de preparación del sistema,
-gestión de usuarios y servicios con systemd, y la VM~3 y la VM~4 son
-los servidores del back-end; la consola abre sesión con la máquina que
+del diagrama: S1 es la máquina de pruebas sobre la que se ejecutan los
+módulos de preparación del sistema, gestión de usuarios y servicios con
+systemd, y junto con S2 forma el back-end que atiende el servicio de
+imágenes en el puerto~8000; la consola abre sesión con la máquina que
 corresponda en cada operación, de modo que puede tratarse de
 cualesquiera otras.
 El \emph{disco virtual VDI de multiconexión} (multiattach) que
@@ -207,7 +207,10 @@ en la \cref{tab:api-rest}, y el estado de implementación se describe en la
     systemd & Listar y consultar el estado de las unidades; desplegar una
     unidad con sus archivos; iniciar, detener, reiniciar, habilitar y
     deshabilitar el arranque. \\
-    HAProxy & Listar, agregar y eliminar servidores del back-end del
+    HAProxy & Consultar el estado, configurar rápidamente si falta o es
+    inválida (usa el puerto 80 o el primer libre entre 8080 y 8090),
+    listar, agregar y eliminar servidores del back-end con estado, sesiones,
+    tráfico y chequeo del
     balanceador. \\
     Historial & Consultar las operaciones con su descripción y filtros
     de texto, fecha, hora, máquina y módulo, y exportarlas a CSV. \\
@@ -293,6 +296,8 @@ la ruta y las operaciones se expresan con los métodos HTTP estándar
     Unidades & \texttt{/api/\allowbreak units} (GET) \\
     Unidad & \texttt{/api/\allowbreak units/\allowbreak\{unit\}} (GET, PUT, PATCH) \\
     Reinicio & \texttt{/api/\allowbreak units/\allowbreak\{unit\}/\allowbreak restarts} (POST) \\
+    Estado de HAProxy & \texttt{/api/\allowbreak haproxy/\allowbreak status} (GET) \\
+    Configuración rápida & \texttt{/api/\allowbreak haproxy/\allowbreak setup} (POST) \\
     Servidores & \texttt{/api/\allowbreak haproxy/\allowbreak backend/\allowbreak servers} (GET, POST) \\
     Servidor & \texttt{/api/\allowbreak haproxy/\allowbreak backend/\allowbreak servers/\allowbreak\{server\}} (DELETE) \\
     Historial & \texttt{/api/\allowbreak historial} (GET) \\

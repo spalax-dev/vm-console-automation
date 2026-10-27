@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
 	"consola-vm/internal/services"
@@ -22,6 +23,8 @@ type stubHAProxy struct {
 	port      int
 	agregados int
 	deleted   int
+	status    services.HAProxyStatus
+	setup     int
 }
 
 // List devuelve la lista preprogramada.
@@ -43,6 +46,18 @@ func (s *stubHAProxy) Delete(_ context.Context, address string, port int) (servi
 	s.address = address
 	s.port = port
 	s.deleted++
+
+	return s.result, s.err
+}
+
+// Status devuelve el estado preprogramado.
+func (s *stubHAProxy) Status(context.Context) (services.HAProxyStatus, error) {
+	return s.status, s.err
+}
+
+// Setup registra la llamada y devuelve el resultado.
+func (s *stubHAProxy) Setup(context.Context) (services.Outcome, error) {
+	s.setup++
 
 	return s.result, s.err
 }
@@ -221,5 +236,36 @@ func TestServerError(t *testing.T) {
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf(msgCode, rec.Code, http.StatusInternalServerError)
+	}
+}
+
+// TestHAProxyStatus cubre la consulta del estado de HAProxy.
+func TestHAProxyStatus(t *testing.T) {
+	t.Parallel()
+
+	service := &stubHAProxy{status: services.HAProxyStatus{
+		Installed: true, ConfigExists: true, ConfigValid: true, Backend: true, ServiceActive: true,
+	}}
+
+	rec := runTestCase(t, NewHAProxy(service).Status, "/api/haproxy/status", testCaseRequest{
+		name: "estado", method: http.MethodGet, code: http.StatusOK,
+	})
+
+	if !strings.Contains(rec.Body.String(), `"instalado":true`) {
+		t.Errorf("cuerpo = %q, want instalado=true", rec.Body.String())
+	}
+}
+
+// TestHAProxySetup cubre la configuración rápida.
+func TestHAProxySetup(t *testing.T) {
+	t.Parallel()
+
+	service := &stubHAProxy{result: services.Outcome{Message: "HAProxy ya estaba configurado."}}
+	runTestCase(t, NewHAProxy(service).Setup, "/api/haproxy/setup", testCaseRequest{
+		name: "configurar", method: http.MethodPost, code: http.StatusOK,
+	})
+
+	if service.setup != 1 {
+		t.Errorf("Setup() = %d, want 1", service.setup)
 	}
 }

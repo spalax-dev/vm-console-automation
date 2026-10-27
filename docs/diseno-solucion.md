@@ -335,13 +335,26 @@ HAProxy usa como back-end:
 
 | Operación | Acción | Respuesta |
 | --- | --- | --- |
+| `GET /api/haproxy/status` | comprueba binario, configuración, `backend`, servicio y `socat` | `200` con `{instalado, configuracion, valida, backend, servicio_activo, socat, problemas, sugerencias}` |
+| `POST /api/haproxy/setup` | instala HAProxy/`socat` si faltan y deja una configuración mínima con un `backend` vacío | `200` con el resultado; guarda copia de la configuración anterior |
 | `GET /api/haproxy/backend/servers` | lista los servidores del primer `backend` | `200` con `{servidores: [...]}` |
 | `POST /api/haproxy/backend/servers` | agrega `direccion:puerto` | `201`; `409` si ya existe |
 | `DELETE /api/haproxy/backend/servers/{server}` | elimina `direccion:puerto` | `204`; `404` si no existe |
 
 El servicio `HAProxy` (`internal/services/haproxy.go`) lee y reescribe
-`/etc/haproxy/haproxy.cfg`. Toma el **primer** bloque `backend` de la
-configuración y opera sobre sus líneas `server`:
+`/etc/haproxy/haproxy.cfg`. Si HAProxy no está instalado, la configuración no
+existe, no es válida o no tiene `backend`, `GET /api/haproxy/status` lo
+informa y la interfaz ofrece **Configuración rápida**. Esa operación instala
+`haproxy` si falta; `socat` es opcional y su fallo no invalida la
+configuración (los estados quedan como `unknown`). Guarda una copia de la
+configuración anterior y
+escribe una mínima con `frontend vmcons_front` y `backend vmcons_app`. Usa el
+puerto 80 si está libre o si lo ocupa HAProxy; si otro proceso lo ocupa, elige
+el primer puerto libre entre 8080 y 8090. Si la configuración ya es válida y
+tiene `backend`, solo asegura el servicio.
+La interfaz muestra la URL de entrada del balanceador con la IP de la máquina
+activa y el puerto del `frontend`, junto a un botón para copiarla. Después
+toma el **primer** bloque `backend` y opera sobre sus líneas `server`:
 
 - **Alta:** agrega `server srv_<ip>_<puerto> <ip>:<puerto> check` al final del
   bloque, salvo que ya exista ese `direccion:puerto` (`409`).
@@ -359,13 +372,22 @@ configuración y opera sobre sus líneas `server`:
   last line» aunque el resto sea válido.
 
 El identificador del servidor en la ruta es `direccion:puerto`
-(por ejemplo, `192.168.1.61:8080`). El estado de cada servidor se toma del
-socket de estadísticas de HAProxy: el listado ejecuta `show stat` sobre
-`/run/haproxy/admin.sock` con `socat` y traduce el campo `status` de cada
-fila (`UP` → `up`, `DOWN` y `MAINT` → `down`, el resto → `unknown`). Si el
-socket no responde o `socat` no está instalado, la consola no falla: devuelve
-los servidores con estado `unknown`, porque el listado debe seguir siendo
-útil aunque la consulta de estado no esté disponible. El socket se configura
+(por ejemplo, `192.168.1.61:8080`). El estado y las métricas de cada servidor
+se toman del socket de estadísticas de HAProxy: el listado ejecuta `show stat`
+sobre `/run/haproxy/admin.sock` con `socat` y traduce la fila CSV. Además del
+estado (`UP` → `up`, `DOWN` y `MAINT` → `down`, el resto → `unknown`), expone
+peso, marcas de activo/respaldo, sesiones actuales/máximas/totales, cola,
+bytes enviados al servidor (`bin`) y recibidos del servidor (`bout`),
+resultado, código y duración del chequeo, tiempo de indisponibilidad, último
+cambio, tiempo desde la última sesión y mensaje del chequeo. El resultado
+`L4OK` solo indica que el chequeo es TCP; para validar respuestas HTTP haría
+falta `option httpchk` con `http-check expect` en la configuración. La
+interfaz resume estas convenciones en un icono de ayuda junto al título de la
+tabla, cuyo texto aparece al pasar el puntero o al enfocar el botón, en lugar
+de ocupar espacio permanente con párrafos explicativos. Si el
+socket no responde o
+`socat` no está instalado, la consola no falla: devuelve los servidores con
+estado `unknown` y métricas en cero. El socket se configura
 en el bloque `global` de `haproxy.cfg`; la configuración por omisión de
 Debian y sus derivados suelen definir `stats socket /run/haproxy/admin.sock mode 660 level admin`.
 
@@ -779,8 +801,9 @@ validación en línea bajo el campo.
 ### 10.3 Contexto de VM
 
 - El selector de la barra superior marca **sobre qué VM se trabaja**:
-  todas las pestañas operan sobre esa VM y el panel de resultado repite
-  su nombre, para evitar operaciones sobre la máquina equivocada.
+  todas las pestañas operan sobre esa VM y el panel de resultado muestra
+  solo las operaciones de esa máquina, para evitar mezclar resultados de
+  máquinas distintas.
 - La lista **se descubre en tiempo de ejecución** con
   `VBoxManage list vms`: la consola no crea ni registra máquinas
   virtuales (coherente con §8 y con §3.1.1 del informe), solo administra

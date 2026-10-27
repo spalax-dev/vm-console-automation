@@ -53,6 +53,9 @@ Package services implementa los casos de uso de la consola: descubre el conector
   - [func \(h \*HAProxy\) Add\(ctx context.Context, address string, port int\) \(Outcome, error\)](<#HAProxy.Add>)
   - [func \(h \*HAProxy\) Delete\(ctx context.Context, address string, port int\) \(Outcome, error\)](<#HAProxy.Delete>)
   - [func \(h \*HAProxy\) List\(ctx context.Context\) \(\[\]Server, error\)](<#HAProxy.List>)
+  - [func \(h \*HAProxy\) Setup\(ctx context.Context\) \(Outcome, error\)](<#HAProxy.Setup>)
+  - [func \(h \*HAProxy\) Status\(ctx context.Context\) \(HAProxyStatus, error\)](<#HAProxy.Status>)
+- [type HAProxyStatus](<#HAProxyStatus>)
 - [type History](<#History>)
   - [func NewHistory\(store \*Store\) \*History](<#NewHistory>)
   - [func \(h \*History\) List\(ctx context.Context, filter \*HistoryFilter\) \(\[\]Operation, error\)](<#History.List>)
@@ -85,6 +88,7 @@ Package services implementa los casos de uso de la consola: descubre el conector
 - [type Registration](<#Registration>)
 - [type Selector](<#Selector>)
 - [type Server](<#Server>)
+- [type ServerStats](<#ServerStats>)
 - [type SessionInfo](<#SessionInfo>)
 - [type SessionOpener](<#SessionOpener>)
 - [type Store](<#Store>)
@@ -672,7 +676,7 @@ type DiscovererConfig struct {
 ```
 
 <a name="HAProxy"></a>
-## type [HAProxy](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L61-L63>)
+## type [HAProxy](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L141-L143>)
 
 HAProxy implementa el caso de uso del back\-end de HAProxy.
 
@@ -683,7 +687,7 @@ type HAProxy struct {
 ```
 
 <a name="NewHAProxy"></a>
-### func [NewHAProxy](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L66>)
+### func [NewHAProxy](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L146>)
 
 ```go
 func NewHAProxy(sessions SessionOpener) *HAProxy
@@ -692,7 +696,7 @@ func NewHAProxy(sessions SessionOpener) *HAProxy
 NewHAProxy construye el servicio con el abridor de sesiones dado.
 
 <a name="HAProxy.Add"></a>
-### func \(\*HAProxy\) [Add](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L158>)
+### func \(\*HAProxy\) [Add](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L625>)
 
 ```go
 func (h *HAProxy) Add(ctx context.Context, address string, port int) (Outcome, error)
@@ -701,7 +705,7 @@ func (h *HAProxy) Add(ctx context.Context, address string, port int) (Outcome, e
 Add agrega un servidor al back\-end y recarga HAProxy.
 
 <a name="HAProxy.Delete"></a>
-### func \(\*HAProxy\) [Delete](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L180>)
+### func \(\*HAProxy\) [Delete](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L647>)
 
 ```go
 func (h *HAProxy) Delete(ctx context.Context, address string, port int) (Outcome, error)
@@ -710,13 +714,59 @@ func (h *HAProxy) Delete(ctx context.Context, address string, port int) (Outcome
 Delete elimina un servidor del back\-end y recarga HAProxy.
 
 <a name="HAProxy.List"></a>
-### func \(\*HAProxy\) [List](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L71>)
+### func \(\*HAProxy\) [List](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L151>)
 
 ```go
 func (h *HAProxy) List(ctx context.Context) ([]Server, error)
 ```
 
 List devuelve los servidores del primer bloque backend.
+
+<a name="HAProxy.Setup"></a>
+### func \(\*HAProxy\) [Setup](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L401>)
+
+```go
+func (h *HAProxy) Setup(ctx context.Context) (Outcome, error)
+```
+
+Setup instala HAProxy si falta y deja una configuración mínima con un back\-end vacío. Si la configuración actual es válida y tiene back\-end, solo asegura el servicio.
+
+<a name="HAProxy.Status"></a>
+### func \(\*HAProxy\) [Status](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L333>)
+
+```go
+func (h *HAProxy) Status(ctx context.Context) (HAProxyStatus, error)
+```
+
+Status inspecciona HAProxy sin modificar la máquina.
+
+<a name="HAProxyStatus"></a>
+## type [HAProxyStatus](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L87-L106>)
+
+HAProxyStatus describe si HAProxy puede administrarse.
+
+```go
+type HAProxyStatus struct {
+    // Installed indica si el binario de HAProxy existe.
+    Installed bool
+    // ConfigExists indica si /etc/haproxy/haproxy.cfg existe.
+    ConfigExists bool
+    // ConfigValid indica si haproxy -c acepta la configuración.
+    ConfigValid bool
+    // Backend indica si hay al menos un bloque backend.
+    Backend bool
+    // ServiceActive indica si el servicio haproxy está activo.
+    ServiceActive bool
+    // Socat indica si está instalado socat para consultar estados.
+    Socat bool
+    // Port es el puerto configurado en el frontend, o cero si no se pudo leer.
+    Port int
+    // Problems describe lo que impide administrar el balanceador.
+    Problems []string
+    // Suggestions indica cómo resolverlo.
+    Suggestions []string
+}
+```
 
 <a name="History"></a>
 ## type [History](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/historial.go#L59-L61>)
@@ -1096,7 +1146,7 @@ type Selector interface {
 ```
 
 <a name="Server"></a>
-## type [Server](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L47-L58>)
+## type [Server](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L71-L84>)
 
 Server describe un servidor del back\-end de HAProxy.
 
@@ -1109,7 +1159,37 @@ type Server struct {
     // State es el estado informado por HAProxy: up, down o unknown
     // cuando el socket de estadísticas no responde.
     State string
+    // Stats son las métricas del socket de estadísticas.
+    Stats ServerStats
     // contains filtered or unexported fields
+}
+```
+
+<a name="ServerStats"></a>
+## type [ServerStats](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/haproxy.go#L49-L68>)
+
+ServerStats reúne las métricas que publica HAProxy para un servidor.
+
+```go
+type ServerStats struct {
+    State           string
+    Weight          int
+    Active          bool
+    Backup          bool
+    CurrentSessions int
+    MaxSessions     int
+    TotalSessions   int64
+    QueueCurrent    int
+    QueueMax        int
+    BytesIn         int64
+    BytesOut        int64
+    CheckStatus     string
+    CheckCode       int
+    CheckDuration   int
+    Downtime        int64
+    LastChange      int64
+    LastSession     int64
+    LastCheck       string
 }
 ```
 

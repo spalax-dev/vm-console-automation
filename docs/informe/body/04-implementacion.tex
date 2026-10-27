@@ -21,8 +21,8 @@ historial y el acceso con cuenta propia. La mayoría de las funciones
 tienen pruebas automáticas: los adaptadores y los servicios se ejercitan
 con ejecutores y sesiones falsos, los manejadores con peticiones HTTP
 simuladas y la persistencia sobre bases SQLite temporales. Los paquetes internos alcanzan
-el 100\,\% salvo \texttt{handlers} (99.2\,\%) y \texttt{services}
-(97.4\,\%); el paquete del ejecutable queda en el 82.2\,\% porque su
+el 100\,\% salvo \texttt{handlers} (98.5\,\%) y \texttt{services}
+(94.9\,\%); el paquete del ejecutable queda en el 82.5\,\% porque su
 función de arranque y el servidor en escucha no se ejercitan en las pruebas
 unitarias. El análisis
 estático con \texttt{golangci-lint} no reporta incidencias.
@@ -39,10 +39,10 @@ estático con \texttt{golangci-lint} no reporta incidencias.
 \begin{figure*}[!t]
   \centering
   \includegraphics[width=\textwidth]{images/ui-paquetes}
-  \caption{Módulo de paquetes sobre la VM~1: formulario de instalación y
+  \caption{Módulo de paquetes sobre S1: formulario de instalación y
   eliminación, listado de los paquetes instalados con su versión y su
   estado, y panel de resultado. Las capturas de esta sección se tomaron
-  de la consola en ejecución contra la VM~1 con Debian~13.7.0, conectada
+  de la consola en ejecución contra S1 con Debian~13.7.0, conectada
   por SSH.}
   \label{fig:ui-paquetes}
 \end{figure*}
@@ -267,13 +267,18 @@ configuración anterior, de modo que el balanceador no se queda sin
 servicio. El alta responde \texttt{201} con \texttt{Location}
 (\texttt{409} si el servidor ya existe), la baja \texttt{204}
 (\texttt{404} si no está) y el listado \texttt{200} con
-\texttt{\{servidores: [...]\}}. El estado de cada servidor se toma del socket de estadísticas de HAProxy:
-la consola ejecuta \texttt{show stat} con \texttt{socat} y traduce el campo
-\texttt{status} de cada fila a \texttt{up} o \texttt{down}. Si el socket no
-responde ---o \texttt{socat} no está instalado--- los servidores se
-informan como \texttt{unknown} sin que el listado falle, y la verificación
-funcional del balanceo se completa con las back-end del entorno de
-pruebas.
+\texttt{\{servidores: [...]\}}. El estado y las métricas de cada servidor
+se toman del socket de estadísticas de HAProxy: la consola ejecuta
+\texttt{show stat} con \texttt{socat} y traduce el campo \texttt{status} de
+cada fila a \texttt{up} o \texttt{down}, además de peso, sesiones, cola,
+bytes enviados al servidor y recibidos del servidor, resultado, código y
+duración del chequeo e instantes del último cambio y de la última sesión. El
+resultado \texttt{L4OK} corresponde a un chequeo TCP: confirma que el puerto
+acepta conexiones, pero no que la aplicación responda HTTP correctamente.
+Si el socket no responde ---o \texttt{socat} no está instalado--- los
+servidores se informan como \texttt{unknown} sin que el listado falle, y la
+verificación funcional del balanceo se completa con las back-end del
+entorno de pruebas.
 
 % ------------------------------------------------------------
 % 4.5 Acceso e interfaz
@@ -411,8 +416,10 @@ del armazón aparece la pantalla de acceso mientras no haya sesión. La
     sin sus archivos y descargar la llave privada. \\
     systemd & Desplegar una unidad con sus archivos y operar su ciclo de
     vida. \\
-    HAProxy & Listar, agregar y eliminar servidores del back-end con su
-    estado. \\
+    HAProxy & Consultar el estado, configurar rápidamente en el puerto 80 o
+    en el primer libre entre 8080 y 8090, listar, agregar y eliminar
+    servidores del back-end con su estado, sesiones, tráfico, peso,
+    chequeo y demás métricas del socket. \\
     Historial & Consultar las operaciones con filtros y exportarlas a CSV. \\
     \hline
   \end{tabularx}

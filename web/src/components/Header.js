@@ -2,6 +2,7 @@ import { renderIcons } from '../icons.js';
 import { api } from '../api.js';
 import { mensajeDeError, presentarEstado } from '../ui.js';
 import { VMSelector } from './VMSelector.js';
+import { setActiveVM } from '../resultados.js';
 
 /**
  * Construye la barra superior de la consola: identidad, selector de
@@ -49,6 +50,7 @@ export function Header({ usuario = '', alSalir } = {}) {
   el.querySelector('#vm-slot').appendChild(
     VMSelector({
       alVincular: (maquina) => {
+        setActiveVM(maquina.nombre);
         actualizar();
 
         // La máquina cambió: la vista activa debe volver a consultar sus
@@ -103,6 +105,9 @@ async function consultarSesion(el) {
   try {
     const sesion = await api.sesion.obtener();
     const presentacion = presentarEstado(sesion.estado);
+
+    setActiveVM(sesion.vm ?? '');
+    document.dispatchEvent(new CustomEvent('vmcons:vm-activa', { detail: sesion.vm ?? '' }));
 
     ip.textContent = sesion.ip || '—';
     punto.className = `w-1.5 h-1.5 rounded-full ${presentacion.punto}`;

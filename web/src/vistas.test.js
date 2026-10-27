@@ -655,3 +655,59 @@ describe('llaves SSH', () => {
     });
   });
 });
+
+describe('configuración de HAProxy', () => {
+
+  it('ofrece configuración rápida cuando HAProxy no está listo', async () => {
+    let configurado = false;
+    const llamadas = [];
+
+    vi.stubGlobal('fetch', async (url, opciones = {}) => {
+      const metodo = opciones.method ?? 'GET';
+      llamadas.push(`${metodo} ${url}`);
+
+      let cuerpo;
+
+      if (metodo === 'POST' && url.includes('/haproxy/setup')) {
+        configurado = true;
+        cuerpo = { ok: true, mensaje: 'HAProxy configurado.' };
+      } else if (url.includes('/haproxy/status')) {
+        cuerpo = configurado
+          ? { instalado: true, configuracion: true, valida: true, backend: true, servicio_activo: true, socat: true, problemas: [], sugerencias: [] }
+          : { instalado: false, configuracion: false, valida: false, backend: false, servicio_activo: false, socat: false, problemas: ['HAProxy no está instalado.'], sugerencias: ['Configúralo.'] };
+      } else {
+        cuerpo = { servidores: [] };
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' },
+        json: async () => cuerpo,
+        text: async () => JSON.stringify(cuerpo),
+        blob: async () => new Blob(['x']),
+      };
+    });
+
+    vi.stubGlobal('confirm', () => true);
+    prepararRanura();
+
+    const vista = renderHaproxy();
+    document.body.appendChild(vista);
+
+    await vi.waitFor(() => {
+      expect(vista.querySelector('#haproxy-estado-card').classList.contains('hidden')).toBe(false);
+    });
+
+    expect(vista.querySelector('#haproxy-problemas').textContent).toContain('HAProxy no está instalado.');
+    vista.querySelector('#haproxy-configurar').click();
+
+    await vi.waitFor(() => {
+      expect(llamadas.some((llamada) => llamada.startsWith('POST /api/haproxy/setup'))).toBe(true);
+    });
+
+    await vi.waitFor(() => {
+      expect(vista.querySelector('#haproxy-estado-card').classList.contains('hidden')).toBe(true);
+    });
+  });
+});
