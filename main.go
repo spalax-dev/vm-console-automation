@@ -194,6 +194,7 @@ func registerModules(
 	mux.HandleFunc("/api/packages", system.Packages)
 	mux.HandleFunc("/api/packages/{name}", system.Package)
 	mux.HandleFunc("/api/keys/root", system.RootKey)
+	mux.HandleFunc("/api/keys/root/status", system.RootKeyStatus)
 	mux.HandleFunc("/api/issue", system.Issue)
 	mux.HandleFunc("/api/hostname", system.Hostname)
 

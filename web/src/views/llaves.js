@@ -62,6 +62,9 @@ export function renderLlaves() {
   /** Usuarios regulares de la máquina. */
   let usuarios = [];
 
+  /** Indica si la llave de conexión de root ya existe en el anfitrión. */
+  let rootKeyExists = false;
+
   /**
    * Cambia la etiqueta del estado del par.
    *
@@ -109,17 +112,38 @@ export function renderLlaves() {
 
     descripcion.innerHTML =
       'La generación crea el par en el anfitrión, instala la llave pública en ' +
-      `<span class="font-mono">${escapar(destino)}</span> y deshabilita el acceso por contraseña.`;
+      `<span class="font-mono">${escapar(destino)}</span> y deshabilita el acceso SSH por contraseña; el login local sigue disponible.`;
 
     aviso.textContent = esRoot
       ? 'Guarda la llave privada en un lugar seguro y no la compartas; quien la posea tendrá acceso root a la máquina.'
       : `Guarda la llave privada en un lugar seguro y no la compartas; quien la posea tendrá acceso a la cuenta «${seleccion}».`;
 
     if (esRoot) {
-      marcar('sin verificar', 'neutro');
-    } else {
-      marcar(usuario?.llaves ? 'generada' : 'no generada', usuario?.llaves ? 'ok' : 'neutro');
+      marcar(rootKeyExists ? 'generada' : 'no generada', rootKeyExists ? 'ok' : 'neutro');
+      generar.disabled = rootKeyExists;
+      generar.title = rootKeyExists
+        ? 'La llave de root es la llave de conexión compartida; no se regenera desde este módulo.'
+        : '';
+      generar.innerHTML = rootKeyExists
+        ? '<i data-lucide="lock"></i> La llave de conexión ya existe'
+        : '<i data-lucide="settings"></i> Generar par de llaves';
+      descargar.disabled = !rootKeyExists;
+
+      renderIcons(generar);
+
+      return;
     }
+
+    const regenerar = Boolean(usuario?.llaves);
+
+    marcar(regenerar ? 'generada' : 'no generada', regenerar ? 'ok' : 'neutro');
+    generar.disabled = false;
+    generar.title = '';
+    generar.innerHTML = `<i data-lucide="${regenerar ? 'refresh-cw' : 'settings'}"></i> ${
+      regenerar ? 'Regenerar par de llaves' : 'Generar par de llaves'
+    }`;
+    descargar.disabled = !regenerar;
+    renderIcons(generar);
   };
 
   /** Consulta los usuarios regulares de la máquina. */
@@ -135,6 +159,13 @@ export function renderLlaves() {
       errorUsuarios.classList.remove('hidden');
     }
 
+    try {
+      const estado = await api.llaves.estadoRoot();
+      rootKeyExists = Boolean(estado?.existe);
+    } catch {
+      rootKeyExists = false;
+    }
+
     llenarSelect();
     actualizar();
   };
@@ -143,11 +174,25 @@ export function renderLlaves() {
 
   generar.addEventListener('click', async () => {
     const seleccion = select.value || 'root';
+    const usuario = usuarios.find((item) => item.nombre === seleccion);
+    const regenerar = seleccion !== 'root' && Boolean(usuario?.llaves);
+
+    if (
+      regenerar &&
+      !window.confirm(
+        `El usuario «${seleccion}» ya tiene llaves. ¿Regenerar el par? La llave anterior dejará de funcionar.`,
+      )
+    ) {
+      return;
+    }
+
     inhabilitar(el, true);
 
     const exito = await ejecutar({
       accion: () =>
-        seleccion === 'root' ? api.llaves.generarRoot() : api.usuarios.generarLlave(seleccion),
+        seleccion === 'root'
+          ? api.llaves.generarRoot()
+          : api.usuarios.generarLlave(seleccion, { regenerar }),
       operacion:
         seleccion === 'root'
           ? 'ssh-keygen -t ed25519 + instalación en /root/.ssh/authorized_keys'
@@ -158,13 +203,16 @@ export function renderLlaves() {
     inhabilitar(el, false);
 
     if (exito) {
-      const usuario = usuarios.find((item) => item.nombre === seleccion);
-
       if (usuario) {
         usuario.llaves = true;
       }
 
-      marcar('generada', 'ok');
+      if (seleccion === 'root') {
+        rootKeyExists = true;
+        actualizar();
+      } else {
+        actualizar();
+      }
     } else {
       actualizar();
     }

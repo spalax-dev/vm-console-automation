@@ -30,6 +30,8 @@ type KeysService interface {
 	Generate(ctx context.Context) (services.Outcome, error)
 	// Download devuelve el nombre y el contenido de la llave privada.
 	Download() (name string, content []byte, err error)
+	// Exists informa si la llave privada de root está en el anfitrión.
+	Exists() bool
 }
 
 // IssueService lee y reemplaza /etc/issue.
@@ -212,6 +214,21 @@ func (h *System) RootKey(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set(headerLocation, "/api/keys/root")
 	writeResult(w, http.StatusCreated, result)
+}
+
+// rootKeyStatus es el cuerpo de GET /api/keys/root/status.
+type rootKeyStatus struct {
+	Exists bool `json:"existe"`
+}
+
+// RootKeyStatus atiende GET /api/keys/root/status: informa si la llave
+// de conexión ya existe, sin descargar la privada.
+func (h *System) RootKeyStatus(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+
+	writeJSON(w, http.StatusOK, rootKeyStatus{Exists: h.keys.Exists()})
 }
 
 // downloadSSHKeyRoot entrega la llave privada como archivo adjunto.

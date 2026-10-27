@@ -100,6 +100,13 @@ func (l *Keys) Generate(ctx context.Context) (Outcome, error) {
 	return output, nil
 }
 
+// Exists informa si la llave privada de root está en el anfitrión.
+func (l *Keys) Exists() bool {
+	_, err := os.Stat(l.path)
+
+	return err == nil
+}
+
 // Download devuelve el nombre y el contenido de la llave privada, sin
 // exponerla en los logs.
 func (l *Keys) Download() (name string, content []byte, err error) {
