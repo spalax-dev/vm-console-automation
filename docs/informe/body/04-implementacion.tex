@@ -21,8 +21,8 @@ historial y el acceso con cuenta propia. La mayoría de las funciones
 tienen pruebas automáticas: los adaptadores y los servicios se ejercitan
 con ejecutores y sesiones falsos, los manejadores con peticiones HTTP
 simuladas y la persistencia sobre bases SQLite temporales. Los paquetes internos alcanzan
-el 100\,\% salvo \texttt{handlers} (99.5\,\%) y \texttt{services}
-(98.6\,\%); el paquete del ejecutable queda en el 82.2\,\% porque su
+el 100\,\% salvo \texttt{handlers} (99.2\,\%) y \texttt{services}
+(97.4\,\%); el paquete del ejecutable queda en el 82.2\,\% porque su
 función de arranque y el servidor en escucha no se ejercitan en las pruebas
 unitarias. El análisis
 estático con \texttt{golangci-lint} no reporta incidencias.
@@ -184,7 +184,8 @@ Si se piden llaves, el par se genera en el anfitrión con
 \texttt{ssh-keygen}, la pública se instala en
 \texttt{/home/<usuario>/.ssh/authorized\_keys} con propietario del
 usuario y permisos \texttt{700}/\texttt{600}, y se bloquea el acceso por
-contraseña con \texttt{passwd -l}. La llave privada queda en
+contraseña de SSH con \texttt{PasswordAuthentication no}. El formulario permite
+asignar una contraseña inicial con \texttt{chpasswd}; la llave privada queda en
 \texttt{<config>/vmcons/users/<usuario>\_ed25519} y solo se entrega por
 \texttt{GET /api/users/\{name\}/key} como archivo adjunto. La respuesta
 de creación es \texttt{201} con \texttt{Location}, o \texttt{409} si

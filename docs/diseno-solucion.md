@@ -64,9 +64,11 @@ la primera interfaz en modo puente u host-only. Cada entrada informa
 `administrable` y, si no lo es, una `advertencia`. Las apagadas se listan para
 poder encenderlas; las registradas usan SSH; y las encendidas sin registro
 necesitan Guest Additions. Una encendida sin Guest Additions se muestra con el
-aviso «Sin Guest Additions» y, al encenderla, la interfaz pregunta si ocultarla
-o mantenerla en la lista. La preferencia se guarda en el navegador y se puede
-revertir con «Mostrar». En NAT, red interna o sin adaptador el anfitrión no
+aviso «Sin Guest Additions». Al encenderla se abre un modal de progreso; si
+tras 30 segundos sigue sin detectarse Guest Additions, el modal explica el
+motivo y permite ocultarla o mantenerla sin bloquear el sondeo: la sesión puede
+terminar de establecerse mientras el aviso está abierto. La preferencia se
+guarda en el navegador y se puede revertir con «Mostrar». En NAT, red interna o sin adaptador el anfitrión no
 alcanza la dirección y la máquina no se incluye.
 
 La instalación de SSH cuando aún no hay llave es responsabilidad del módulo 3.1.2
@@ -135,11 +137,19 @@ escribe en los logs ni en el cuerpo JSON: solo se entrega como descarga con
 su resguardo y el uso exclusivo por parte del administrador.
 
 El módulo **Llaves SSH** permite elegir entre la llave de `root` —la de
-conexión de la consola— y cualquier usuario regular de la máquina. Para un
+conexión de la consola— y cualquier usuario regular de la máquina. Para root,
+`GET /api/keys/root/status` informa si la llave ya existe sin descargarla. La
+llave de root no se regenera desde este módulo: es compartida por todas las
+máquinas registradas y cambiarla dejaría de aceptar la nueva llave en las
+demás. Para los usuarios regulares sí se ofrece «Regenerar», que reemplaza el
+par y deja la llave anterior sin efecto. Para un
 usuario, `POST /api/users/{name}/key` genera el par en el anfitrión, instala
 la pública en `/home/<usuario>/.ssh/authorized_keys`, deshabilita la
 contraseña y devuelve `201`; `GET` descarga la privada. Una llave ya existente
-responde `409` para no sobrescribirla.
+responde `409` para no sobrescribirla, salvo que se envíe
+`?regenerar=true`: en ese caso reemplaza el par anterior y deja la llave
+vieja sin efecto. La interfaz cambia el botón a «Regenerar par de llaves» y
+pide confirmación.
 
 ### 2.4 Entrada del sistema (`/etc/issue`)
 
@@ -219,7 +229,12 @@ operación y traduce el resultado del dominio. Para crear:
 4. si `llaves` es verdadero, genera el par en el anfitrión
    (`ssh-keygen`), instala la pública en
    `/home/<usuario>/.ssh/authorized_keys` con `700`/`600` y propietario del
-   usuario, y bloquea el acceso por contraseña con `passwd -l`.
+   usuario. Si el formulario incluye contraseña, la asigna con `chpasswd`
+   leyendo un archivo temporal en `/root` (la contraseña no viaja en la
+   orden ni se registra en los logs). El acceso SSH por contraseña queda
+   deshabilitado por la configuración de `sshd`
+   (`PasswordAuthentication no`); el login local y `sudo` con contraseña
+   siguen disponibles.
 
 Las llaves de usuario se guardan en `<config>/vmcons/users/<usuario>_ed25519`;
 la privada solo se entrega por `GET .../key`. La eliminación usa

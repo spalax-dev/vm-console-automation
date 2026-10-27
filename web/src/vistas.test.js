@@ -292,16 +292,23 @@ describe('encendido de la máquina', () => {
     let encendida = false;
 
     vi.stubGlobal('fetch', async (url, opciones) => {
-      const porEncender = (opciones ?? {}).method === 'POST';
+      const metodo = (opciones ?? {}).method ?? 'GET';
+      const porEncender = metodo === 'POST';
 
       if (porEncender) {
         encendida = true;
       }
 
       const estado = encendida ? 'running' : 'poweroff';
-      const cuerpo = porEncender
-        ? { nombre: 'debian-1', uuid: 'uuid-1', estado, activa: true }
-        : { maquinas: [{ nombre: 'debian-1', uuid: 'uuid-1', estado, activa: true }] };
+      let cuerpo;
+
+      if (porEncender) {
+        cuerpo = { nombre: 'debian-1', uuid: 'uuid-1', estado, activa: true };
+      } else if (url.includes('/session')) {
+        cuerpo = { vm: 'debian-1', conector: 'ssh', ip: '192.168.1.16', estado };
+      } else {
+        cuerpo = { maquinas: [{ nombre: 'debian-1', uuid: 'uuid-1', estado, activa: true }] };
+      }
 
       return {
         ok: true,
@@ -327,8 +334,16 @@ describe('encendido de la máquina', () => {
     boton.click();
 
     await vi.waitFor(() => {
-      expect(boton.classList.contains('hidden')).toBe(true);
+      expect(document.querySelector('#vm-power-overlay')).not.toBeNull();
     });
+
+    await vi.waitFor(() => {
+      expect(boton.classList.contains('hidden')).toBe(true);
+    }, { timeout: 3000 });
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('#vm-power-overlay')).toBeNull();
+    }, { timeout: 3000 });
   });
 
   it('oculta el encendido si la máquina ya está en ejecución', async () => {
@@ -576,8 +591,15 @@ describe('configuración de /etc/issue', () => {
 describe('llaves SSH', () => {
   it('permite elegir root o un usuario y muestra su ruta', async () => {
     vi.stubGlobal('fetch', async (url) => {
-      const cuerpo = url.includes('/users')
-        ? { usuarios: [{ nombre: 'alumno', sudo: false, llaves: false, uid: '1001', home: '/home/alumno' }] }
+      const cuerpo = url.includes('/keys/root/status')
+        ? { existe: true }
+        : url.includes('/users')
+        ? {
+            usuarios: [
+              { nombre: 'alumno', sudo: false, llaves: false, uid: '1001', home: '/home/alumno' },
+              { nombre: 'andrey', sudo: false, llaves: true, uid: '1002', home: '/home/andrey' },
+            ],
+          }
         : {};
 
       return {
@@ -594,12 +616,15 @@ describe('llaves SSH', () => {
     document.body.appendChild(vista);
 
     await vi.waitFor(() => {
-      expect(vista.querySelector('#llave-usuario').options).toHaveLength(2);
+      expect(vista.querySelector('#llave-usuario').options).toHaveLength(3);
     });
 
     const select = vista.querySelector('#llave-usuario');
 
     expect(select.options[0].textContent).toContain('root (conexión)');
+    expect(vista.querySelector('#llave-estado').textContent).toBe('generada');
+    expect(vista.querySelector('#llave-generar').textContent).toContain('La llave de conexión ya existe');
+    expect(vista.querySelector('#llave-generar').disabled).toBe(true);
 
     select.value = 'alumno';
     select.dispatchEvent(new Event('change'));
@@ -607,5 +632,12 @@ describe('llaves SSH', () => {
     expect(vista.querySelector('#llave-titulo').textContent).toContain('alumno');
     expect(vista.querySelector('#llave-descripcion').textContent).toContain('/home/alumno/.ssh/authorized_keys');
     expect(vista.querySelector('#llave-estado').textContent).toBe('no generada');
+    expect(vista.querySelector('#llave-generar').textContent).toContain('Generar par de llaves');
+
+    select.value = 'andrey';
+    select.dispatchEvent(new Event('change'));
+
+    expect(vista.querySelector('#llave-estado').textContent).toBe('generada');
+    expect(vista.querySelector('#llave-generar').textContent).toContain('Regenerar par de llaves');
   });
 });

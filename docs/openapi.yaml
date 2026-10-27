@@ -17,6 +17,7 @@ info:
     | Paquetes | `/api/packages` | `GET`, `POST` |
     | Paquete | `/api/packages/{name}` | `DELETE` |
     | Llave de root | `/api/keys/root` | `GET`, `POST` |
+    | Estado de la llave de root | `/api/keys/root/status` | `GET` |
     | `/etc/issue` | `/api/issue` | `GET`, `PUT` |
     | Hostname | `/api/hostname` | `GET`, `PUT` |
     | Usuarios | `/api/users` | `GET`, `POST` |
@@ -409,6 +410,25 @@ paths:
         '500':
           $ref: '#/components/responses/ErrorInterno'
 
+  /api/keys/root/status:
+    get:
+      tags: [system]
+      summary: Consultar si existe la llave de conexión
+      operationId: getRootKeyStatus
+      responses:
+        '200':
+          description: Estado de la llave privada de root.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [existe]
+                properties:
+                  existe:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
   /api/issue:
     get:
       tags: [system]
@@ -618,6 +638,15 @@ paths:
       operationId: generateUserKey
       parameters:
         - $ref: '#/components/parameters/UserName'
+        - name: regenerar
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: |
+            Reemplaza el par existente. Sin este parámetro, una llave ya
+            generada responde `409`.
       responses:
         '201':
           $ref: '#/components/responses/OperacionCorrecta'
@@ -1504,6 +1533,15 @@ components:
           type: boolean
           default: false
           description: Generar e instalar un par de llaves para el usuario.
+        password:
+          type: string
+          format: password
+          maxLength: 128
+          description: |
+            Contraseña inicial del usuario. Si se omite, la cuenta queda sin
+            contraseña hasta que se le asigne una. Permite el login local y
+            `sudo`; el acceso SSH por contraseña sigue deshabilitado por
+            `PasswordAuthentication no`.
 
     Usuario:
       type: object

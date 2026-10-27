@@ -253,6 +253,8 @@ export const api = {
   llaves: {
     /** @returns {Promise<object>} Resultado de la generación. */
     generarRoot: () => pedir('POST', '/keys/root'),
+    /** @returns {Promise<{existe: boolean}>} Estado de la llave de root. */
+    estadoRoot: () => pedir('GET', '/keys/root/status'),
     /** @returns {Promise<Blob>} Llave privada. */
     descargarRoot: () => pedir('GET', '/keys/root', { descarga: true }),
   },
@@ -311,9 +313,13 @@ export const api = {
      * Genera e instala un par de llaves para el usuario.
      *
      * @param {string} nombre Nombre del usuario.
+     * @param {{regenerar?: boolean}} [opciones] Reemplazar el par existente.
      * @returns {Promise<object>} Resultado de la operación.
      */
-    generarLlave: (nombre) => pedir('POST', `/users/${encodeURIComponent(nombre)}/key`),
+    generarLlave: (nombre, opciones = {}) =>
+      pedir('POST', `/users/${encodeURIComponent(nombre)}/key`, {
+        consulta: { regenerar: opciones.regenerar ? true : undefined },
+      }),
   },
 
   /** Unidades systemd (numeral 3.3). */

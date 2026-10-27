@@ -34,15 +34,6 @@ export function VMSelector({ alVincular } = {}) {
             autocomplete="off" spellcheck="false" aria-label="Buscar máquina virtual">
         </div>
         <ul id="vm-lista" role="listbox" aria-label="Máquinas virtuales" class="max-h-[280px] overflow-auto"></ul>
-        <div id="vm-progreso" class="hidden flex-col gap-1 px-2 py-1.5 border-t border-vm-border" aria-live="polite">
-          <div class="flex items-center justify-between text-[10px] text-vm-fgSecondary">
-            <span id="vm-progreso-texto">Encendiendo la máquina…</span>
-            <i data-lucide="loader-2" class="w-3 h-3 text-vm-accent animate-spin"></i>
-          </div>
-          <div class="h-1 w-full bg-vm-bg border border-vm-border overflow-hidden">
-            <div class="barra-indeterminada h-full bg-vm-accent"></div>
-          </div>
-        </div>
         <footer id="vm-pie" class="px-2 py-1 border-t border-vm-border text-[10px] text-vm-fgSecondary"></footer>
       </div>
     </div>
@@ -65,8 +56,6 @@ export function VMSelector({ alVincular } = {}) {
   const pie = el.querySelector('#vm-pie');
   const encender = el.querySelector('#vm-encender');
   const olvidar = el.querySelector('#vm-olvidar');
-  const progreso = el.querySelector('#vm-progreso');
-  const progresoTexto = el.querySelector('#vm-progreso-texto');
 
   /** Máquinas recibidas en la última consulta. */
   let maquinas = [];
@@ -324,8 +313,142 @@ export function VMSelector({ alVincular } = {}) {
     }
   });
 
+  /** Modal activo del encendido. */
+  let modal = null;
+
+  /** Indica que el usuario cerró el modal y ya no se espera la sesión. */
+  let cancelado = false;
+
+  /** Cierra el modal de encendido. */
+  const cerrarModal = () => {
+    modal?.overlay.remove();
+    modal = null;
+  };
+
   /**
-   * Espera a que la máquina arranque y la sesión esté disponible.
+   * Abre el modal de progreso del encendido.
+   *
+   * @param {string} nombre Nombre de la máquina.
+   * @returns {object} Referencias del modal.
+   */
+  const crearModal = (nombre) => {
+    cerrarModal();
+    cancelado = false;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'vm-power-overlay';
+    overlay.className = 'fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-3';
+    overlay.innerHTML = `
+      <section class="card w-[440px] max-w-[94vw] p-3 flex flex-col gap-2" role="dialog" aria-modal="true" aria-labelledby="vm-power-titulo">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-1.5"><i data-lucide="power" class="w-4 h-4"></i><span id="vm-power-titulo" class="text-[13px] font-medium">Encendiendo ${escapar(nombre)}…</span></div>
+          <button id="vm-power-cerrar" type="button" class="btn h-vm-btn px-1.5" title="Cerrar"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+        <div class="h-1 w-full bg-vm-bg border border-vm-border overflow-hidden">
+          <div class="barra-indeterminada h-full bg-vm-accent"></div>
+        </div>
+        <p id="vm-power-estado" class="text-[12px] text-vm-fgSecondary" aria-live="polite">La máquina está arrancando…</p>
+        <p id="vm-power-motivo" class="text-[11px] text-vm-accent hidden"></p>
+        <div id="vm-power-acciones" class="hidden gap-2 justify-end">
+          <button id="vm-power-ocultar" type="button" class="btn">Ocultar de la lista</button>
+          <button id="vm-power-mantener" type="button" class="btn btn-primary">Mantener en la lista</button>
+        </div>
+      </section>
+    `;
+
+    document.body.appendChild(overlay);
+    renderIcons(overlay);
+
+    const refs = {
+      overlay,
+      titulo: overlay.querySelector('#vm-power-titulo'),
+      estado: overlay.querySelector('#vm-power-estado'),
+      motivo: overlay.querySelector('#vm-power-motivo'),
+      acciones: overlay.querySelector('#vm-power-acciones'),
+      cerrar: overlay.querySelector('#vm-power-cerrar'),
+      ocultar: overlay.querySelector('#vm-power-ocultar'),
+      mantener: overlay.querySelector('#vm-power-mantener'),
+    };
+
+    refs.cerrar.addEventListener('click', () => {
+      cancelado = true;
+      cerrarModal();
+    });
+
+    refs.ocultar.addEventListener('click', () => {
+      ocultas.add(nombre);
+      guardarOcultas();
+      cancelado = true;
+      cerrarModal();
+      pintar();
+      actualizarPie();
+    });
+
+    refs.mantener.addEventListener('click', () => {
+      refs.acciones.classList.add('hidden');
+      refs.acciones.classList.remove('flex');
+      refs.estado.textContent = 'La máquina seguirá en la lista. Puedes cerrar este aviso cuando termine de arrancar.';
+    });
+
+    modal = refs;
+
+    return refs;
+  };
+
+  /**
+   * Actualiza el texto y las acciones del modal.
+   *
+   * @param {{estado?: string, motivo?: string, acciones?: boolean}} cambio Cambio.
+   */
+  const actualizarModal = ({ estado, motivo, acciones = false }) => {
+    if (!modal) {
+      return;
+    }
+
+    if (estado) {
+      modal.estado.textContent = estado;
+    }
+
+    if (motivo) {
+      modal.motivo.textContent = motivo;
+      modal.motivo.classList.remove('hidden');
+    } else {
+      modal.motivo.textContent = '';
+      modal.motivo.classList.add('hidden');
+    }
+
+    modal.acciones.classList.toggle('hidden', !acciones);
+    modal.acciones.classList.toggle('flex', acciones);
+  };
+
+  /**
+   * Consulta el diagnóstico y devuelve el motivo por el que la máquina
+   * no es administrable.
+   *
+   * @returns {Promise<string>} Detalle del diagnóstico o cadena vacía.
+   */
+  const motivoSinGuestAdditions = async () => {
+    try {
+      const diagnostico = await api.sesion.diagnostico();
+      const problemas = diagnostico.problemas ?? [];
+      const sinGuestAdditions = (diagnostico.guest_additions_run_level ?? 0) < 2;
+
+      if (!sinGuestAdditions && problemas.length === 0) {
+        return '';
+      }
+
+      return problemas.length > 0
+        ? problemas.join(' ')
+        : 'Guest Additions no está listo.';
+    } catch {
+      return '';
+    }
+  };
+
+  /**
+   * Espera a que la máquina arranque y la sesión esté disponible. El
+   * aviso de Guest Additions no bloquea la espera: se muestra en el
+   * modal y el sondeo continúa.
    *
    * @param {string} nombre Nombre de la máquina.
    * @returns {Promise<object|null>} Sesión disponible o null si expira.
@@ -335,32 +458,10 @@ export function VMSelector({ alVincular } = {}) {
     const limite = 90_000;
     let avisoMostrado = false;
 
-    /**
-     * Consulta el diagnóstico y devuelve el motivo por el que la máquina
-     * no es administrable, si Guest Additions no está listo.
-     *
-     * @returns {Promise<string>} Detalle del diagnóstico o cadena vacía.
-     */
-    const motivoSinGuestAdditions = async () => {
-      try {
-        const diagnostico = await api.sesion.diagnostico();
-        const problemas = diagnostico.problemas ?? [];
-        const sinGuestAdditions = (diagnostico.guest_additions_run_level ?? 0) < 2;
-
-        if (!sinGuestAdditions && problemas.length === 0) {
-          return '';
-        }
-
-        return problemas.length > 0
-          ? problemas.join(' ')
-          : 'Guest Additions no está listo.';
-      } catch {
-        return '';
-      }
-    };
-
     while (Date.now() - inicio < limite) {
-      await new Promise((resolver) => window.setTimeout(resolver, 2000));
+      if (cancelado) {
+        return null;
+      }
 
       try {
         const sesion = await api.sesion.obtener();
@@ -381,40 +482,26 @@ export function VMSelector({ alVincular } = {}) {
       const transcurrido = Math.floor((Date.now() - inicio) / 1000);
       const actual = maquinas.find((maquina) => maquina.nombre === nombre);
 
-      if (!avisoMostrado && actual?.administrable === false && !ocultas.has(nombre) && transcurrido >= 12) {
-        const motivo = actual.advertencia || (await motivoSinGuestAdditions()) || 'Guest Additions no está disponible';
-        const ocultar = window.confirm(
-          `No es posible conectarse con ${nombre} porque no tiene Guest Additions.\n\n` +
-          'Aceptar: ocultar la máquina de la lista.\nCancelar: mantenerla en la lista.',
-        );
+      if (!avisoMostrado && transcurrido >= 30 && actual?.administrable === false) {
+        const motivo = actual.advertencia || (await motivoSinGuestAdditions());
 
         avisoMostrado = true;
-
-        if (ocultar) {
-          ocultas.add(nombre);
-        } else {
-          ocultas.delete(nombre);
-        }
-
-        guardarOcultas();
-        await cargar('');
-
-        progresoTexto.textContent = ocultar
-          ? `${nombre} no es administrable: ${motivo}. Se ocultó de la lista.`
-          : `${nombre} no es administrable: ${motivo}. Se mantiene en la lista.`;
-        pie.textContent = ocultar
-          ? `${nombre} está encendida, pero no tiene Guest Additions; se ocultó de la lista.`
-          : `${nombre} está encendida, pero no tiene Guest Additions; se mantiene con el aviso.`;
-        pie.className = 'px-2 py-1 border-t border-vm-border text-[10px] text-vm-accent';
+        actualizarModal({
+          estado: `${nombre} sigue arrancando. Aún no se detecta Guest Additions; puedes esperar, ocultarla o mantenerla en la lista.`,
+          motivo,
+          acciones: true,
+        });
       }
 
       if (!avisoMostrado) {
         if (transcurrido >= 30) {
-          progresoTexto.textContent = 'Esperando Guest Additions o SSH…';
+          actualizarModal({ estado: 'Esperando Guest Additions o SSH…' });
         } else if (transcurrido >= 8) {
-          progresoTexto.textContent = 'Esperando a que arranque el sistema…';
+          actualizarModal({ estado: 'Esperando a que arranque el sistema…' });
         }
       }
+
+      await new Promise((resolver) => window.setTimeout(resolver, 2000));
     }
 
     return null;
@@ -429,12 +516,7 @@ export function VMSelector({ alVincular } = {}) {
     encender.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>';
     renderIcons(encender);
 
-    // El progreso vive dentro del panel: hay que abrirlo para que se vea.
-    panel.classList.remove('hidden');
-    boton.setAttribute('aria-expanded', 'true');
-    progreso.classList.remove('hidden');
-    progreso.classList.add('flex');
-    progresoTexto.textContent = `Encendiendo ${activa.nombre}…`;
+    crearModal(activa.nombre);
     pie.textContent = 'La máquina está arrancando…';
     pie.className = 'px-2 py-1 border-t border-vm-border text-[10px] text-vm-fgSecondary';
 
@@ -442,13 +524,13 @@ export function VMSelector({ alVincular } = {}) {
       const maquina = await api.maquinas.encender(activa.nombre);
 
       marcarActiva({ ...maquina, activa: true });
-      progresoTexto.textContent = `${maquina.nombre} encendida. Esperando la sesión…`;
+      actualizarModal({ estado: `${maquina.nombre} encendida. Esperando la sesión…` });
       pie.textContent = `${maquina.nombre} está en ejecución; esperando Guest Additions o SSH…`;
 
       const sesion = await esperarArranque(maquina.nombre);
 
       if (sesion) {
-        progresoTexto.textContent = `${maquina.nombre} en ejecución y sesión disponible.`;
+        actualizarModal({ estado: `${maquina.nombre} en ejecución y sesión disponible.` });
         pie.textContent = `${maquina.nombre} está en ejecución`;
 
         if (alVincular) {
@@ -456,31 +538,29 @@ export function VMSelector({ alVincular } = {}) {
         }
 
         await cargar('');
-        await new Promise((resolver) => window.setTimeout(resolver, 800));
-      } else {
+        window.setTimeout(cerrarModal, 900);
+      } else if (!cancelado) {
         const motivo = await motivoSinGuestAdditions();
-        progresoTexto.textContent = motivo
-          ? `${maquina.nombre} no es administrable: ${motivo}`
-          : `${maquina.nombre} está encendida, pero Guest Additions/SSH aún no responde.`;
+
+        actualizarModal({
+          estado: motivo
+            ? `${maquina.nombre} está encendida, pero no se puede administrar todavía.`
+            : `${maquina.nombre} está encendida, pero Guest Additions/SSH aún no responde.`,
+          motivo,
+          acciones: true,
+        });
         pie.textContent = motivo
-          ? `${maquina.nombre} está encendida, pero no tiene Guest Additions disponibles.`
+          ? `${maquina.nombre} está encendida; revisa el aviso de Guest Additions.`
           : 'La máquina está encendida; actualiza en unos segundos.';
         pie.className = motivo
           ? 'px-2 py-1 border-t border-vm-border text-[10px] text-vm-accent'
           : 'px-2 py-1 border-t border-vm-border text-[10px] text-vm-fgSecondary';
-        panel.classList.remove('hidden');
-        boton.setAttribute('aria-expanded', 'true');
-        encender.disabled = false;
       }
     } catch (error) {
+      actualizarModal({ estado: mensajeDeError(error), acciones: true });
       pie.textContent = mensajeDeError(error);
       pie.className = 'px-2 py-1 border-t border-vm-border text-[10px] text-vm-accent';
-      panel.classList.remove('hidden');
-      boton.setAttribute('aria-expanded', 'true');
-      encender.disabled = false;
     } finally {
-      progreso.classList.add('hidden');
-      progreso.classList.remove('flex');
       encender.innerHTML = '<i data-lucide="power" class="w-4 h-4"></i>';
       renderIcons(encender);
       encender.disabled = false;

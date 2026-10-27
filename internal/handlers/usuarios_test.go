@@ -33,6 +33,8 @@ type stubUsers struct {
 	created      int
 	deleted      int
 	generated    int
+	password     string
+	regenerate   bool
 }
 
 // List devuelve la lista preprogramada.
@@ -48,10 +50,11 @@ func (s *stubUsers) Get(_ context.Context, name string) (services.User, error) {
 }
 
 // Create registra los argumentos y devuelve el resultado.
-func (s *stubUsers) Create(_ context.Context, name string, sudo, keys bool) (services.Outcome, error) {
+func (s *stubUsers) Create(_ context.Context, name string, sudo, keys bool, password string) (services.Outcome, error) {
 	s.name = name
 	s.sudo = sudo
 	s.keys = keys
+	s.password = password
 	s.created++
 
 	return s.result, s.err
@@ -67,8 +70,9 @@ func (s *stubUsers) Delete(_ context.Context, name string, files bool) (services
 }
 
 // GenerateKey registra la generación y devuelve el resultado.
-func (s *stubUsers) GenerateKey(_ context.Context, name string) (services.Outcome, error) {
+func (s *stubUsers) GenerateKey(_ context.Context, name string, regenerate bool) (services.Outcome, error) {
 	s.name = name
+	s.regenerate = regenerate
 	s.generated++
 
 	return s.result, s.err
@@ -114,7 +118,7 @@ func TestUsersCreate(t *testing.T) {
 	service := &stubUsers{result: services.Outcome{Message: "Usuario «jorge» creado."}}
 
 	rec := runTestCase(t, NewUsers(service).Collection, pathUsers, testCaseRequest{
-		name: "crear", method: http.MethodPost, body: `{"nombre":"jorge","sudo":true,"llaves":true}`,
+		name: "crear", method: http.MethodPost, body: `{"nombre":"jorge","sudo":true,"llaves":true,"password":"clave-123"}`,
 	})
 
 	if rec.Code != http.StatusCreated {
@@ -125,8 +129,8 @@ func TestUsersCreate(t *testing.T) {
 		t.Errorf("Location = %q, want %q", got, pathUserJorge)
 	}
 
-	if service.created != 1 || !service.sudo || !service.keys {
-		t.Errorf("Crear() = %+v, want jorge con sudo y llaves", service)
+	if service.created != 1 || !service.sudo || !service.keys || service.password != "clave-123" {
+		t.Errorf("Crear() = %+v, want jorge con sudo, llaves y contraseña", service)
 	}
 }
 
@@ -154,6 +158,7 @@ func TestUsersValidacion(t *testing.T) {
 	testCases := []testCaseRequest{
 		{name: "con mayúsculas", method: http.MethodPost, body: `{"nombre":"José","sudo":false}`, code: http.StatusBadRequest, field: nameField},
 		{name: "root", method: http.MethodPost, body: `{"nombre":"root","sudo":true}`, code: http.StatusBadRequest, field: nameField},
+		{name: "contraseña con salto", method: http.MethodPost, body: `{"nombre":"jorge","password":"a\nb"}`, code: http.StatusBadRequest, field: passwordField},
 		{name: testCaseBodyInvalid, method: http.MethodPost, body: `{`, code: http.StatusBadRequest},
 		{name: testCaseMethodNotPermitido, method: http.MethodPut, code: http.StatusMethodNotAllowed},
 	}
@@ -430,4 +435,20 @@ func TestUsersGenerateKeyRoot(t *testing.T) {
 		method: http.MethodPost,
 		code:   http.StatusBadRequest,
 	})
+}
+
+// TestUsersGenerateKeyRegenerate comprueba la opción de regenerar.
+func TestUsersGenerateKeyRegenerate(t *testing.T) {
+	t.Parallel()
+
+	service := &stubUsers{result: services.Outcome{Message: "Llave regenerada."}}
+	runTestCaseWithPath(t, NewUsers(service).Key, pathUserJorge+"/key?regenerar=true", nameParam, userJorge, testCaseRequest{
+		name:   "regenerar llave",
+		method: http.MethodPost,
+		code:   http.StatusCreated,
+	})
+
+	if !service.regenerate {
+		t.Error("regenerate = false, want true")
+	}
 }

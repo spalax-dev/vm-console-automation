@@ -111,7 +111,7 @@ func validatePath(field, path string) error {
 	case strings.ContainsAny(path, "*?[]{}"):
 		return invalidField(field, "no puede contener comodines de shell")
 	case strings.ContainsRune(path, 0):
-		return invalidField(field, "no puede contener el carácter NUL")
+		return invalidField(field, msgNul)
 	default:
 		return nil
 	}
@@ -124,7 +124,29 @@ func validateMessageIssue(message string) error {
 	case utf8.RuneCountInString(message) > maxMessageIssue:
 		return invalidField(messageField, "no puede superar los 512 caracteres")
 	case strings.ContainsRune(message, 0):
-		return invalidField(messageField, "no puede contener el carácter NUL")
+		return invalidField(messageField, msgNul)
+	default:
+		return nil
+	}
+}
+
+// msgNul es el error común de los campos que no admiten NUL.
+const msgNul = "no puede contener el carácter NUL"
+
+// maxPasswordUser es la longitud máxima de la contraseña de un usuario.
+const maxPasswordUser = 128
+
+// validatePasswordUser comprueba la contraseña opcional de una cuenta.
+func validatePasswordUser(password string) error {
+	switch {
+	case password == "":
+		return nil
+	case utf8.RuneCountInString(password) > maxPasswordUser:
+		return invalidField(passwordField, "no puede superar los 128 caracteres")
+	case strings.ContainsAny(password, "\r\n"):
+		return invalidField(passwordField, "no puede contener saltos de línea")
+	case strings.ContainsRune(password, 0):
+		return invalidField(passwordField, msgNul)
 	default:
 		return nil
 	}

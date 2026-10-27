@@ -147,8 +147,10 @@ El selector de máquina filtra por red: incluye las máquinas con la primera
 interfaz en modo puente u host-only y marca cada una como administrable o
 no. Las apagadas se listan para encenderlas, las registradas usan SSH y las
 encendidas sin registro necesitan Guest Additions. Si una encendida no las
-tiene, se muestra con el aviso «Sin Guest Additions» y la interfaz pregunta
-si ocultarla o mantenerla; la preferencia se guarda en el navegador. En NAT,
+tiene, se muestra con el aviso «Sin Guest Additions». Al encenderla aparece
+un modal de progreso; si tras 30 segundos sigue sin detectarse, explica el
+motivo y permite ocultarla o mantenerla sin detener el sondeo. La
+preferencia se guarda en el navegador. En NAT,
 red interna o sin adaptador el anfitrión no alcanza la IP.
 
 Toda operación sigue el ciclo de la \cref{fig:flujo-proceso}: validación

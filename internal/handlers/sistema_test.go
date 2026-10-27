@@ -88,6 +88,7 @@ func (s *stubPackages) Delete(_ context.Context, name string) (services.Outcome,
 // stubKeys es un servicio de llaves falso con resultados
 // preprogramados.
 type stubKeys struct {
+	exists       bool
 	result       services.Outcome
 	err          error
 	name         string
@@ -101,6 +102,11 @@ func (s *stubKeys) Generate(context.Context) (services.Outcome, error) {
 	s.generadas++
 
 	return s.result, s.err
+}
+
+// Exists informa si la llave está en el anfitrión.
+func (s *stubKeys) Exists() bool {
+	return s.exists
 }
 
 // Download devuelve la llave preprogramada.
@@ -402,6 +408,19 @@ func TestPkgDelete(t *testing.T) {
 
 	if rec.Body.Len() != 0 {
 		t.Errorf("cuerpo = %q, want vacío", rec.Body.String())
+	}
+}
+
+// TestSSHKeyRootStatus informa si la llave de conexión existe.
+func TestSSHKeyRootStatus(t *testing.T) {
+	t.Parallel()
+
+	service := &stubKeys{exists: true}
+	rec := runTestCase(t, NewSystem(&stubPackages{}, service, &stubIssue{}, &stubHostname{}).RootKeyStatus,
+		pathSSHKeyRoot+"/status", testCaseRequest{name: "estado de la llave", method: http.MethodGet, code: http.StatusOK})
+
+	if !strings.Contains(rec.Body.String(), `"existe":true`) {
+		t.Errorf("cuerpo = %q, want existe=true", rec.Body.String())
 	}
 }
 

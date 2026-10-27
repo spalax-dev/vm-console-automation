@@ -178,10 +178,27 @@ func (v *Binding) administrable(ctx context.Context, machine domain.VM) (visible
 	}
 
 	if _, err := v.machine.Address(ctx, target); err != nil {
-		return true, false, "Guest Additions no está disponible"
+		return true, false, v.warningGuestAdditions(ctx, target)
 	}
 
 	return true, true, ""
+}
+
+// warningGuestAdditions explica por qué una máquina encendida sin registro
+// no publica una dirección utilizable.
+func (v *Binding) warningGuestAdditions(ctx context.Context, target domain.Target) string {
+	guest, err := v.machine.GuestAdditions(ctx, target)
+
+	switch {
+	case err != nil:
+		return "Guest Additions no está disponible"
+	case guest.Version == "":
+		return "Guest Additions no está instalado"
+	case guest.RunLevel < 2:
+		return fmt.Sprintf("Guest Additions no está listo (nivel %d)", guest.RunLevel)
+	default:
+		return "Guest Additions no publica la dirección"
+	}
 }
 
 // Bind establece la máquina que administra la consola. Acepta el
