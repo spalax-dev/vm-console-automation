@@ -1,9 +1,8 @@
 // @vitest-environment happy-dom
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
 import { agregar, leer, limpiar, setActiveVM } from './resultados.js';
-import { ResultPanel, refreshResultPanel, showResult } from './components/ResultPanel.js';
+import { ResultPanel, refreshResultPanel, showResult, showProgress, clearProgress } from './components/ResultPanel.js';
 
 /** Clave con la que se guarda el historial. */
 const CLAVE = 'vmcons:resultados';
@@ -221,6 +220,41 @@ describe('panel de resultado', () => {
     document.body.appendChild(segundo);
 
     expect(segundo.querySelector('#result-body').textContent).toContain('Se instaló nano');
+  });
+
+  it('muestra la tarjeta de avance y la retira al llegar el resultado', () => {
+    const panel = ResultPanel();
+    document.body.appendChild(panel);
+
+    showProgress({ operacion: 'apt-get install -y curl', mensaje: 'Instalando paquete…' });
+
+    const progreso = panel.querySelector('#result-progreso');
+    expect(progreso).not.toBeNull();
+    expect(progreso.textContent).toContain('Instalando paquete…');
+    expect(progreso.textContent).toContain('apt-get install -y curl');
+    expect(panel.querySelector('#result-pie').textContent).toContain('Ejecutando en la máquina virtual…');
+
+    showResult({ ok: true, mensaje: 'Paquete instalado', operacion: 'apt-get install -y curl' });
+
+    expect(panel.querySelector('#result-progreso')).toBeNull();
+    expect(panel.querySelector('#result-body').textContent).toContain('Paquete instalado');
+  });
+
+  it('escucha el evento global vmcons:progreso para mostrar el avance', () => {
+    const panel = ResultPanel();
+    document.body.appendChild(panel);
+
+    document.dispatchEvent(new CustomEvent('vmcons:progreso', {
+      detail: { operacion: 'systemctl restart haproxy', mensaje: 'Reiniciando unidad…' },
+    }));
+
+    const progreso = panel.querySelector('#result-progreso');
+    expect(progreso).not.toBeNull();
+    expect(progreso.textContent).toContain('Reiniciando unidad…');
+    expect(progreso.textContent).toContain('systemctl restart haproxy');
+
+    clearProgress();
+    expect(panel.querySelector('#result-progreso')).toBeNull();
   });
 });
 
