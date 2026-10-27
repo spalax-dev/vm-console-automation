@@ -292,16 +292,23 @@ describe('encendido de la máquina', () => {
     let encendida = false;
 
     vi.stubGlobal('fetch', async (url, opciones) => {
-      const porEncender = (opciones ?? {}).method === 'POST';
+      const metodo = (opciones ?? {}).method ?? 'GET';
+      const porEncender = metodo === 'POST';
 
       if (porEncender) {
         encendida = true;
       }
 
       const estado = encendida ? 'running' : 'poweroff';
-      const cuerpo = porEncender
-        ? { nombre: 'debian-1', uuid: 'uuid-1', estado, activa: true }
-        : { maquinas: [{ nombre: 'debian-1', uuid: 'uuid-1', estado, activa: true }] };
+      let cuerpo;
+
+      if (porEncender) {
+        cuerpo = { nombre: 'debian-1', uuid: 'uuid-1', estado, activa: true };
+      } else if (url.includes('/session')) {
+        cuerpo = { vm: 'debian-1', conector: 'ssh', ip: '192.168.1.16', estado };
+      } else {
+        cuerpo = { maquinas: [{ nombre: 'debian-1', uuid: 'uuid-1', estado, activa: true }] };
+      }
 
       return {
         ok: true,
@@ -327,8 +334,16 @@ describe('encendido de la máquina', () => {
     boton.click();
 
     await vi.waitFor(() => {
-      expect(boton.classList.contains('hidden')).toBe(true);
+      expect(document.querySelector('#vm-power-overlay')).not.toBeNull();
     });
+
+    await vi.waitFor(() => {
+      expect(boton.classList.contains('hidden')).toBe(true);
+    }, { timeout: 3000 });
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('#vm-power-overlay')).toBeNull();
+    }, { timeout: 3000 });
   });
 
   it('oculta el encendido si la máquina ya está en ejecución', async () => {
