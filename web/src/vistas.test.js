@@ -590,7 +590,11 @@ describe('configuración de /etc/issue', () => {
 
 describe('llaves SSH', () => {
   it('permite elegir root o un usuario y muestra su ruta', async () => {
-    vi.stubGlobal('fetch', async (url) => {
+    const llamadas = [];
+
+    vi.stubGlobal('fetch', async (url, opciones = {}) => {
+      llamadas.push(`${opciones.method ?? 'GET'} ${url}`);
+
       const cuerpo = url.includes('/keys/root/status')
         ? { existe: true }
         : url.includes('/users')
@@ -622,7 +626,7 @@ describe('llaves SSH', () => {
     const select = vista.querySelector('#llave-usuario');
 
     expect(select.options[0].textContent).toContain('root (conexión)');
-    expect(vista.querySelector('#llave-estado').textContent).toBe('generada');
+    expect(vista.querySelector('#llave-estado').textContent).toBe('activa');
     expect(vista.querySelector('#llave-generar').textContent).toContain('La llave de conexión ya existe');
     expect(vista.querySelector('#llave-generar').disabled).toBe(true);
 
@@ -631,13 +635,23 @@ describe('llaves SSH', () => {
 
     expect(vista.querySelector('#llave-titulo').textContent).toContain('alumno');
     expect(vista.querySelector('#llave-descripcion').textContent).toContain('/home/alumno/.ssh/authorized_keys');
-    expect(vista.querySelector('#llave-estado').textContent).toBe('no generada');
+    expect(vista.querySelector('#llave-estado').textContent).toBe('sin llave');
     expect(vista.querySelector('#llave-generar').textContent).toContain('Generar par de llaves');
 
     select.value = 'andrey';
     select.dispatchEvent(new Event('change'));
 
-    expect(vista.querySelector('#llave-estado').textContent).toBe('generada');
+    expect(vista.querySelector('#llave-estado').textContent).toBe('activa');
     expect(vista.querySelector('#llave-generar').textContent).toContain('Regenerar par de llaves');
+
+    vista.querySelector('#llave-generar').click();
+
+    expect(vista.querySelector('#llave-confirmacion').classList.contains('hidden')).toBe(false);
+
+    vista.querySelector('#llave-confirmar-regenerar').click();
+
+    await vi.waitFor(() => {
+      expect(llamadas.some((llamada) => llamada.includes('regenerar=true'))).toBe(true);
+    });
   });
 });

@@ -36,6 +36,13 @@ export function renderLlaves() {
             <button id="llave-generar" class="btn btn-primary"><i data-lucide="settings"></i> Generar par de llaves</button>
             <button id="llave-descargar" class="btn"><i data-lucide="download"></i> Descargar llave privada</button>
           </div>
+          <div id="llave-confirmacion" class="hidden flex-col gap-2 border border-vm-accent bg-[#fdf1ef] p-2 text-[11px]">
+            <span id="llave-confirmacion-texto"></span>
+            <div class="flex gap-2 justify-end">
+              <button id="llave-cancelar-regenerar" type="button" class="btn">Cancelar</button>
+              <button id="llave-confirmar-regenerar" type="button" class="btn btn-primary">Regenerar</button>
+            </div>
+          </div>
         </div>
       </section>
       <section class="card border border-vm-accent">
@@ -58,6 +65,13 @@ export function renderLlaves() {
   const aviso = el.querySelector('#llave-aviso');
   const generar = el.querySelector('#llave-generar');
   const descargar = el.querySelector('#llave-descargar');
+  const confirmacion = el.querySelector('#llave-confirmacion');
+  const confirmacionTexto = el.querySelector('#llave-confirmacion-texto');
+  const confirmarRegenerar = el.querySelector('#llave-confirmar-regenerar');
+  const cancelarRegenerar = el.querySelector('#llave-cancelar-regenerar');
+
+  /** Máquina cuya regeneración se está confirmando. */
+  let seleccionPendiente = null;
 
   /** Usuarios regulares de la máquina. */
   let usuarios = [];
@@ -119,7 +133,7 @@ export function renderLlaves() {
       : `Guarda la llave privada en un lugar seguro y no la compartas; quien la posea tendrá acceso a la cuenta «${seleccion}».`;
 
     if (esRoot) {
-      marcar(rootKeyExists ? 'generada' : 'no generada', rootKeyExists ? 'ok' : 'neutro');
+      marcar(rootKeyExists ? 'activa' : 'sin llave', rootKeyExists ? 'ok' : 'neutro');
       generar.disabled = rootKeyExists;
       generar.title = rootKeyExists
         ? 'La llave de root es la llave de conexión compartida; no se regenera desde este módulo.'
@@ -136,7 +150,7 @@ export function renderLlaves() {
 
     const regenerar = Boolean(usuario?.llaves);
 
-    marcar(regenerar ? 'generada' : 'no generada', regenerar ? 'ok' : 'neutro');
+    marcar(regenerar ? 'activa' : 'sin llave', regenerar ? 'ok' : 'neutro');
     generar.disabled = false;
     generar.title = '';
     generar.innerHTML = `<i data-lucide="${regenerar ? 'refresh-cw' : 'settings'}"></i> ${
@@ -170,22 +184,22 @@ export function renderLlaves() {
     actualizar();
   };
 
-  select.addEventListener('change', actualizar);
+  /** Oculta la confirmación de regeneración. */
+  const ocultarConfirmacion = () => {
+    confirmacion.classList.add('hidden');
+    confirmacion.classList.remove('flex');
+    seleccionPendiente = null;
+  };
 
-  generar.addEventListener('click', async () => {
-    const seleccion = select.value || 'root';
+  /**
+   * Ejecuta la generación o regeneración del par.
+   *
+   * @param {string} seleccion Usuario elegido.
+   * @param {boolean} regenerar Si reemplaza el par existente.
+   * @returns {Promise<void>}
+   */
+  const ejecutarGeneracion = async (seleccion, regenerar) => {
     const usuario = usuarios.find((item) => item.nombre === seleccion);
-    const regenerar = seleccion !== 'root' && Boolean(usuario?.llaves);
-
-    if (
-      regenerar &&
-      !window.confirm(
-        `El usuario «${seleccion}» ya tiene llaves. ¿Regenerar el par? La llave anterior dejará de funcionar.`,
-      )
-    ) {
-      return;
-    }
-
     inhabilitar(el, true);
 
     const exito = await ejecutar({
@@ -209,14 +223,46 @@ export function renderLlaves() {
 
       if (seleccion === 'root') {
         rootKeyExists = true;
-        actualizar();
-      } else {
-        actualizar();
       }
-    } else {
-      actualizar();
     }
+
+    actualizar();
+  };
+
+  select.addEventListener('change', () => {
+    ocultarConfirmacion();
+    actualizar();
   });
+
+  generar.addEventListener('click', () => {
+    const seleccion = select.value || 'root';
+    const usuario = usuarios.find((item) => item.nombre === seleccion);
+    const regenerar = seleccion !== 'root' && Boolean(usuario?.llaves);
+
+    if (!regenerar) {
+      ejecutarGeneracion(seleccion, false);
+
+      return;
+    }
+
+    seleccionPendiente = seleccion;
+    confirmacionTexto.textContent = `El usuario «${seleccion}» ya tiene llaves. ¿Regenerar el par? La llave anterior dejará de funcionar.`;
+    confirmacion.classList.remove('hidden');
+    confirmacion.classList.add('flex');
+  });
+
+  confirmarRegenerar.addEventListener('click', () => {
+    const seleccion = seleccionPendiente;
+
+    if (!seleccion) {
+      return;
+    }
+
+    ocultarConfirmacion();
+    ejecutarGeneracion(seleccion, true);
+  });
+
+  cancelarRegenerar.addEventListener('click', ocultarConfirmacion);
 
   descargar.addEventListener('click', async () => {
     const seleccion = select.value || 'root';
@@ -247,7 +293,7 @@ export function renderLlaves() {
     });
 
     inhabilitar(el, false);
-    marcar(exito ? 'generada' : 'no disponible', exito ? 'ok' : 'error');
+    marcar(exito ? 'activa' : 'sin llave', exito ? 'ok' : 'error');
   });
 
   cargarUsuarios();
