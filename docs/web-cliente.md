@@ -132,9 +132,22 @@ Toda vista con datos remotos sigue el mismo ciclo:
 3. **Error**: se muestra el mensaje de `ApiError` y se ofrece reintentar.
 4. **Datos**: se pinta la tabla o el formulario con los valores devueltos.
 
-Las operaciones de escritura envían su resultado al panel lateral de
-resultado, que muestra el mensaje, la orden ejecutada, el código de salida y
-`stderr`. La lista afectada se vuelve a consultar tras una operación exitosa.
+Las operaciones de escritura proporcionan retroalimentación inmediata al
+usuario desde el momento en que se pulsa «Ejecutar»:
+
+- **Botón de acción**: el botón principal se inhabilita y cambia su contenido a
+  un icono giratorio con el texto «Ejecutando…», previniendo envíos dobles.
+- **Notificación flotante (toast)**: se emite una alerta en la esquina inferior
+  derecha (`mostrarAlerta`) indicando que la operación ha iniciado; al finalizar,
+  la misma alerta se actualiza a éxito o error según el resultado.
+- **Tarjeta de avance en el panel**: se despacha el evento `vmcons:progreso`,
+  mostrando una ficha temporal destacada con indicador animado en el panel
+  lateral mientras la máquina procesa la petición.
+
+Al completarse, las operaciones envían su resultado final al panel lateral de
+resultado, que retira la tarjeta temporal y muestra el mensaje, la orden ejecutada,
+el código de salida y `stderr`. La lista afectada se vuelve a consultar tras una
+operación exitosa.
 
 El armazón ocupa la altura de la ventana (`h-dvh`): la barra superior y las
 pestañas quedan fijas, y solo el área de contenido tiene desplazamiento

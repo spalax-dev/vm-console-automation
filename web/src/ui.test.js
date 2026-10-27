@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import { describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from './api.js';
@@ -103,4 +105,56 @@ describe('ejecución de operaciones', () => {
     );
     expect(recargar).not.toHaveBeenCalled();
   });
+
+  it('muestra y actualiza una alerta flotante en el documento', async () => {
+    const { mostrarAlerta } = await import('./ui.js');
+
+    const alerta = mostrarAlerta({
+      tipo: 'progreso',
+      titulo: 'Operación iniciada',
+      mensaje: 'Instalando paquete...',
+    });
+
+    const contenedor = document.getElementById('toast-container');
+    expect(contenedor).not.toBeNull();
+    expect(contenedor.textContent).toContain('Operación iniciada');
+    expect(contenedor.textContent).toContain('Instalando paquete...');
+
+    alerta.actualizar({
+      tipo: 'exito',
+      titulo: 'Operación completada',
+      mensaje: 'Instalación exitosa',
+    });
+
+    expect(contenedor.textContent).toContain('Operación completada');
+    expect(contenedor.textContent).toContain('Instalación exitosa');
+
+    alerta.cerrar();
+  });
+
+  it('inhabilita los controles y muestra indicador en el botón principal', async () => {
+    const { inhabilitar } = await import('./ui.js');
+    const form = document.createElement('form');
+    form.innerHTML = `
+      <input type="text" name="paquete" value="curl" />
+      <button type="submit" class="btn btn-primary">Ejecutar</button>
+    `;
+    document.body.appendChild(form);
+
+    const input = form.querySelector('input');
+    const boton = form.querySelector('button');
+
+    inhabilitar(form, true);
+    expect(input.disabled).toBe(true);
+    expect(boton.disabled).toBe(true);
+    expect(boton.textContent).toContain('Ejecutando…');
+
+    inhabilitar(form, false);
+    expect(input.disabled).toBe(false);
+    expect(boton.disabled).toBe(false);
+    expect(boton.textContent).toContain('Ejecutar');
+
+    form.remove();
+  });
 });
+

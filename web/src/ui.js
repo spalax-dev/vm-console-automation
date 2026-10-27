@@ -5,6 +5,8 @@
  * construcción del objeto que consume el panel de resultado.
  */
 
+import { renderIcons } from './icons.js';
+
 /**
  * Escapa un valor para insertarlo como texto en una plantilla HTML.
  *
@@ -134,19 +136,131 @@ export function filaTabla(columnas, texto, clase = 'text-vm-fgSecondary') {
 }
 
 /**
- * Aplica el atributo `disabled` a todos los controles de un contenedor.
+ * Muestra una alerta flotante temporal en la pantalla para notificar el inicio y fin de una operación.
+ *
+ * @param {object} opciones Parámetros de la alerta.
+ * @param {'progreso'|'exito'|'error'|'info'} [opciones.tipo] Tipo visual de alerta.
+ * @param {string} opciones.titulo Título destacado de la alerta.
+ * @param {string} [opciones.mensaje] Mensaje explicativo o detalle.
+ * @param {number} [opciones.duracion] Tiempo en ms antes de ocultarse (0 = persistente).
+ * @returns {{ actualizar: (nuevasOpciones: object) => void, cerrar: () => void }} Manejador de la alerta.
+ */
+export function mostrarAlerta({ tipo = 'info', titulo = '', mensaje = '', duracion = 0 } = {}) {
+  if (typeof document === 'undefined') {
+    return { actualizar: () => {}, cerrar: () => {} };
+  }
+
+  let contenedor = document.getElementById('toast-container');
+  if (!contenedor) {
+    contenedor = document.createElement('div');
+    contenedor.id = 'toast-container';
+    contenedor.className = 'fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm pointer-events-none';
+    document.body.appendChild(contenedor);
+  }
+
+  const toast = document.createElement('div');
+  let timer = null;
+
+  const aplicarEstilos = (t) => {
+    switch (t) {
+      case 'progreso':
+        toast.className = 'pointer-events-auto flex items-start gap-2.5 p-3 rounded-[3px] border border-[#3B82F6] bg-[#222E3E] text-[#E5E5E5] text-[12px] shadow-2xl transition-all duration-200';
+        return { icono: 'loader-2', claseIcono: 'text-[#60A5FA] animate-spin' };
+      case 'exito':
+        toast.className = 'pointer-events-auto flex items-start gap-2.5 p-3 rounded-[3px] border border-[#2ECC71] bg-[#1E3024] text-[#E5E5E5] text-[12px] shadow-2xl transition-all duration-200';
+        return { icono: 'check-circle-2', claseIcono: 'text-[#2ECC71]' };
+      case 'error':
+        toast.className = 'pointer-events-auto flex items-start gap-2.5 p-3 rounded-[3px] border border-vm-accent bg-[#352120] text-[#E5E5E5] text-[12px] shadow-2xl transition-all duration-200';
+        return { icono: 'alert-triangle', claseIcono: 'text-vm-accent' };
+      default:
+        toast.className = 'pointer-events-auto flex items-start gap-2.5 p-3 rounded-[3px] border border-[#404040] bg-[#2B2B2B] text-[#E5E5E5] text-[12px] shadow-2xl transition-all duration-200';
+        return { icono: 'info', claseIcono: 'text-[#60A5FA]' };
+    }
+  };
+
+  const renderContenido = (t, tit, msg) => {
+    const { icono, claseIcono } = aplicarEstilos(t);
+    toast.innerHTML = `
+      <i data-lucide="${icono}" class="w-4 h-4 shrink-0 mt-0.5 ${claseIcono}"></i>
+      <div class="flex-1 min-w-0 pr-1">
+        <div class="font-medium text-[#F0F0F0] leading-tight">${escapar(tit)}</div>
+        ${msg ? `<div class="text-[11px] text-[#A0AEC0] mt-1 break-words leading-normal">${escapar(msg)}</div>` : ''}
+      </div>
+      <button type="button" class="toast-cerrar shrink-0 text-[#888888] hover:text-[#FFFFFF] transition-colors p-0.5 ml-1" title="Cerrar">
+        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+      </button>
+    `;
+    renderIcons(toast);
+    toast.querySelector('.toast-cerrar')?.addEventListener('click', cerrar);
+  };
+
+  const cerrar = () => {
+    if (timer) clearTimeout(timer);
+    toast.classList.add('opacity-0', 'translate-y-2');
+    setTimeout(() => toast.remove(), 250);
+  };
+
+  const programarCierre = (ms) => {
+    if (timer) clearTimeout(timer);
+    if (ms > 0) {
+      timer = setTimeout(cerrar, ms);
+    }
+  };
+
+  renderContenido(tipo, titulo, mensaje);
+  contenedor.appendChild(toast);
+
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => {
+      toast.classList.remove('opacity-0', 'translate-y-2');
+    });
+  }
+
+  programarCierre(duracion);
+
+  return {
+    actualizar({ tipo: nuevoTipo = tipo, titulo: nuevoTitulo = titulo, mensaje: nuevoMensaje = mensaje, duracion: nuevaDuracion = 0 }) {
+      renderContenido(nuevoTipo, nuevoTitulo, nuevoMensaje);
+      programarCierre(nuevaDuracion);
+    },
+    cerrar,
+  };
+}
+
+/**
+ * Aplica el atributo `disabled` a todos los controles de un contenedor y
+ * muestra un indicador de carga en el botón de acción principal.
  *
  * @param {HTMLElement} raiz Contenedor con los controles.
  * @param {boolean} deshabilitado Estado que se aplica.
  */
 export function inhabilitar(raiz, deshabilitado) {
+  if (!raiz || typeof raiz.querySelectorAll !== 'function') {
+    return;
+  }
+
   raiz.querySelectorAll('button, input, select, textarea').forEach((control) => {
     control.disabled = deshabilitado;
+
+    if (control.tagName === 'BUTTON' && (control.type === 'submit' || control.classList.contains('btn-primary'))) {
+      if (deshabilitado) {
+        if (!control.dataset.prevHtml) {
+          control.dataset.prevHtml = control.innerHTML;
+        }
+        control.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin inline-block mr-1"></i><span>Ejecutando…</span>';
+        renderIcons(control);
+      } else if (control.dataset.prevHtml) {
+        control.innerHTML = control.dataset.prevHtml;
+        delete control.dataset.prevHtml;
+        renderIcons(control);
+      }
+    }
   });
 }
 
 /**
- * Ejecuta una operación mostrando su avance en el panel de resultado.
+ * Ejecuta una operación mostrando su avance en el panel de resultado y
+ * notificando al usuario mediante una alerta flotante inmediata.
  *
  * @param {object} opciones Opciones de la ejecución.
  * @param {() => Promise<object>} opciones.accion Operación que produce un `ResultadoOperacion`.
@@ -156,10 +270,20 @@ export function inhabilitar(raiz, deshabilitado) {
  * @returns {Promise<boolean>} `true` si la operación terminó correctamente.
  */
 export async function ejecutar({ accion, operacion, recargar, informar }) {
+  if (typeof document !== 'undefined') {
+    document.dispatchEvent(new CustomEvent('vmcons:progreso', { detail: { operacion } }));
+  }
+
+  const alerta = mostrarAlerta({
+    tipo: 'progreso',
+    titulo: 'Operación iniciada',
+    mensaje: operacion ? `Ejecutando «${operacion}»…` : 'Procesando en la máquina virtual…',
+  });
+
   try {
     const resultado = await accion();
 
-    informar({
+    const resultadoFinal = {
       ok: true,
       // Si el servidor no explicó el resultado (por ejemplo, un 204 sin
       // cuerpo), se usa la orden ejecutada para no dejar un mensaje vago.
@@ -169,6 +293,15 @@ export async function ejecutar({ accion, operacion, recargar, informar }) {
       salida: (resultado && resultado.salida) || '',
       stderr: (resultado && resultado.stderr) || '',
       tecnico: (resultado && resultado.tecnico) || '',
+    };
+
+    informar(resultadoFinal);
+
+    alerta.actualizar({
+      tipo: 'exito',
+      titulo: 'Operación completada',
+      mensaje: resultadoFinal.mensaje || (operacion ? `Se completó la orden «${operacion}».` : 'La operación concluyó correctamente.'),
+      duracion: 3500,
     });
 
     if (recargar) {
@@ -177,8 +310,17 @@ export async function ejecutar({ accion, operacion, recargar, informar }) {
 
     return true;
   } catch (error) {
-    informar(resultadoDeError(error, operacion));
+    const errorResultado = resultadoDeError(error, operacion);
+    informar(errorResultado);
+
+    alerta.actualizar({
+      tipo: 'error',
+      titulo: 'Error en la operación',
+      mensaje: errorResultado.mensaje || (error && error.message) || 'Ocurrió un fallo al ejecutar la orden.',
+      duracion: 6000,
+    });
 
     return false;
   }
 }
+

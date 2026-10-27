@@ -43,12 +43,83 @@ export function ResultPanel() {
 
   el.querySelector('#result-limpiar').addEventListener('click', () => {
     limpiar();
+    clearProgress();
     pintar(el);
   });
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('vmcons:progreso', (evento) => {
+      showProgress(evento.detail);
+    });
+  }
 
   pintar(el);
 
   return el;
+}
+
+/**
+ * Muestra una tarjeta temporal de avance mientras una operación se ejecuta.
+ *
+ * @param {object} [opciones] Parámetros del progreso.
+ * @param {string} [opciones.operacion] Orden que se está ejecutando.
+ * @param {string} [opciones.mensaje] Texto descriptivo opcional.
+ */
+export function showProgress({ operacion = '', mensaje = 'Operación en ejecución…' } = {}) {
+  const cuerpo = document.querySelector('#result-body');
+  const pie = document.querySelector('#result-pie');
+
+  if (!cuerpo) {
+    return;
+  }
+
+  const previo = cuerpo.querySelector('#result-progreso');
+  if (previo) {
+    previo.remove();
+  }
+
+  const vacio = cuerpo.querySelector('#result-vacio');
+  if (vacio) {
+    vacio.classList.add('hidden');
+  }
+
+  const el = document.createElement('article');
+  el.id = 'result-progreso';
+  el.className = 'border rounded-[3px] overflow-hidden shrink-0 bg-[#333333] border-[#3B82F6] fade-slide';
+  el.innerHTML = `
+    <div class="flex items-start gap-2 px-2.5 py-2 bg-[#253245]">
+      <i data-lucide="loader-2" class="w-4 h-4 shrink-0 text-[#60A5FA] animate-spin mt-0.5"></i>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-start justify-between gap-2">
+          <span class="text-[12px] font-medium text-[#E5E5E5]">${escapar(mensaje)}</span>
+          <span class="text-[10px] font-mono text-[#888888] shrink-0">${hora(new Date().toISOString())}</span>
+        </div>
+        ${operacion ? `<div class="text-[11px] font-mono text-[#93C5FD] break-all mt-1">${escapar(operacion)}</div>` : ''}
+      </div>
+    </div>
+  `;
+
+  cuerpo.appendChild(el);
+  renderIcons(el);
+  alFinal(cuerpo);
+
+  if (pie) {
+    pie.textContent = 'Ejecutando en la máquina virtual…';
+  }
+}
+
+/**
+ * Retira la tarjeta de progreso en caso de cancelarse o completarse.
+ */
+export function clearProgress() {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  const progreso = document.querySelector('#result-progreso');
+  if (progreso) {
+    progreso.remove();
+  }
 }
 
 /**
@@ -72,6 +143,8 @@ export function showResult({
   stderr = '',
   tecnico = '',
 } = {}) {
+  clearProgress();
+
   agregar({
     ok,
     mensaje: mensaje || describir(ok, operacion),
@@ -108,7 +181,7 @@ function pintar(raiz = document) {
 
   if (historial.length === 0) {
     cuerpo.innerHTML = `
-      <div class="flex-1 shrink-0 flex items-center justify-center text-center">
+      <div id="result-vacio" class="flex-1 shrink-0 flex items-center justify-center text-center">
         <div>
           <div class="text-[12px] text-[#AAAAAA]">Sin operaciones ejecutadas aún</div>
           <div class="text-[11px] text-[#777777] mt-1">Los resultados se conservan al cambiar de módulo.</div>
