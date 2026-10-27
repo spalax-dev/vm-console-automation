@@ -63,6 +63,7 @@ Package handlers expone la API HTTP de la consola: la sesión y el registro de l
   - [func \(h \*System\) Package\(w http.ResponseWriter, r \*http.Request\)](<#System.Package>)
   - [func \(h \*System\) Packages\(w http.ResponseWriter, r \*http.Request\)](<#System.Packages>)
   - [func \(h \*System\) RootKey\(w http.ResponseWriter, r \*http.Request\)](<#System.RootKey>)
+  - [func \(h \*System\) RootKeyStatus\(w http.ResponseWriter, r \*http.Request\)](<#System.RootKeyStatus>)
 - [type Systemd](<#Systemd>)
   - [func NewSystemd\(service SystemdService\) \*Systemd](<#NewSystemd>)
   - [func \(h \*Systemd\) Restarts\(w http.ResponseWriter, r \*http.Request\)](<#Systemd.Restarts>)
@@ -369,7 +370,7 @@ type HistoryService interface {
 ```
 
 <a name="HostnameService"></a>
-## type [HostnameService](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L44-L49>)
+## type [HostnameService](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L46-L51>)
 
 HostnameService lee y cambia el nombre de host y /etc/hosts.
 
@@ -383,7 +384,7 @@ type HostnameService interface {
 ```
 
 <a name="IssueService"></a>
-## type [IssueService](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L36-L41>)
+## type [IssueService](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L38-L43>)
 
 IssueService lee y reemplaza /etc/issue.
 
@@ -397,7 +398,7 @@ type IssueService interface {
 ```
 
 <a name="KeysService"></a>
-## type [KeysService](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L27-L33>)
+## type [KeysService](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L27-L35>)
 
 KeysService genera y entrega las llaves SSH de root.
 
@@ -408,6 +409,8 @@ type KeysService interface {
     Generate(ctx context.Context) (services.Outcome, error)
     // Download devuelve el nombre y el contenido de la llave privada.
     Download() (name string, content []byte, err error)
+    // Exists informa si la llave privada de root está en el anfitrión.
+    Exists() bool
 }
 ```
 
@@ -574,7 +577,7 @@ type SessionRegistration interface {
 ```
 
 <a name="System"></a>
-## type [System](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L53-L58>)
+## type [System](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L55-L60>)
 
 System agrupa los recursos de preparación del sistema \(numeral 3.1 del enunciado\).
 
@@ -585,7 +588,7 @@ type System struct {
 ```
 
 <a name="NewSystem"></a>
-### func [NewSystem](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L62-L67>)
+### func [NewSystem](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L64-L69>)
 
 ```go
 func NewSystem(packages PackagesService, keys KeysService, issue IssueService, hostname HostnameService) *System
@@ -594,7 +597,7 @@ func NewSystem(packages PackagesService, keys KeysService, issue IssueService, h
 NewSystem construye el handler de preparación del sistema con los servicios dados.
 
 <a name="System.Hostname"></a>
-### func \(\*System\) [Hostname](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L341>)
+### func \(\*System\) [Hostname](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L358>)
 
 ```go
 func (h *System) Hostname(w http.ResponseWriter, r *http.Request)
@@ -603,7 +606,7 @@ func (h *System) Hostname(w http.ResponseWriter, r *http.Request)
 Hostname atiende GET y PUT /api/hostname: consulta o reemplaza el nombre de host y su entrada en /etc/hosts.
 
 <a name="System.Issue"></a>
-### func \(\*System\) [Issue](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L261>)
+### func \(\*System\) [Issue](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L278>)
 
 ```go
 func (h *System) Issue(w http.ResponseWriter, r *http.Request)
@@ -612,7 +615,7 @@ func (h *System) Issue(w http.ResponseWriter, r *http.Request)
 Issue atiende GET y PUT /api/issue: consulta o reemplaza el banner previo al inicio de sesión.
 
 <a name="System.Package"></a>
-### func \(\*System\) [Package](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L164>)
+### func \(\*System\) [Package](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L166>)
 
 ```go
 func (h *System) Package(w http.ResponseWriter, r *http.Request)
@@ -621,7 +624,7 @@ func (h *System) Package(w http.ResponseWriter, r *http.Request)
 Package atiende DELETE /api/packages/\{name\}: elimina el paquete indicado en la ruta.
 
 <a name="System.Packages"></a>
-### func \(\*System\) [Packages](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L106>)
+### func \(\*System\) [Packages](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L108>)
 
 ```go
 func (h *System) Packages(w http.ResponseWriter, r *http.Request)
@@ -630,13 +633,22 @@ func (h *System) Packages(w http.ResponseWriter, r *http.Request)
 Packages atiende GET y POST /api/packages: lista los paquetes instalados o instala uno nuevo.
 
 <a name="System.RootKey"></a>
-### func \(\*System\) [RootKey](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L188>)
+### func \(\*System\) [RootKey](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L190>)
 
 ```go
 func (h *System) RootKey(w http.ResponseWriter, r *http.Request)
 ```
 
 RootKey atiende GET y POST /api/keys/root: descarga la llave privada de root o genera un par nuevo.
+
+<a name="System.RootKeyStatus"></a>
+### func \(\*System\) [RootKeyStatus](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/sistema.go#L226>)
+
+```go
+func (h *System) RootKeyStatus(w http.ResponseWriter, r *http.Request)
+```
+
+RootKeyStatus atiende GET /api/keys/root/status: informa si la llave de conexión ya existe, sin descargar la privada.
 
 <a name="Systemd"></a>
 ## type [Systemd](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/systemd.go#L32-L34>)
@@ -737,7 +749,7 @@ func NewUsers(service UsersService) *Users
 NewUsers construye el handler de gestión de usuarios.
 
 <a name="Users.Collection"></a>
-### func \(\*Users\) [Collection](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L64>)
+### func \(\*Users\) [Collection](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L65>)
 
 ```go
 func (h *Users) Collection(w http.ResponseWriter, r *http.Request)
@@ -746,7 +758,7 @@ func (h *Users) Collection(w http.ResponseWriter, r *http.Request)
 Collection atiende GET y POST /api/users: lista los usuarios o crea uno nuevo.
 
 <a name="Users.Key"></a>
-### func \(\*Users\) [Key](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L208>)
+### func \(\*Users\) [Key](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L215>)
 
 ```go
 func (h *Users) Key(w http.ResponseWriter, r *http.Request)
@@ -755,7 +767,7 @@ func (h *Users) Key(w http.ResponseWriter, r *http.Request)
 Key atiende GET y POST /api/users/\{name\}/key: descarga la llave privada o genera un par nuevo para el usuario.
 
 <a name="Users.User"></a>
-### func \(\*Users\) [User](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L137>)
+### func \(\*Users\) [User](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/handlers/usuarios.go#L144>)
 
 ```go
 func (h *Users) User(w http.ResponseWriter, r *http.Request)
@@ -774,14 +786,14 @@ type UsersService interface {
     List(ctx context.Context) ([]services.User, error)
     // Get devuelve una cuenta.
     Get(ctx context.Context, name string) (services.User, error)
-    // Create crea la cuenta con sudo y llaves opcionales.
-    Create(ctx context.Context, name string, sudo, keys bool) (services.Outcome, error)
+    // Create crea la cuenta con sudo, llaves y contraseña opcionales.
+    Create(ctx context.Context, name string, sudo, keys bool, password string) (services.Outcome, error)
     // Delete elimina la cuenta y, si se pide, sus archivos.
     Delete(ctx context.Context, name string, files bool) (services.Outcome, error)
     // DownloadKey devuelve la llave privada de la cuenta.
     DownloadKey(name string) (file string, content []byte, err error)
     // GenerateKey genera e instala un par de llaves para la cuenta.
-    GenerateKey(ctx context.Context, name string) (services.Outcome, error)
+    GenerateKey(ctx context.Context, name string, regenerate bool) (services.Outcome, error)
 }
 ```
 

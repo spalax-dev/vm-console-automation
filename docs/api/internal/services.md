@@ -71,6 +71,7 @@ Package services implementa los casos de uso de la consola: descubre el conector
 - [type Keys](<#Keys>)
   - [func NewKeys\(config KeysConfig\) \*Keys](<#NewKeys>)
   - [func \(l \*Keys\) Download\(\) \(name string, content \[\]byte, err error\)](<#Keys.Download>)
+  - [func \(l \*Keys\) Exists\(\) bool](<#Keys.Exists>)
   - [func \(l \*Keys\) Generate\(ctx context.Context\) \(Outcome, error\)](<#Keys.Generate>)
 - [type KeysConfig](<#KeysConfig>)
 - [type Operation](<#Operation>)
@@ -108,10 +109,10 @@ Package services implementa los casos de uso de la consola: descubre el conector
 - [type User](<#User>)
 - [type Users](<#Users>)
   - [func NewUsers\(config UsersConfig\) \*Users](<#NewUsers>)
-  - [func \(u \*Users\) Create\(ctx context.Context, name string, sudo, keys bool\) \(Outcome, error\)](<#Users.Create>)
+  - [func \(u \*Users\) Create\(ctx context.Context, name string, sudo, keys bool, password string\) \(Outcome, error\)](<#Users.Create>)
   - [func \(u \*Users\) Delete\(ctx context.Context, name string, files bool\) \(Outcome, error\)](<#Users.Delete>)
   - [func \(u \*Users\) DownloadKey\(name string\) \(file string, content \[\]byte, err error\)](<#Users.DownloadKey>)
-  - [func \(u \*Users\) GenerateKey\(ctx context.Context, name string\) \(Outcome, error\)](<#Users.GenerateKey>)
+  - [func \(u \*Users\) GenerateKey\(ctx context.Context, name string, regenerate bool\) \(Outcome, error\)](<#Users.GenerateKey>)
   - [func \(u \*Users\) Get\(ctx context.Context, name string\) \(User, error\)](<#Users.Get>)
   - [func \(u \*Users\) List\(ctx context.Context\) \(\[\]User, error\)](<#Users.List>)
 - [type UsersConfig](<#UsersConfig>)
@@ -353,7 +354,7 @@ func NewBinding(config *BindingConfig) *Binding
 NewBinding construye el servicio con las dependencias dadas.
 
 <a name="Binding.Active"></a>
-### func \(\*Binding\) [Active](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L283>)
+### func \(\*Binding\) [Active](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L300>)
 
 ```go
 func (v *Binding) Active() string
@@ -362,7 +363,7 @@ func (v *Binding) Active() string
 Active devuelve el nombre de la máquina vinculada, o una cadena vacía si la consola todavía no está vinculada con ninguna.
 
 <a name="Binding.Bind"></a>
-### func \(\*Binding\) [Bind](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L191>)
+### func \(\*Binding\) [Bind](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L208>)
 
 ```go
 func (v *Binding) Bind(ctx context.Context, identifier string) (VirtualMachine, error)
@@ -380,7 +381,7 @@ func (v *Binding) List(ctx context.Context, filter string) ([]VirtualMachine, er
 List devuelve las máquinas del inventario marcando la vinculada. Si filtro no está vacío, se compara, sin distinguir mayúsculas, contra el nombre y el UUID.
 
 <a name="Binding.PowerOn"></a>
-### func \(\*Binding\) [PowerOn](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L222>)
+### func \(\*Binding\) [PowerOn](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/vinculacion.go#L239>)
 
 ```go
 func (v *Binding) PowerOn(ctx context.Context, identifier string) (VirtualMachine, error)
@@ -917,13 +918,22 @@ func NewKeys(config KeysConfig) *Keys
 NewKeys construye el servicio de llaves con las dependencias dadas.
 
 <a name="Keys.Download"></a>
-### func \(\*Keys\) [Download](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/llaves.go#L105>)
+### func \(\*Keys\) [Download](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/llaves.go#L112>)
 
 ```go
 func (l *Keys) Download() (name string, content []byte, err error)
 ```
 
 Download devuelve el nombre y el contenido de la llave privada, sin exponerla en los logs.
+
+<a name="Keys.Exists"></a>
+### func \(\*Keys\) [Exists](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/llaves.go#L104>)
+
+```go
+func (l *Keys) Exists() bool
+```
+
+Exists informa si la llave privada de root está en el anfitrión.
 
 <a name="Keys.Generate"></a>
 ### func \(\*Keys\) [Generate](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/llaves.go#L56>)
@@ -1361,13 +1371,13 @@ NewUsers construye el servicio de usuarios con las dependencias dadas.
 ### func \(\*Users\) [Create](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L151>)
 
 ```go
-func (u *Users) Create(ctx context.Context, name string, sudo, keys bool) (Outcome, error)
+func (u *Users) Create(ctx context.Context, name string, sudo, keys bool, password string) (Outcome, error)
 ```
 
 Create crea una cuenta, la agrega a sudo si se pide y genera sus llaves cuando corresponde.
 
 <a name="Users.Delete"></a>
-### func \(\*Users\) [Delete](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L286>)
+### func \(\*Users\) [Delete](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L332>)
 
 ```go
 func (u *Users) Delete(ctx context.Context, name string, files bool) (Outcome, error)
@@ -1376,7 +1386,7 @@ func (u *Users) Delete(ctx context.Context, name string, files bool) (Outcome, e
 Delete elimina una cuenta y, opcionalmente, sus archivos.
 
 <a name="Users.DownloadKey"></a>
-### func \(\*Users\) [DownloadKey](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L334>)
+### func \(\*Users\) [DownloadKey](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L380>)
 
 ```go
 func (u *Users) DownloadKey(name string) (file string, content []byte, err error)
@@ -1385,10 +1395,10 @@ func (u *Users) DownloadKey(name string) (file string, content []byte, err error
 DownloadKey devuelve el nombre y el contenido de la llave privada del usuario.
 
 <a name="Users.GenerateKey"></a>
-### func \(\*Users\) [GenerateKey](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L239>)
+### func \(\*Users\) [GenerateKey](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/services/usuarios.go#L294>)
 
 ```go
-func (u *Users) GenerateKey(ctx context.Context, name string) (Outcome, error)
+func (u *Users) GenerateKey(ctx context.Context, name string, regenerate bool) (Outcome, error)
 ```
 
 GenerateKey crea el par de llaves de un usuario existente, instala la pública en su authorized\_keys y deshabilita el acceso por contraseña.
