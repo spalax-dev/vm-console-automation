@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"net/netip"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -22,9 +23,9 @@ import (
 	"consola-vm/internal/core/ports"
 )
 
-// guestIPv4Property es la propiedad de Guest Additions que publica la
-// dirección IPv4 de la primera interfaz de red de la máquina invitada.
-const guestIPv4Property = "/VirtualBox/GuestInfo/Net/0/V4/IP"
+// guestNetPrefix es el prefijo de las propiedades que publica Guest
+// Additions para cada interfaz de red de la máquina invitada.
+const guestNetPrefix = "/VirtualBox/GuestInfo/Net/"
 
 // defaultBinary es el nombre del programa VBoxManage; en Windows,
 // exec.LookPath resuelve VBoxManage.exe sin necesidad de la extensión.
@@ -229,20 +230,29 @@ func parseList(output string) []domain.VM {
 	return machines
 }
 
-// Address implements ports.Machine: lee la propiedad que publica Guest
-// Additions y devuelve la dirección de la máquina.
+// Address implements ports.Machine: enumera las propiedades que publica
+// Guest Additions y devuelve la dirección IPv4 de la primera interfaz con
+// una dirección utilizable. Si no hay ninguna, distingue entre una máquina
+// sin red conectada y una interfaz sin dirección.
 func (c *Client) Address(ctx context.Context, target domain.Target) (netip.Addr, error) {
-	result, err := c.run(ctx, cmdGuestProperty, "get", target.ID, guestIPv4Property)
+	result, err := c.run(ctx, cmdGuestProperty, "enumerate", target.ID)
 	if err != nil {
 		return netip.Addr{}, fmt.Errorf("guest-additions: leer la dirección de %q: %w", target.ID, err)
 	}
 
-	addr, err := parseAddress(result.Stdout)
-	if err != nil {
-		return netip.Addr{}, fmt.Errorf("guest-additions: leer la dirección de %q: %w", target.ID, err)
+	if addr, found := parseGuestIPv4(result.Stdout); found {
+		return addr, nil
 	}
 
-	return addr, nil
+	if interfaces := c.disconnectedInterfaces(ctx, target); len(interfaces) > 0 {
+		return netip.Addr{}, fmt.Errorf(
+			"guest-additions: la máquina %q no publica ninguna dirección IPv4 porque %s; conecta la red en VirtualBox y vuelve a intentar",
+			target.ID, describeInterfaces(interfaces))
+	}
+
+	return netip.Addr{}, fmt.Errorf(
+		"guest-additions: la máquina %q no publica ninguna dirección IPv4; revisa la red de la máquina y que Guest Additions esté en ejecución",
+		target.ID)
 }
 
 // State implements ports.Machine: consulta el estado de encendido de la
@@ -456,26 +466,150 @@ func sanitizeError(err error, command string) error {
 	return err
 }
 
-// parseAddress extrae la dirección de la salida de «guestproperty get»,
-// cuya última línea tiene la forma «Value: 10.0.2.15».
-func parseAddress(output string) (netip.Addr, error) {
-	const prefix = "Value:"
+// parseGuestIPv4 extrae de «guestproperty enumerate» la primera dirección
+// IPv4 utilizable, en orden de interfaz. Ignora loopback, enlace local y
+// valores que no son direcciones.
+func parseGuestIPv4(output string) (netip.Addr, bool) {
+	best := netip.Addr{}
+	bestIndex := -1
 
 	for _, line := range strings.Split(output, "\n") {
-		value, found := strings.CutPrefix(strings.TrimSpace(line), prefix)
+		key, raw, found := strings.Cut(line, "=")
 		if !found {
 			continue
 		}
 
-		addr, err := netip.ParseAddr(strings.TrimSpace(value))
-		if err != nil {
-			return netip.Addr{}, fmt.Errorf("el valor %q no es una dirección válida: %w", strings.TrimSpace(value), err)
+		index, ok := guestInterfaceIndex(strings.TrimSpace(key))
+		if !ok {
+			continue
 		}
 
-		return addr, nil
+		addr, err := netip.ParseAddr(propertyValue(raw))
+		if err != nil || !usableIPv4(addr) {
+			continue
+		}
+
+		if bestIndex == -1 || index < bestIndex {
+			best, bestIndex = addr, index
+		}
 	}
 
-	return netip.Addr{}, fmt.Errorf("la salida no contiene la propiedad %q", guestIPv4Property)
+	return best, bestIndex != -1
+}
+
+// guestInterfaceIndex traduce una clave «…/Net/<n>/V4/IP» al número de
+// interfaz n; devuelve false para cualquier otra propiedad.
+func guestInterfaceIndex(key string) (int, bool) {
+	rest, found := strings.CutPrefix(key, guestNetPrefix)
+	if !found {
+		return 0, false
+	}
+
+	indexText, field, found := strings.Cut(rest, "/")
+	if !found || field != "V4/IP" {
+		return 0, false
+	}
+
+	index, err := strconv.Atoi(indexText)
+	if err != nil {
+		return 0, false
+	}
+
+	return index, true
+}
+
+// propertyValue extrae el valor entre comillas de una línea de
+// «guestproperty enumerate», que termina con «= 'valor' @ fecha».
+func propertyValue(raw string) string {
+	value, _, _ := strings.Cut(raw, " @ ")
+
+	return strings.Trim(strings.TrimSpace(value), "'")
+}
+
+// usableIPv4 descarta direcciones que no sirven para conectar con la
+// máquina desde el anfitrión.
+func usableIPv4(addr netip.Addr) bool {
+	return addr.Is4() && !addr.IsLoopback() && !addr.IsLinkLocalUnicast() && !addr.IsUnspecified() && !addr.IsMulticast()
+}
+
+// disconnectedInterfaces consulta las interfaces configuradas cuya
+// conexión de cable está desactivada. Un fallo al consultar la máquina no
+// sustituye el error original del descubrimiento.
+func (c *Client) disconnectedInterfaces(ctx context.Context, target domain.Target) []int {
+	result, err := c.run(ctx, cmdShowVMInfo, target.ID, flagMachineReadable)
+	if err != nil {
+		return nil
+	}
+
+	return parseDisconnectedInterfaces(result.Stdout)
+}
+
+// Patrones de las líneas de «showvminfo --machinereadable» que describen
+// cada interfaz de red.
+var (
+	nicPattern   = regexp.MustCompile(`^nic(\d+)="([^"]*)"$`)
+	cablePattern = regexp.MustCompile(`^cableconnected(\d+)="([^"]*)"$`)
+)
+
+// parseDisconnectedInterfaces devuelve los números de las interfaces que
+// tienen un modo de red configurado pero el cable desconectado
+// («nic1="bridged"» con «cableconnected1="off"»).
+func parseDisconnectedInterfaces(output string) []int {
+	modes := map[int]string{}
+	cables := map[int]string{}
+
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimSpace(line)
+
+		if match := nicPattern.FindStringSubmatch(line); match != nil {
+			if index, ok := number(match[1]); ok {
+				modes[index] = match[2]
+			}
+
+			continue
+		}
+
+		if match := cablePattern.FindStringSubmatch(line); match != nil {
+			if index, ok := number(match[1]); ok {
+				cables[index] = match[2]
+			}
+		}
+	}
+
+	interfaces := make([]int, 0, len(modes))
+
+	for index, mode := range modes {
+		if mode != "none" && mode != "null" && cables[index] == "off" {
+			interfaces = append(interfaces, index)
+		}
+	}
+
+	sort.Ints(interfaces)
+
+	return interfaces
+}
+
+// number convierte el número de interfaz capturado por un patrón.
+func number(text string) (int, bool) {
+	value, err := strconv.Atoi(text)
+
+	return value, err == nil
+}
+
+// describeInterfaces redacta la lista de interfaces para el mensaje de
+// error: «la interfaz de red 1 está desconectada» o «las interfaces de
+// red 1 y 2 están desconectadas».
+func describeInterfaces(interfaces []int) string {
+	numbers := make([]string, len(interfaces))
+	for index, number := range interfaces {
+		numbers[index] = strconv.Itoa(number)
+	}
+
+	if len(interfaces) == 1 {
+		return "la interfaz de red " + numbers[0] + " está desconectada"
+	}
+
+	return "las interfaces de red " + strings.Join(numbers, " y ") + " están desconectadas"
 }
 
 // parseState extrae el estado de la salida de «showvminfo

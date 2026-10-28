@@ -6,6 +6,7 @@ package vbox
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -68,11 +69,19 @@ func runningFake() *fakeExecutor {
 	return fake
 }
 
+// TestAddressParsesGuestPropertyValue lee la dirección publicada por
+// Guest Additions en la primera interfaz.
+// guestProperty arma una línea de «guestproperty enumerate» con el mismo
+// formato que imprime VBoxManage.
+func guestProperty(key, value string) string {
+	return fmt.Sprintf("%s = '%s' @ 2026-10-28T19:48:27.000Z\n", key, value)
+}
+
 func TestAddressParsesGuestPropertyValue(t *testing.T) {
 	t.Parallel()
 
 	fake := newFakeExecutor()
-	fake.results["guestproperty"] = domain.Result{Stdout: "Value: 10.0.2.15\n"}
+	fake.results["guestproperty"] = domain.Result{Stdout: guestProperty(`/VirtualBox/GuestInfo/Net/0/V4/IP`, "10.0.2.15")}
 
 	client := New(fake)
 
@@ -86,11 +95,56 @@ func TestAddressParsesGuestPropertyValue(t *testing.T) {
 	}
 }
 
+// TestAddressUsesLaterInterfaceWhenFirstHasNoIP cubre el caso real de una
+// máquina cuyo adaptador 0 no publica dirección pero el 1 sí.
+func TestAddressUsesLaterInterfaceWhenFirstHasNoIP(t *testing.T) {
+	t.Parallel()
+
+	fake := newFakeExecutor()
+	fake.results["guestproperty"] = domain.Result{Stdout: guestProperty(`/VirtualBox/GuestInfo/Net/0/V4/IP`, "") +
+		guestProperty(`/VirtualBox/GuestInfo/Net/1/V4/IP`, "192.168.1.29")}
+
+	client := New(fake)
+
+	addr, err := client.Address(context.Background(), domain.Target{ID: vmID})
+	if err != nil {
+		t.Fatalf("Address() error = %v, want nil", err)
+	}
+
+	if addr.String() != "192.168.1.29" {
+		t.Errorf("Address() = %q, want la dirección de la segunda interfaz", addr.String())
+	}
+}
+
+// TestAddressSkipsUnusableAddresses ignora loopback, enlace local y
+// valores que no son direcciones.
+func TestAddressSkipsUnusableAddresses(t *testing.T) {
+	t.Parallel()
+
+	fake := newFakeExecutor()
+	fake.results["guestproperty"] = domain.Result{Stdout: guestProperty(`/VirtualBox/GuestInfo/Net/0/V4/IP`, "127.0.0.1") +
+		guestProperty(`/VirtualBox/GuestInfo/Net/1/V4/IP`, "169.254.10.20") +
+		guestProperty(`/VirtualBox/GuestInfo/Net/2/V4/IP`, "no-es-una-ip") +
+		guestProperty(`/VirtualBox/GuestInfo/Net/3/V4/IP`, "192.168.1.29")}
+
+	client := New(fake)
+
+	addr, err := client.Address(context.Background(), domain.Target{ID: vmID})
+	if err != nil {
+		t.Fatalf("Address() error = %v, want nil", err)
+	}
+
+	if addr.String() != "192.168.1.29" {
+		t.Errorf("Address() = %q, want la única dirección utilizable", addr.String())
+	}
+}
+
+// TestAddressErrorWhenPropertyMissing comprueba el fallo de enumeración.
 func TestAddressErrorWhenPropertyMissing(t *testing.T) {
 	t.Parallel()
 
 	fake := newFakeExecutor()
-	fake.results["guestproperty"] = domain.Result{Stdout: "Value: \n"}
+	fake.results["guestproperty"] = domain.Result{Stdout: ""}
 	fake.errs["guestproperty"] = errors.New("VERR_NOT_FOUND")
 
 	client := New(fake)
@@ -100,16 +154,45 @@ func TestAddressErrorWhenPropertyMissing(t *testing.T) {
 	}
 }
 
-func TestAddressErrorWhenOutputIsNotAnAddress(t *testing.T) {
+// TestAddressErrorWhenCableDisconnected explica que la máquina no tiene
+// red conectada, en lugar de culpar a Guest Additions.
+func TestAddressErrorWhenCableDisconnected(t *testing.T) {
 	t.Parallel()
 
 	fake := newFakeExecutor()
-	fake.results["guestproperty"] = domain.Result{Stdout: "Value: no-es-una-ip\n"}
+	fake.results["guestproperty"] = domain.Result{Stdout: guestProperty(`/VirtualBox/GuestInfo/Net/Count`, "0")}
+	fake.results["showvminfo"] = domain.Result{Stdout: "nic1=\"bridged\"\ncableconnected1=\"off\"\n"}
 
 	client := New(fake)
 
-	if _, err := client.Address(context.Background(), domain.Target{ID: vmID}); err == nil {
-		t.Fatal("Address() error = nil, want un error cuando el valor no es una dirección")
+	_, err := client.Address(context.Background(), domain.Target{ID: vmID})
+	if err == nil {
+		t.Fatal("Address() error = nil, want el aviso de interfaz desconectada")
+	}
+
+	if !strings.Contains(err.Error(), "desconectada") {
+		t.Errorf("Address() error = %q, want el aviso de cable desconectado", err)
+	}
+}
+
+// TestAddressErrorWhenNoIPv4Published cubre una máquina conectada pero
+// sin dirección publicada.
+func TestAddressErrorWhenNoIPv4Published(t *testing.T) {
+	t.Parallel()
+
+	fake := newFakeExecutor()
+	fake.results["guestproperty"] = domain.Result{Stdout: guestProperty(`/VirtualBox/GuestInfo/Net/Count`, "0")}
+	fake.results["showvminfo"] = domain.Result{Stdout: "nic1=\"bridged\"\ncableconnected1=\"on\"\n"}
+
+	client := New(fake)
+
+	_, err := client.Address(context.Background(), domain.Target{ID: vmID})
+	if err == nil {
+		t.Fatal("Address() error = nil, want un error cuando no hay dirección")
+	}
+
+	if strings.Contains(err.Error(), "desconectada") {
+		t.Errorf("Address() error = %q, no debe culpar al cable si está conectado", err)
 	}
 }
 
@@ -295,7 +378,7 @@ func TestNewAppliesBinaryOption(t *testing.T) {
 	t.Parallel()
 
 	fake := newFakeExecutor()
-	fake.results["guestproperty"] = domain.Result{Stdout: "Value: 192.168.1.50\n"}
+	fake.results["guestproperty"] = domain.Result{Stdout: guestProperty(`/VirtualBox/GuestInfo/Net/0/V4/IP`, "192.168.1.50")}
 
 	customBinary := "C:\\Program Files\\Oracle\\VBoxManage.exe"
 	client := New(fake, WithBinary(customBinary))

@@ -5,7 +5,7 @@ Este documento define cómo funciona la comunicación entre la consola y la máq
 ## Flujo general de conexión
 
 1. La consola se ejecuta en el equipo anfitrión (Windows o GNU/Linux).
-2. Para obtener la dirección IP de la máquina virtual se usa Guest Additions mediante `VBoxManage guestproperty get <vm> /VirtualBox/GuestInfo/Net/0/V4/IP`.
+2. Para obtener la dirección IP de la máquina virtual se enumeran las propiedades de Guest Additions (`VBoxManage guestproperty enumerate <vm>`) y se toma la primera `/VirtualBox/GuestInfo/Net/<n>/V4/IP` utilizable. Si no hay ninguna, se consulta el estado de las interfaces: cuando el cable está desconectado (`cableconnected<n>="off"`) el error lo indica en lugar de culpar a Guest Additions.
 3. Con la IP descubierta se establece la primera conexión a la máquina virtual y se instala/configura el acceso por SSH con llaves.
 4. A partir de ese momento, todas las operaciones sobre la máquina se realizan exclusivamente por SSH. Si una máquina registrada pierde el acceso SSH, la consola no vuelve a Guest Additions: responde `503` para no ocultar el fallo.
 

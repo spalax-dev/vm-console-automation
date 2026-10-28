@@ -380,20 +380,42 @@ func TestSessionRunPasaDirectoryOfTrabajo(t *testing.T) {
 	}
 }
 
-// TestParseAddressIgnoresLinesForeign y falla si no hay propiedad.
-func TestParseAddressIgnoresLinesForeign(t *testing.T) {
+// TestParseGuestIPv4IgnoresForeignLines comprueba que solo se aceptan
+// direcciones publicadas por las interfaces de Guest Additions.
+func TestParseGuestIPv4IgnoresForeignLines(t *testing.T) {
 	t.Parallel()
 
-	if _, err := parseAddress("Address: 10.0.2.15"); err == nil {
-		t.Error("parseAddress() error = nil, want el error de propiedad ausente")
+	if _, found := parseGuestIPv4("Address: 10.0.2.15"); found {
+		t.Error("parseGuestIPv4() = true, want ignorar las líneas ajenas")
 	}
 
-	if _, err := parseAddress(""); err == nil {
-		t.Error("parseAddress() error = nil, want el error de propiedad ausente")
+	if _, found := parseGuestIPv4(""); found {
+		t.Error("parseGuestIPv4() = true, want false sin propiedades")
 	}
 
-	addr, err := parseAddress("IP: 10.0.2.15\nValue: 10.0.2.16\n")
-	if err != nil || addr.String() != "10.0.2.16" {
-		t.Errorf("parseAddress() = %q, %v, want 10.0.2.16", addr, err)
+	output := "IP: 10.0.2.15\n" + guestProperty(`/VirtualBox/GuestInfo/Net/0/V4/IP`, "10.0.2.16")
+
+	addr, found := parseGuestIPv4(output)
+	if !found || addr.String() != "10.0.2.16" {
+		t.Errorf("parseGuestIPv4() = %q, %v, want 10.0.2.16", addr, found)
+	}
+}
+
+// TestParseDisconnectedInterfacesIgnoraLasNoConfiguradas comprueba que
+// solo se avisa de las interfaces que tienen red.
+func TestParseDisconnectedInterfacesIgnoraLasNoConfiguradas(t *testing.T) {
+	t.Parallel()
+
+	output := "nic1=\"bridged\"\ncableconnected1=\"off\"\n" +
+		"nic2=\"none\"\ncableconnected2=\"off\"\n" +
+		"nic3=\"hostonly\"\ncableconnected3=\"on\"\n"
+
+	interfaces := parseDisconnectedInterfaces(output)
+	if len(interfaces) != 1 || interfaces[0] != 1 {
+		t.Errorf("parseDisconnectedInterfaces() = %v, want [1]", interfaces)
+	}
+
+	if got := describeInterfaces([]int{1, 2}); got != "las interfaces de red 1 y 2 están desconectadas" {
+		t.Errorf("describeInterfaces() = %q", got)
 	}
 }

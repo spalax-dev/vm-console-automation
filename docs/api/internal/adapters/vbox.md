@@ -34,7 +34,7 @@ Package vbox adapta Oracle VM VirtualBox a los puertos Machine y Connector de la
 
 
 <a name="Client"></a>
-## type [Client](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L49-L59>)
+## type [Client](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L50-L60>)
 
 Client implementa ports.Machine y ports.Connector sobre VirtualBox.
 
@@ -45,7 +45,7 @@ type Client struct {
 ```
 
 <a name="New"></a>
-### func [New](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L95>)
+### func [New](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L96>)
 
 ```go
 func New(exe ports.Executor, opts ...Option) *Client
@@ -54,16 +54,16 @@ func New(exe ports.Executor, opts ...Option) *Client
 New crea un cliente de VirtualBox que ejecuta VBoxManage mediante exe.
 
 <a name="Client.Address"></a>
-### func \(\*Client\) [Address](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L234>)
+### func \(\*Client\) [Address](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L237>)
 
 ```go
 func (c *Client) Address(ctx context.Context, target domain.Target) (netip.Addr, error)
 ```
 
-Address implements ports.Machine: lee la propiedad que publica Guest Additions y devuelve la dirección de la máquina.
+Address implements ports.Machine: enumera las propiedades que publica Guest Additions y devuelve la dirección IPv4 de la primera interfaz con una dirección utilizable. Si no hay ninguna, distingue entre una máquina sin red conectada y una interfaz sin dirección.
 
 <a name="Client.Connect"></a>
-### func \(\*Client\) [Connect](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L376>)
+### func \(\*Client\) [Connect](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L386>)
 
 ```go
 func (c *Client) Connect(ctx context.Context, target domain.Target) (ports.Session, error)
@@ -72,7 +72,7 @@ func (c *Client) Connect(ctx context.Context, target domain.Target) (ports.Sessi
 Connect implements ports.Connector: devuelve una sesión que ejecuta órdenes en la máquina mediante «vboxmanage guestcontrol».
 
 <a name="Client.GuestAdditions"></a>
-### func \(\*Client\) [GuestAdditions](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L282>)
+### func \(\*Client\) [GuestAdditions](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L292>)
 
 ```go
 func (c *Client) GuestAdditions(ctx context.Context, target domain.Target) (domain.GuestAdditions, error)
@@ -81,7 +81,7 @@ func (c *Client) GuestAdditions(ctx context.Context, target domain.Target) (doma
 GuestAdditions implements ports.Machine: lee la versión y el nivel de Guest Additions y los usuarios con sesión iniciada.
 
 <a name="Client.List"></a>
-### func \(\*Client\) [List](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L168>)
+### func \(\*Client\) [List](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L169>)
 
 ```go
 func (c *Client) List(ctx context.Context) ([]domain.VM, error)
@@ -90,7 +90,7 @@ func (c *Client) List(ctx context.Context) ([]domain.VM, error)
 List implements ports.Inventory: enumera las máquinas registradas en VirtualBox y marca como en ejecución las que aparecen en «list runningvms». Consultar el estado exacto de cada máquina costaría una ejecución de VBoxManage por máquina, así que las que no están en ejecución se informan como apagadas.
 
 <a name="Client.Name"></a>
-### func \(\*Client\) [Name](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L159>)
+### func \(\*Client\) [Name](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L160>)
 
 ```go
 func (c *Client) Name() string
@@ -99,7 +99,7 @@ func (c *Client) Name() string
 Name implements ports.Connector.
 
 <a name="Client.Network"></a>
-### func \(\*Client\) [Network](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L261>)
+### func \(\*Client\) [Network](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L271>)
 
 ```go
 func (c *Client) Network(ctx context.Context, target domain.Target) (domain.NetworkMode, error)
@@ -108,7 +108,7 @@ func (c *Client) Network(ctx context.Context, target domain.Target) (domain.Netw
 Network implements ports.Machine: interpreta el modo de la primera interfaz de red de «showvminfo \-\-machinereadable».
 
 <a name="Client.Probe"></a>
-### func \(\*Client\) [Probe](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L361>)
+### func \(\*Client\) [Probe](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L371>)
 
 ```go
 func (c *Client) Probe(ctx context.Context, target domain.Target) error
@@ -117,7 +117,7 @@ func (c *Client) Probe(ctx context.Context, target domain.Target) error
 Probe implements ports.Connector: la máquina debe estar en ejecución para que Guest Additions pueda atenderla.
 
 <a name="Client.Start"></a>
-### func \(\*Client\) [Start](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L200>)
+### func \(\*Client\) [Start](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L201>)
 
 ```go
 func (c *Client) Start(ctx context.Context, target domain.Target) error
@@ -126,7 +126,7 @@ func (c *Client) Start(ctx context.Context, target domain.Target) error
 Start implements ports.Power: arranca la máquina en modo sin interfaz gráfica, que es el que corresponde a una consola de administración.
 
 <a name="Client.State"></a>
-### func \(\*Client\) [State](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L250>)
+### func \(\*Client\) [State](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L260>)
 
 ```go
 func (c *Client) State(ctx context.Context, target domain.Target) (domain.MachineState, error)
@@ -135,7 +135,7 @@ func (c *Client) State(ctx context.Context, target domain.Target) (domain.Machin
 State implements ports.Machine: consulta el estado de encendido de la máquina con salida legible por máquina.
 
 <a name="Client.Version"></a>
-### func \(\*Client\) [Version](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L271>)
+### func \(\*Client\) [Version](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L281>)
 
 ```go
 func (c *Client) Version(ctx context.Context) (string, error)
@@ -144,7 +144,7 @@ func (c *Client) Version(ctx context.Context) (string, error)
 Version devuelve la versión de VirtualBox del anfitrión.
 
 <a name="Credentials"></a>
-## type [Credentials](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L63-L65>)
+## type [Credentials](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L64-L66>)
 
 Credentials resuelve el usuario y la contraseña de Guest Additions para una máquina concreta.
 
@@ -155,7 +155,7 @@ type Credentials interface {
 ```
 
 <a name="Option"></a>
-## type [Option](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L68>)
+## type [Option](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L69>)
 
 Option configura un Client.
 
@@ -164,7 +164,7 @@ type Option func(*Client)
 ```
 
 <a name="WithBinary"></a>
-### func [WithBinary](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L71>)
+### func [WithBinary](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L72>)
 
 ```go
 func WithBinary(bin string) Option
@@ -173,7 +173,7 @@ func WithBinary(bin string) Option
 WithBinary establece la ruta o nombre del programa VBoxManage.
 
 <a name="WithCredentials"></a>
-### func [WithCredentials](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L79>)
+### func [WithCredentials](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L80>)
 
 ```go
 func WithCredentials(credentials Credentials) Option
@@ -182,7 +182,7 @@ func WithCredentials(credentials Credentials) Option
 WithCredentials establece el almacén que resuelve las credenciales por máquina; tiene prioridad sobre las credenciales por omisión.
 
 <a name="WithGuestCredentials"></a>
-### func [WithGuestCredentials](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L87>)
+### func [WithGuestCredentials](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L88>)
 
 ```go
 func WithGuestCredentials(user, password string) Option
@@ -191,7 +191,7 @@ func WithGuestCredentials(user, password string) Option
 WithGuestCredentials establece las credenciales que Guest Additions exige para abrir sesiones dentro de la máquina invitada.
 
 <a name="Session"></a>
-## type [Session](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L393-L398>)
+## type [Session](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L403-L408>)
 
 Session implements ports.Session usando «vboxmanage guestcontrol».
 
@@ -202,7 +202,7 @@ type Session struct {
 ```
 
 <a name="Session.Close"></a>
-### func \(\*Session\) [Close](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L444>)
+### func \(\*Session\) [Close](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L454>)
 
 ```go
 func (s *Session) Close() error
@@ -211,7 +211,7 @@ func (s *Session) Close() error
 Close implements ports.Session: «guestcontrol» no mantiene estado entre órdenes, por lo que no hay recursos que liberar.
 
 <a name="Session.Put"></a>
-### func \(\*Session\) [Put](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L427>)
+### func \(\*Session\) [Put](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L437>)
 
 ```go
 func (s *Session) Put(ctx context.Context, localPath, remotePath string) error
@@ -220,7 +220,7 @@ func (s *Session) Put(ctx context.Context, localPath, remotePath string) error
 Put implements ports.Session: transfiere un archivo de la consola a la máquina invitada con «vboxmanage guestcontrol copyto».
 
 <a name="Session.Run"></a>
-### func \(\*Session\) [Run](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L402>)
+### func \(\*Session\) [Run](<https://github.com/spalax-dev/vm-console-automation/blob/main/internal/adapters/vbox/vbox.go#L412>)
 
 ```go
 func (s *Session) Run(ctx context.Context, cmd *domain.Command) (domain.Result, error)
