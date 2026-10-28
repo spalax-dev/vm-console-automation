@@ -110,7 +110,7 @@ servidor todavía no está implementado.
 ### 2.4 Caché
 
 El servidor reutiliza las respuestas de lectura durante unos segundos y las
-invalida ante cualquier escritura (`docs/diseno-solucion.md` §2.8), así que
+invalida ante cualquier escritura (ver `internal/httpcache`), así que
 abrir pestañas no dispara una consulta a la máquina cada vez. Para no depender
 solo de eso, el armazón de la interfaz se monta una sola vez: al navegar solo
 se sustituyen las pestañas y el contenido, y la barra superior —con el
