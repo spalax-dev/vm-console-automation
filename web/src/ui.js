@@ -136,7 +136,8 @@ export function filaTabla(columnas, texto, clase = 'text-vm-fgSecondary') {
 }
 
 /**
- * Muestra una alerta flotante temporal en la pantalla para notificar el inicio y fin de una operación.
+ * Muestra una alerta flotante temporal en la pantalla para notificar el
+ * desenlace de una operación.
  *
  * @param {object} opciones Parámetros de la alerta.
  * @param {'progreso'|'exito'|'error'|'info'} [opciones.tipo] Tipo visual de alerta.
@@ -260,7 +261,11 @@ export function inhabilitar(raiz, deshabilitado) {
 
 /**
  * Ejecuta una operación mostrando su avance en el panel de resultado y
- * notificando al usuario mediante una alerta flotante inmediata.
+ * notificando el desenlace mediante una alerta flotante.
+ *
+ * Mientras la operación está en curso no se muestra ninguna alerta: el
+ * avance se sigue en la tarjeta del panel. Al terminar, la alerta informa
+ * del éxito o del error.
  *
  * @param {object} opciones Opciones de la ejecución.
  * @param {() => Promise<object>} opciones.accion Operación que produce un `ResultadoOperacion`.
@@ -273,12 +278,6 @@ export async function ejecutar({ accion, operacion, recargar, informar }) {
   if (typeof document !== 'undefined') {
     document.dispatchEvent(new CustomEvent('vmcons:progreso', { detail: { operacion } }));
   }
-
-  const alerta = mostrarAlerta({
-    tipo: 'progreso',
-    titulo: 'Operación iniciada',
-    mensaje: operacion ? `Ejecutando «${operacion}»…` : 'Procesando en la máquina virtual…',
-  });
 
   try {
     const resultado = await accion();
@@ -297,7 +296,7 @@ export async function ejecutar({ accion, operacion, recargar, informar }) {
 
     informar(resultadoFinal);
 
-    alerta.actualizar({
+    mostrarAlerta({
       tipo: 'exito',
       titulo: 'Operación completada',
       mensaje: resultadoFinal.mensaje || (operacion ? `Se completó la orden «${operacion}».` : 'La operación concluyó correctamente.'),
@@ -313,7 +312,7 @@ export async function ejecutar({ accion, operacion, recargar, informar }) {
     const errorResultado = resultadoDeError(error, operacion);
     informar(errorResultado);
 
-    alerta.actualizar({
+    mostrarAlerta({
       tipo: 'error',
       titulo: 'Error en la operación',
       mensaje: errorResultado.mensaje || (error && error.message) || 'Ocurrió un fallo al ejecutar la orden.',

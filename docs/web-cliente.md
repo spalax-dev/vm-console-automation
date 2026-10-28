@@ -139,9 +139,10 @@ usuario desde el momento en que se pulsa «Ejecutar»:
 
 - **Botón de acción**: el botón principal se inhabilita y cambia su contenido a
   un icono giratorio con el texto «Ejecutando…», previniendo envíos dobles.
-- **Notificación flotante (toast)**: se emite una alerta en la esquina inferior
-  derecha (`mostrarAlerta`) indicando que la operación ha iniciado; al finalizar,
-  la misma alerta se actualiza a éxito o error según el resultado.
+- **Notificación de cierre**: al terminar, `mostrarAlerta` avisa en la esquina
+  inferior derecha si la operación tuvo éxito o error. Mientras la máquina
+  procesa la petición no aparece ninguna alerta flotante: el avance se sigue
+  solo en la tarjeta del panel.
 - **Tarjeta de avance en el panel**: se despacha el evento `vmcons:progreso`,
   mostrando una ficha temporal destacada con indicador animado en el panel
   lateral mientras la máquina procesa la petición.

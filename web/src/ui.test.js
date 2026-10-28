@@ -156,5 +156,31 @@ describe('ejecución de operaciones', () => {
 
     form.remove();
   });
+
+  it('no muestra una alerta flotante mientras la operación está en curso', async () => {
+    document.getElementById('toast-container')?.remove();
+
+    const { ejecutar } = await import('./ui.js');
+
+    let complete;
+    const pending = new Promise((resolve) => {
+      complete = resolve;
+    });
+
+    const execution = ejecutar({
+      accion: () => pending,
+      operacion: 'POST /api/packages',
+      informar: vi.fn(),
+    });
+
+    expect(document.getElementById('toast-container')).toBeNull();
+
+    complete({ mensaje: 'Hecho' });
+    await execution;
+
+    const container = document.getElementById('toast-container');
+    expect(container.textContent).toContain('Operación completada');
+    container.remove();
+  });
 });
 
