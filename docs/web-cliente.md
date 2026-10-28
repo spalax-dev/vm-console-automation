@@ -139,10 +139,9 @@ usuario desde el momento en que se pulsa «Ejecutar»:
 
 - **Botón de acción**: el botón principal se inhabilita y cambia su contenido a
   un icono giratorio con el texto «Ejecutando…», previniendo envíos dobles.
-- **Notificación de cierre**: al terminar, `mostrarAlerta` avisa en la esquina
-  inferior derecha si la operación tuvo éxito o error. Mientras la máquina
-  procesa la petición no aparece ninguna alerta flotante: el avance se sigue
-  solo en la tarjeta del panel.
+- **Notificación de error**: si la operación falla, `mostrarAlerta` avisa en la
+  esquina inferior derecha. Las operaciones correctas no muestran ninguna
+  alerta flotante: el resultado queda solo en el panel.
 - **Tarjeta de avance en el panel**: se despacha el evento `vmcons:progreso`,
   mostrando una ficha temporal destacada con indicador animado en el panel
   lateral mientras la máquina procesa la petición.

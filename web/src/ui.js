@@ -296,13 +296,6 @@ export async function ejecutar({ accion, operacion, recargar, informar }) {
 
     informar(resultadoFinal);
 
-    mostrarAlerta({
-      tipo: 'exito',
-      titulo: 'Operación completada',
-      mensaje: resultadoFinal.mensaje || (operacion ? `Se completó la orden «${operacion}».` : 'La operación concluyó correctamente.'),
-      duracion: 3500,
-    });
-
     if (recargar) {
       recargar();
     }

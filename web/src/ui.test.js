@@ -157,7 +157,7 @@ describe('ejecución de operaciones', () => {
     form.remove();
   });
 
-  it('no muestra una alerta flotante mientras la operación está en curso', async () => {
+  it('no muestra alertas flotantes ni durante ni al completar una operación', async () => {
     document.getElementById('toast-container')?.remove();
 
     const { ejecutar } = await import('./ui.js');
@@ -178,8 +178,27 @@ describe('ejecución de operaciones', () => {
     complete({ mensaje: 'Hecho' });
     await execution;
 
+    expect(document.getElementById('toast-container')).toBeNull();
+  });
+
+  it('muestra una alerta flotante cuando la operación falla', async () => {
+    document.getElementById('toast-container')?.remove();
+
+    const { ejecutar } = await import('./ui.js');
+
+    const exito = await ejecutar({
+      accion: async () => {
+        throw new ApiError(503, { mensaje: 'Sin sesión' });
+      },
+      operacion: 'GET /api/packages',
+      informar: vi.fn(),
+    });
+
+    expect(exito).toBe(false);
+
     const container = document.getElementById('toast-container');
-    expect(container.textContent).toContain('Operación completada');
+    expect(container.textContent).toContain('Error en la operación');
+
     container.remove();
   });
 });
