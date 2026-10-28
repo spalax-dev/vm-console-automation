@@ -8,7 +8,7 @@
 #   task run        # ejecutar la consola sin variables de entorno (reinicia)
 #   task stop       # detener la consola
 #   task test       # formatear el código y ejecutar las pruebas
-#   task build      # compilar el binario final (./vmcons)
+#   task build      # compilar el binario final (bin/vmcons)
 #   task install    # instalar en ~/.local/bin y ~/.local/share/vmcons
 #   task uninstall  # desinstalar de ~/.local
 #   task doc        # regenerar docs/api/ desde los comentarios del código
@@ -22,6 +22,7 @@ version: "3"
 
 vars:
   BIN: vmcons
+  BIN_DIR: bin
   PKGS: ./...
   RACE: '{{if eq OS "windows"}}{{else}}-race{{end}}'
 
@@ -96,8 +97,10 @@ tasks:
       - task: doc-check
 
   build:
-    desc: Compilar el binario final (vmcons) con la interfaz embebida
-    cmd: go build -o {{.BIN}} .
+    desc: Compilar el binario final en bin/vmcons con la interfaz embebida
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - go build -o {{.BIN_DIR}}/{{.BIN}} .
 
   install:
     desc: Instalar el binario en ~/.local/bin y la interfaz en ~/.local/share/vmcons
@@ -114,11 +117,12 @@ tasks:
       - echo "  export VMCONS_WEB=\"\$HOME/.local/share/vmcons/web\""
 
   uninstall:
-    desc: Eliminar la instalación de ~/.local
+    desc: Eliminar el binario y la interfaz de ~/.local (conserva la base y la clave)
     cmds:
       - rm -f "$HOME/.local/bin/vmcons"
-      - rm -rf "$HOME/.local/share/vmcons"
+      - rm -rf "$HOME/.local/share/vmcons/web"
       - echo "vmcons desinstalado de ~/.local"
+      - echo "  se conservan $HOME/.local/share/vmcons/vmcons.db y credenciales.key"
 
   tidy:
     desc: Ordenar dependencias y formato de go.mod

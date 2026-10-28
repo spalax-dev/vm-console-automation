@@ -21,7 +21,7 @@ web/
 │   ├── styles.css        tokens de diseño y clases base
 │   ├── components/       armazón (barra superior, pestañas, resultado)
 │   └── views/            una vista por módulo
-├── dist/                 compilación que se embebe en el binario
+├── dist/                 compilación que se embebe (generada, no versionada)
 └── modules/, static/     interfaz anterior, se retira al cerrar la migración
 ```
 
@@ -35,12 +35,14 @@ La interfaz se toma de dos fuentes, en este orden:
    contiene `index.html` y `assets/`. Se valida al arrancar y, si falta o no
    parece una aplicación compilada, la consola termina con un mensaje claro.
 2. **Copia embebida**: si la variable no está, se usa `web/dist`, que viaja
-   dentro del binario con `//go:embed`. Como `web/dist` se versiona, el
-   binario compila en un clon limpio sin empaquetar antes el frontend.
+   dentro del binario con `//go:embed`. Es el resultado de `pnpm build` y no
+   se versiona en Git.
 
 La instalación en el entorno del usuario usa las dos: el binario en
 `~/.local/bin/vmcons` y la interfaz en `~/.local/share/vmcons/web`, de modo
-que actualizar la vista no obliga a recompilar Go.
+que actualizar la vista no obliga a recompilar Go. En ese mismo directorio
+(`~/.local/share/vmcons/`) la consola guarda su base SQLite y su clave de
+cifrado; ver `docs/persistencia.md`.
 
 Las tipografías (IBM Plex Sans y JetBrains Mono, subset latino) y los iconos
 viajan dentro del binario: la consola no depende de una red externa ni de una
@@ -188,7 +190,7 @@ cd web
 pnpm install        # instala las dependencias
 pnpm dev            # servidor de desarrollo en :5173 con proxy a la API
 pnpm test           # pruebas del cliente (Vitest)
-pnpm build          # compila en web/dist
+pnpm build          # compila en web/dist (no se versiona)
 ```
 
 Desde la raíz del proyecto:

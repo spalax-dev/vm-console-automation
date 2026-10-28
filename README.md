@@ -55,7 +55,7 @@ La conexión con la máquina virtual se configura por variables de entorno:
 | `VMCONS_GUEST_USER` | No | Usuario de Guest Additions (por omisión, `root`). |
 | `VMCONS_GUEST_PASS` | No | Contraseña de Guest Additions. |
 | `VMCONS_ADDR` | No | Dirección de escucha; por omisión `127.0.0.1:8080`. No hace falta definirla para `task run`. |
-| `VMCONS_DB` | No | Ruta de la base SQLite (por omisión, `data/vmcons.db`). |
+| `VMCONS_DB` | No | Ruta de la base SQLite (por omisión, `$XDG_DATA_HOME/vmcons/vmcons.db`, es decir `~/.local/share/vmcons/vmcons.db`). |
 | `VMCONS_LOG` | No | `text` (por omisión) o `json` para los logs. |
 | `VMCONS_LOG_LEVEL` | No | `debug`, `info`, `warn` o `error`. |
 | `VMCONS_WEB` | No | Directorio con la interfaz web (`index.html` y `assets/`). Si falta, se usa la copia embebida en el binario. |
@@ -85,6 +85,15 @@ interfaz en lugar de la embebida:
 export VMCONS_WEB="$HOME/.local/share/vmcons/web"
 ```
 
+Los datos de la consola (base SQLite, clave de cifrado e historial) se guardan
+en `~/.local/share/vmcons/`, no en el directorio desde donde se ejecuta el
+binario. `task uninstall` retira únicamente el binario y la interfaz: la base y
+la clave se conservan. Para borrarlas también:
+
+```bash
+rm -rf ~/.local/share/vmcons/vmcons.db ~/.local/share/vmcons/credenciales.key
+```
+
 Conviene añadir esa línea al perfil (`~/.zshrc` o `~/.bashrc`). Para
 desinstalar: `task uninstall`.
 
@@ -99,9 +108,9 @@ desinstalar: `task uninstall`.
 | `task test` | Formatea y ejecuta las pruebas con `-race` y cobertura. |
 | `task fmt` | Aplica `gofumpt` de forma estricta. |
 | `task lint` | Ejecuta `golangci-lint` con la configuración estricta de `.golangci.yml`. |
-| `task build` | Compila el binario `vmcons` con la interfaz embebida. |
+| `task build` | Compila el binario en `bin/vmcons` con la interfaz embebida. |
 | `task install` | Instala el binario y la interfaz en `~/.local`. |
-| `task uninstall` | Elimina la instalación de `~/.local`. |
+| `task uninstall` | Elimina el binario y la interfaz de `~/.local`; conserva la base y la clave. |
 | `task doc` | Regenera `docs/api/` desde los comentarios de documentación. |
 | `task doc-check` | Verifica que `docs/api/` esté actualizada. |
 | `task check` | Ciclo completo: `fmt` + `lint` + `test` + `doc-check`. |
@@ -109,8 +118,7 @@ desinstalar: `task uninstall`.
 ## Documentación
 
 - `docs/arquitectura.md` — capas, puertos y adaptadores.
-- `docs/diseno-solucion.md` — contratos HTTP, validaciones y diseño de la interfaz.
-- `docs/TODO.md` — seguimiento del avance del parcial.
 - `docs/persistencia.md` — base SQLite, cifrado de credenciales y justificación de la dependencia.
+- `docs/web-cliente.md` — estructura y funcionamiento del cliente web.
 - `docs/api/` — documentación del código generada con `gomarkdoc` (no editar a mano).
 - `docs/informe/` — informe LaTeX.

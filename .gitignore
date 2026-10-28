@@ -1,6 +1,7 @@
 # ---------------------------------------------------------------
 # Binarios compilados
 # ---------------------------------------------------------------
+bin/
 vmcons
 consola-vm
 consola-vm.exe
@@ -20,24 +21,11 @@ coverage.html
 profile.cov
 
 # ---------------------------------------------------------------
-# Artefactos de LaTeX (docs/informe/)
+# Diagramas renderizados (las fuentes .puml se versionan)
 # ---------------------------------------------------------------
-docs/informe/*.aux
-docs/informe/*.bbl
-docs/informe/*.bcf
-docs/informe/*.blg
-docs/informe/*.fdb_latexmk
-docs/informe/*.fls
-docs/informe/*.log
-docs/informe/*.out
-docs/informe/*.run.xml
-docs/informe/*.synctex.gz
-docs/informe/*.toc
-docs/informe/*.lof
-docs/informe/*.lot
-docs/informe/*.nav
-docs/informe/*.snm
-docs/informe/*.vrb
+docs/diagramas/*.png
+
+# Los artefactos del informe LaTeX se ignoran en docs/informe/.gitignore.
 
 # ---------------------------------------------------------------
 # Variables de entorno y secretos
@@ -63,8 +51,7 @@ credenciales.key
 # ---------------------------------------------------------------
 node_modules/
 web/.vite/
-# web/dist se versiona: main.go lo embebe con //go:embed y el binario
-# debe compilar en un clon limpio. Se regenera con «task web-build».
+web/dist/
 
 # ---------------------------------------------------------------
 # Dependencias de Go (si se usa vendor opcionalmente)

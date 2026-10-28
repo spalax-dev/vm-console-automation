@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Jorge Acosta y Andrey Tombe
 
-package main
+package terminal
 
 import (
 	"context"
 	"fmt"
 	"io"
 	"log/slog"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,12 +15,12 @@ import (
 
 // Códigos ANSI para los niveles del log.
 const (
-	ansiRojo     = "\x1b[31m"
-	ansiAmarillo = "\x1b[33m"
-	ansiVerde    = "\x1b[32m"
-	ansiCian     = "\x1b[36m"
-	ansiGris     = "\x1b[90m"
-	ansiEnd      = "\x1b[0m"
+	ansiRed    = "\x1b[31m"
+	ansiYellow = "\x1b[33m"
+	ansiGreen  = "\x1b[32m"
+	ansiCyan   = "\x1b[36m"
+	ansiGray   = "\x1b[90m"
+	ansiEnd    = "\x1b[0m"
 )
 
 // consoleHandler escribe logs compactos y, si la salida es una terminal,
@@ -34,8 +33,8 @@ type consoleHandler struct {
 	attrs       []slog.Attr
 }
 
-// newConsoleHandler construye el handler.
-func newConsoleHandler(destination io.Writer, level slog.Level, color bool) slog.Handler {
+// NewConsoleHandler construye el handler compacto de la consola.
+func NewConsoleHandler(destination io.Writer, level slog.Level, color bool) slog.Handler {
 	return &consoleHandler{mu: &sync.Mutex{}, destination: destination, level: level, color: color}
 }
 
@@ -53,24 +52,24 @@ func (h *consoleHandler) Handle(_ context.Context, registration slog.Record) err
 
 	var line strings.Builder
 
-	line.WriteString(h.colorize(ansiGris, registration.Time.Format("15:04:05")))
+	line.WriteString(h.colorize(ansiGray, registration.Time.Format("15:04:05")))
 	line.WriteByte(' ')
 	line.WriteString(h.levelLabel(registration.Level))
 	line.WriteByte(' ')
 
-	atributos := map[string]string{}
+	attributes := map[string]string{}
 	for _, attr := range h.attrs {
-		atributos[attr.Key] = attr.Value.String()
+		attributes[attr.Key] = attr.Value.String()
 	}
 
 	registration.Attrs(func(attr slog.Attr) bool {
-		atributos[attr.Key] = attr.Value.String()
+		attributes[attr.Key] = attr.Value.String()
 
 		return true
 	})
 
 	if registration.Message == "api" {
-		h.writeAPI(&line, atributos)
+		h.writeAPI(&line, attributes)
 	} else {
 		line.WriteString(registration.Message)
 
@@ -108,39 +107,39 @@ func (h *consoleHandler) WithGroup(string) slog.Handler {
 }
 
 // writeAPI formatea una petición HTTP.
-func (h *consoleHandler) writeAPI(line *strings.Builder, atributos map[string]string) {
-	state, err := strconv.Atoi(atributos["estado"])
+func (h *consoleHandler) writeAPI(line *strings.Builder, attributes map[string]string) {
+	state, err := strconv.Atoi(attributes["estado"])
 	if err != nil {
 		state = 0
 	}
 
-	line.WriteString(h.colorize(ansiCian, "API"))
+	line.WriteString(h.colorize(ansiCyan, "API"))
 	line.WriteString("  ")
-	line.WriteString(atributos["metodo"])
+	line.WriteString(attributes["metodo"])
 	line.WriteByte(' ')
-	line.WriteString(atributos["ruta"])
+	line.WriteString(attributes["ruta"])
 	line.WriteByte(' ')
-	line.WriteString(h.stateColor(state, atributos["estado"]))
+	line.WriteString(h.stateColor(state, attributes["estado"]))
 	line.WriteString("  ")
-	line.WriteString(atributos["duracion_ms"])
+	line.WriteString(attributes["duracion_ms"])
 	line.WriteString("ms")
 
-	if description := atributos["descripcion"]; description != "" {
+	if description := attributes["descripcion"]; description != "" {
 		line.WriteString("  ")
 		line.WriteString(description)
 	}
 
-	if reason := atributos["motivo"]; reason != "" {
+	if reason := attributes["motivo"]; reason != "" {
 		line.WriteString("  motivo=")
 		line.WriteString(strconv.Quote(reason))
 	}
 
-	if vm := atributos["vm"]; vm != "" {
+	if vm := attributes["vm"]; vm != "" {
 		line.WriteString("  vm=")
 		line.WriteString(vm)
 	}
 
-	if request := atributos["solicitud"]; request != "" {
+	if request := attributes["solicitud"]; request != "" {
 		line.WriteString("  req=")
 		line.WriteString(request)
 	}
@@ -163,13 +162,13 @@ func (h *consoleHandler) writeAttribute(line *strings.Builder, attr slog.Attr) {
 func (h *consoleHandler) levelLabel(level slog.Level) string {
 	switch {
 	case level >= slog.LevelError:
-		return h.colorize(ansiRojo, "ERROR")
+		return h.colorize(ansiRed, "ERROR")
 	case level >= slog.LevelWarn:
-		return h.colorize(ansiAmarillo, "WARN ")
+		return h.colorize(ansiYellow, "WARN ")
 	case level >= slog.LevelInfo:
-		return h.colorize(ansiVerde, "INFO ")
+		return h.colorize(ansiGreen, "INFO ")
 	default:
-		return h.colorize(ansiGris, "DEBUG")
+		return h.colorize(ansiGray, "DEBUG")
 	}
 }
 
@@ -177,11 +176,11 @@ func (h *consoleHandler) levelLabel(level slog.Level) string {
 func (h *consoleHandler) stateColor(code int, text string) string {
 	switch {
 	case code >= 500:
-		return h.colorize(ansiRojo, text)
+		return h.colorize(ansiRed, text)
 	case code >= 400:
-		return h.colorize(ansiAmarillo, text)
+		return h.colorize(ansiYellow, text)
 	default:
-		return h.colorize(ansiVerde, text)
+		return h.colorize(ansiGreen, text)
 	}
 }
 
@@ -192,24 +191,4 @@ func (h *consoleHandler) colorize(color, text string) string {
 	}
 
 	return color + text + ansiEnd
-}
-
-// colorEnabledFor indica si el escritor es una terminal y NO_COLOR no está
-// definido.
-func colorEnabledFor(destination io.Writer) bool {
-	if _, desactivado := os.LookupEnv("NO_COLOR"); desactivado {
-		return false
-	}
-
-	file, ok := destination.(*os.File)
-	if !ok {
-		return false
-	}
-
-	info, err := file.Stat()
-	if err != nil {
-		return false
-	}
-
-	return info.Mode()&os.ModeCharDevice != 0
 }

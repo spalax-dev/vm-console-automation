@@ -1,3 +1,5 @@
+# Artefactos de LaTeX y resultados de compilación del informe.
+# Las fuentes (.tex, .bib, .latexmkrc) y las capturas de images/ se versionan.
 *.aux
 *.bbl
 *.bcf
@@ -5,6 +7,19 @@
 *.fdb_latexmk
 *.fls
 *.log
+*.lof
+*.lot
+*.nav
 *.out
-*.xml
+*.snm
+*.synctex.gz
 *.toc
+*.vrb
+*.xml
+
+# El PDF se genera con latexmk y no se versiona.
+main.pdf
+
+# Copias de los diagramas que produce «task diagramas» desde docs/diagramas/.
+images/escenario.png
+images/flujo-procesos.png

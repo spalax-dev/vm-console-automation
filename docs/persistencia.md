@@ -22,11 +22,38 @@ cruzada y el requisito de binario único; por eso se descartaron.
 
 | Archivo | Contenido | Permisos |
 | --- | --- | --- |
-| `data/vmcons.db` | Tabla `credenciales` | `0600` |
-| `data/credenciales.key` | Clave de 32 bytes para AES-GCM | `0600` |
+| `~/.local/share/vmcons/vmcons.db` | Tablas de credenciales, historial y configuración | `0600` |
+| `~/.local/share/vmcons/credenciales.key` | Clave de 32 bytes para AES-GCM | `0600` |
 
-La ruta de la base se puede cambiar con `VMCONS_DB`; la clave se guarda en el
-mismo directorio. Ambos archivos están excluidos de Git (`.gitignore`).
+Los datos no viven junto al binario ni en el directorio de trabajo: la
+consola los guarda en el directorio de datos del usuario, siguiendo la
+convención XDG. Al arrancar se resuelve así:
+
+1. `VMCONS_DB`, si está definida (ruta completa a la base);
+2. `$XDG_DATA_HOME/vmcons/vmcons.db`, si `XDG_DATA_HOME` es una ruta absoluta;
+3. `~/.local/share/vmcons/vmcons.db`, si la variable falta;
+4. `<configuración del usuario>/vmcons/vmcons.db` si no se puede obtener el
+   directorio del usuario.
+
+La clave se guarda en el mismo directorio que la base y el directorio se crea
+con permisos `0700` en el primer arranque. Ambos archivos están excluidos de
+Git (`.gitignore`), igual que la carpeta `bin/` de los binarios compilados.
+
+## Migración desde `data/` en el directorio de trabajo
+
+Las versiones anteriores guardaban la base y la clave en `data/` relativo al
+directorio desde donde se ejecutaba el binario, lo que dejaba archivos
+sueltos en el directorio del usuario. Para conservar las credenciales y el
+historial, basta con mover ambos archivos:
+
+```sh
+mkdir -p ~/.local/share/vmcons
+mv data/vmcons.db data/credenciales.key ~/.local/share/vmcons/
+```
+
+Si las dos carpetas `data/` pertenecen a instalaciones distintas, hay que
+elegir una sola base: la clave y su base deben moverse juntas, porque las
+contraseñas cifradas no se pueden recuperar con otra clave.
 
 ## Esquema
 

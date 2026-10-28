@@ -22,11 +22,14 @@ import (
 	"consola-vm/internal/adapters/localproc"
 	"consola-vm/internal/adapters/ssh"
 	"consola-vm/internal/adapters/vbox"
+	"consola-vm/internal/config"
 	"consola-vm/internal/core/domain"
 	"consola-vm/internal/core/ports"
 	"consola-vm/internal/handlers"
 	"consola-vm/internal/httpcache"
 	"consola-vm/internal/services"
+	"consola-vm/internal/terminal"
+	"consola-vm/internal/webui"
 )
 
 // embeddedWeb contiene la interfaz: la aplicación compilada con Vite y
@@ -39,21 +42,6 @@ var embeddedWeb embed.FS
 
 // errorKey es la clave de los errores en el log de arranque.
 const errorKey = "error"
-
-// Variables de entorno que configuran la conexión con la máquina.
-const (
-	envLog       = "VMCONS_LOG"
-	envLogLevel  = "VMCONS_LOG_LEVEL"
-	envVM        = "VMCONS_VM"         // nombre o UUID de la VM en VirtualBox
-	envSSHKey    = "VMCONS_SSH_KEY"    // ruta de la llave privada en el anfitrión
-	envGuestUser = "VMCONS_GUEST_USER" // usuario de Guest Additions
-	// #nosec G101 -- es el nombre de la variable de entorno, no la credencial.
-	envGuestPass = "VMCONS_GUEST_PASS" // contraseña de Guest Additions
-	envAddress   = "VMCONS_ADDR"       // dirección donde escucha la consola
-	envWeb       = "VMCONS_WEB"        // directorio de la interfaz web
-	envDB        = "VMCONS_DB"         // ruta de la base SQLite
-	addressProd  = "127.0.0.1:8080"
-)
 
 // maxRequestTime acota la duración de cada petición HTTP.
 const maxRequestTime = 2 * time.Minute
@@ -93,7 +81,7 @@ func run() error {
 		return err
 	}
 
-	if err := printBanner(server.Addr); err != nil {
+	if err := terminal.PrintBanner(os.Stdout, server.Addr); err != nil {
 		slog.Warn("no se pudo escribir el banner de arranque", errorKey, err)
 	}
 
@@ -115,7 +103,7 @@ func newServer() (*http.Server, error) {
 	handler = httpcache.New(cachePolicies()).Wrap(handler)
 
 	return &http.Server{
-		Addr:              address(),
+		Addr:              config.Address(),
 		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
@@ -135,7 +123,7 @@ func newMux() (http.Handler, error) {
 	keys := services.NewKeys(services.KeysConfig{
 		Sessions: sessions,
 		Ejecutor: ejecutor,
-		Path:     sshKeyPath(),
+		Path:     config.SSHKeyPath(),
 	})
 
 	issue := services.NewIssue(sessions)
@@ -145,7 +133,7 @@ func newMux() (http.Handler, error) {
 	users := handlers.NewUsers(services.NewUsers(services.UsersConfig{
 		Sessions:  sessions,
 		Ejecutor:  ejecutor,
-		Directory: filepath.Join(filepath.Dir(sshKeyPath()), "users"),
+		Directory: filepath.Join(filepath.Dir(config.SSHKeyPath()), "users"),
 	}))
 	systemd := handlers.NewSystemd(services.NewSystemd(sessions))
 	haproxy := handlers.NewHAProxy(services.NewHAProxy(sessions))
@@ -221,27 +209,22 @@ func registerHistory(mux *http.ServeMux, store *services.Store) *services.Histor
 	return history
 }
 
-// serveWeb publica la aplicación compilada con Vite en la raíz y
-// conserva la interfaz anterior en /modules/ mientras se retira.
+// serveWeb publica la interfaz web en el enrutador: la aplicación
+// compilada en la raíz y la interfaz anterior mientras se retira.
 func serveWeb(mux *http.ServeMux) error {
-	sub, err := fs.Sub(embeddedWeb, "web")
+	legacy, err := fs.Sub(embeddedWeb, "web")
 	if err != nil {
 		// El sistema de archivos embebido es inmutable: si «web» no
 		// existe, el binario se compiló mal.
 		return fmt.Errorf("preparar los archivos web: %w", err)
 	}
 
-	dist, err := webInterface()
+	dist, err := webui.Resolve(os.Getenv(config.EnvWeb), embeddedWeb)
 	if err != nil {
-		return err
+		return fmt.Errorf("preparar la interfaz web: %w", err)
 	}
 
-	mux.Handle("/modules/", http.FileServerFS(sub))
-	mux.Handle("/static/", http.FileServerFS(sub))
-
-	// El enrutado por fragmento de URL no necesita reescrituras.
-	mux.Handle("/assets/", http.FileServerFS(dist))
-	mux.Handle("/", http.FileServerFS(dist))
+	webui.Mount(mux, dist, legacy)
 
 	return nil
 }
@@ -260,17 +243,17 @@ type console struct {
 // adaptadores reales: VirtualBox para el estado, la dirección y el
 // inventario, SSH como conector preferido y Guest Additions como respaldo.
 func newConsole(ejecutor ports.Executor) *console {
-	store, err := services.NewStore(databasePath(), cipherKeyPath())
+	store, err := services.NewStore(config.DatabasePath(), config.CipherKeyPath())
 	if err != nil {
 		panic(fmt.Errorf("abrir la base de credenciales: %w", err))
 	}
 
 	machine := vbox.New(ejecutor,
 		vbox.WithCredentials(store),
-		vbox.WithGuestCredentials(guestUser(), os.Getenv(envGuestPass)),
+		vbox.WithGuestCredentials(config.GuestUser(), os.Getenv(config.EnvGuestPass)),
 	)
 
-	connectorSSH := ssh.New(ejecutor, ssh.WithKey(sshKeyPath()))
+	connectorSSH := ssh.New(ejecutor, ssh.WithKey(config.SSHKeyPath()))
 
 	target := initialTarget(store)
 
@@ -293,7 +276,7 @@ func newConsole(ejecutor ports.Executor) *console {
 			SSH:           connectorSSH,
 			SSHPassword:   connectorSSH,
 			Ejecutor:      ejecutor,
-			PathSSHKey:    sshKeyPath(),
+			PathSSHKey:    config.SSHKeyPath(),
 			CurrentTarget: sessions.CurrentTarget,
 		}),
 		diagnostics: services.NewDiagnostics(&services.DiagnosticsConfig{
@@ -316,7 +299,7 @@ func newConsole(ejecutor ports.Executor) *console {
 
 // initialTarget recupera la máquina vinculada o la variable de entorno.
 func initialTarget(store *services.Store) domain.Target {
-	target := domain.Target{ID: os.Getenv(envVM)}
+	target := domain.Target{ID: os.Getenv(config.EnvVM)}
 	if target.ID == "" {
 		target.ID = store.Active()
 	}
@@ -324,7 +307,7 @@ func initialTarget(store *services.Store) domain.Target {
 	if target.ID != "" {
 		slog.Info("máquina vinculada", "vm", target.ID)
 	} else {
-		slog.Warn("la consola arranca sin máquina vinculada; elígela en el selector", "variable", envVM)
+		slog.Warn("la consola arranca sin máquina vinculada; elígela en el selector", "variable", config.EnvVM)
 	}
 
 	return target
@@ -334,7 +317,7 @@ func initialTarget(store *services.Store) domain.Target {
 func configureLog() {
 	level := slog.LevelInfo
 
-	switch strings.ToLower(os.Getenv(envLogLevel)) {
+	switch strings.ToLower(os.Getenv(config.EnvLogLevel)) {
 	case "debug":
 		level = slog.LevelDebug
 	case "warn":
@@ -344,59 +327,11 @@ func configureLog() {
 	}
 
 	var handler slog.Handler
-	if strings.EqualFold(os.Getenv(envLog), "json") {
+	if strings.EqualFold(os.Getenv(config.EnvLog), "json") {
 		handler = slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level})
 	} else {
-		handler = newConsoleHandler(os.Stderr, level, colorEnabledFor(os.Stderr))
+		handler = terminal.NewConsoleHandler(os.Stderr, level, terminal.ColorEnabled(os.Stderr))
 	}
 
 	slog.SetDefault(slog.New(handler))
-}
-
-// address devuelve la dirección de escucha configurada.
-func address() string {
-	if value := os.Getenv(envAddress); value != "" {
-		return value
-	}
-
-	return addressProd
-}
-
-// databasePath devuelve la ruta de la base SQLite de la consola.
-func databasePath() string {
-	if value := os.Getenv(envDB); value != "" {
-		return value
-	}
-
-	return filepath.Join("data", "vmcons.db")
-}
-
-// cipherKeyPath devuelve la clave local que cifra las contraseñas.
-func cipherKeyPath() string {
-	return filepath.Join(filepath.Dir(databasePath()), "credenciales.key")
-}
-
-// sshKeyPath devuelve la ruta de la llave privada de root: la variable
-// de entorno o, por omisión, el directorio de configuración del usuario.
-func sshKeyPath() string {
-	if value := os.Getenv(envSSHKey); value != "" {
-		return value
-	}
-
-	config, err := os.UserConfigDir()
-	if err != nil {
-		config = "."
-	}
-
-	return filepath.Join(config, "vmcons", "id_ed25519")
-}
-
-// guestUser devuelve el usuario de Guest Additions, «root» por
-// omisión.
-func guestUser() string {
-	if value := os.Getenv(envGuestUser); value != "" {
-		return value
-	}
-
-	return "root"
 }

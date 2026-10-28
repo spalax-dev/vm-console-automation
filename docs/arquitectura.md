@@ -20,10 +20,18 @@ internal/
 │   ├── localproc/ # ports.Executor sobre os/exec (ejecución local)
 │   ├── vbox/      # ports.Machine y ports.Connector sobre VBoxManage + Guest Additions
 │   └── ssh/       # ports.Connector sobre el cliente OpenSSH
+├── config/        # variables de entorno, rutas de datos y llaves
 ├── handlers/      # adaptadores primarios (HTTP): enrutan y validan
 ├── httpcache/     # caché de lecturas de la API con vigencia por recurso
-└── services/      # casos de uso; dependen solo de core/ports
+├── services/      # casos de uso; dependen solo de core/ports
+├── terminal/      # banner de arranque y handler de log para la consola
+└── webui/         # resolución y montaje de la interfaz web
 ```
+
+La raíz del módulo solo conserva `main.go`, que declara `//go:embed` (el
+patrón no admite rutas con `..`) y compone los adaptadores, los servicios y
+los manejadores; `main_test.go` prueba ese ensamblaje. El resto del código
+vive en `internal/`, de modo que ninguna carpeta de la raíz acumula lógica.
 
 Dentro de `handlers` conviven los manejadores de cada módulo y los
 middlewares que envuelven el enrutador: `observabilidad.go` (identificador
